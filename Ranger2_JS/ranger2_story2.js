@@ -2,7 +2,7 @@ window.RANGER2_STORIES = window.RANGER2_STORIES || [];
 window.RANGER2_STORIES.push({
   "id": "winter-herb-road",
   "title": "The Winter Herb Road",
-  "summary": "A fully written mountain intrigue story in which forged quarantine orders and stolen fever medicine threaten the Gray Mountains. The graph branches by approach but converges cleanly so each path remains coherent.",
+  "summary": "A stolen medicine convoy and false quarantine close the Gray Mountain herb road, forcing the ranger to unite divided mining camps before fever and extortion give a ruthless quartermaster control of the pass.",
   "maxTurns": 20,
   "startNodeId": "W01A",
   "goodScoreThreshold": 11,
@@ -51,8 +51,8 @@ window.RANGER2_STORIES.push({
       "title": "The Missing Cart - Witness Ledger",
       "narrative": [
         "In the frozen office at <strong>Frostbell Outpost</strong>, you spread manifests with <strong>Brother Cadan</strong> and mark where the herb cart vanished from the books.",
-        "The abbey medicine cart should have reached the mining camps by dawn, but only one mule returned, cut loose and shaking. The crates held frostwort, willowbark, and lamp oil for fever wards beyond <strong>Goatspur Shelf</strong>.",
-        "If the convoy stays lost, sick camps will either turn on one another or submit to whoever claims to control the pass."
+        "Cross-checking the details leaves less room for doubt. The abbey medicine cart should have reached the mining camps by dawn, but only one mule returned, cut loose and shaking. The crates held frostwort, willowbark, and lamp oil for fever wards beyond <strong>Goatspur Shelf</strong>.",
+        "The wider threat comes into focus. If the convoy stays lost, sick camps will either turn on one another or submit to whoever claims to control the pass."
       ],
       "options": [
         {
@@ -72,7 +72,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Ride after the first set of tracks without checking whether they were planted.",
+          "label": "Ride after the first set of tracks without checking whether they were planted, on the strength of one uncertain sign.",
           "failTitle": "The Cart Is Lost",
           "failText": "The tracks were laid as bait. By the time you realize the mistake, the true convoy route is cold and the pass has fallen into rumor.",
           "death": false
@@ -85,14 +85,14 @@ window.RANGER2_STORIES.push({
       "title": "The Missing Cart - Shield Road",
       "narrative": [
         "At the outpost gate, you steady frightened drovers with <strong>Marshal Elira Stone</strong> and keep the road clear while word of the missing cart spreads.",
-        "The abbey medicine cart should have reached the mining camps by dawn, but only one mule returned, cut loose and shaking. The crates held frostwort, willowbark, and lamp oil for fever wards beyond <strong>Goatspur Shelf</strong>.",
-        "If the convoy stays lost, sick camps will either turn on one another or submit to whoever claims to control the pass."
+        "The hurried route reaches the same hard conclusion. The abbey medicine cart should have reached the mining camps by dawn, but only one mule returned, cut loose and shaking. The crates held frostwort, willowbark, and lamp oil for fever wards beyond <strong>Goatspur Shelf</strong>.",
+        "Delay would turn the finding into a wider loss. If the convoy stays lost, sick camps will either turn on one another or submit to whoever claims to control the pass."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Ride after the first set of tracks without checking whether they were planted.",
+          "label": "Ride after the first set of tracks without checking whether they were planted, with the warning signs still unresolved.",
           "failTitle": "The Cart Is Lost",
           "failText": "The tracks were laid as bait. By the time you realize the mistake, the true convoy route is cold and the pass has fallen into rumor.",
           "death": false
@@ -153,8 +153,8 @@ window.RANGER2_STORIES.push({
       "title": "False Wolf Sign - Witness Ledger",
       "narrative": [
         "At a sheltered bend beneath <strong>Goatspur Shelf</strong>, you compare torn cloth, axle splinters, and witness notes with <strong>Brother Cadan</strong>.",
-        "The cart was wrecked on purpose. Carved wolf marks and blood smeared high on the rock wall were meant to sell a beast attack, but the harness cuts are clean blade work.",
-        "Someone wants the camps to fear the mountain itself instead of looking for organized theft."
+        "The slower examination reveals another useful detail. The cart was wrecked on purpose. Carved wolf marks and blood smeared high on the rock wall were meant to sell a beast attack, but the harness cuts are clean blade work.",
+        "What follows from it is difficult to ignore. Someone wants the camps to fear the mountain itself instead of looking for organized theft."
       ],
       "options": [
         {
@@ -174,7 +174,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Spread the wolf story to clear the road faster.",
+          "label": "Spread the wolf story to clear the road faster, without hearing the nearest witness.",
           "failTitle": "Fear Takes the Road",
           "failText": "The lie outruns you. Teamsters abandon the pass, militia chase shadows, and the thieves gain a clear day to move the stolen medicine.",
           "death": false
@@ -187,14 +187,14 @@ window.RANGER2_STORIES.push({
       "title": "False Wolf Sign - Shield Road",
       "narrative": [
         "You keep frightened teamsters moving past the wreck at <strong>Goatspur Shelf</strong> while <strong>Marshal Elira Stone</strong> prevents a full panic on the road.",
-        "The cart was wrecked on purpose. Carved wolf marks and blood smeared high on the rock wall were meant to sell a beast attack, but the harness cuts are clean blade work.",
-        "Someone wants the camps to fear the mountain itself instead of looking for organized theft."
+        "With the road tightening around you, the evidence still holds. The cart was wrecked on purpose. Carved wolf marks and blood smeared high on the rock wall were meant to sell a beast attack, but the harness cuts are clean blade work.",
+        "The next mistake would carry a heavy cost. Someone wants the camps to fear the mountain itself instead of looking for organized theft."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Spread the wolf story to clear the road faster.",
+          "label": "Spread the wolf story to clear the road faster, without testing the danger ahead.",
           "failTitle": "Fear Takes the Road",
           "failText": "The lie outruns you. Teamsters abandon the pass, militia chase shadows, and the thieves gain a clear day to move the stolen medicine.",
           "death": false
@@ -255,8 +255,8 @@ window.RANGER2_STORIES.push({
       "title": "Wounded at the Rope Bridge - Witness Ledger",
       "narrative": [
         "You shelter the survivors beneath the bridge tower while <strong>Brother Cadan</strong> steadies their breathing and you test each account against the other.",
-        "The drovers speak of masked men flashing a quarantine seal, lowering crates by rope, and driving the cart mules apart to scatter pursuit. One of them remembers a guard voice he had heard before.",
-        "If the seal is false, whoever carries it can close whole roads with a single order."
+        "Measured work here strengthens the case. The drovers speak of masked men flashing a quarantine seal, lowering crates by rope, and driving the cart mules apart to scatter pursuit. One of them remembers a guard voice he had heard before.",
+        "The practical danger is now plain. If the seal is false, whoever carries it can close whole roads with a single order."
       ],
       "options": [
         {
@@ -276,7 +276,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Press the wounded for names before they have even stopped shaking.",
+          "label": "Press the wounded for names before they have even stopped shaking, with the warning signs still unresolved.",
           "failTitle": "Witnesses Collapse",
           "failText": "You push too hard, lose the only steady testimony from the bridge, and hand the extortion ring another layer of doubt to hide behind.",
           "death": false
@@ -289,14 +289,14 @@ window.RANGER2_STORIES.push({
       "title": "Wounded at the Rope Bridge - Shield Road",
       "narrative": [
         "You secure the bridgehead with <strong>Marshal Elira Stone</strong>, turning back panic while the wounded are carried under cover.",
-        "The drovers speak of masked men flashing a quarantine seal, lowering crates by rope, and driving the cart mules apart to scatter pursuit. One of them remembers a guard voice he had heard before.",
-        "If the seal is false, whoever carries it can close whole roads with a single order."
+        "Lost time makes each detail more urgent. The drovers speak of masked men flashing a quarantine seal, lowering crates by rope, and driving the cart mules apart to scatter pursuit. One of them remembers a guard voice he had heard before.",
+        "Pressure makes the consequence immediate. If the seal is false, whoever carries it can close whole roads with a single order."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Press the wounded for names before they have even stopped shaking.",
+          "label": "Press the wounded for names before they have even stopped shaking, despite the doubts raised by the evidence.",
           "failTitle": "Witnesses Collapse",
           "failText": "You push too hard, lose the only steady testimony from the bridge, and hand the extortion ring another layer of doubt to hide behind.",
           "death": false
@@ -357,8 +357,8 @@ window.RANGER2_STORIES.push({
       "title": "Sealed Gates Without Warrant - Witness Ledger",
       "narrative": [
         "At the tunnel post, you place the writ beside older winter decrees and let <strong>Brother Cadan</strong> compare wax, phrasing, and clerk marks.",
-        "The closure order bears Duke Aldric's format but not his chancery hand. The signature line was copied from an older fever decree, and the seal wax contains grit from a cheap travel mold.",
-        "Once miners believe the writ, extortion becomes law in everything but name."
+        "The more careful approach confirms the essential facts. The closure order bears Duke Aldric's format but not his chancery hand. The signature line was copied from an older fever decree, and the seal wax contains grit from a cheap travel mold.",
+        "The cost of delay is easier to see. Once miners believe the writ, extortion becomes law in everything but name."
       ],
       "options": [
         {
@@ -378,7 +378,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Honor the writ as genuine until someone from the duke arrives to confirm it.",
+          "label": "Honor the writ as genuine until someone from the duke arrives to confirm it, without testing the danger ahead.",
           "failTitle": "The Broker Becomes the Law",
           "failText": "By treating the forgery as real, you give the ring legal cover. Whole camps are sealed off under false authority before you can recover.",
           "death": false
@@ -391,14 +391,14 @@ window.RANGER2_STORIES.push({
       "title": "Sealed Gates Without Warrant - Shield Road",
       "narrative": [
         "You keep miners from breaking the tunnel barricade while <strong>Marshal Elira Stone</strong> reads the order aloud and holds tempers down.",
-        "The closure order bears Duke Aldric's format but not his chancery hand. The signature line was copied from an older fever decree, and the seal wax contains grit from a cheap travel mold.",
-        "Once miners believe the writ, extortion becomes law in everything but name."
+        "Even under guard, the central evidence remains clear. The closure order bears Duke Aldric's format but not his chancery hand. The signature line was copied from an older fever decree, and the seal wax contains grit from a cheap travel mold.",
+        "There is little time left to contain the damage. Once miners believe the writ, extortion becomes law in everything but name."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Honor the writ as genuine until someone from the duke arrives to confirm it.",
+          "label": "Honor the writ as genuine until someone from the duke arrives to confirm it, without securing help or a retreat.",
           "failTitle": "The Broker Becomes the Law",
           "failText": "By treating the forgery as real, you give the ring legal cover. Whole camps are sealed off under false authority before you can recover.",
           "death": false
@@ -459,8 +459,8 @@ window.RANGER2_STORIES.push({
       "title": "The Abbey Cellar - Witness Ledger",
       "narrative": [
         "You sit with <strong>Brother Cadan</strong> and the abbey bursar over torn ledger leaves, testing where one missing page should have sat.",
-        "One reserve crate remains, but the ledger page naming its twin has been cut away so neatly that only an insider could have known where to slice. <strong>Mira Voss</strong>, the abbey apothecary, has also gone missing.",
-        "The ring has help from someone who understood schedules, seals, and storage long before the cart vanished."
+        "Patient questioning gives the evidence a firmer shape. One reserve crate remains, but the ledger page naming its twin has been cut away so neatly that only an insider could have known where to slice. <strong>Mira Voss</strong>, the abbey apothecary, has also gone missing.",
+        "That leaves one immediate risk. The ring has help from someone who understood schedules, seals, and storage long before the cart vanished."
       ],
       "options": [
         {
@@ -480,7 +480,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Search the whole abbey in public and treat every novice as a suspect.",
+          "label": "Search the whole abbey in public and treat every novice as a suspect, despite the doubts raised by the evidence.",
           "failTitle": "The Abbey Shuts Its Doors",
           "failText": "Your sweep destroys trust inside the abbey. By the time calmer voices prevail, the useful records are hidden and Mira's trail is gone.",
           "death": false
@@ -493,14 +493,14 @@ window.RANGER2_STORIES.push({
       "title": "The Abbey Cellar - Shield Road",
       "narrative": [
         "You keep the abbey calm while frightened novices carry the reserve stock into a guarded room under <strong>Marshal Elira Stone</strong>.",
-        "One reserve crate remains, but the ledger page naming its twin has been cut away so neatly that only an insider could have known where to slice. <strong>Mira Voss</strong>, the abbey apothecary, has also gone missing.",
-        "The ring has help from someone who understood schedules, seals, and storage long before the cart vanished."
+        "Mounting pressure cannot hide the essential facts. One reserve crate remains, but the ledger page naming its twin has been cut away so neatly that only an insider could have known where to slice. <strong>Mira Voss</strong>, the abbey apothecary, has also gone missing.",
+        "The danger now reaches beyond this one place. The ring has help from someone who understood schedules, seals, and storage long before the cart vanished."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Search the whole abbey in public and treat every novice as a suspect.",
+          "label": "Search the whole abbey in public and treat every novice as a suspect, on the strength of one uncertain sign.",
           "failTitle": "The Abbey Shuts Its Doors",
           "failText": "Your sweep destroys trust inside the abbey. By the time calmer voices prevail, the useful records are hidden and Mira's trail is gone.",
           "death": false
@@ -561,8 +561,8 @@ window.RANGER2_STORIES.push({
       "title": "Tracks Above the Scree - Witness Ledger",
       "narrative": [
         "At a windbreak above the scree, you lay out route notes with <strong>Brother Cadan</strong> and compare them to the abbey schedule.",
-        "The stolen cargo was broken into smaller loads and hauled over a mule track no legitimate cart should ever use. Signal braziers were lit along the ridge to move the loads between hidden hands.",
-        "This is no desperate theft now. It is a working supply chain built to sell medicine back to the sick."
+        "Cross-checking the details leaves less room for doubt. The stolen cargo was broken into smaller loads and hauled over a mule track no legitimate cart should ever use. Signal braziers were lit along the ridge to move the loads between hidden hands.",
+        "The wider threat comes into focus. This is no desperate theft now. It is a working supply chain built to sell medicine back to the sick."
       ],
       "options": [
         {
@@ -582,7 +582,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Rush the high path with a full patrol and announce that the smugglers have been found.",
+          "label": "Rush the high path with a full patrol and announce that the smugglers have been found, without securing help or a retreat.",
           "failTitle": "The Ridge Empties",
           "failText": "Your noise reaches every signal point before your men do. The loads vanish into blind cuts in the rock and the ridge gives you only cold ash.",
           "death": false
@@ -595,14 +595,14 @@ window.RANGER2_STORIES.push({
       "title": "Tracks Above the Scree - Shield Road",
       "narrative": [
         "You keep the main road open below the slope while <strong>Marshal Elira Stone</strong> shifts guards to cover any return move from the high path.",
-        "The stolen cargo was broken into smaller loads and hauled over a mule track no legitimate cart should ever use. Signal braziers were lit along the ridge to move the loads between hidden hands.",
-        "This is no desperate theft now. It is a working supply chain built to sell medicine back to the sick."
+        "The hurried route reaches the same hard conclusion. The stolen cargo was broken into smaller loads and hauled over a mule track no legitimate cart should ever use. Signal braziers were lit along the ridge to move the loads between hidden hands.",
+        "Delay would turn the finding into a wider loss. This is no desperate theft now. It is a working supply chain built to sell medicine back to the sick."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Rush the high path with a full patrol and announce that the smugglers have been found.",
+          "label": "Rush the high path with a full patrol and announce that the smugglers have been found, without hearing the nearest witness.",
           "failTitle": "The Ridge Empties",
           "failText": "Your noise reaches every signal point before your men do. The loads vanish into blind cuts in the rock and the ridge gives you only cold ash.",
           "death": false
@@ -663,8 +663,8 @@ window.RANGER2_STORIES.push({
       "title": "Silver for Medicine - Witness Ledger",
       "narrative": [
         "At the camp chapel, you sit with <strong>Brother Cadan</strong> and three fever families whose receipts bear the same copied seal.",
-        "The medicine is genuine, but it is being sold in little stamped packets for silver and obedience. The camp reeve swears he was told no lawful relief would arrive unless he cooperated.",
-        "If the camps pay once in fear, the broker will own every gate in the pass."
+        "The slower examination reveals another useful detail. The medicine is genuine, but it is being sold in little stamped packets for silver and obedience. The camp reeve swears he was told no lawful relief would arrive unless he cooperated.",
+        "What follows from it is difficult to ignore. If the camps pay once in fear, the broker will own every gate in the pass."
       ],
       "options": [
         {
@@ -684,7 +684,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Seize the medicine packets on the spot without offering the camp any immediate relief.",
+          "label": "Seize the medicine packets on the spot without offering the camp any immediate relief, on the strength of one uncertain sign.",
           "failTitle": "The Camp Turns Against You",
           "failText": "Desperate families see only another authority taking medicine from the sick. The broker slips away behind their anger and your case grows weaker.",
           "death": false
@@ -697,14 +697,14 @@ window.RANGER2_STORIES.push({
       "title": "Silver for Medicine - Shield Road",
       "narrative": [
         "You arrive with <strong>Marshal Elira Stone</strong> to keep the camp from erupting while sick children and armed foremen crowd the same square.",
-        "The medicine is genuine, but it is being sold in little stamped packets for silver and obedience. The camp reeve swears he was told no lawful relief would arrive unless he cooperated.",
-        "If the camps pay once in fear, the broker will own every gate in the pass."
+        "With the road tightening around you, the evidence still holds. The medicine is genuine, but it is being sold in little stamped packets for silver and obedience. The camp reeve swears he was told no lawful relief would arrive unless he cooperated.",
+        "The next mistake would carry a heavy cost. If the camps pay once in fear, the broker will own every gate in the pass."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Seize the medicine packets on the spot without offering the camp any immediate relief.",
+          "label": "Seize the medicine packets on the spot without offering the camp any immediate relief, with the warning signs still unresolved.",
           "failTitle": "The Camp Turns Against You",
           "failText": "Desperate families see only another authority taking medicine from the sick. The broker slips away behind their anger and your case grows weaker.",
           "death": false
@@ -765,8 +765,8 @@ window.RANGER2_STORIES.push({
       "title": "The Courier with Two Seals - Witness Ledger",
       "narrative": [
         "In a watch hut at the ridge foot, you spread two sealed orders beside <strong>Brother Cadan</strong> and force the contradictions into daylight.",
-        "One order closes the east road for fever control. The other reopens the same road for a private convoy under hired escort. Both carry the copied pass seal, and both are signed within the same hour.",
-        "The courier can identify the broker, but only if he believes you can keep him alive longer than the ring can reach him."
+        "Measured work here strengthens the case. One order closes the east road for fever control. The other reopens the same road for a private convoy under hired escort. Both carry the copied pass seal, and both are signed within the same hour.",
+        "The practical danger is now plain. The courier can identify the broker, but only if he believes you can keep him alive longer than the ring can reach him."
       ],
       "options": [
         {
@@ -786,7 +786,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Threaten to hang the courier unless he names the broker immediately.",
+          "label": "Threaten to hang the courier unless he names the broker immediately, without hearing the nearest witness.",
           "failTitle": "The Courier Clams Up",
           "failText": "You give him only terror and no reason to trust your protection. He tells you nothing useful, and his silence buys the broker another full move.",
           "death": false
@@ -799,14 +799,14 @@ window.RANGER2_STORIES.push({
       "title": "The Courier with Two Seals - Shield Road",
       "narrative": [
         "You hold the courier under guard with <strong>Marshal Elira Stone</strong>, keeping curious camp men away until the evidence is read cleanly.",
-        "One order closes the east road for fever control. The other reopens the same road for a private convoy under hired escort. Both carry the copied pass seal, and both are signed within the same hour.",
-        "The courier can identify the broker, but only if he believes you can keep him alive longer than the ring can reach him."
+        "Lost time makes each detail more urgent. One order closes the east road for fever control. The other reopens the same road for a private convoy under hired escort. Both carry the copied pass seal, and both are signed within the same hour.",
+        "Pressure makes the consequence immediate. The courier can identify the broker, but only if he believes you can keep him alive longer than the ring can reach him."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Threaten to hang the courier unless he names the broker immediately.",
+          "label": "Threaten to hang the courier unless he names the broker immediately, without testing the danger ahead.",
           "failTitle": "The Courier Clams Up",
           "failText": "You give him only terror and no reason to trust your protection. He tells you nothing useful, and his silence buys the broker another full move.",
           "death": false
@@ -867,8 +867,8 @@ window.RANGER2_STORIES.push({
       "title": "A Prisoner in the Signal Hut - Witness Ledger",
       "narrative": [
         "With <strong>Brother Cadan</strong> at her side, you hear Mira's account while the cut signal cord still swings beside the hut window.",
-        "Mira says she was taken after refusing to alter fever doses for the broker's men. She also names <strong>Serjeant Oren Pike</strong> as the officer who sold guard routes and made the forged quarantines believable.",
-        "Once Pike knows Mira is free, he will either run or hit the camps before testimony reaches them."
+        "The more careful approach confirms the essential facts. Mira says she was taken after refusing to alter fever doses for the broker's men. She also names <strong>Serjeant Oren Pike</strong> as the officer who sold guard routes and made the forged quarantines believable.",
+        "The cost of delay is easier to see. Once Pike knows Mira is free, he will either run or hit the camps before testimony reaches them."
       ],
       "options": [
         {
@@ -888,7 +888,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Leave Mira in the hut while you hurry after Pike alone.",
+          "label": "Leave Mira in the hut while you hurry after Pike alone, with the warning signs still unresolved.",
           "failTitle": "The Witness Is Silenced",
           "failText": "Pike never needed more than a few minutes. When you return, the hut is empty, the witness is gone, and your cleanest link to the conspiracy dies with her trail.",
           "death": false
@@ -901,14 +901,14 @@ window.RANGER2_STORIES.push({
       "title": "A Prisoner in the Signal Hut - Shield Road",
       "narrative": [
         "You bring Mira under <strong>Marshal Elira Stone</strong>'s protection and clear the ridge before any loyalist can strike at the witness.",
-        "Mira says she was taken after refusing to alter fever doses for the broker's men. She also names <strong>Serjeant Oren Pike</strong> as the officer who sold guard routes and made the forged quarantines believable.",
-        "Once Pike knows Mira is free, he will either run or hit the camps before testimony reaches them."
+        "Even under guard, the central evidence remains clear. Mira says she was taken after refusing to alter fever doses for the broker's men. She also names <strong>Serjeant Oren Pike</strong> as the officer who sold guard routes and made the forged quarantines believable.",
+        "There is little time left to contain the damage. Once Pike knows Mira is free, he will either run or hit the camps before testimony reaches them."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Leave Mira in the hut while you hurry after Pike alone.",
+          "label": "Leave Mira in the hut while you hurry after Pike alone, despite the doubts raised by the evidence.",
           "failTitle": "The Witness Is Silenced",
           "failText": "Pike never needed more than a few minutes. When you return, the hut is empty, the witness is gone, and your cleanest link to the conspiracy dies with her trail.",
           "death": false
@@ -969,8 +969,8 @@ window.RANGER2_STORIES.push({
       "title": "The Bastion Ledger - Witness Ledger",
       "narrative": [
         "You sit at the bastion clerk table with <strong>Brother Cadan</strong> and turn missing ration entries into a map of the thefts.",
-        "The ration ledger matches the dates on the false quarantine orders. <strong>Vey Norrell</strong> appears only in margin notes, always as a broker who never signs directly yet somehow receives every useful consignment.",
-        "You now know the ring's shape, but not the single page or witness that will break it cleanly before a magistrate."
+        "Patient questioning gives the evidence a firmer shape. The ration ledger matches the dates on the false quarantine orders. <strong>Vey Norrell</strong> appears only in margin notes, always as a broker who never signs directly yet somehow receives every useful consignment.",
+        "That leaves one immediate risk. You now know the ring's shape, but not the single page or witness that will break it cleanly before a magistrate."
       ],
       "options": [
         {
@@ -990,7 +990,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Arrest every guard whose name appears near a missing ration entry.",
+          "label": "Arrest every guard whose name appears near a missing ration entry, without testing the danger ahead.",
           "failTitle": "The Bastion Shatters",
           "failText": "You turn suspicion into chaos. Loyal guards draw on frightened ones, the ledger room is wrecked, and Norrell slips away behind the confusion.",
           "death": false
@@ -1003,14 +1003,14 @@ window.RANGER2_STORIES.push({
       "title": "The Bastion Ledger - Shield Road",
       "narrative": [
         "You keep the bastion yard calm with <strong>Marshal Elira Stone</strong>, making sure no guard burns the records before they are read.",
-        "The ration ledger matches the dates on the false quarantine orders. <strong>Vey Norrell</strong> appears only in margin notes, always as a broker who never signs directly yet somehow receives every useful consignment.",
-        "You now know the ring's shape, but not the single page or witness that will break it cleanly before a magistrate."
+        "Mounting pressure cannot hide the essential facts. The ration ledger matches the dates on the false quarantine orders. <strong>Vey Norrell</strong> appears only in margin notes, always as a broker who never signs directly yet somehow receives every useful consignment.",
+        "The danger now reaches beyond this one place. You now know the ring's shape, but not the single page or witness that will break it cleanly before a magistrate."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Arrest every guard whose name appears near a missing ration entry.",
+          "label": "Arrest every guard whose name appears near a missing ration entry, without securing help or a retreat.",
           "failTitle": "The Bastion Shatters",
           "failText": "You turn suspicion into chaos. Loyal guards draw on frightened ones, the ledger room is wrecked, and Norrell slips away behind the confusion.",
           "death": false
@@ -1071,8 +1071,8 @@ window.RANGER2_STORIES.push({
       "title": "Storm on Windcut Ridge - Witness Ledger",
       "narrative": [
         "In a shuttered relay hut, you compare route times with <strong>Brother Cadan</strong> while the storm muffles every outside sound.",
-        "Norrell uses storm cover because honest patrols slow while hunger and sickness do not. In weather like this, one hidden load can become a whole town's ransom.",
-        "Bad weather hides you too, but it shortens every margin for error."
+        "Cross-checking the details leaves less room for doubt. Norrell uses storm cover because honest patrols slow while hunger and sickness do not. In weather like this, one hidden load can become a whole town's ransom.",
+        "The wider threat comes into focus. Bad weather hides you too, but it shortens every margin for error."
       ],
       "options": [
         {
@@ -1092,7 +1092,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Wait out the storm in full shelter and assume Norrell will do the same.",
+          "label": "Wait out the storm in full shelter and assume Norrell will do the same, despite the doubts raised by the evidence.",
           "failTitle": "The Storm Belongs to Norrell",
           "failText": "The broker does not stop just because the snow turns mean. He moves under the weather while you stand still and the camps pay for it.",
           "death": false
@@ -1105,14 +1105,14 @@ window.RANGER2_STORIES.push({
       "title": "Storm on Windcut Ridge - Shield Road",
       "narrative": [
         "You keep wagons and fever litters moving through the whiteout under <strong>Marshal Elira Stone</strong> so the camps do not lose hope entirely.",
-        "Norrell uses storm cover because honest patrols slow while hunger and sickness do not. In weather like this, one hidden load can become a whole town's ransom.",
-        "Bad weather hides you too, but it shortens every margin for error."
+        "The hurried route reaches the same hard conclusion. Norrell uses storm cover because honest patrols slow while hunger and sickness do not. In weather like this, one hidden load can become a whole town's ransom.",
+        "Delay would turn the finding into a wider loss. Bad weather hides you too, but it shortens every margin for error."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Wait out the storm in full shelter and assume Norrell will do the same.",
+          "label": "Wait out the storm in full shelter and assume Norrell will do the same, on the strength of one uncertain sign.",
           "failTitle": "The Storm Belongs to Norrell",
           "failText": "The broker does not stop just because the snow turns mean. He moves under the weather while you stand still and the camps pay for it.",
           "death": false
@@ -1173,8 +1173,8 @@ window.RANGER2_STORIES.push({
       "title": "Camps on the Edge - Witness Ledger",
       "narrative": [
         "You work between the two camp elders with <strong>Brother Cadan</strong>, laying receipts, names, and timelines on a crate between them.",
-        "One camp thinks the other informed on the convoy. Pike has been feeding both stories. Another hour of rumor and they will fight each other rather than the broker draining them both.",
-        "If the camps split now, Norrell becomes the only supplier either side will still obey."
+        "The slower examination reveals another useful detail. One camp thinks the other informed on the convoy. Pike has been feeding both stories. Another hour of rumor and they will fight each other rather than the broker draining them both.",
+        "What follows from it is difficult to ignore. If the camps split now, Norrell becomes the only supplier either side will still obey."
       ],
       "options": [
         {
@@ -1194,7 +1194,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Take one camp side and demand the other submit until the truth is sorted out.",
+          "label": "Take one camp side and demand the other submit until the truth is sorted out, without securing help or a retreat.",
           "failTitle": "The Camps Break",
           "failText": "By choosing a side before proving anything, you turn fear into faction. Norrell no longer needs forged law when he can rule through the quarrel you leave behind.",
           "death": false
@@ -1207,14 +1207,14 @@ window.RANGER2_STORIES.push({
       "title": "Camps on the Edge - Shield Road",
       "narrative": [
         "With <strong>Marshal Elira Stone</strong>, you hold the lane between the camps and keep frightened families behind the wagons instead of in the argument.",
-        "One camp thinks the other informed on the convoy. Pike has been feeding both stories. Another hour of rumor and they will fight each other rather than the broker draining them both.",
-        "If the camps split now, Norrell becomes the only supplier either side will still obey."
+        "With the road tightening around you, the evidence still holds. One camp thinks the other informed on the convoy. Pike has been feeding both stories. Another hour of rumor and they will fight each other rather than the broker draining them both.",
+        "The next mistake would carry a heavy cost. If the camps split now, Norrell becomes the only supplier either side will still obey."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Take one camp side and demand the other submit until the truth is sorted out.",
+          "label": "Take one camp side and demand the other submit until the truth is sorted out, without hearing the nearest witness.",
           "failTitle": "The Camps Break",
           "failText": "By choosing a side before proving anything, you turn fear into faction. Norrell no longer needs forged law when he can rule through the quarrel you leave behind.",
           "death": false
@@ -1275,8 +1275,8 @@ window.RANGER2_STORIES.push({
       "title": "Oren Pike Shows His Hand - Witness Ledger",
       "narrative": [
         "You confront Pike with ledgers and witness names while <strong>Brother Cadan</strong> stands beside you to keep every word exact.",
-        "Pike orders all recovered crates turned over for inspection and claims only he can enforce the quarantine law. Some of his men hesitate when they see Mira alive and the forged orders in your hand.",
-        "Break Pike cleanly and his men may yield. Mishandle him and the whole pass will think the duke's officers are at war with each other."
+        "Measured work here strengthens the case. Pike orders all recovered crates turned over for inspection and claims only he can enforce the quarantine law. Some of his men hesitate when they see Mira alive and the forged orders in your hand.",
+        "The practical danger is now plain. Break Pike cleanly and his men may yield. Mishandle him and the whole pass will think the duke's officers are at war with each other."
       ],
       "options": [
         {
@@ -1296,7 +1296,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Draw steel on Pike before his own men hear the evidence against him.",
+          "label": "Draw steel on Pike before his own men hear the evidence against him, on the strength of one uncertain sign.",
           "failTitle": "The Checkpoint Erupts",
           "failText": "The line collapses into blind fighting. Pike escapes in the confusion and every honest guard is left wondering who betrayed whom.",
           "death": false
@@ -1309,14 +1309,14 @@ window.RANGER2_STORIES.push({
       "title": "Oren Pike Shows His Hand - Shield Road",
       "narrative": [
         "Under <strong>Marshal Elira Stone</strong>, you face a line of armed guards who are not yet traitors, only trapped beneath a corrupt command.",
-        "Pike orders all recovered crates turned over for inspection and claims only he can enforce the quarantine law. Some of his men hesitate when they see Mira alive and the forged orders in your hand.",
-        "Break Pike cleanly and his men may yield. Mishandle him and the whole pass will think the duke's officers are at war with each other."
+        "Lost time makes each detail more urgent. Pike orders all recovered crates turned over for inspection and claims only he can enforce the quarantine law. Some of his men hesitate when they see Mira alive and the forged orders in your hand.",
+        "Pressure makes the consequence immediate. Break Pike cleanly and his men may yield. Mishandle him and the whole pass will think the duke's officers are at war with each other."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Draw steel on Pike before his own men hear the evidence against him.",
+          "label": "Draw steel on Pike before his own men hear the evidence against him, with the warning signs still unresolved.",
           "failTitle": "The Checkpoint Erupts",
           "failText": "The line collapses into blind fighting. Pike escapes in the confusion and every honest guard is left wondering who betrayed whom.",
           "death": false
@@ -1377,8 +1377,8 @@ window.RANGER2_STORIES.push({
       "title": "The Night Transfer - Witness Ledger",
       "narrative": [
         "In the chapel vestry, you compare burial salt records with <strong>Brother Cadan</strong> and find that half the listed loads never belonged there.",
-        "Norrell is moving the largest remaining cache through the lime tunnels under cover of burial supplies and plague cloth. If he gets it through the chapel undercroft, he keeps enough medicine to control the pass for another month.",
-        "This is the first moment when one clean blow could break the ring's supply instead of merely harrying its edges."
+        "The more careful approach confirms the essential facts. Norrell is moving the largest remaining cache through the lime tunnels under cover of burial supplies and plague cloth. If he gets it through the chapel undercroft, he keeps enough medicine to control the pass for another month.",
+        "The cost of delay is easier to see. This is the first moment when one clean blow could break the ring's supply instead of merely harrying its edges."
       ],
       "options": [
         {
@@ -1398,7 +1398,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Storm the tunnel mouth with torches and shout for surrender.",
+          "label": "Storm the tunnel mouth with torches and shout for surrender, without hearing the nearest witness.",
           "failTitle": "The Tunnels Go Dark",
           "failText": "The carriers kill the lights, crush the obvious route, and vanish through passages only their guide knows. You lose the cache and the advantage with it.",
           "death": false
@@ -1411,14 +1411,14 @@ window.RANGER2_STORIES.push({
       "title": "The Night Transfer - Shield Road",
       "narrative": [
         "You place <strong>Marshal Elira Stone</strong> on the chapel road, keeping villagers clear while the hidden transfer starts below them.",
-        "Norrell is moving the largest remaining cache through the lime tunnels under cover of burial supplies and plague cloth. If he gets it through the chapel undercroft, he keeps enough medicine to control the pass for another month.",
-        "This is the first moment when one clean blow could break the ring's supply instead of merely harrying its edges."
+        "Even under guard, the central evidence remains clear. Norrell is moving the largest remaining cache through the lime tunnels under cover of burial supplies and plague cloth. If he gets it through the chapel undercroft, he keeps enough medicine to control the pass for another month.",
+        "There is little time left to contain the damage. This is the first moment when one clean blow could break the ring's supply instead of merely harrying its edges."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Storm the tunnel mouth with torches and shout for surrender.",
+          "label": "Storm the tunnel mouth with torches and shout for surrender, without testing the danger ahead.",
           "failTitle": "The Tunnels Go Dark",
           "failText": "The carriers kill the lights, crush the obvious route, and vanish through passages only their guide knows. You lose the cache and the advantage with it.",
           "death": false
@@ -1479,8 +1479,8 @@ window.RANGER2_STORIES.push({
       "title": "Fire at the Rope Bridge - Witness Ledger",
       "narrative": [
         "You read the diversion for what it is and tell <strong>Brother Cadan</strong> that the blaze matters because the tunnel fight matters more.",
-        "The bridge fire is meant to cover the chapel transfer and cut relief to the eastern camps in the same stroke. If the bridge goes, even victory elsewhere will feel thin to the sick beyond it.",
-        "For the first time, the ring is willing to burn routes rather than merely tax them."
+        "Patient questioning gives the evidence a firmer shape. The bridge fire is meant to cover the chapel transfer and cut relief to the eastern camps in the same stroke. If the bridge goes, even victory elsewhere will feel thin to the sick beyond it.",
+        "That leaves one immediate risk. For the first time, the ring is willing to burn routes rather than merely tax them."
       ],
       "options": [
         {
@@ -1500,7 +1500,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Charge straight onto the burning bridge to fight the saboteurs hand to hand.",
+          "label": "Charge straight onto the burning bridge to fight the saboteurs hand to hand, with the warning signs still unresolved.",
           "failTitle": "The Ranger Falls",
           "failText": "The tarred rope gives under your weight. You vanish into smoke and gorge water, and the bridge burns with the pass still in Norrell's hands.",
           "death": true
@@ -1513,14 +1513,14 @@ window.RANGER2_STORIES.push({
       "title": "Fire at the Rope Bridge - Shield Road",
       "narrative": [
         "With <strong>Marshal Elira Stone</strong>, you get bucket lines and crossbows into place while the wind whips sparks over the gorge.",
-        "The bridge fire is meant to cover the chapel transfer and cut relief to the eastern camps in the same stroke. If the bridge goes, even victory elsewhere will feel thin to the sick beyond it.",
-        "For the first time, the ring is willing to burn routes rather than merely tax them."
+        "Mounting pressure cannot hide the essential facts. The bridge fire is meant to cover the chapel transfer and cut relief to the eastern camps in the same stroke. If the bridge goes, even victory elsewhere will feel thin to the sick beyond it.",
+        "The danger now reaches beyond this one place. For the first time, the ring is willing to burn routes rather than merely tax them."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Charge straight onto the burning bridge to fight the saboteurs hand to hand.",
+          "label": "Charge straight onto the burning bridge to fight the saboteurs hand to hand, despite the doubts raised by the evidence.",
           "failTitle": "The Ranger Falls",
           "failText": "The tarred rope gives under your weight. You vanish into smoke and gorge water, and the bridge burns with the pass still in Norrell's hands.",
           "death": true
@@ -1581,8 +1581,8 @@ window.RANGER2_STORIES.push({
       "title": "The Hidden Cache - Witness Ledger",
       "narrative": [
         "You spread the ledger beside the forged molds with <strong>Brother Cadan</strong> and feel the whole ring finally take solid shape.",
-        "This is the spine of the extortion scheme. The ledger names camp payments, guard bribes, delivery dates, and the stock Norrell still hopes to move through the lower chapel crypt.",
-        "The ring is exposed, but Norrell still has silver, frightened men, and one last route through the stone below the chapel."
+        "Cross-checking the details leaves less room for doubt. This is the spine of the extortion scheme. The ledger names camp payments, guard bribes, delivery dates, and the stock Norrell still hopes to move through the lower chapel crypt.",
+        "The wider threat comes into focus. The ring is exposed, but Norrell still has silver, frightened men, and one last route through the stone below the chapel."
       ],
       "options": [
         {
@@ -1602,7 +1602,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Move the entire cache at once before checking whether Norrell left a rear trap on it.",
+          "label": "Move the entire cache at once before checking whether Norrell left a rear trap on it, without testing the danger ahead.",
           "failTitle": "The Cache Scatters",
           "failText": "The rear passage collapses under a prepared charge. You save some crates, but the proof breaks apart and Norrell escapes with the cleanest names still hidden.",
           "death": false
@@ -1615,14 +1615,14 @@ window.RANGER2_STORIES.push({
       "title": "The Hidden Cache - Shield Road",
       "narrative": [
         "You ring the quarry shrine with guards under <strong>Marshal Elira Stone</strong> so nothing leaves before it is counted and seen.",
-        "This is the spine of the extortion scheme. The ledger names camp payments, guard bribes, delivery dates, and the stock Norrell still hopes to move through the lower chapel crypt.",
-        "The ring is exposed, but Norrell still has silver, frightened men, and one last route through the stone below the chapel."
+        "The hurried route reaches the same hard conclusion. This is the spine of the extortion scheme. The ledger names camp payments, guard bribes, delivery dates, and the stock Norrell still hopes to move through the lower chapel crypt.",
+        "Delay would turn the finding into a wider loss. The ring is exposed, but Norrell still has silver, frightened men, and one last route through the stone below the chapel."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Move the entire cache at once before checking whether Norrell left a rear trap on it.",
+          "label": "Move the entire cache at once before checking whether Norrell left a rear trap on it, without securing help or a retreat.",
           "failTitle": "The Cache Scatters",
           "failText": "The rear passage collapses under a prepared charge. You save some crates, but the proof breaks apart and Norrell escapes with the cleanest names still hidden.",
           "death": false
@@ -1683,8 +1683,8 @@ window.RANGER2_STORIES.push({
       "title": "The Camps Choose - Witness Ledger",
       "narrative": [
         "With <strong>Brother Cadan</strong>, you lay the cache ledger beside the receipts and force the camps to hear the whole theft in plain sequence.",
-        "Some want immediate vengeance on every named guard. Others care only that the medicine moves now. The truth is finally strong enough to unite the camps or split them for good.",
-        "If the camps stand together, Norrell loses his shield. If they splinter, he can still bargain his way into a smaller escape."
+        "The slower examination reveals another useful detail. Some want immediate vengeance on every named guard. Others care only that the medicine moves now. The truth is finally strong enough to unite the camps or split them for good.",
+        "What follows from it is difficult to ignore. If the camps stand together, Norrell loses his shield. If they splinter, he can still bargain his way into a smaller escape."
       ],
       "options": [
         {
@@ -1698,15 +1698,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Read the ledger aloud, bind both camps to witness together, and break Norrell's political shelter on the spot.",
-          "nextNodeId": null,
-          "scoreDelta": 1,
-          "endStory": true,
-          "endType": "high"
+          "nextNodeId": "W18B",
+          "scoreDelta": 1
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Promise the crowd instant justice before the prisoners and proof are fully secured.",
+          "label": "Promise the crowd instant justice before the prisoners and proof are fully secured, despite the doubts raised by the evidence.",
           "failTitle": "Justice Turns to Fury",
           "failText": "The crowd surges before you can direct it. Prisoners vanish, good witnesses hide, and the pass trades law for rage at the very edge of victory.",
           "death": false
@@ -1719,14 +1717,14 @@ window.RANGER2_STORIES.push({
       "title": "The Camps Choose - Shield Road",
       "narrative": [
         "Under <strong>Marshal Elira Stone</strong>, you keep armed grief from turning into mob rule while the recovered medicine is counted out openly.",
-        "Some want immediate vengeance on every named guard. Others care only that the medicine moves now. The truth is finally strong enough to unite the camps or split them for good.",
-        "If the camps stand together, Norrell loses his shield. If they splinter, he can still bargain his way into a smaller escape."
+        "With the road tightening around you, the evidence still holds. Some want immediate vengeance on every named guard. Others care only that the medicine moves now. The truth is finally strong enough to unite the camps or split them for good.",
+        "The next mistake would carry a heavy cost. If the camps stand together, Norrell loses his shield. If they splinter, he can still bargain his way into a smaller escape."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Promise the crowd instant justice before the prisoners and proof are fully secured.",
+          "label": "Promise the crowd instant justice before the prisoners and proof are fully secured, on the strength of one uncertain sign.",
           "failTitle": "Justice Turns to Fury",
           "failText": "The crowd surges before you can direct it. Prisoners vanish, good witnesses hide, and the pass trades law for rage at the very edge of victory.",
           "death": false
@@ -1776,10 +1774,8 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Cut through the side crypt at once and strike where Norrell thinks the stone still hides him.",
-          "nextNodeId": null,
-          "scoreDelta": 1,
-          "endStory": true,
-          "endType": "high"
+          "nextNodeId": "W19A",
+          "scoreDelta": 1
         }
       ]
     },
@@ -1789,8 +1785,8 @@ window.RANGER2_STORIES.push({
       "title": "Stone Beneath the Chapel - Witness Ledger",
       "narrative": [
         "By chapel light, you compare the crypt register with <strong>Brother Cadan</strong> and identify which passage Norrell disguised as a burial route.",
-        "Norrell has withdrawn into the undercroft with what silver he can still carry. He wants either time to flee or a narrow deal that lets him keep enough wealth to rebuild the ring elsewhere.",
-        "The next move decides whether this ends in law, compromise, or one last hard chase through stone and snow."
+        "Measured work here strengthens the case. Norrell has withdrawn into the undercroft with what silver he can still carry. He wants either time to flee or a narrow deal that lets him keep enough wealth to rebuild the ring elsewhere.",
+        "The practical danger is now plain. The next move decides whether this ends in law, compromise, or one last hard chase through stone and snow."
       ],
       "options": [
         {
@@ -1810,7 +1806,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Take Norrell's offer to talk alone and trust his word long enough to hear it out.",
+          "label": "Take Norrell's offer to talk alone and trust his word long enough to hear it out, without securing help or a retreat.",
           "failTitle": "The Broker Slips the Stone",
           "failText": "Norrell only wanted distance and darkness. By the time you see the trick, he is gone through the burial passage and your best moment with him has passed.",
           "death": false
@@ -1823,14 +1819,14 @@ window.RANGER2_STORIES.push({
       "title": "Stone Beneath the Chapel - Shield Road",
       "narrative": [
         "You hold the chapel close with <strong>Marshal Elira Stone</strong>, keeping villagers clear while the last loyal smugglers retreat below the floor stones.",
-        "Norrell has withdrawn into the undercroft with what silver he can still carry. He wants either time to flee or a narrow deal that lets him keep enough wealth to rebuild the ring elsewhere.",
-        "The next move decides whether this ends in law, compromise, or one last hard chase through stone and snow."
+        "Lost time makes each detail more urgent. Norrell has withdrawn into the undercroft with what silver he can still carry. He wants either time to flee or a narrow deal that lets him keep enough wealth to rebuild the ring elsewhere.",
+        "Pressure makes the consequence immediate. The next move decides whether this ends in law, compromise, or one last hard chase through stone and snow."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Take Norrell's offer to talk alone and trust his word long enough to hear it out.",
+          "label": "Take Norrell's offer to talk alone and trust his word long enough to hear it out, without hearing the nearest witness.",
           "failTitle": "The Broker Slips the Stone",
           "failText": "Norrell only wanted distance and darkness. By the time you see the trick, he is gone through the burial passage and your best moment with him has passed.",
           "death": false
@@ -1846,10 +1842,8 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Hold the chapel and the relief wagons first, even if Norrell may buy himself a little room.",
-          "nextNodeId": null,
-          "scoreDelta": 0,
-          "endStory": true,
-          "endType": "low"
+          "nextNodeId": "W19A",
+          "scoreDelta": 0
         }
       ]
     },
@@ -1867,10 +1861,8 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use the bridge geometry, pin the escort, and take Norrell alive before he can break west.",
-          "nextNodeId": null,
-          "scoreDelta": 1,
-          "endStory": true,
-          "endType": "high"
+          "nextNodeId": "W20A",
+          "scoreDelta": 1
         },
         {
           "id": "fail",
@@ -1895,8 +1887,8 @@ window.RANGER2_STORIES.push({
       "title": "The Bridge of Verdict - Witness Ledger",
       "narrative": [
         "You stand on the bridge rise with <strong>Brother Cadan</strong>, ledger case in hand, knowing the final words must be backed by final control.",
-        "Everyone who still matters has converged on the crossing: camp elders, surviving guards, Mira, Pike's prisoners, and Norrell himself with what little silver and steel he can still command.",
-        "There is no wider board left to play. One clean command wins the pass, one bad one lets the broker vanish into the low country."
+        "The more careful approach confirms the essential facts. Everyone who still matters has converged on the crossing: camp elders, surviving guards, Mira, Pike's prisoners, and Norrell himself with what little silver and steel he can still command.",
+        "The cost of delay is easier to see. There is no wider board left to play. One clean command wins the pass, one bad one lets the broker vanish into the low country."
       ],
       "options": [
         {
@@ -1910,15 +1902,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Break Norrell with the full case in front of both camps and seize him the instant his own men hesitate.",
-          "nextNodeId": null,
-          "scoreDelta": 1,
-          "endStory": true,
-          "endType": "high"
+          "nextNodeId": "W20B",
+          "scoreDelta": 1
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Charge Norrell's escort head-on and trust force to settle the bridge.",
+          "label": "Charge Norrell's escort head-on and trust force to settle the bridge, on the strength of one uncertain sign.",
           "failTitle": "The Ranger Falls",
           "failText": "The bridge narrows your line and hands the broker the exact kill lane he wanted. Steel closes around you before the others can follow, and the pass loses its one steady hand.",
           "death": true
@@ -1931,14 +1921,14 @@ window.RANGER2_STORIES.push({
       "title": "The Bridge of Verdict - Shield Road",
       "narrative": [
         "With <strong>Marshal Elira Stone</strong>, you anchor both approaches to <strong>Frostbell Bridge</strong> and deny the broker open ground for panic.",
-        "Everyone who still matters has converged on the crossing: camp elders, surviving guards, Mira, Pike's prisoners, and Norrell himself with what little silver and steel he can still command.",
-        "There is no wider board left to play. One clean command wins the pass, one bad one lets the broker vanish into the low country."
+        "Even under guard, the central evidence remains clear. Everyone who still matters has converged on the crossing: camp elders, surviving guards, Mira, Pike's prisoners, and Norrell himself with what little silver and steel he can still command.",
+        "There is little time left to contain the damage. There is no wider board left to play. One clean command wins the pass, one bad one lets the broker vanish into the low country."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Charge Norrell's escort head-on and trust force to settle the bridge.",
+          "label": "Charge Norrell's escort head-on and trust force to settle the bridge, with the warning signs still unresolved.",
           "failTitle": "The Ranger Falls",
           "failText": "The bridge narrows your line and hands the broker the exact kill lane he wanted. Steel closes around you before the others can follow, and the pass loses its one steady hand.",
           "death": true
@@ -1954,10 +1944,8 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Lock both bridgeheads, shield the crowd, and leave Norrell nowhere lawful or physical to run.",
-          "nextNodeId": null,
-          "scoreDelta": 1,
-          "endStory": true,
-          "endType": "high"
+          "nextNodeId": "W20C",
+          "scoreDelta": 1
         }
       ]
     },
@@ -1976,7 +1964,9 @@ window.RANGER2_STORIES.push({
           "type": "normal",
           "label": "Order the road reopened under heavy watch and let the lesser names be judged in due course.",
           "nextNodeId": null,
-          "scoreDelta": 0
+          "scoreDelta": 0,
+          "endStory": true,
+          "endType": "low"
         },
         {
           "id": "fail",
@@ -1991,7 +1981,9 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Reopen the road, lock the case, and name the chain of command that will keep the pass honest after you ride on.",
           "nextNodeId": null,
-          "scoreDelta": 1
+          "scoreDelta": 1,
+          "endStory": true,
+          "endType": "high"
         }
       ]
     },
@@ -2001,8 +1993,8 @@ window.RANGER2_STORIES.push({
       "title": "The Pass Opens - Witness Ledger",
       "narrative": [
         "At the long table outside <strong>Stonewold Bastion</strong>, you set the ledgers, seals, and witness marks in final order with <strong>Brother Cadan</strong> beside you.",
-        "Medicine wagons stand ready, the sick already have the first true relief in days, and every camp is listening for your final order on what happens to the prisoners, the evidence, and the road itself.",
-        "The last choice is about shape rather than survival: whether Brackenwald remembers this as restoration, compromise, or one more hard winter barely averted."
+        "Patient questioning gives the evidence a firmer shape. Medicine wagons stand ready, the sick already have the first true relief in days, and every camp is listening for your final order on what happens to the prisoners, the evidence, and the road itself.",
+        "That leaves one immediate risk. The last choice is about shape rather than survival: whether Brackenwald remembers this as restoration, compromise, or one more hard winter barely averted."
       ],
       "options": [
         {
@@ -2010,19 +2002,23 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Finish the case in full, secure every witness, and force a judgment strong enough to outlive the winter.",
           "nextNodeId": null,
-          "scoreDelta": 1
+          "scoreDelta": 1,
+          "endStory": true,
+          "endType": "high"
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Deliver the evidence cleanly and accept a practical settlement if it keeps relief moving.",
           "nextNodeId": null,
-          "scoreDelta": 0
+          "scoreDelta": 0,
+          "endStory": true,
+          "endType": "low"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Hand the whole matter off without giving any clear final order of your own.",
+          "label": "Hand the whole matter off without giving any clear final order of your own, without hearing the nearest witness.",
           "failTitle": "The Verdict Dissolves",
           "failText": "Without a firm close, frightened factions reclaim the story for themselves. Relief still moves, but the pass leaves the crisis unsure who truly restored it.",
           "death": false
@@ -2035,14 +2031,14 @@ window.RANGER2_STORIES.push({
       "title": "The Pass Opens - Shield Road",
       "narrative": [
         "You stand with <strong>Marshal Elira Stone</strong> among reopened wagons, guarded prisoners, and waiting camp elders as the pass prepares to breathe again.",
-        "Medicine wagons stand ready, the sick already have the first true relief in days, and every camp is listening for your final order on what happens to the prisoners, the evidence, and the road itself.",
-        "The last choice is about shape rather than survival: whether Brackenwald remembers this as restoration, compromise, or one more hard winter barely averted."
+        "Mounting pressure cannot hide the essential facts. Medicine wagons stand ready, the sick already have the first true relief in days, and every camp is listening for your final order on what happens to the prisoners, the evidence, and the road itself.",
+        "The danger now reaches beyond this one place. The last choice is about shape rather than survival: whether Brackenwald remembers this as restoration, compromise, or one more hard winter barely averted."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Hand the whole matter off without giving any clear final order of your own.",
+          "label": "Hand the whole matter off without giving any clear final order of your own, without testing the danger ahead.",
           "failTitle": "The Verdict Dissolves",
           "failText": "Without a firm close, frightened factions reclaim the story for themselves. Relief still moves, but the pass leaves the crisis unsure who truly restored it.",
           "death": false
@@ -2052,14 +2048,18 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Set the camps, the road, and the prisoners under one lawful settlement that closes the ring for good.",
           "nextNodeId": null,
-          "scoreDelta": 1
+          "scoreDelta": 1,
+          "endStory": true,
+          "endType": "high"
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Put medicine movement first and let the political reckoning come with time.",
           "nextNodeId": null,
-          "scoreDelta": 0
+          "scoreDelta": 0,
+          "endStory": true,
+          "endType": "low"
         }
       ]
     }

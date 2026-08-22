@@ -140,7 +140,7 @@
       assert(Number(node.turn) === parseInt(node.turn, 10), "Node " + node.id + " must have integer turn.");
       assert(node.turn >= 1 && node.turn <= story.maxTurns, "Node " + node.id + " turn out of range.");
       assert(typeof node.title === "string" && node.title, "Node " + node.id + " must have title.");
-      assert(Array.isArray(node.narrative) && node.narrative.length === 3, "Node " + node.id + " must have exactly 3 narrative lines.");
+      assert(Array.isArray(node.narrative) && (node.narrative.length === 3 || node.narrative.length === 4), "Node " + node.id + " must have 3 narrative lines, or 4 for a legacy story.");
       assert(Array.isArray(node.options) && node.options.length === 3, "Node " + node.id + " must have exactly 3 options.");
 
       for (j = 0; j < node.options.length; j += 1) {

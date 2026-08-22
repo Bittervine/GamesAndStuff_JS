@@ -4,7 +4,7 @@ window.RANGER2_STORIES.push({
   "title": "Ashes on the Beacon Chain",
   "summary": "When a false beacon burns above Elderwood, the ranger uncovers a plot by a disgraced signal captain to turn Brackenwald's hill towers into a weapon against Duke Aldric on the eve of a mountain journey.",
   "maxTurns": 20,
-  "startNodeId": "K01A",
+  "startNodeId": "Q01A",
   "goodScoreThreshold": 11,
   "epilogues": {
     "high": "King's Lantern was reclaimed, Ser Garran Vey's design was broken, and Duke Aldric kept the road. In the months that followed, Brackenwald rebuilt its beacon chain with sterner discipline and better memory, and your name passed from tower to tower as the ranger who understood that a realm may be killed by false signals as surely as by steel.",
@@ -12,7 +12,7 @@ window.RANGER2_STORIES.push({
   },
   "nodes": [
     {
-      "id": "K01A",
+      "id": "Q01A",
       "turn": 1,
       "title": "The Wrong Fire - Dawn Summons",
       "narrative": [
@@ -25,7 +25,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Ride the main track to Widow's Pike and question whoever remains there.",
-          "nextNodeId": "K02B",
+          "nextNodeId": "Q02B",
           "scoreDelta": 0
         },
         {
@@ -40,13 +40,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take the deer path under the ridge and reach the tower before its trail is trampled.",
-          "nextNodeId": "K02A",
+          "nextNodeId": "Q02A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K01B",
+      "id": "Q01B",
       "turn": 1,
       "title": "The Wrong Fire - Marsh Return",
       "narrative": [
@@ -59,14 +59,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take the ridge cut at once and inspect Widow's Pike before the rain wipes it clean.",
-          "nextNodeId": "K02A",
+          "nextNodeId": "Q02A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Check the convoy road first and gather the frightened guards' tale before heading to the tower.",
-          "nextNodeId": "K02C",
+          "nextNodeId": "Q02C",
           "scoreDelta": 0
         },
         {
@@ -80,7 +80,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K01C",
+      "id": "Q01C",
       "turn": 1,
       "title": "The Wrong Fire - Market Smoke",
       "narrative": [
@@ -101,20 +101,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Leave the market shouting to itself and cut straight for Widow's Pike by the hill path.",
-          "nextNodeId": "K02B",
+          "nextNodeId": "Q02B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Question the reeves and merchants first, then ride once the rumors have settled a little.",
-          "nextNodeId": "K02C",
+          "nextNodeId": "Q02C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K02A",
+      "id": "Q02A",
       "turn": 2,
       "title": "Widow's Pike - Fresh Signs",
       "narrative": [
@@ -127,7 +127,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Search the tower room and then ride to Stag's Rest with what you have.",
-          "nextNodeId": "K03B",
+          "nextNodeId": "Q03B",
           "scoreDelta": 0
         },
         {
@@ -142,13 +142,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Follow the lee-side tracks at once, then circle to Stag's Rest before the rain closes them.",
-          "nextNodeId": "K03A",
+          "nextNodeId": "Q03A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K02B",
+      "id": "Q02B",
       "turn": 2,
       "title": "Widow's Pike - Keeper in Hiding",
       "narrative": [
@@ -161,14 +161,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Ride straight for Stag's Rest and press Brother Cerdic to read Halwen's names against the old records.",
-          "nextNodeId": "K03A",
+          "nextNodeId": "Q03A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Take Halwen down to safety before you seek the next clue.",
-          "nextNodeId": "K03C",
+          "nextNodeId": "Q03C",
           "scoreDelta": 0
         },
         {
@@ -182,7 +182,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K02C",
+      "id": "Q02C",
       "turn": 2,
       "title": "Widow's Pike - Cold Stones",
       "narrative": [
@@ -203,20 +203,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Slip down by the gorse, mark where the bowman fled, and carry the tally to Stag's Rest.",
-          "nextNodeId": "K03B",
+          "nextNodeId": "Q03B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Abandon the hill and ride to the chapel with only the stamped sliver.",
-          "nextNodeId": "K03C",
+          "nextNodeId": "Q03C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K03A",
+      "id": "Q03A",
       "turn": 3,
       "title": "Stag's Rest - Reading the Pattern",
       "narrative": [
@@ -229,7 +229,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Take the chapel road to Red Tor with Maelin and lose no more daylight.",
-          "nextNodeId": "K04B",
+          "nextNodeId": "Q04B",
           "scoreDelta": 0
         },
         {
@@ -244,13 +244,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Leave Maelin to warn the lower farms and ride the shorter charcoal track to Red Tor at once.",
-          "nextNodeId": "K04A",
+          "nextNodeId": "Q04A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K03B",
+      "id": "Q03B",
       "turn": 3,
       "title": "Stag's Rest - Half a Pattern",
       "narrative": [
@@ -263,14 +263,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Ride for Red Tor before the next basin can be primed.",
-          "nextNodeId": "K04A",
+          "nextNodeId": "Q04A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Circle first through the farms below Red Tor and ask what has passed there.",
-          "nextNodeId": "K04C",
+          "nextNodeId": "Q04C",
           "scoreDelta": 0
         },
         {
@@ -284,7 +284,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K03C",
+      "id": "Q03C",
       "turn": 3,
       "title": "Stag's Rest - Guesswork and Rain",
       "narrative": [
@@ -305,20 +305,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take Cerdic's memory seriously, but test it first by hunting the trail at Red Tor.",
-          "nextNodeId": "K04B",
+          "nextNodeId": "Q04B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Ride for Red Tor with only the stamped tally and the old name in mind.",
-          "nextNodeId": "K04C",
+          "nextNodeId": "Q04C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K04A",
+      "id": "Q04A",
       "turn": 4,
       "title": "Red Tor - Hidden Cache",
       "narrative": [
@@ -331,7 +331,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Hide the cache, then go down to question the charcoal burners.",
-          "nextNodeId": "K05B",
+          "nextNodeId": "Q05B",
           "scoreDelta": 0
         },
         {
@@ -346,13 +346,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take one shutter slat for proof and ride straight down to the charcoal road while the tracks are sharp.",
-          "nextNodeId": "K05A",
+          "nextNodeId": "Q05A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K04B",
+      "id": "Q04B",
       "turn": 4,
       "title": "Red Tor - Dusk on the Slope",
       "narrative": [
@@ -365,14 +365,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Follow the hidden ruts at once before darkness seals them.",
-          "nextNodeId": "K05A",
+          "nextNodeId": "Q05A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Search the tower top again and only then take the road below.",
-          "nextNodeId": "K05C",
+          "nextNodeId": "Q05C",
           "scoreDelta": 0
         },
         {
@@ -386,7 +386,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K04C",
+      "id": "Q04C",
       "turn": 4,
       "title": "Red Tor - Ash and Hoofmarks",
       "narrative": [
@@ -407,20 +407,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Descend at once and let Thorne choose the freshest scent of mule and oil.",
-          "nextNodeId": "K05B",
+          "nextNodeId": "Q05B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Ride down carefully to the charcoal road and begin asking questions.",
-          "nextNodeId": "K05C",
+          "nextNodeId": "Q05C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K05A",
+      "id": "Q05A",
       "turn": 5,
       "title": "The Charcoal Road - A Captured Tally",
       "narrative": [
@@ -433,7 +433,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Take the tally sticks to Greywash Mill and place them before Captain Hester.",
-          "nextNodeId": "K06B",
+          "nextNodeId": "Q06B",
           "scoreDelta": 0
         },
         {
@@ -448,13 +448,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Keep the boy under guard and ride for Greywash Mill with the tally sticks and armory marks.",
-          "nextNodeId": "K06A",
+          "nextNodeId": "Q06A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K05B",
+      "id": "Q05B",
       "turn": 5,
       "title": "The Charcoal Road - Unwilling Witnesses",
       "narrative": [
@@ -467,14 +467,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Ride hard to Greywash Mill before Hester loses the same trail.",
-          "nextNodeId": "K06A",
+          "nextNodeId": "Q06A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Question every burner along the road before you move on.",
-          "nextNodeId": "K06C",
+          "nextNodeId": "Q06C",
           "scoreDelta": 0
         },
         {
@@ -488,7 +488,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K05C",
+      "id": "Q05C",
       "turn": 5,
       "title": "The Charcoal Road - Hired Blades",
       "narrative": [
@@ -509,20 +509,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take the scrap and the dropped wallet to Greywash Mill at once.",
-          "nextNodeId": "K06B",
+          "nextNodeId": "Q06B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Search the road for more attackers before riding on.",
-          "nextNodeId": "K06C",
+          "nextNodeId": "Q06C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K06A",
+      "id": "Q06A",
       "turn": 6,
       "title": "Greywash Mill - Hester Listens",
       "narrative": [
@@ -535,7 +535,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Leave Hester to warn Oakenhurst while you search the quarry road.",
-          "nextNodeId": "K07B",
+          "nextNodeId": "Q07B",
           "scoreDelta": 0
         },
         {
@@ -550,13 +550,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Ride with Hester to the old lime quarry where the burners say the gear was stored.",
-          "nextNodeId": "K07A",
+          "nextNodeId": "Q07A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K06B",
+      "id": "Q06B",
       "turn": 6,
       "title": "Greywash Mill - Proof and Doubt",
       "narrative": [
@@ -569,14 +569,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take Hester's men straight to the old lime quarry and search it before the trail cools.",
-          "nextNodeId": "K07A",
+          "nextNodeId": "Q07A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Spend the hour questioning convoy guards instead of pressing on.",
-          "nextNodeId": "K07C",
+          "nextNodeId": "Q07C",
           "scoreDelta": 0
         },
         {
@@ -590,7 +590,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K06C",
+      "id": "Q06C",
       "turn": 6,
       "title": "Greywash Mill - Lost Time",
       "narrative": [
@@ -611,20 +611,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Ride for the old lime quarry with Hester's map and no wasted speech.",
-          "nextNodeId": "K07B",
+          "nextNodeId": "Q07B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Circle the mill grounds for more clues before taking the quarry road.",
-          "nextNodeId": "K07C",
+          "nextNodeId": "Q07C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K07A",
+      "id": "Q07A",
       "turn": 7,
       "title": "The Lime Quarry - Vey's Ledger",
       "narrative": [
@@ -637,7 +637,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Take the ledger to Hester and plan around what you now know.",
-          "nextNodeId": "K08B",
+          "nextNodeId": "Q08B",
           "scoreDelta": 0
         },
         {
@@ -652,13 +652,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Memorize the key pages, take the ledger, and ride before Vey learns his store has been found.",
-          "nextNodeId": "K08A",
+          "nextNodeId": "Q08A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K07B",
+      "id": "Q07B",
       "turn": 7,
       "title": "The Lime Quarry - Burned Papers",
       "narrative": [
@@ -671,14 +671,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take the surviving strip and the hidden hinges straight to Hester.",
-          "nextNodeId": "K08A",
+          "nextNodeId": "Q08A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Search the flooded pits for the rest of the papers before moving.",
-          "nextNodeId": "K08C",
+          "nextNodeId": "Q08C",
           "scoreDelta": 0
         },
         {
@@ -692,7 +692,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K07C",
+      "id": "Q07C",
       "turn": 7,
       "title": "The Lime Quarry - Fire in the Pit",
       "narrative": [
@@ -713,20 +713,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take the drover's account and push on before the mountain trail closes.",
-          "nextNodeId": "K08B",
+          "nextNodeId": "Q08B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Search the burned shed carefully, then ride.",
-          "nextNodeId": "K08C",
+          "nextNodeId": "Q08C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K08A",
+      "id": "Q08A",
       "turn": 8,
       "title": "The Shape of It - The Real Target",
       "narrative": [
@@ -739,7 +739,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Send Hester to spread the warning while you continue after Vey.",
-          "nextNodeId": "K09B",
+          "nextNodeId": "Q09B",
           "scoreDelta": 0
         },
         {
@@ -754,13 +754,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Split the work: let Hester warn Oakenhurst while you and Maelin chase Vey toward Crowsglass.",
-          "nextNodeId": "K09A",
+          "nextNodeId": "Q09A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K08B",
+      "id": "Q08B",
       "turn": 8,
       "title": "The Shape of It - A Narrow Guess",
       "narrative": [
@@ -773,14 +773,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Trust the target and ride toward Crowsglass before Vey can close the next link.",
-          "nextNodeId": "K09A",
+          "nextNodeId": "Q09A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Spend time reckoning how many men Vey may command before you move.",
-          "nextNodeId": "K09C",
+          "nextNodeId": "Q09C",
           "scoreDelta": 0
         },
         {
@@ -794,7 +794,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K08C",
+      "id": "Q08C",
       "turn": 8,
       "title": "The Shape of It - Too Much Hidden",
       "narrative": [
@@ -815,20 +815,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Move now toward Crowsglass and trust the mountain to reveal the rest.",
-          "nextNodeId": "K09B",
+          "nextNodeId": "Q09B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Take the slower road and gather what fragments you can on the way.",
-          "nextNodeId": "K09C",
+          "nextNodeId": "Q09C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K09A",
+      "id": "Q09A",
       "turn": 9,
       "title": "Split Riders - A Clean Warning",
       "narrative": [
@@ -841,7 +841,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Keep pace with Hester on the road to Crowsglass.",
-          "nextNodeId": "K10B",
+          "nextNodeId": "Q10B",
           "scoreDelta": 0
         },
         {
@@ -856,13 +856,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Leave Hester a short escort and cut ahead to Crowsglass by the hunters' stair.",
-          "nextNodeId": "K10A",
+          "nextNodeId": "Q10A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K09B",
+      "id": "Q09B",
       "turn": 9,
       "title": "Split Riders - A Risky Message",
       "narrative": [
@@ -875,14 +875,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Push Thorne hard over the hunters' stair and try to reach Crowsglass first.",
-          "nextNodeId": "K10A",
+          "nextNodeId": "Q10A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Take the safer road to Crowsglass and spare the horse.",
-          "nextNodeId": "K10C",
+          "nextNodeId": "Q10C",
           "scoreDelta": 0
         },
         {
@@ -896,7 +896,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K09C",
+      "id": "Q09C",
       "turn": 9,
       "title": "Split Riders - Alone on the Road",
       "narrative": [
@@ -917,20 +917,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Stay alone, cut across the heath, and reach Crowsglass by the most secret line.",
-          "nextNodeId": "K10B",
+          "nextNodeId": "Q10B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Keep to the road and trust speed over secrecy.",
-          "nextNodeId": "K10C",
+          "nextNodeId": "Q10C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K10A",
+      "id": "Q10A",
       "turn": 10,
       "title": "Crowsglass - Blood on the Steps",
       "narrative": [
@@ -943,7 +943,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Bind Maelin, leave her with the keeper, and follow Vey by the upper road.",
-          "nextNodeId": "K11B",
+          "nextNodeId": "Q11B",
           "scoreDelta": 0
         },
         {
@@ -958,13 +958,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take Maelin's report, send her safely down, and cut after Vey through the dry aqueduct she marked.",
-          "nextNodeId": "K11A",
+          "nextNodeId": "Q11A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K10B",
+      "id": "Q10B",
       "turn": 10,
       "title": "Crowsglass - The Broken Tower",
       "narrative": [
@@ -977,14 +977,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take the narrow trail at once before the blood dries.",
-          "nextNodeId": "K11A",
+          "nextNodeId": "Q11A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Search the tower for hidden papers and lose precious light.",
-          "nextNodeId": "K11C",
+          "nextNodeId": "Q11C",
           "scoreDelta": 0
         },
         {
@@ -998,7 +998,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K10C",
+      "id": "Q10C",
       "turn": 10,
       "title": "Crowsglass - One Step Behind",
       "narrative": [
@@ -1019,20 +1019,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Follow the drag marks and mountain spoor without delay.",
-          "nextNodeId": "K11B",
+          "nextNodeId": "Q11B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Search the dead keeper and tower floor before you move.",
-          "nextNodeId": "K11C",
+          "nextNodeId": "Q11C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K11A",
+      "id": "Q11A",
       "turn": 11,
       "title": "High Fell Stair - The Dry Aqueduct",
       "narrative": [
@@ -1045,7 +1045,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Stay on the upper branch and press toward the tower.",
-          "nextNodeId": "K12B",
+          "nextNodeId": "Q12B",
           "scoreDelta": 0
         },
         {
@@ -1060,13 +1060,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use the prayer bead to judge Cerdic's path and take the branch that may free him first.",
-          "nextNodeId": "K12A",
+          "nextNodeId": "Q12A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K11B",
+      "id": "Q11B",
       "turn": 11,
       "title": "High Fell Stair - Tracks in Rain",
       "narrative": [
@@ -1079,14 +1079,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Climb for the upper works and try to save Cerdic before Vey wrings more from him.",
-          "nextNodeId": "K12A",
+          "nextNodeId": "Q12A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Shadow the lower tracks above the causeway and hope the tower can wait.",
-          "nextNodeId": "K12C",
+          "nextNodeId": "Q12C",
           "scoreDelta": 0
         },
         {
@@ -1100,7 +1100,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K11C",
+      "id": "Q11C",
       "turn": 11,
       "title": "High Fell Stair - Rearguard",
       "narrative": [
@@ -1121,20 +1121,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Leave the dead and climb straight for the upper works.",
-          "nextNodeId": "K12B",
+          "nextNodeId": "Q12B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Search the fallen for clues before pressing on.",
-          "nextNodeId": "K12C",
+          "nextNodeId": "Q12C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K12A",
+      "id": "Q12A",
       "turn": 12,
       "title": "Shepherd's Bothy - Cerdic Freed",
       "narrative": [
@@ -1147,7 +1147,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Take Cerdic with you and make for Pilgrim's Gate to join Hester.",
-          "nextNodeId": "K13B",
+          "nextNodeId": "Q13B",
           "scoreDelta": 0
         },
         {
@@ -1162,13 +1162,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use the cistern secret and Cerdic's knowledge to shape a real plan at Pilgrim's Gate.",
-          "nextNodeId": "K13A",
+          "nextNodeId": "Q13A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K12B",
+      "id": "Q12B",
       "turn": 12,
       "title": "Shepherd's Bothy - Notes in Ash",
       "narrative": [
@@ -1181,14 +1181,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Pocket the brass tooth and ride for Pilgrim's Gate before Hester commits her men blind.",
-          "nextNodeId": "K13A",
+          "nextNodeId": "Q13A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Spend more time searching the bothy for what else Cerdic may have hidden.",
-          "nextNodeId": "K13C",
+          "nextNodeId": "Q13C",
           "scoreDelta": 0
         },
         {
@@ -1202,7 +1202,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K12C",
+      "id": "Q12C",
       "turn": 12,
       "title": "Shepherd's Bothy - The Missing Priest",
       "narrative": [
@@ -1223,20 +1223,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take the half page to Pilgrim's Gate and read it against the mountain with Hester.",
-          "nextNodeId": "K13B",
+          "nextNodeId": "Q13B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Circle warily toward Pilgrim's Gate, searching for signs as you go.",
-          "nextNodeId": "K13C",
+          "nextNodeId": "Q13C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K13A",
+      "id": "Q13A",
       "turn": 13,
       "title": "Pilgrim's Gate - A Working Plan",
       "narrative": [
@@ -1249,7 +1249,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Keep to the agreed plan and move on King's Lantern at once.",
-          "nextNodeId": "K14B",
+          "nextNodeId": "Q14B",
           "scoreDelta": 0
         },
         {
@@ -1264,13 +1264,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Tighten the plan further by using the cistern secret and a silent approach under the storm.",
-          "nextNodeId": "K14A",
+          "nextNodeId": "Q14A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K13B",
+      "id": "Q13B",
       "turn": 13,
       "title": "Pilgrim's Gate - Fewer Hands",
       "narrative": [
@@ -1283,14 +1283,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Trust the cistern approach and move before Vey settles for the night.",
-          "nextNodeId": "K14A",
+          "nextNodeId": "Q14A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Take extra time to place every warden exactly, even at the cost of daylight.",
-          "nextNodeId": "K14C",
+          "nextNodeId": "Q14C",
           "scoreDelta": 0
         },
         {
@@ -1304,7 +1304,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K13C",
+      "id": "Q13C",
       "turn": 13,
       "title": "Pilgrim's Gate - Thin Trust",
       "narrative": [
@@ -1325,20 +1325,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take what trust there is and start for King's Lantern before the weather worsens.",
-          "nextNodeId": "K14B",
+          "nextNodeId": "Q14B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Move cautiously toward the tower with too few hands and too much doubt.",
-          "nextNodeId": "K14C",
+          "nextNodeId": "Q14C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K14A",
+      "id": "Q14A",
       "turn": 14,
       "title": "King's Lantern Below - Unseen Approach",
       "narrative": [
@@ -1351,7 +1351,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Take the cistern grate quietly and move as fast as caution allows.",
-          "nextNodeId": "K15B",
+          "nextNodeId": "Q15B",
           "scoreDelta": 0
         },
         {
@@ -1366,13 +1366,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Slip through the cistern at once and let the storm cover every small sound.",
-          "nextNodeId": "K15A",
+          "nextNodeId": "Q15A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K14B",
+      "id": "Q14B",
       "turn": 14,
       "title": "King's Lantern Below - First Alarm",
       "narrative": [
@@ -1385,14 +1385,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Drive for the cistern before the lower yard fully closes around it.",
-          "nextNodeId": "K15A",
+          "nextNodeId": "Q15A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Fight across the yard to the main stair and hope speed makes up the loss.",
-          "nextNodeId": "K15C",
+          "nextNodeId": "Q15C",
           "scoreDelta": 0
         },
         {
@@ -1406,7 +1406,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K14C",
+      "id": "Q14C",
       "turn": 14,
       "title": "King's Lantern Below - The Long Circle",
       "narrative": [
@@ -1427,20 +1427,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use the cistern despite the late hour and trust speed over perfection.",
-          "nextNodeId": "K15B",
+          "nextNodeId": "Q15B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Skirt the yard and force the main stair before they are fully ready.",
-          "nextNodeId": "K15C",
+          "nextNodeId": "Q15C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K15A",
+      "id": "Q15A",
       "turn": 15,
       "title": "Lower Works - Keeper Unbound",
       "narrative": [
@@ -1453,7 +1453,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Move up at once, leaving the keeper to steady the lower works.",
-          "nextNodeId": "K16B",
+          "nextNodeId": "Q16B",
           "scoreDelta": 0
         },
         {
@@ -1468,13 +1468,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take the keeper's guidance and go straight for the service stair and counter wheel.",
-          "nextNodeId": "K16A",
+          "nextNodeId": "Q16A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K15B",
+      "id": "Q15B",
       "turn": 15,
       "title": "Lower Works - Steel in the Passage",
       "narrative": [
@@ -1487,14 +1487,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take the keeper's word and drive straight for the service stair.",
-          "nextNodeId": "K16A",
+          "nextNodeId": "Q16A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Fight upward by the broader passage where more men can follow.",
-          "nextNodeId": "K16C",
+          "nextNodeId": "Q16C",
           "scoreDelta": 0
         },
         {
@@ -1508,7 +1508,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K15C",
+      "id": "Q15C",
       "turn": 15,
       "title": "Lower Works - Pitch Already Warm",
       "narrative": [
@@ -1529,20 +1529,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Climb hard but watch every corner, looking for the service passage Cerdic described.",
-          "nextNodeId": "K16B",
+          "nextNodeId": "Q16B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Keep up the direct climb and trust force to beat the clock.",
-          "nextNodeId": "K16C",
+          "nextNodeId": "Q16C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K16A",
+      "id": "Q16A",
       "turn": 16,
       "title": "Service Stair - The Counter Wheel",
       "narrative": [
@@ -1555,7 +1555,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Set Maelin on the wheel and push up toward the lantern chamber.",
-          "nextNodeId": "K17B",
+          "nextNodeId": "Q17B",
           "scoreDelta": 0
         },
         {
@@ -1570,13 +1570,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Set the wheel, keep silent, and climb toward the bell line and lantern throat together.",
-          "nextNodeId": "K17A",
+          "nextNodeId": "Q17A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K16B",
+      "id": "Q16B",
       "turn": 16,
       "title": "Service Stair - Half the Mechanism",
       "narrative": [
@@ -1589,14 +1589,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Jam the damaged mechanism against a false display and climb.",
-          "nextNodeId": "K17A",
+          "nextNodeId": "Q17A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Leave the half wheel and race straight for the lantern chamber.",
-          "nextNodeId": "K17C",
+          "nextNodeId": "Q17C",
           "scoreDelta": 0
         },
         {
@@ -1610,7 +1610,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K16C",
+      "id": "Q16C",
       "turn": 16,
       "title": "Service Stair - The Direct Climb",
       "narrative": [
@@ -1631,20 +1631,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Force the last turns of the stair with all speed and discipline you have left.",
-          "nextNodeId": "K17B",
+          "nextNodeId": "Q17B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Keep climbing the direct way and brace for a frontal fight.",
-          "nextNodeId": "K17C",
+          "nextNodeId": "Q17C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K17A",
+      "id": "Q17A",
       "turn": 17,
       "title": "Signal Room - The True Fire",
       "narrative": [
@@ -1657,7 +1657,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Seize the bell line first and trust Hester to read an imperfect signal.",
-          "nextNodeId": "K18B",
+          "nextNodeId": "Q18B",
           "scoreDelta": 0
         },
         {
@@ -1672,13 +1672,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take the torch, bar the lieutenant away, and master both bell line and shutter before Vey arrives.",
-          "nextNodeId": "K18A",
+          "nextNodeId": "Q18A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K17B",
+      "id": "Q17B",
       "turn": 17,
       "title": "Signal Room - Smoke and Shouting",
       "narrative": [
@@ -1691,14 +1691,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Throw yourself at the rope and shutters together, making room for a true signal.",
-          "nextNodeId": "K18A",
+          "nextNodeId": "Q18A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Drive for the nearest torch hand and settle the chamber by steel alone.",
-          "nextNodeId": "K18C",
+          "nextNodeId": "Q18C",
           "scoreDelta": 0
         },
         {
@@ -1712,7 +1712,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K17C",
+      "id": "Q17C",
       "turn": 17,
       "title": "Signal Room - Hands at the Brazier",
       "narrative": [
@@ -1733,20 +1733,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Drive for the chain and spoil the display before the flame can rise cleanly.",
-          "nextNodeId": "K18B",
+          "nextNodeId": "Q18B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Fight where you stand and trust sheer force to delay the signal.",
-          "nextNodeId": "K18C",
+          "nextNodeId": "Q18C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K18A",
+      "id": "Q18A",
       "turn": 18,
       "title": "Lantern Gallery - Vey at Bay",
       "narrative": [
@@ -1759,7 +1759,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Break for the bell rope first, even if Vey slips out onto the gallery.",
-          "nextNodeId": "K19B",
+          "nextNodeId": "Q19B",
           "scoreDelta": 0
         },
         {
@@ -1774,13 +1774,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Press him hard, seize the rope, and force the issue before his men below can react.",
-          "nextNodeId": "K19A",
+          "nextNodeId": "Q19A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K18B",
+      "id": "Q18B",
       "turn": 18,
       "title": "Lantern Gallery - Between Levels",
       "narrative": [
@@ -1793,14 +1793,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Break for the rope and shutters, trusting someone else to hold Vey for a moment.",
-          "nextNodeId": "K19A",
+          "nextNodeId": "Q19A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Pursue Vey onto the gallery and settle the matter blade to blade.",
-          "nextNodeId": "K19B",
+          "nextNodeId": "Q19B",
           "scoreDelta": 0
         },
         {
@@ -1814,7 +1814,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K18C",
+      "id": "Q18C",
       "turn": 18,
       "title": "Lantern Gallery - Torch in Hand",
       "narrative": [
@@ -1835,20 +1835,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Rush the gallery and seize the torch arm before it can rise.",
-          "nextNodeId": "K19B",
+          "nextNodeId": "Q19B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Hold the doorway, trying only to delay what you cannot fully stop.",
-          "nextNodeId": "K19C",
+          "nextNodeId": "Q19C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K19A",
+      "id": "Q19A",
       "turn": 19,
       "title": "The Choice of the Bell - Clean Shot",
       "narrative": [
@@ -1861,7 +1861,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Sound the lawful all-clear first, then finish Vey before he recovers.",
-          "nextNodeId": "K20A",
+          "nextNodeId": "Q20A",
           "scoreDelta": 0
         },
         {
@@ -1884,7 +1884,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K19B",
+      "id": "Q19B",
       "turn": 19,
       "title": "The Choice of the Bell - Hard Balance",
       "narrative": [
@@ -1897,14 +1897,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Cut across to the bell rope and send warning, leaving Vey to Hester's ambush below.",
-          "nextNodeId": "K20A",
+          "nextNodeId": "Q20A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Stay on Vey and drive him down the gallery, hoping the tower's half-spoiled signal is enough.",
-          "nextNodeId": "K20B",
+          "nextNodeId": "Q20B",
           "scoreDelta": 0
         },
         {
@@ -1918,7 +1918,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K19C",
+      "id": "Q19C",
       "turn": 19,
       "title": "The Choice of the Bell - Broken Timing",
       "narrative": [
@@ -1948,13 +1948,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Hold the doorway and call whatever warning you can to the road below.",
-          "nextNodeId": "K20C",
+          "nextNodeId": "Q20C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K20A",
+      "id": "Q20A",
       "turn": 20,
       "title": "Stonewake Saved - Last Measure",
       "narrative": [
@@ -1992,7 +1992,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K20B",
+      "id": "Q20B",
       "turn": 20,
       "title": "Storm After Fire - No Easy Victory",
       "narrative": [
@@ -2030,7 +2030,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K20C",
+      "id": "Q20C",
       "turn": 20,
       "title": "Dawn Over the Pass - What Can Be Kept",
       "narrative": [

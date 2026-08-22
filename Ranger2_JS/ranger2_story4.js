@@ -4,7 +4,7 @@ window.RANGER2_STORIES.push({
   "title": "The Hollow Bell Road",
   "summary": "When stolen bells begin tolling from empty hollows in Elderwood, the ranger uncovers Oren Keld's covert labor to reopen Widow's Notch and bring raiders through Brackenwald by a forgotten mountain road.",
   "maxTurns": 20,
-  "startNodeId": "K01A",
+  "startNodeId": "L01A",
   "goodScoreThreshold": 12,
   "epilogues": {
     "high": "You break Keld's machine at Widow's Notch, expose Hadrin Pike's betrayal, and leave the hidden road buried under its own treason. Duke Aldric seals the pass, rewards the villages that held fast, and Elderwood remembers that steady hands kept war outside its trees.",
@@ -12,7 +12,7 @@ window.RANGER2_STORIES.push({
   },
   "nodes": [
     {
-      "id": "K01A",
+      "id": "L01A",
       "turn": 1,
       "title": "Night Bell in Elderwood - Fresh Track",
       "narrative": [
@@ -25,7 +25,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Set Maelin to hold the witnesses, then take Thorne along the freshest sign before rain can blur it.",
-          "nextNodeId": "K02A",
+          "nextNodeId": "L02A",
           "scoreDelta": 1
         },
         {
@@ -40,13 +40,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Circle the lane, mark the rut, and follow at a cautious pace before full dark.",
-          "nextNodeId": "K02B",
+          "nextNodeId": "L02B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K01B",
+      "id": "L01B",
       "turn": 1,
       "title": "Night Bell in Elderwood - Frayed Rumor",
       "narrative": [
@@ -59,14 +59,14 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Take the strongest witness first and work forward slowly, even if the trail cools.",
-          "nextNodeId": "K02C",
+          "nextNodeId": "L02C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Separate the witnesses, strip the rumors away, and move on the one track they all describe.",
-          "nextNodeId": "K02A",
+          "nextNodeId": "L02A",
           "scoreDelta": 1
         },
         {
@@ -80,7 +80,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K01C",
+      "id": "L01C",
       "turn": 1,
       "title": "Night Bell in Elderwood - Wind Panic",
       "narrative": [
@@ -101,20 +101,20 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Clear the lane, calm the loudest voices, and accept that the best sign is already fading.",
-          "nextNodeId": "K02C",
+          "nextNodeId": "L02C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Use the spilled lime and rope mark as your guide and move before the frightened crowd spreads wider.",
-          "nextNodeId": "K02B",
+          "nextNodeId": "L02B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K02A",
+      "id": "L02A",
       "turn": 2,
       "title": "Bell in the Ash Hollow - Clean Sign",
       "narrative": [
@@ -127,7 +127,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Mark the line, keep the bell where it is, and follow the measured ground carefully.",
-          "nextNodeId": "K03B",
+          "nextNodeId": "L03B",
           "scoreDelta": 0
         },
         {
@@ -142,13 +142,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Read the pegs, the rope, and the lime together, then move on the road line before dawn.",
-          "nextNodeId": "K03A",
+          "nextNodeId": "L03A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K02B",
+      "id": "L02B",
       "turn": 2,
       "title": "Bell in the Ash Hollow - Partial Read",
       "narrative": [
@@ -161,14 +161,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use the surviving peg and twine marks to reconstruct the route and move before the trail cools further.",
-          "nextNodeId": "K03A",
+          "nextNodeId": "L03A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Hold the likely line and advance in short, guarded stages through the fern beds.",
-          "nextNodeId": "K03C",
+          "nextNodeId": "L03C",
           "scoreDelta": 0
         },
         {
@@ -182,7 +182,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K02C",
+      "id": "L02C",
       "turn": 2,
       "title": "Bell in the Ash Hollow - Sign Scattered",
       "narrative": [
@@ -203,20 +203,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Treat the torn rig as proof of a hasty withdrawal and press toward the next likely staging ground.",
-          "nextNodeId": "K03B",
+          "nextNodeId": "L03B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Follow the damaged peg line as far as it remains trustworthy, even if it leads slowly.",
-          "nextNodeId": "K03C",
+          "nextNodeId": "L03C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K03A",
+      "id": "L03A",
       "turn": 3,
       "title": "Charcoal Clearing - Warm Camp",
       "narrative": [
@@ -229,7 +229,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Read the camp quickly, then go straight to St. Briar while the laborer's memory still holds.",
-          "nextNodeId": "K04A",
+          "nextNodeId": "L04A",
           "scoreDelta": 1
         },
         {
@@ -244,13 +244,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Track the camp outward with care and let Elswyth tend the wounded man first.",
-          "nextNodeId": "K04B",
+          "nextNodeId": "L04B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K03B",
+      "id": "L03B",
       "turn": 3,
       "title": "Charcoal Clearing - Cooling Ash",
       "narrative": [
@@ -263,14 +263,14 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Search the edges one more time before returning to the chapel witness.",
-          "nextNodeId": "K04C",
+          "nextNodeId": "L04C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Trust the chapel report, leave the cooling camp, and take the wounded laborer's words while they are fresh.",
-          "nextNodeId": "K04A",
+          "nextNodeId": "L04A",
           "scoreDelta": 1
         },
         {
@@ -284,7 +284,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K03C",
+      "id": "L03C",
       "turn": 3,
       "title": "Charcoal Clearing - Late Smoke",
       "narrative": [
@@ -305,20 +305,20 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Accept the thin evidence and go to St. Briar for the living part of the trail.",
-          "nextNodeId": "K04C",
+          "nextNodeId": "L04C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Use the erased camp itself as proof of discipline and question the wounded mason before the crews move farther ahead.",
-          "nextNodeId": "K04B",
+          "nextNodeId": "L04B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K04A",
+      "id": "L04A",
       "turn": 4,
       "title": "St. Briar Chapel - The Mason Speaks",
       "narrative": [
@@ -331,7 +331,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Take the name and the place, then verify them against the road line before moving on.",
-          "nextNodeId": "K05B",
+          "nextNodeId": "L05B",
           "scoreDelta": 0
         },
         {
@@ -346,13 +346,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Pair the mason's warning with the measured ground and move at once for the supply source below the climb.",
-          "nextNodeId": "K05A",
+          "nextNodeId": "L05A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K04B",
+      "id": "L04B",
       "turn": 4,
       "title": "St. Briar Chapel - Fevered Fragments",
       "narrative": [
@@ -365,14 +365,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take the name seriously, hold only the facts, and move for the quartermaster trail beneath the climb.",
-          "nextNodeId": "K05A",
+          "nextNodeId": "L05A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Treat the fragments as a warning, but spend time confirming the crew's route and stores.",
-          "nextNodeId": "K05C",
+          "nextNodeId": "L05C",
           "scoreDelta": 0
         },
         {
@@ -386,7 +386,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K04C",
+      "id": "L04C",
       "turn": 4,
       "title": "St. Briar Chapel - Breath Against Time",
       "narrative": [
@@ -407,20 +407,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use the name, the mark, and the mention of Widow's Notch to cut straight toward the supply chain.",
-          "nextNodeId": "K05B",
+          "nextNodeId": "L05B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Work from the few hard facts and search for the stores feeding the hidden line.",
-          "nextNodeId": "K05C",
+          "nextNodeId": "L05C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K05A",
+      "id": "L05A",
       "turn": 5,
       "title": "Bee Shed Cache - Ordered Stores",
       "narrative": [
@@ -433,7 +433,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Read the cache like a quartermaster and start breaking the hidden chain where supply and signal meet.",
-          "nextNodeId": "K06A",
+          "nextNodeId": "L06A",
           "scoreDelta": 1
         },
         {
@@ -448,13 +448,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Watch Pike closely, but spend the next hours tracing how the stores are signaled onward.",
-          "nextNodeId": "K06B",
+          "nextNodeId": "L06B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K05B",
+      "id": "L05B",
       "turn": 5,
       "title": "Bee Shed Cache - Uneasy Company",
       "narrative": [
@@ -467,14 +467,14 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Hold back, preserve the scene, and follow the next movement rather than forcing a break.",
-          "nextNodeId": "K06C",
+          "nextNodeId": "L06C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Use the cache, Pike's knowledge, and Ivo's eye together to identify the road's hidden messenger posts.",
-          "nextNodeId": "K06A",
+          "nextNodeId": "L06A",
           "scoreDelta": 1
         },
         {
@@ -488,7 +488,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K05C",
+      "id": "L05C",
       "turn": 5,
       "title": "Bee Shed Cache - Trail Through Common Hands",
       "narrative": [
@@ -509,20 +509,20 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Shadow Pike from a distance and accept slower work for the sake of order below.",
-          "nextNodeId": "K06C",
+          "nextNodeId": "L06C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Treat Pike as a likely hinge in the plot and follow the signs that link the cache to the signal chain.",
-          "nextNodeId": "K06B",
+          "nextNodeId": "L06B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K06A",
+      "id": "L06A",
       "turn": 6,
       "title": "Signal Wood - Speaking Forest",
       "narrative": [
@@ -535,7 +535,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Disable a few outer posts and press on before the full network adapts.",
-          "nextNodeId": "K07B",
+          "nextNodeId": "L07B",
           "scoreDelta": 0
         },
         {
@@ -550,13 +550,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Read the signal chain to its heart and move on the road line only after the watchers have been blinded in order.",
-          "nextNodeId": "K07A",
+          "nextNodeId": "L07A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K06B",
+      "id": "L06B",
       "turn": 6,
       "title": "Signal Wood - Half Seen Pattern",
       "narrative": [
@@ -569,14 +569,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use the half seen pattern to predict where the next watchers stand and cut toward the climb before they can report.",
-          "nextNodeId": "K07A",
+          "nextNodeId": "L07A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Clip what warnings you can and accept that some lookouts will remain active above you.",
-          "nextNodeId": "K07C",
+          "nextNodeId": "L07C",
           "scoreDelta": 0
         },
         {
@@ -590,7 +590,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K06C",
+      "id": "L06C",
       "turn": 6,
       "title": "Signal Wood - Warnings on Every Ridge",
       "narrative": [
@@ -611,20 +611,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Strike the most important links first and use the brief silence to recover the line uphill.",
-          "nextNodeId": "K07B",
+          "nextNodeId": "L07B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Accept partial warning and keep enough strength together to survive the climb.",
-          "nextNodeId": "K07C",
+          "nextNodeId": "L07C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K07A",
+      "id": "L07A",
       "turn": 7,
       "title": "Stagrise Cut - Old Stone, New Hands",
       "narrative": [
@@ -637,7 +637,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use side cover, Maelin's eye, and the fresh drainage work to move on the road without being offered to it.",
-          "nextNodeId": "K08A",
+          "nextNodeId": "L08A",
           "scoreDelta": 1
         },
         {
@@ -652,13 +652,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Advance on the shelf with shields up and patience, keeping casualties low but losing pace.",
-          "nextNodeId": "K08B",
+          "nextNodeId": "L08B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K07B",
+      "id": "L07B",
       "turn": 7,
       "title": "Stagrise Cut - The Hard Climb",
       "narrative": [
@@ -671,14 +671,14 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Keep the climb deliberate and preserve strength for whatever waits above the cut.",
-          "nextNodeId": "K08C",
+          "nextNodeId": "L08C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Let the workmanship tell you where Keld must commit next and move to that point before dark.",
-          "nextNodeId": "K08A",
+          "nextNodeId": "L08A",
           "scoreDelta": 1
         },
         {
@@ -692,7 +692,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K07C",
+      "id": "L07C",
       "turn": 7,
       "title": "Stagrise Cut - Lost Ground on the Shelf",
       "narrative": [
@@ -713,20 +713,20 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Hold together and keep climbing even though the enemy already owns the rhythm of the slope.",
-          "nextNodeId": "K08C",
+          "nextNodeId": "L08C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Use the thickened sign to estimate crew size and regain a little time by striking for the next choke point.",
-          "nextNodeId": "K08B",
+          "nextNodeId": "L08B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K08A",
+      "id": "L08A",
       "turn": 8,
       "title": "Broken Toll Arch - Keld's Mark",
       "narrative": [
@@ -739,7 +739,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Mark the proof and move on, assuming the sponsor behind Keld will show itself later.",
-          "nextNodeId": "K09B",
+          "nextNodeId": "L09B",
           "scoreDelta": 0
         },
         {
@@ -754,13 +754,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Treat Keld's mark as the center of the plot and hunt for the quartermaster who keeps him fed below.",
-          "nextNodeId": "K09A",
+          "nextNodeId": "L09A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K08B",
+      "id": "L08B",
       "turn": 8,
       "title": "Broken Toll Arch - The Craftsman's Signature",
       "narrative": [
@@ -773,14 +773,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use Keld's vanity against him and look for the village hand that has been feeding his design.",
-          "nextNodeId": "K09A",
+          "nextNodeId": "L09A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Keep climbing first and leave the question of supply and backing for later.",
-          "nextNodeId": "K09C",
+          "nextNodeId": "L09C",
           "scoreDelta": 0
         },
         {
@@ -794,7 +794,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K08C",
+      "id": "L08C",
       "turn": 8,
       "title": "Broken Toll Arch - A Name in Mortar",
       "narrative": [
@@ -815,20 +815,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use Keld's identity to read where his supplies must be hidden and cut back toward the quartermaster trail.",
-          "nextNodeId": "K09B",
+          "nextNodeId": "L09B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Take the name as enough and keep climbing, even if the wider shape of the plot stays uncertain.",
-          "nextNodeId": "K09C",
+          "nextNodeId": "L09C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K09A",
+      "id": "L09A",
       "turn": 9,
       "title": "Pike's Outer Barn - Hidden Accounts",
       "narrative": [
@@ -841,7 +841,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take the papers, leave the trap half shut, and prepare for the open stroke Pike must make next.",
-          "nextNodeId": "K10A",
+          "nextNodeId": "L10A",
           "scoreDelta": 1
         },
         {
@@ -856,13 +856,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Secure what proof you can and watch for Pike's answer rather than forcing it at once.",
-          "nextNodeId": "K10B",
+          "nextNodeId": "L10B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K09B",
+      "id": "L09B",
       "turn": 9,
       "title": "Pike's Outer Barn - Supplies in the Tithe Grain",
       "narrative": [
@@ -875,14 +875,14 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Gather the proof and tighten watches, even if Pike likely moves before you can seize him cleanly.",
-          "nextNodeId": "K10C",
+          "nextNodeId": "L10C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Turn the hidden accounts into a snare and force Pike or Keld to expose their hand at the ford.",
-          "nextNodeId": "K10A",
+          "nextNodeId": "L10A",
           "scoreDelta": 1
         },
         {
@@ -896,7 +896,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K09C",
+      "id": "L09C",
       "turn": 9,
       "title": "Pike's Outer Barn - Suspicion Made Solid",
       "narrative": [
@@ -917,20 +917,20 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Keep the proof quiet and brace for Pike's retaliation rather than risking a village stampede.",
-          "nextNodeId": "K10C",
+          "nextNodeId": "L10C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Use the hidden papers to predict Pike's next move and meet it where the countryside is weakest.",
-          "nextNodeId": "K10B",
+          "nextNodeId": "L10B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K10A",
+      "id": "L10A",
       "turn": 10,
       "title": "Blackwater Ford - Fire and Splintered Boards",
       "narrative": [
@@ -943,7 +943,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Hold the villagers first, even if that means Keld's men escape the smoke.",
-          "nextNodeId": "K11B",
+          "nextNodeId": "L11B",
           "scoreDelta": 0
         },
         {
@@ -958,13 +958,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Divide the work cleanly: Ivo secures the bridge, you salvage proof, and panic is denied its full harvest.",
-          "nextNodeId": "K11A",
+          "nextNodeId": "L11A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K10B",
+      "id": "L10B",
       "turn": 10,
       "title": "Blackwater Ford - Confusion by Design",
       "narrative": [
@@ -977,14 +977,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Save what proof matters most, fix the crossing, and deny Pike the full collapse he meant to cause.",
-          "nextNodeId": "K11A",
+          "nextNodeId": "L11A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Stabilize the ford and accept that the enemy has bought itself time through disorder.",
-          "nextNodeId": "K11C",
+          "nextNodeId": "L11C",
           "scoreDelta": 0
         },
         {
@@ -998,7 +998,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K10C",
+      "id": "L10C",
       "turn": 10,
       "title": "Blackwater Ford - The First Open Blow",
       "narrative": [
@@ -1019,20 +1019,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Put out the worst of the fire, save who can be saved, and rebuild enough trust to keep climbing.",
-          "nextNodeId": "K11B",
+          "nextNodeId": "L11B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Hold the lane by force of presence and postpone the larger answer until order returns.",
-          "nextNodeId": "K11C",
+          "nextNodeId": "L11C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K11A",
+      "id": "L11A",
       "turn": 11,
       "title": "Oakenhurst Lane - Holding the Fields",
       "narrative": [
@@ -1045,7 +1045,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Stabilize the villages with visible order and then follow the axle sign before the mountain swallows it.",
-          "nextNodeId": "K12A",
+          "nextNodeId": "L12A",
           "scoreDelta": 1
         },
         {
@@ -1060,13 +1060,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Keep the lanes calm first, even if the heavy machine gains more height while you do it.",
-          "nextNodeId": "K12B",
+          "nextNodeId": "L12B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K11B",
+      "id": "L11B",
       "turn": 11,
       "title": "Oakenhurst Lane - A Narrow Calm",
       "narrative": [
@@ -1079,14 +1079,14 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Accept a brittle calm below and take the heavy trail uphill once order barely holds.",
-          "nextNodeId": "K12C",
+          "nextNodeId": "L12C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Use your brief calm to fix watches, close messenger gaps, and then move on the machine's line without losing the country behind you.",
-          "nextNodeId": "K12A",
+          "nextNodeId": "L12A",
           "scoreDelta": 1
         },
         {
@@ -1100,7 +1100,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K11C",
+      "id": "L11C",
       "turn": 11,
       "title": "Oakenhurst Lane - Fear on Every Doorstep",
       "narrative": [
@@ -1121,20 +1121,20 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Hold the minimum peace you can and follow the heavy sign before it is gone.",
-          "nextNodeId": "K12C",
+          "nextNodeId": "L12C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Use Ivo, Elswyth, and Maelin in concert to stop a full flight and recover the line of the machine uphill.",
-          "nextNodeId": "K12B",
+          "nextNodeId": "L12B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K12A",
+      "id": "L12A",
       "turn": 12,
       "title": "Beech Ridge Quarry - The Great Drum",
       "narrative": [
@@ -1147,7 +1147,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Take the quarry's lesson and climb for the notch before the upper frame is finished.",
-          "nextNodeId": "K13B",
+          "nextNodeId": "L13B",
           "scoreDelta": 0
         },
         {
@@ -1162,13 +1162,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Read the machine, the rope, and the missing parts together, then cut straight toward Widow's Notch with the plan fully understood.",
-          "nextNodeId": "K13A",
+          "nextNodeId": "L13A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K12B",
+      "id": "L12B",
       "turn": 12,
       "title": "Beech Ridge Quarry - Siege Craft in Hiding",
       "narrative": [
@@ -1181,14 +1181,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take from the quarry exactly what the upper works must still be missing and use that to predict the path ahead.",
-          "nextNodeId": "K13A",
+          "nextNodeId": "L13A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Leave the quarry and chase the upper works before the final assembly is complete.",
-          "nextNodeId": "K13C",
+          "nextNodeId": "L13C",
           "scoreDelta": 0
         },
         {
@@ -1202,7 +1202,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K12C",
+      "id": "L12C",
       "turn": 12,
       "title": "Beech Ridge Quarry - Too Close to Completion",
       "narrative": [
@@ -1223,20 +1223,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Let the near-complete frame tell you the final target and climb before Keld can marry tool to stone.",
-          "nextNodeId": "K13B",
+          "nextNodeId": "L13B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Push on despite lost time and accept that the machine is already partly ahead of you.",
-          "nextNodeId": "K13C",
+          "nextNodeId": "L13C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K13A",
+      "id": "L13A",
       "turn": 13,
       "title": "Ward Line Posts - Widow's Notch",
       "narrative": [
@@ -1249,7 +1249,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take the measure of the blocked gap quickly and leave before the heights can answer you.",
-          "nextNodeId": "K14A",
+          "nextNodeId": "L14A",
           "scoreDelta": 1
         },
         {
@@ -1264,13 +1264,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Withdraw from the exposed shoulder and plan the next climb from safer ground.",
-          "nextNodeId": "K14B",
+          "nextNodeId": "L14B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K13B",
+      "id": "L13B",
       "turn": 13,
       "title": "Ward Line Posts - The Forgotten Wound",
       "narrative": [
@@ -1283,14 +1283,14 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Keep the mountain in mind and fall back into a slower pursuit of the upper crews.",
-          "nextNodeId": "K14C",
+          "nextNodeId": "L14C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Take the short, dangerous look you need and let the true scale of the threat sharpen every step after it.",
-          "nextNodeId": "K14A",
+          "nextNodeId": "L14A",
           "scoreDelta": 1
         },
         {
@@ -1304,7 +1304,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K13C",
+      "id": "L13C",
       "turn": 13,
       "title": "Ward Line Posts - Hard Proof at Last",
       "narrative": [
@@ -1325,20 +1325,20 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Keep everyone together and accept that you are closing late on a nearly finished design.",
-          "nextNodeId": "K14C",
+          "nextNodeId": "L14C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Use the hard proof to strip away hesitation and recover some pace on the climb.",
-          "nextNodeId": "K14B",
+          "nextNodeId": "L14B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K14A",
+      "id": "L14A",
       "turn": 14,
       "title": "Hard Frost - Keld in Daylight",
       "narrative": [
@@ -1351,7 +1351,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Track the daylight movement cautiously and save strength for the last loads.",
-          "nextNodeId": "K15B",
+          "nextNodeId": "L15B",
           "scoreDelta": 0
         },
         {
@@ -1366,13 +1366,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use the clear air to identify the essential load and intercept where Keld must commit it.",
-          "nextNodeId": "K15A",
+          "nextNodeId": "L15A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K14B",
+      "id": "L14B",
       "turn": 14,
       "title": "Hard Frost - A Race in Clear Air",
       "narrative": [
@@ -1385,14 +1385,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Match Keld's pace with your own discipline and cut toward the final haul while the weather still favors movement.",
-          "nextNodeId": "K15A",
+          "nextNodeId": "L15A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Preserve your line and accept that the last intercept may come later and harsher.",
-          "nextNodeId": "K15C",
+          "nextNodeId": "L15C",
           "scoreDelta": 0
         },
         {
@@ -1406,7 +1406,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K14C",
+      "id": "L14C",
       "turn": 14,
       "title": "Hard Frost - Time Narrowing",
       "narrative": [
@@ -1427,20 +1427,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use the hardened tracks to recover the path of the essential load and force one last intercept below the notch.",
-          "nextNodeId": "K15B",
+          "nextNodeId": "L15B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Keep climbing under poor odds and hope to contest the final assembly on bad ground.",
-          "nextNodeId": "K15C",
+          "nextNodeId": "L15C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K15A",
+      "id": "L15A",
       "turn": 15,
       "title": "Pine Cover Train - Cutting the Load",
       "narrative": [
@@ -1453,7 +1453,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Break the train by discipline rather than noise, denying Keld rope, pace, and confidence at once.",
-          "nextNodeId": "K16A",
+          "nextNodeId": "L16A",
           "scoreDelta": 1
         },
         {
@@ -1468,13 +1468,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Take what material you safely can and let the rest crawl on in worse order.",
-          "nextNodeId": "K16B",
+          "nextNodeId": "L16B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K15B",
+      "id": "L15B",
       "turn": 15,
       "title": "Pine Cover Train - A Costly Intercept",
       "narrative": [
@@ -1487,14 +1487,14 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Take the safer skirmish and accept that the most important gear may still reach the heights.",
-          "nextNodeId": "K16C",
+          "nextNodeId": "L16C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Strike the handlers, the lead teams, and the anchor gear in one tight blow before the escort can recover.",
-          "nextNodeId": "K16A",
+          "nextNodeId": "L16A",
           "scoreDelta": 1
         },
         {
@@ -1508,7 +1508,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K15C",
+      "id": "L15C",
       "turn": 15,
       "title": "Pine Cover Train - Too Many Moving Parts",
       "narrative": [
@@ -1529,20 +1529,20 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Damage what you can and keep enough strength to survive the climb to the upper works.",
-          "nextNodeId": "K16C",
+          "nextNodeId": "L16C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Take the train apart by its necessities and recover one layer of control before the final hours.",
-          "nextNodeId": "K16B",
+          "nextNodeId": "L16B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K16A",
+      "id": "L16A",
       "turn": 16,
       "title": "Forester's Hut - Pike Cornered",
       "narrative": [
@@ -1555,7 +1555,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Take the confession, bind Pike, and climb without risking another hour on him.",
-          "nextNodeId": "K17B",
+          "nextNodeId": "L17B",
           "scoreDelta": 0
         },
         {
@@ -1570,13 +1570,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Pull every last useful detail from Pike, then leave him in sure hands while you race for the notch.",
-          "nextNodeId": "K17A",
+          "nextNodeId": "L17A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K16B",
+      "id": "L16B",
       "turn": 16,
       "title": "Forester's Hut - Confession Under Pressure",
       "narrative": [
@@ -1589,14 +1589,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use Pike's vanity against him, strip out the timing and signal plan, and climb with the last uncertainty removed.",
-          "nextNodeId": "K17A",
+          "nextNodeId": "L17A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Take the confession and go, even if some of Pike's useful details remain untested.",
-          "nextNodeId": "K17C",
+          "nextNodeId": "L17C",
           "scoreDelta": 0
         },
         {
@@ -1610,7 +1610,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K16C",
+      "id": "L16C",
       "turn": 16,
       "title": "Forester's Hut - Truth at the Last Edge",
       "narrative": [
@@ -1631,20 +1631,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take the confession cleanly, secure Pike with trusted hands, and climb with the signal plan in mind.",
-          "nextNodeId": "K17B",
+          "nextNodeId": "L17B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Bind Pike quickly and choose speed over the comfort of a complete reckoning.",
-          "nextNodeId": "K17C",
+          "nextNodeId": "L17C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K17A",
+      "id": "L17A",
       "turn": 17,
       "title": "Lower Spring - Leaving Thorne",
       "narrative": [
@@ -1657,7 +1657,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Let Maelin read the flank, let Ivo hold the center, and climb with enough order to reach the upper works ready to strike.",
-          "nextNodeId": "K18A",
+          "nextNodeId": "L18A",
           "scoreDelta": 1
         },
         {
@@ -1672,13 +1672,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Advance under cover and accept a slower climb in exchange for keeping your line intact.",
-          "nextNodeId": "K18B",
+          "nextNodeId": "L18B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K17B",
+      "id": "L17B",
       "turn": 17,
       "title": "Lower Spring - Sleet and Strain",
       "narrative": [
@@ -1691,14 +1691,14 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Keep formation and absorb the climb's cost, even if the upper works gain a little more time.",
-          "nextNodeId": "K18C",
+          "nextNodeId": "L18C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Use the archers' rhythm against them and regain the direct line to the notch without breaking formation.",
-          "nextNodeId": "K18A",
+          "nextNodeId": "L18A",
           "scoreDelta": 1
         },
         {
@@ -1712,7 +1712,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K17C",
+      "id": "L17C",
       "turn": 17,
       "title": "Lower Spring - The Mountain Has the Measure",
       "narrative": [
@@ -1733,20 +1733,20 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Keep climbing through bad odds and trust endurance more than elegance.",
-          "nextNodeId": "K18C",
+          "nextNodeId": "L18C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Use every fold in the slope, every dark spruce, and every mistake by the archers to recover one last layer of ground.",
-          "nextNodeId": "K18B",
+          "nextNodeId": "L18B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K18A",
+      "id": "L18A",
       "turn": 18,
       "title": "Upper Earthworks - The Raw Palisade",
       "narrative": [
@@ -1759,7 +1759,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Break the works methodically and accept that the bell frame fight may come in worse light.",
-          "nextNodeId": "K19B",
+          "nextNodeId": "L19B",
           "scoreDelta": 0
         },
         {
@@ -1774,13 +1774,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Hit the weak join, turn the screen line, and crack the outer works before Keld can settle his crews again.",
-          "nextNodeId": "K19A",
+          "nextNodeId": "L19A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K18B",
+      "id": "L18B",
       "turn": 18,
       "title": "Upper Earthworks - Narrow Breach",
       "narrative": [
@@ -1793,14 +1793,14 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use the drainage cut and the weak join together and open the works before the winch crew can complete another full pull.",
-          "nextNodeId": "K19A",
+          "nextNodeId": "L19A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Press the breach with care and accept a harder final fight on the ledge beyond.",
-          "nextNodeId": "K19C",
+          "nextNodeId": "L19C",
           "scoreDelta": 0
         },
         {
@@ -1814,7 +1814,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K18C",
+      "id": "L18C",
       "turn": 18,
       "title": "Upper Earthworks - Too Much Ground to Take",
       "narrative": [
@@ -1835,20 +1835,20 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Exploit Keld's confidence, cut through where he thinks you are weakest, and reach the ledge before the machine settles.",
-          "nextNodeId": "K19B",
+          "nextNodeId": "L19B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Take the most workable approach and accept that the bell frame fight may begin with little order left.",
-          "nextNodeId": "K19C",
+          "nextNodeId": "L19C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K19A",
+      "id": "L19A",
       "turn": 19,
       "title": "Bell Frame Ledge - Keld in Sight",
       "narrative": [
@@ -1861,7 +1861,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use Keld's need to talk against him, strike the anchor sequence, and force the last fight on your terms.",
-          "nextNodeId": "K20A",
+          "nextNodeId": "L20A",
           "scoreDelta": 1
         },
         {
@@ -1876,13 +1876,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Ignore Keld's tongue, drive the crew off the drum, and contest the machine in brute order.",
-          "nextNodeId": "K20B",
+          "nextNodeId": "L20B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K19B",
+      "id": "L19B",
       "turn": 19,
       "title": "Bell Frame Ledge - The Builder's Last Measure",
       "narrative": [
@@ -1895,14 +1895,14 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Break the crew's rhythm first, even if Keld himself keeps room to flee.",
-          "nextNodeId": "K20C",
+          "nextNodeId": "L20C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Force the crew off balance, deny the drum a clean pull, and close on Keld only when the machine is failing.",
-          "nextNodeId": "K20A",
+          "nextNodeId": "L20A",
           "scoreDelta": 1
         },
         {
@@ -1916,7 +1916,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K19C",
+      "id": "L19C",
       "turn": 19,
       "title": "Bell Frame Ledge - Between Stone and Wind",
       "narrative": [
@@ -1937,20 +1937,20 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Hold the ledge, spoil what parts of the machine you can reach, and survive into the last exchange.",
-          "nextNodeId": "K20C",
+          "nextNodeId": "L20C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
           "label": "Turn the crew's own strain against them and create one clean opening in the main line before Keld can settle them.",
-          "nextNodeId": "K20B",
+          "nextNodeId": "L20B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K20A",
+      "id": "L20A",
       "turn": 20,
       "title": "Widow's Notch - Clean Break",
       "narrative": [
@@ -1988,7 +1988,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K20B",
+      "id": "L20B",
       "turn": 20,
       "title": "Widow's Notch - Bitter Ground",
       "narrative": [
@@ -2026,7 +2026,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K20C",
+      "id": "L20C",
       "turn": 20,
       "title": "Widow's Notch - Survival at the Edge",
       "narrative": [

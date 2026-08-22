@@ -60,7 +60,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Question Captain Elswyth and the witnesses before you leave the town.",
+          "label": "Question Captain Elswyth and the witnesses before you leave the town, leaving room to change course.",
           "nextNodeId": "K02B",
           "scoreDelta": 0
         },
@@ -103,14 +103,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Ride Thorne straight to Fox Tor before dawn can wash the signs away.",
+          "label": "Ride Thorne straight to Fox Tor before dawn can wash the signs away, after securing the ground already won.",
           "nextNodeId": "K02A",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Search Hadrin's hut and gear before climbing the tor.",
+          "label": "Search Hadrin's hut and gear before climbing the tor, with the strongest account in hand.",
           "nextNodeId": "K02C",
           "scoreDelta": 1
         }
@@ -165,7 +165,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Carry the signs to Brother Ansel and read the old beacon rolls.",
+          "label": "Carry the signs to Brother Ansel and read the old beacon rolls, with the strongest account in hand.",
           "nextNodeId": "K03B",
           "scoreDelta": 1
         },
@@ -200,14 +200,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Follow the fresh hobnailed trail down the lime road.",
+          "label": "Follow the fresh hobnailed trail down the lime road, with the remaining risks kept in view.",
           "nextNodeId": "K03A",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Work the inn yard and stables for rumor before you chase shadows.",
+          "label": "Work the inn yard and stables for rumor before you chase shadows, following the trail that best fits the evidence.",
           "nextNodeId": "K03C",
           "scoreDelta": 1
         },
@@ -278,7 +278,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Warn Elswyth quietly and set watchers on Saint Werran causeway.",
+          "label": "Warn Elswyth quietly and set watchers on Saint Werran causeway, with the remaining risks kept in view.",
           "nextNodeId": "K04B",
           "scoreDelta": 0
         },
@@ -305,7 +305,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Shadow the mule cart that slipped out of Oakenhurst at dusk.",
+          "label": "Shadow the mule cart that slipped out of Oakenhurst at dusk, using the clearest clue from this approach.",
           "nextNodeId": "K04C",
           "scoreDelta": 1
         },
@@ -320,7 +320,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Ride for Dunsill Ridge and catch the next beacon before moonrise.",
+          "label": "Ride for Dunsill Ridge and catch the next beacon before moonrise, while keeping the safer line open.",
           "nextNodeId": "K04A",
           "scoreDelta": 0
         }
@@ -355,7 +355,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Warn Elswyth quietly and set watchers on Saint Werran causeway.",
+          "label": "Warn Elswyth quietly and set watchers on Saint Werran causeway, while keeping the safer line open.",
           "nextNodeId": "K05B",
           "scoreDelta": 0
         }
@@ -418,14 +418,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Climb Dunsill Ridge and watch the beacon platform from cover.",
+          "label": "Climb Dunsill Ridge and watch the beacon platform from cover, by the slower but steadier course.",
           "nextNodeId": "K05A",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the mule cart to the abandoned charcoal pits.",
+          "label": "Follow the mule cart to the abandoned charcoal pits, on the strongest evidence available.",
           "nextNodeId": "K05C",
           "scoreDelta": 1
         }
@@ -480,7 +480,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Question the rescued wagoner about the men who took him.",
+          "label": "Question the rescued wagoner about the men who took him, on the strongest evidence available.",
           "nextNodeId": "K06B",
           "scoreDelta": 1
         },
@@ -515,14 +515,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Pursue the signalmen into the pine breaks before they scatter.",
+          "label": "Pursue the signalmen into the pine breaks before they scatter, without committing every resource at once.",
           "nextNodeId": "K06A",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Search the outlaw cache for maps, cords, and names.",
+          "label": "Search the outlaw cache for maps, cords, and names, with old and new signs considered together.",
           "nextNodeId": "K06C",
           "scoreDelta": 1
         },
@@ -593,7 +593,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Keep the matter quiet and test who in town is passing wagon times.",
+          "label": "Keep the matter quiet and test who in town is passing wagon times, without committing every resource at once.",
           "nextNodeId": "K07B",
           "scoreDelta": 0
         },
@@ -620,7 +620,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Go straight to Joss Weller before fear drives him to run.",
+          "label": "Go straight to Joss Weller before fear drives him to run, along the route least likely to alert the quarry.",
           "nextNodeId": "K07C",
           "scoreDelta": 1
         },
@@ -635,7 +635,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Return hard to Oakenhurst and force an immediate muster.",
+          "label": "Return hard to Oakenhurst and force an immediate muster, leaving room to change course.",
           "nextNodeId": "K07A",
           "scoreDelta": 0
         }
@@ -670,7 +670,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Keep the matter quiet and test who in town is passing wagon times.",
+          "label": "Keep the matter quiet and test who in town is passing wagon times, leaving room to change course.",
           "nextNodeId": "K08B",
           "scoreDelta": 0
         }
@@ -733,14 +733,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Stage false wagon times with Joss under guard and use the leak.",
+          "label": "Stage false wagon times with Joss under guard and use the leak, after securing the ground already won.",
           "nextNodeId": "K08A",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Hide by the south gate and wait for the informer to move.",
+          "label": "Hide by the south gate and wait for the informer to move, with the strongest account in hand.",
           "nextNodeId": "K08C",
           "scoreDelta": 1
         }
@@ -795,7 +795,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Strike the old quarry with Tavin and free the captive.",
+          "label": "Strike the old quarry with Tavin and free the captive, with the strongest account in hand.",
           "nextNodeId": "K09B",
           "scoreDelta": 1
         },
@@ -810,7 +810,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Hide by the south gate and wait for the informer to move.",
+          "label": "Hide by the south gate and wait for the informer to move, with the remaining risks kept in view.",
           "nextNodeId": "K09C",
           "scoreDelta": 0
         }
@@ -830,7 +830,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Trail the courier who carries the false times out of town.",
+          "label": "Trail the courier who carries the false times out of town, with the remaining risks kept in view.",
           "nextNodeId": "K09A",
           "scoreDelta": 0
         },
@@ -908,7 +908,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Ride to Saint Werran at once with Niall's warning.",
+          "label": "Ride to Saint Werran at once with Niall's warning, with the remaining risks kept in view.",
           "nextNodeId": "K10B",
           "scoreDelta": 0
         },
@@ -935,7 +935,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Search the dike camp for alternate routes and spare beacon oil.",
+          "label": "Search the dike camp for alternate routes and spare beacon oil, using the clearest clue from this approach.",
           "nextNodeId": "K10C",
           "scoreDelta": 1
         },
@@ -950,7 +950,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Interrogate the captive and learn how Vane means to signal.",
+          "label": "Interrogate the captive and learn how Vane means to signal, while keeping the safer line open.",
           "nextNodeId": "K10A",
           "scoreDelta": 0
         }
@@ -1005,7 +1005,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Place hidden archers at Blackthorn Beacon and wait.",
+          "label": "Place hidden archers at Blackthorn Beacon and wait, while keeping the safer line open.",
           "nextNodeId": "K11B",
           "scoreDelta": 0
         },
@@ -1048,14 +1048,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Study the full beacon ledger with Brother Ansel through the night.",
+          "label": "Study the full beacon ledger with Brother Ansel through the night, by the slower but steadier course.",
           "nextNodeId": "K11A",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Cut through Elderwood to Thornwatch and beat Vane to the ruins.",
+          "label": "Cut through Elderwood to Thornwatch and beat Vane to the ruins, on the strongest evidence available.",
           "nextNodeId": "K11C",
           "scoreDelta": 1
         }
@@ -1083,7 +1083,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Place hidden archers at Blackthorn Beacon and wait.",
+          "label": "Place hidden archers at Blackthorn Beacon and wait, by the slower but steadier course.",
           "nextNodeId": "K12B",
           "scoreDelta": 0
         },
@@ -1145,14 +1145,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Ride for Blackthorn before dawn and seize the tower stairs.",
+          "label": "Ride for Blackthorn before dawn and seize the tower stairs, without committing every resource at once.",
           "nextNodeId": "K12A",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Circle to Thornwatch ruins for Hadrin's missing spare strip.",
+          "label": "Circle to Thornwatch ruins for Hadrin's missing spare strip, with old and new signs considered together.",
           "nextNodeId": "K12C",
           "scoreDelta": 1
         },
@@ -1223,7 +1223,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Hunt the retreating lieutenant across the ridge and take him alive.",
+          "label": "Hunt the retreating lieutenant across the ridge and take him alive, without committing every resource at once.",
           "nextNodeId": "K13B",
           "scoreDelta": 0
         },
@@ -1250,7 +1250,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Read the spare strip at Thornwatch and break the final code.",
+          "label": "Read the spare strip at Thornwatch and break the final code, along the route least likely to alert the quarry.",
           "nextNodeId": "K13C",
           "scoreDelta": 1
         },
@@ -1265,7 +1265,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Hold Blackthorn after the skirmish and count the signal ropes.",
+          "label": "Hold Blackthorn after the skirmish and count the signal ropes, leaving room to change course.",
           "nextNodeId": "K13A",
           "scoreDelta": 0
         }
@@ -1320,7 +1320,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "March with the chapel villagers and reinforce the granary.",
+          "label": "March with the chapel villagers and reinforce the granary, leaving room to change course.",
           "nextNodeId": "K14B",
           "scoreDelta": 0
         },
@@ -1363,14 +1363,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Send Tavin to Elswyth and ride yourself to Saint Werran bridge.",
+          "label": "Send Tavin to Elswyth and ride yourself to Saint Werran bridge, after securing the ground already won.",
           "nextNodeId": "K14A",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Move by the marsh edge and cut the rope bridge Vane means to use.",
+          "label": "Move by the marsh edge and cut the rope bridge Vane means to use, with the strongest account in hand.",
           "nextNodeId": "K14C",
           "scoreDelta": 1
         }
@@ -1398,7 +1398,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "March with the chapel villagers and reinforce the granary.",
+          "label": "March with the chapel villagers and reinforce the granary, after securing the ground already won.",
           "nextNodeId": "K15B",
           "scoreDelta": 0
         },
@@ -1460,14 +1460,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Fortify the beacon tower beside Saint Werran.",
+          "label": "Fortify the beacon tower beside Saint Werran, with the remaining risks kept in view.",
           "nextNodeId": "K15A",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Stalk Vane's scouts in the reedbeds before the main blow.",
+          "label": "Stalk Vane's scouts in the reedbeds before the main blow, following the trail that best fits the evidence.",
           "nextNodeId": "K15C",
           "scoreDelta": 1
         },
@@ -1545,7 +1545,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Hold the bridge mouth with Elswyth's wardens.",
+          "label": "Hold the bridge mouth with Elswyth's wardens, following the trail that best fits the evidence.",
           "nextNodeId": "K16B",
           "scoreDelta": 1
         }
@@ -1565,7 +1565,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Strike the reserve by the old mill sluice.",
+          "label": "Strike the reserve by the old mill sluice, using the clearest clue from this approach.",
           "nextNodeId": "K16C",
           "scoreDelta": 1
         },
@@ -1580,7 +1580,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Climb to the upper platform and deny the beacon fire.",
+          "label": "Climb to the upper platform and deny the beacon fire, while keeping the safer line open.",
           "nextNodeId": "K16A",
           "scoreDelta": 0
         }
@@ -1615,7 +1615,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Hold the bridge mouth with Elswyth's wardens.",
+          "label": "Hold the bridge mouth with Elswyth's wardens, while keeping the safer line open.",
           "nextNodeId": "K17B",
           "scoreDelta": 0
         }
@@ -1635,7 +1635,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Strike the reserve by the old mill sluice.",
+          "label": "Strike the reserve by the old mill sluice, by the slower but steadier course.",
           "nextNodeId": "K17C",
           "scoreDelta": 0
         },
@@ -1678,7 +1678,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Shoot the oil bearers before they reach the tower stairs.",
+          "label": "Shoot the oil bearers before they reach the tower stairs, by the slower but steadier course.",
           "nextNodeId": "K17A",
           "scoreDelta": 0
         },
@@ -1740,7 +1740,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Rescue Brother Ansel and the refugees in the granary yard.",
+          "label": "Rescue Brother Ansel and the refugees in the granary yard, on the strongest evidence available.",
           "nextNodeId": "K18B",
           "scoreDelta": 1
         },
@@ -1783,14 +1783,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Chase Rorik Vane up the tower steps himself.",
+          "label": "Chase Rorik Vane up the tower steps himself, without committing every resource at once.",
           "nextNodeId": "K18A",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Cut off the retreat behind the tower.",
+          "label": "Cut off the retreat behind the tower, with old and new signs considered together.",
           "nextNodeId": "K18C",
           "scoreDelta": 1
         }
@@ -1845,7 +1845,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Corner Vane below the tower among the grain wagons.",
+          "label": "Corner Vane below the tower among the grain wagons, with old and new signs considered together.",
           "nextNodeId": "K19B",
           "scoreDelta": 1
         },
@@ -1888,14 +1888,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Face Vane on the beacon platform before he reaches the brazier.",
+          "label": "Face Vane on the beacon platform before he reaches the brazier, leaving room to change course.",
           "nextNodeId": "K19A",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Surround the last of his men at the marsh path and force surrender.",
+          "label": "Surround the last of his men at the marsh path and force surrender, along the route least likely to alert the quarry.",
           "nextNodeId": "K19C",
           "scoreDelta": 1
         }
@@ -1957,7 +1957,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Win the bridge gate and drive his men apart.",
+          "label": "Win the bridge gate and drive his men apart, along the route least likely to alert the quarry.",
           "nextNodeId": "K20B",
           "scoreDelta": 1
         },
@@ -1993,14 +1993,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Smother the brazier and take Vane alive.",
+          "label": "Smother the brazier and take Vane alive, after securing the ground already won.",
           "nextNodeId": "K20A",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Hold till dawn and gather the scattered survivors.",
+          "label": "Hold till dawn and gather the scattered survivors, with the strongest account in hand.",
           "nextNodeId": "K20C",
           "scoreDelta": 1
         }

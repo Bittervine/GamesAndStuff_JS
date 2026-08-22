@@ -58,7 +58,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Wait for a large escort while the storm gathers, taking time to verify each step.",
+          "label": "Wait for a large escort while the storm gathers, on the strength of one uncertain sign.",
           "failTitle": "Failure at Aldric’s warning",
           "failText": "A reckless decision at aldric’s warning gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -66,14 +66,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Ride for Greyhook before the snow hides the cut bell straps, taking time to verify each step.",
+          "label": "Ride for Greyhook before the snow hides the cut bell straps, along the route least likely to alert the quarry.",
           "scoreDelta": 1,
           "nextNodeId": "V02B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Ask Aldric for Mara Venn’s full report before leaving, taking time to verify each step.",
+          "label": "Ask Aldric for Mara Venn’s full report before leaving, leaving room to change course.",
           "scoreDelta": 0,
           "nextNodeId": "V02C"
         }
@@ -92,21 +92,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Ride for Greyhook before the snow hides the cut bell straps, despite the ground already lost.",
+          "label": "Ride for Greyhook before the snow hides the cut bell straps, following the trail that best fits the evidence.",
           "scoreDelta": 1,
           "nextNodeId": "V02C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Ask Aldric for Mara Venn’s full report before leaving, despite the ground already lost.",
+          "label": "Ask Aldric for Mara Venn’s full report before leaving, with the remaining risks kept in view.",
           "scoreDelta": 0,
           "nextNodeId": "V02A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Wait for a large escort while the storm gathers, despite the ground already lost.",
+          "label": "Wait for a large escort while the storm gathers, with the warning signs still unresolved.",
           "failTitle": "Failure at Aldric’s warning",
           "failText": "A reckless decision at aldric’s warning gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -160,21 +160,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the bell-sled scratches toward the blasted pine, taking time to verify each step.",
+          "label": "Follow the bell-sled scratches toward the blasted pine, with the strongest account in hand.",
           "scoreDelta": 1,
           "nextNodeId": "V03B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Inventory the remaining warning frames with Mara, taking time to verify each step.",
+          "label": "Inventory the remaining warning frames with Mara, after securing the ground already won.",
           "scoreDelta": 0,
           "nextNodeId": "V03C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Climb the exposed cliff after an uncertain lantern, taking time to verify each step.",
+          "label": "Climb the exposed cliff after an uncertain lantern, without hearing the nearest witness.",
           "failTitle": "Failure at Tracks above Greyhook",
           "failText": "A reckless decision at tracks above greyhook gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -194,14 +194,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Inventory the remaining warning frames with Mara, despite the ground already lost.",
+          "label": "Inventory the remaining warning frames with Mara, while keeping the safer line open.",
           "scoreDelta": 0,
           "nextNodeId": "V03A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Climb the exposed cliff after an uncertain lantern, despite the ground already lost.",
+          "label": "Climb the exposed cliff after an uncertain lantern, without testing the danger ahead.",
           "failTitle": "Failure at Tracks above Greyhook",
           "failText": "A reckless decision at tracks above greyhook gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -209,7 +209,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Follow the bell-sled scratches toward the blasted pine, despite the ground already lost.",
+          "label": "Follow the bell-sled scratches toward the blasted pine, using the clearest clue from this approach.",
           "scoreDelta": 1,
           "nextNodeId": "V03C"
         }
@@ -262,14 +262,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Circle the watch hut for tracks before entering, taking time to verify each step.",
+          "label": "Circle the watch hut for tracks before entering, with the remaining risks kept in view.",
           "scoreDelta": 0,
           "nextNodeId": "V04C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Ring the misplaced bell and announce your position, taking time to verify each step.",
+          "label": "Ring the misplaced bell and announce your position, with the warning signs still unresolved.",
           "failTitle": "Failure at The watch hut",
           "failText": "A reckless decision at the watch hut gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -277,7 +277,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Compare the blue-wax scrap with Mara’s warden records, taking time to verify each step.",
+          "label": "Compare the blue-wax scrap with Mara’s warden records, following the trail that best fits the evidence.",
           "scoreDelta": 1,
           "nextNodeId": "V04B"
         }
@@ -296,7 +296,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Ring the misplaced bell and announce your position, despite the ground already lost.",
+          "label": "Ring the misplaced bell and announce your position, despite the doubts raised by the evidence.",
           "failTitle": "Failure at The watch hut",
           "failText": "A reckless decision at the watch hut gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -304,14 +304,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Compare the blue-wax scrap with Mara’s warden records, despite the ground already lost.",
+          "label": "Compare the blue-wax scrap with Mara’s warden records, on the strongest evidence available.",
           "scoreDelta": 1,
           "nextNodeId": "V04C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Circle the watch hut for tracks before entering, despite the ground already lost.",
+          "label": "Circle the watch hut for tracks before entering, by the slower but steadier course.",
           "scoreDelta": 0,
           "nextNodeId": "V04A"
         }
@@ -364,7 +364,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Chase the first fleeing shape into the snow, taking time to verify each step.",
+          "label": "Chase the first fleeing shape into the snow, without testing the danger ahead.",
           "failTitle": "Failure at A false warning",
           "failText": "A reckless decision at a false warning gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -372,14 +372,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Calm the villagers and trace the stolen pack mules, taking time to verify each step.",
+          "label": "Calm the villagers and trace the stolen pack mules, using the clearest clue from this approach.",
           "scoreDelta": 1,
           "nextNodeId": "V05B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the ruined shrine before following the boot mark, taking time to verify each step.",
+          "label": "Secure the ruined shrine before following the boot mark, while keeping the safer line open.",
           "scoreDelta": 0,
           "nextNodeId": "V05C"
         }
@@ -398,21 +398,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Calm the villagers and trace the stolen pack mules, despite the ground already lost.",
+          "label": "Calm the villagers and trace the stolen pack mules, with old and new signs considered together.",
           "scoreDelta": 1,
           "nextNodeId": "V05C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the ruined shrine before following the boot mark, despite the ground already lost.",
+          "label": "Secure the ruined shrine before following the boot mark, without committing every resource at once.",
           "scoreDelta": 0,
           "nextNodeId": "V05A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Chase the first fleeing shape into the snow, despite the ground already lost.",
+          "label": "Chase the first fleeing shape into the snow, without securing help or a retreat.",
           "failTitle": "Failure at A false warning",
           "failText": "A reckless decision at a false warning gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -466,21 +466,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Test the copied key against every surviving bell lock, taking time to verify each step.",
+          "label": "Test the copied key against every surviving bell lock, on the strongest evidence available.",
           "scoreDelta": 1,
           "nextNodeId": "V06B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Hear Mara’s account of Oren Vale under guard, taking time to verify each step.",
+          "label": "Hear Mara’s account of Oren Vale under guard, by the slower but steadier course.",
           "scoreDelta": 0,
           "nextNodeId": "V06C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Arrest Mara solely because she kept the original keys, taking time to verify each step.",
+          "label": "Arrest Mara solely because she kept the original keys, despite the doubts raised by the evidence.",
           "failTitle": "Failure at Mara under suspicion",
           "failText": "A reckless decision at mara under suspicion gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -500,14 +500,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Hear Mara’s account of Oren Vale under guard, despite the ground already lost.",
+          "label": "Hear Mara’s account of Oren Vale under guard, leaving room to change course.",
           "scoreDelta": 0,
           "nextNodeId": "V06A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Arrest Mara solely because she kept the original keys, despite the ground already lost.",
+          "label": "Arrest Mara solely because she kept the original keys, on the strength of one uncertain sign.",
           "failTitle": "Failure at Mara under suspicion",
           "failText": "A reckless decision at mara under suspicion gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -515,7 +515,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Test the copied key against every surviving bell lock, despite the ground already lost.",
+          "label": "Test the copied key against every surviving bell lock, along the route least likely to alert the quarry.",
           "scoreDelta": 1,
           "nextNodeId": "V06C"
         }
@@ -568,14 +568,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Verify Hobb’s store totals with independent carriers, taking time to verify each step.",
+          "label": "Verify Hobb’s store totals with independent carriers, without committing every resource at once.",
           "scoreDelta": 0,
           "nextNodeId": "V07C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Accept Hobb’s soldiers and let them seize the evidence, taking time to verify each step.",
+          "label": "Accept Hobb’s soldiers and let them seize the evidence, without securing help or a retreat.",
           "failTitle": "Failure at The quartermaster’s ledger",
           "failText": "A reckless decision at the quartermaster’s ledger gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -583,7 +583,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Recover the missing ledger entry from its pressure marks, taking time to verify each step.",
+          "label": "Recover the missing ledger entry from its pressure marks, with old and new signs considered together.",
           "scoreDelta": 1,
           "nextNodeId": "V07B"
         }
@@ -602,7 +602,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Accept Hobb’s soldiers and let them seize the evidence, despite the ground already lost.",
+          "label": "Accept Hobb’s soldiers and let them seize the evidence, without hearing the nearest witness.",
           "failTitle": "Failure at The quartermaster’s ledger",
           "failText": "A reckless decision at the quartermaster’s ledger gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -610,14 +610,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Recover the missing ledger entry from its pressure marks, despite the ground already lost.",
+          "label": "Recover the missing ledger entry from its pressure marks, with the strongest account in hand.",
           "scoreDelta": 1,
           "nextNodeId": "V07C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Verify Hobb’s store totals with independent carriers, despite the ground already lost.",
+          "label": "Verify Hobb’s store totals with independent carriers, after securing the ground already won.",
           "scoreDelta": 0,
           "nextNodeId": "V07A"
         }
@@ -670,7 +670,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Set fire to the crawlspace to drive out whoever used it, taking time to verify each step.",
+          "label": "Set fire to the crawlspace to drive out whoever used it, on the strength of one uncertain sign.",
           "failTitle": "Failure at A hidden runner",
           "failText": "A reckless decision at a hidden runner gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -678,14 +678,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Follow Finn’s small prints from the stable crawlspace, taking time to verify each step.",
+          "label": "Follow Finn’s small prints from the stable crawlspace, along the route least likely to alert the quarry.",
           "scoreDelta": 1,
           "nextNodeId": "V08B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Search the hiding place for anything the boy left behind, taking time to verify each step.",
+          "label": "Search the hiding place for anything the boy left behind, leaving room to change course.",
           "scoreDelta": 0,
           "nextNodeId": "V08C"
         }
@@ -704,21 +704,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Follow Finn’s small prints from the stable crawlspace, despite the ground already lost.",
+          "label": "Follow Finn’s small prints from the stable crawlspace, following the trail that best fits the evidence.",
           "scoreDelta": 1,
           "nextNodeId": "V08C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Search the hiding place for anything the boy left behind, despite the ground already lost.",
+          "label": "Search the hiding place for anything the boy left behind, with the remaining risks kept in view.",
           "scoreDelta": 0,
           "nextNodeId": "V08A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Set fire to the crawlspace to drive out whoever used it, despite the ground already lost.",
+          "label": "Set fire to the crawlspace to drive out whoever used it, with the warning signs still unresolved.",
           "failTitle": "Failure at A hidden runner",
           "failText": "A reckless decision at a hidden runner gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -772,21 +772,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Approach the charcoal road under cover and signal Finn, taking time to verify each step.",
+          "label": "Approach the charcoal road under cover and signal Finn, with the strongest account in hand.",
           "scoreDelta": 1,
           "nextNodeId": "V09B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Track the handcart while Mara watches the tree line, taking time to verify each step.",
+          "label": "Track the handcart while Mara watches the tree line, after securing the ground already won.",
           "scoreDelta": 0,
           "nextNodeId": "V09C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Charge toward Finn without checking for an ambush, taking time to verify each step.",
+          "label": "Charge toward Finn without checking for an ambush, without hearing the nearest witness.",
           "failTitle": "Failure at The charcoal road",
           "failText": "A reckless decision at the charcoal road gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -806,14 +806,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Track the handcart while Mara watches the tree line, despite the ground already lost.",
+          "label": "Track the handcart while Mara watches the tree line, while keeping the safer line open.",
           "scoreDelta": 0,
           "nextNodeId": "V09A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Charge toward Finn without checking for an ambush, despite the ground already lost.",
+          "label": "Charge toward Finn without checking for an ambush, without testing the danger ahead.",
           "failTitle": "Failure at The charcoal road",
           "failText": "A reckless decision at the charcoal road gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -821,7 +821,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Approach the charcoal road under cover and signal Finn, despite the ground already lost.",
+          "label": "Approach the charcoal road under cover and signal Finn, using the clearest clue from this approach.",
           "scoreDelta": 1,
           "nextNodeId": "V09C"
         }
@@ -874,14 +874,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Guard the winter forge until Mara’s rope team arrives, taking time to verify each step.",
+          "label": "Guard the winter forge until Mara’s rope team arrives, with the remaining risks kept in view.",
           "scoreDelta": 0,
           "nextNodeId": "V10C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Carry off the bells and abandon the marked map, taking time to verify each step.",
+          "label": "Carry off the bells and abandon the marked map, with the warning signs still unresolved.",
           "failTitle": "Failure at The winter forge",
           "failText": "A reckless decision at the winter forge gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -889,7 +889,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Free Finn and study Oren’s map before touching the bells, taking time to verify each step.",
+          "label": "Free Finn and study Oren’s map before touching the bells, following the trail that best fits the evidence.",
           "scoreDelta": 1,
           "nextNodeId": "V10B"
         }
@@ -908,7 +908,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Carry off the bells and abandon the marked map, despite the ground already lost.",
+          "label": "Carry off the bells and abandon the marked map, despite the doubts raised by the evidence.",
           "failTitle": "Failure at The winter forge",
           "failText": "A reckless decision at the winter forge gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -916,14 +916,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Free Finn and study Oren’s map before touching the bells, despite the ground already lost.",
+          "label": "Free Finn and study Oren’s map before touching the bells, on the strongest evidence available.",
           "scoreDelta": 1,
           "nextNodeId": "V10C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Guard the winter forge until Mara’s rope team arrives, despite the ground already lost.",
+          "label": "Guard the winter forge until Mara’s rope team arrives, by the slower but steadier course.",
           "scoreDelta": 0,
           "nextNodeId": "V10A"
         }
@@ -976,7 +976,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Dismiss Finn’s warning as a frightened child’s tale, taking time to verify each step.",
+          "label": "Dismiss Finn’s warning as a frightened child’s tale, without testing the danger ahead.",
           "failTitle": "Failure at A prisoner’s account",
           "failText": "A reckless decision at a prisoner’s account gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -984,14 +984,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Compare the chalk crosses with Mara’s rescue code, taking time to verify each step.",
+          "label": "Compare the chalk crosses with Mara’s rescue code, using the clearest clue from this approach.",
           "scoreDelta": 1,
           "nextNodeId": "V11B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Escort Finn to safety before pursuing Oren, taking time to verify each step.",
+          "label": "Escort Finn to safety before pursuing Oren, while keeping the safer line open.",
           "scoreDelta": 0,
           "nextNodeId": "V11C"
         }
@@ -1010,21 +1010,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Compare the chalk crosses with Mara’s rescue code, despite the ground already lost.",
+          "label": "Compare the chalk crosses with Mara’s rescue code, with old and new signs considered together.",
           "scoreDelta": 1,
           "nextNodeId": "V11C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Escort Finn to safety before pursuing Oren, despite the ground already lost.",
+          "label": "Escort Finn to safety before pursuing Oren, without committing every resource at once.",
           "scoreDelta": 0,
           "nextNodeId": "V11A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Dismiss Finn’s warning as a frightened child’s tale, despite the ground already lost.",
+          "label": "Dismiss Finn’s warning as a frightened child’s tale, without securing help or a retreat.",
           "failTitle": "Failure at A prisoner’s account",
           "failText": "A reckless decision at a prisoner’s account gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1078,21 +1078,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Inspect the avalanche debris for tool marks and placed stone, taking time to verify each step.",
+          "label": "Inspect the avalanche debris for tool marks and placed stone, on the strongest evidence available.",
           "scoreDelta": 1,
           "nextNodeId": "V12B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Use the lower traverse to bypass the sealed pass, taking time to verify each step.",
+          "label": "Use the lower traverse to bypass the sealed pass, by the slower but steadier course.",
           "scoreDelta": 0,
           "nextNodeId": "V12C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Climb directly over the unstable slide, taking time to verify each step.",
+          "label": "Climb directly over the unstable slide, despite the doubts raised by the evidence.",
           "failTitle": "Failure at The sealed pass",
           "failText": "A reckless decision at the sealed pass gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1112,14 +1112,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Use the lower traverse to bypass the sealed pass, despite the ground already lost.",
+          "label": "Use the lower traverse to bypass the sealed pass, leaving room to change course.",
           "scoreDelta": 0,
           "nextNodeId": "V12A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Climb directly over the unstable slide, despite the ground already lost.",
+          "label": "Climb directly over the unstable slide, on the strength of one uncertain sign.",
           "failTitle": "Failure at The sealed pass",
           "failText": "A reckless decision at the sealed pass gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1127,7 +1127,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Inspect the avalanche debris for tool marks and placed stone, despite the ground already lost.",
+          "label": "Inspect the avalanche debris for tool marks and placed stone, along the route least likely to alert the quarry.",
           "scoreDelta": 1,
           "nextNodeId": "V12C"
         }
@@ -1180,14 +1180,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Record every false grain mark at Cairn Nine, taking time to verify each step.",
+          "label": "Record every false grain mark at Cairn Nine, without committing every resource at once.",
           "scoreDelta": 0,
           "nextNodeId": "V13C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Accuse the nearest miners and destroy the empty crates, taking time to verify each step.",
+          "label": "Accuse the nearest miners and destroy the empty crates, without securing help or a retreat.",
           "failTitle": "Failure at Cairn Nine",
           "failText": "A reckless decision at cairn nine gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1195,7 +1195,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Match the red-thread heel to Hobb’s escort records, taking time to verify each step.",
+          "label": "Match the red-thread heel to Hobb’s escort records, with old and new signs considered together.",
           "scoreDelta": 1,
           "nextNodeId": "V13B"
         }
@@ -1214,7 +1214,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Accuse the nearest miners and destroy the empty crates, despite the ground already lost.",
+          "label": "Accuse the nearest miners and destroy the empty crates, without hearing the nearest witness.",
           "failTitle": "Failure at Cairn Nine",
           "failText": "A reckless decision at cairn nine gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1222,14 +1222,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Match the red-thread heel to Hobb’s escort records, despite the ground already lost.",
+          "label": "Match the red-thread heel to Hobb’s escort records, with the strongest account in hand.",
           "scoreDelta": 1,
           "nextNodeId": "V13C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Record every false grain mark at Cairn Nine, despite the ground already lost.",
+          "label": "Record every false grain mark at Cairn Nine, after securing the ground already won.",
           "scoreDelta": 0,
           "nextNodeId": "V13A"
         }
@@ -1282,7 +1282,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Rush the rope bridge with your sword drawn, taking time to verify each step.",
+          "label": "Rush the rope bridge with your sword drawn, on the strength of one uncertain sign.",
           "failTitle": "Failure at The red-thread trail",
           "failText": "A reckless decision at the red-thread trail gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1290,14 +1290,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Speak with Sella from cover while keeping the bridge watched, taking time to verify each step.",
+          "label": "Speak with Sella from cover while keeping the bridge watched, along the route least likely to alert the quarry.",
           "scoreDelta": 1,
           "nextNodeId": "V14B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Examine the copper tokens before accepting her story, taking time to verify each step.",
+          "label": "Examine the copper tokens before accepting her story, leaving room to change course.",
           "scoreDelta": 0,
           "nextNodeId": "V14C"
         }
@@ -1316,21 +1316,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Speak with Sella from cover while keeping the bridge watched, despite the ground already lost.",
+          "label": "Speak with Sella from cover while keeping the bridge watched, following the trail that best fits the evidence.",
           "scoreDelta": 1,
           "nextNodeId": "V14C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Examine the copper tokens before accepting her story, despite the ground already lost.",
+          "label": "Examine the copper tokens before accepting her story, with the remaining risks kept in view.",
           "scoreDelta": 0,
           "nextNodeId": "V14A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Rush the rope bridge with your sword drawn, despite the ground already lost.",
+          "label": "Rush the rope bridge with your sword drawn, with the warning signs still unresolved.",
           "failTitle": "Failure at The red-thread trail",
           "failText": "A reckless decision at the red-thread trail gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1384,21 +1384,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Check Sella’s village list against the recovered ledger, taking time to verify each step.",
+          "label": "Check Sella’s village list against the recovered ledger, with the strongest account in hand.",
           "scoreDelta": 1,
           "nextNodeId": "V15B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Offer limited protection in exchange for seeing the mine, taking time to verify each step.",
+          "label": "Offer limited protection in exchange for seeing the mine, after securing the ground already won.",
           "scoreDelta": 0,
           "nextNodeId": "V15C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Seize Sella and call Hobb’s troops into the ravine, taking time to verify each step.",
+          "label": "Seize Sella and call Hobb’s troops into the ravine, without hearing the nearest witness.",
           "failTitle": "Failure at Sella’s bargain",
           "failText": "A reckless decision at sella’s bargain gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1418,14 +1418,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Offer limited protection in exchange for seeing the mine, despite the ground already lost.",
+          "label": "Offer limited protection in exchange for seeing the mine, while keeping the safer line open.",
           "scoreDelta": 0,
           "nextNodeId": "V15A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Seize Sella and call Hobb’s troops into the ravine, despite the ground already lost.",
+          "label": "Seize Sella and call Hobb’s troops into the ravine, without testing the danger ahead.",
           "failTitle": "Failure at Sella’s bargain",
           "failText": "A reckless decision at sella’s bargain gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1433,7 +1433,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Check Sella’s village list against the recovered ledger, despite the ground already lost.",
+          "label": "Check Sella’s village list against the recovered ledger, using the clearest clue from this approach.",
           "scoreDelta": 1,
           "nextNodeId": "V15C"
         }
@@ -1486,14 +1486,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the mine exits while Mara checks the supports, taking time to verify each step.",
+          "label": "Secure the mine exits while Mara checks the supports, with the remaining risks kept in view.",
           "scoreDelta": 0,
           "nextNodeId": "V16C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Arrest every miner before hearing why the grain was moved, taking time to verify each step.",
+          "label": "Arrest every miner before hearing why the grain was moved, with the warning signs still unresolved.",
           "failTitle": "Failure at The mine of King’s Mercy",
           "failText": "A reckless decision at the mine of king’s mercy gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -1501,7 +1501,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Inspect the stored grain and Oren’s letters together, taking time to verify each step.",
+          "label": "Inspect the stored grain and Oren’s letters together, following the trail that best fits the evidence.",
           "scoreDelta": 1,
           "nextNodeId": "V16B"
         }
@@ -1520,7 +1520,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Arrest every miner before hearing why the grain was moved, despite the ground already lost.",
+          "label": "Arrest every miner before hearing why the grain was moved, despite the doubts raised by the evidence.",
           "failTitle": "Failure at The mine of King’s Mercy",
           "failText": "A reckless decision at the mine of king’s mercy gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -1528,14 +1528,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Inspect the stored grain and Oren’s letters together, despite the ground already lost.",
+          "label": "Inspect the stored grain and Oren’s letters together, on the strongest evidence available.",
           "scoreDelta": 1,
           "nextNodeId": "V16C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the mine exits while Mara checks the supports, despite the ground already lost.",
+          "label": "Secure the mine exits while Mara checks the supports, by the slower but steadier course.",
           "scoreDelta": 0,
           "nextNodeId": "V16A"
         }
@@ -1588,7 +1588,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Begin a battle beneath the trembling supports, taking time to verify each step.",
+          "label": "Begin a battle beneath the trembling supports, without testing the danger ahead.",
           "failTitle": "Failure at The second deception",
           "failText": "A reckless decision at the second deception gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -1596,14 +1596,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Move the families clear while preserving Hobb’s letters, taking time to verify each step.",
+          "label": "Move the families clear while preserving Hobb’s letters, using the clearest clue from this approach.",
           "scoreDelta": 1,
           "nextNodeId": "V17B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Barricade the mine and prepare to negotiate, taking time to verify each step.",
+          "label": "Barricade the mine and prepare to negotiate, while keeping the safer line open.",
           "scoreDelta": 0,
           "nextNodeId": "V17C"
         }
@@ -1622,21 +1622,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Move the families clear while preserving Hobb’s letters, despite the ground already lost.",
+          "label": "Move the families clear while preserving Hobb’s letters, with old and new signs considered together.",
           "scoreDelta": 1,
           "nextNodeId": "V17C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Barricade the mine and prepare to negotiate, despite the ground already lost.",
+          "label": "Barricade the mine and prepare to negotiate, without committing every resource at once.",
           "scoreDelta": 0,
           "nextNodeId": "V17A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Begin a battle beneath the trembling supports, despite the ground already lost.",
+          "label": "Begin a battle beneath the trembling supports, without securing help or a retreat.",
           "failTitle": "Failure at The second deception",
           "failText": "A reckless decision at the second deception gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -1690,21 +1690,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Cut off the fire beneath the snow shelf and restore the bells, taking time to verify each step.",
+          "label": "Cut off the fire beneath the snow shelf and restore the bells, on the strongest evidence available.",
           "scoreDelta": 1,
           "nextNodeId": "V18B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Evacuate the nearest grain while Sella slows the fuse, taking time to verify each step.",
+          "label": "Evacuate the nearest grain while Sella slows the fuse, by the slower but steadier course.",
           "scoreDelta": 0,
           "nextNodeId": "V18C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Confront Hobb’s fire-setters alone on the loaded slope, taking time to verify each step.",
+          "label": "Confront Hobb’s fire-setters alone on the loaded slope, despite the doubts raised by the evidence.",
           "failTitle": "Failure at The avalanche line",
           "failText": "A reckless decision at the avalanche line gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -1724,14 +1724,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Evacuate the nearest grain while Sella slows the fuse, despite the ground already lost.",
+          "label": "Evacuate the nearest grain while Sella slows the fuse, leaving room to change course.",
           "scoreDelta": 0,
           "nextNodeId": "V18A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Confront Hobb’s fire-setters alone on the loaded slope, despite the ground already lost.",
+          "label": "Confront Hobb’s fire-setters alone on the loaded slope, on the strength of one uncertain sign.",
           "failTitle": "Failure at The avalanche line",
           "failText": "A reckless decision at the avalanche line gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -1739,7 +1739,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Cut off the fire beneath the snow shelf and restore the bells, despite the ground already lost.",
+          "label": "Cut off the fire beneath the snow shelf and restore the bells, along the route least likely to alert the quarry.",
           "scoreDelta": 1,
           "nextNodeId": "V18C"
         }
@@ -1792,14 +1792,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Restore the second bell before pursuing the quartermaster, taking time to verify each step.",
+          "label": "Restore the second bell before pursuing the quartermaster, without committing every resource at once.",
           "scoreDelta": 0,
           "nextNodeId": "V19C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Loose an arrow into soldiers who have begun to doubt Hobb, taking time to verify each step.",
+          "label": "Loose an arrow into soldiers who have begun to doubt Hobb, without securing help or a retreat.",
           "failTitle": "Failure at The bells answer",
           "failText": "A reckless decision at the bells answer gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -1807,7 +1807,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Show Hobb’s captain the letters as Mara sounds the rescue code, taking time to verify each step.",
+          "label": "Show Hobb’s captain the letters as Mara sounds the rescue code, with old and new signs considered together.",
           "scoreDelta": 1,
           "nextNodeId": "V19B"
         }
@@ -1826,7 +1826,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Loose an arrow into soldiers who have begun to doubt Hobb, despite the ground already lost.",
+          "label": "Loose an arrow into soldiers who have begun to doubt Hobb, without hearing the nearest witness.",
           "failTitle": "Failure at The bells answer",
           "failText": "A reckless decision at the bells answer gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -1834,14 +1834,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Show Hobb’s captain the letters as Mara sounds the rescue code, despite the ground already lost.",
+          "label": "Show Hobb’s captain the letters as Mara sounds the rescue code, with the strongest account in hand.",
           "scoreDelta": 1,
           "nextNodeId": "V19C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Restore the second bell before pursuing the quartermaster, despite the ground already lost.",
+          "label": "Restore the second bell before pursuing the quartermaster, after securing the ground already won.",
           "scoreDelta": 0,
           "nextNodeId": "V19A"
         }
@@ -1894,7 +1894,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cut the bridge with Hobb and the evidence still upon it, taking time to verify each step.",
+          "label": "Cut the bridge with Hobb and the evidence still upon it, on the strength of one uncertain sign.",
           "failTitle": "Failure at The last crossing",
           "failText": "A reckless decision at the last crossing gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -1902,14 +1902,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Secure Hobb and the ledger before the bridge pins fail, taking time to verify each step.",
+          "label": "Secure Hobb and the ledger before the bridge pins fail, along the route least likely to alert the quarry.",
           "scoreDelta": 1,
           "nextNodeId": "V20B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Accept Hobb’s surrender while Mara braces the crossing, taking time to verify each step.",
+          "label": "Accept Hobb’s surrender while Mara braces the crossing, leaving room to change course.",
           "scoreDelta": 0,
           "nextNodeId": "V20C"
         }
@@ -1928,21 +1928,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Secure Hobb and the ledger before the bridge pins fail, despite the ground already lost.",
+          "label": "Secure Hobb and the ledger before the bridge pins fail, following the trail that best fits the evidence.",
           "scoreDelta": 1,
           "nextNodeId": "V20C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Accept Hobb’s surrender while Mara braces the crossing, despite the ground already lost.",
+          "label": "Accept Hobb’s surrender while Mara braces the crossing, with the remaining risks kept in view.",
           "scoreDelta": 0,
           "nextNodeId": "V20A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cut the bridge with Hobb and the evidence still upon it, despite the ground already lost.",
+          "label": "Cut the bridge with Hobb and the evidence still upon it, with the warning signs still unresolved.",
           "failTitle": "Failure at The last crossing",
           "failText": "A reckless decision at the last crossing gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -2000,7 +2000,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Deliver the grain, letters, and prisoners together to Aldric, taking time to verify each step.",
+          "label": "Deliver the grain, letters, and prisoners together to Aldric, with the strongest account in hand.",
           "scoreDelta": 1,
           "endStory": true,
           "endType": "high",
@@ -2009,7 +2009,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Leave Mara to restore the bells while you report ahead, taking time to verify each step.",
+          "label": "Leave Mara to restore the bells while you report ahead, after securing the ground already won.",
           "scoreDelta": 0,
           "endStory": true,
           "endType": "low",
@@ -2018,7 +2018,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Let the surviving conspirators settle the matter among themselves, taking time to verify each step.",
+          "label": "Let the surviving conspirators settle the matter among themselves, without hearing the nearest witness.",
           "failTitle": "Failure at A hard spring",
           "failText": "A reckless decision at a hard spring gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -2038,7 +2038,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Leave Mara to restore the bells while you report ahead, despite the ground already lost.",
+          "label": "Leave Mara to restore the bells while you report ahead, while keeping the safer line open.",
           "scoreDelta": 0,
           "endStory": true,
           "endType": "low",
@@ -2047,7 +2047,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Let the surviving conspirators settle the matter among themselves, despite the ground already lost.",
+          "label": "Let the surviving conspirators settle the matter among themselves, without testing the danger ahead.",
           "failTitle": "Failure at A hard spring",
           "failText": "A reckless decision at a hard spring gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -2055,7 +2055,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Deliver the grain, letters, and prisoners together to Aldric, despite the ground already lost.",
+          "label": "Deliver the grain, letters, and prisoners together to Aldric, using the clearest clue from this approach.",
           "scoreDelta": 1,
           "endStory": true,
           "endType": "high",

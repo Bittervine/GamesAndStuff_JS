@@ -58,7 +58,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Declare the river cursed and order every crossing abandoned, taking time to verify each step.",
+          "label": "Declare the river cursed and order every crossing abandoned, on the strength of one uncertain sign.",
           "failTitle": "Failure at Ash on the river",
           "failText": "A reckless decision at ash on the river gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -66,14 +66,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Inspect the ash at the nearest well before riding upstream, taking time to verify each step.",
+          "label": "Inspect the ash at the nearest well before riding upstream, along the route least likely to alert the quarry.",
           "scoreDelta": 1,
           "nextNodeId": "R02B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Question Willow Ford’s ferrymen about the first gray fall, taking time to verify each step.",
+          "label": "Question Willow Ford’s ferrymen about the first gray fall, leaving room to change course.",
           "scoreDelta": 0,
           "nextNodeId": "R02C"
         }
@@ -92,21 +92,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Inspect the ash at the nearest well before riding upstream, despite the ground already lost.",
+          "label": "Inspect the ash at the nearest well before riding upstream, following the trail that best fits the evidence.",
           "scoreDelta": 1,
           "nextNodeId": "R02C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Question Willow Ford’s ferrymen about the first gray fall, despite the ground already lost.",
+          "label": "Question Willow Ford’s ferrymen about the first gray fall, with the remaining risks kept in view.",
           "scoreDelta": 0,
           "nextNodeId": "R02A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Declare the river cursed and order every crossing abandoned, despite the ground already lost.",
+          "label": "Declare the river cursed and order every crossing abandoned, with the warning signs still unresolved.",
           "failTitle": "Failure at Ash on the river",
           "failText": "A reckless decision at ash on the river gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -160,21 +160,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Read the barge wake and recover the brass toll token, taking time to verify each step.",
+          "label": "Read the barge wake and recover the brass toll token, with the strongest account in hand.",
           "scoreDelta": 1,
           "nextNodeId": "R03B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Collect the dead fish for examination before moving on, taking time to verify each step.",
+          "label": "Collect the dead fish for examination before moving on, after securing the ground already won.",
           "scoreDelta": 0,
           "nextNodeId": "R03C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Follow the false ducal pennant without checking the ford, taking time to verify each step.",
+          "label": "Follow the false ducal pennant without checking the ford, without hearing the nearest witness.",
           "failTitle": "Failure at The dead fish",
           "failText": "A reckless decision at the dead fish gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -194,14 +194,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Collect the dead fish for examination before moving on, despite the ground already lost.",
+          "label": "Collect the dead fish for examination before moving on, while keeping the safer line open.",
           "scoreDelta": 0,
           "nextNodeId": "R03A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Follow the false ducal pennant without checking the ford, despite the ground already lost.",
+          "label": "Follow the false ducal pennant without checking the ford, without testing the danger ahead.",
           "failTitle": "Failure at The dead fish",
           "failText": "A reckless decision at the dead fish gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -209,7 +209,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Read the barge wake and recover the brass toll token, despite the ground already lost.",
+          "label": "Read the barge wake and recover the brass toll token, using the clearest clue from this approach.",
           "scoreDelta": 1,
           "nextNodeId": "R03C"
         }
@@ -262,14 +262,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Moor the abandoned vessel and inventory its broken jars, taking time to verify each step.",
+          "label": "Moor the abandoned vessel and inventory its broken jars, with the remaining risks kept in view.",
           "scoreDelta": 0,
           "nextNodeId": "R04C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Burn the barge and destroy the cargo evidence, taking time to verify each step.",
+          "label": "Burn the barge and destroy the cargo evidence, with the warning signs still unresolved.",
           "failTitle": "Failure at The abandoned barge",
           "failText": "A reckless decision at the abandoned barge gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -277,7 +277,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Search the barge seals and trace the boot trail ashore, taking time to verify each step.",
+          "label": "Search the barge seals and trace the boot trail ashore, following the trail that best fits the evidence.",
           "scoreDelta": 1,
           "nextNodeId": "R04B"
         }
@@ -296,7 +296,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Burn the barge and destroy the cargo evidence, despite the ground already lost.",
+          "label": "Burn the barge and destroy the cargo evidence, despite the doubts raised by the evidence.",
           "failTitle": "Failure at The abandoned barge",
           "failText": "A reckless decision at the abandoned barge gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -304,14 +304,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Search the barge seals and trace the boot trail ashore, despite the ground already lost.",
+          "label": "Search the barge seals and trace the boot trail ashore, on the strongest evidence available.",
           "scoreDelta": 1,
           "nextNodeId": "R04C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Moor the abandoned vessel and inventory its broken jars, despite the ground already lost.",
+          "label": "Moor the abandoned vessel and inventory its broken jars, by the slower but steadier course.",
           "scoreDelta": 0,
           "nextNodeId": "R04A"
         }
@@ -364,7 +364,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Taste the unknown mineral to judge whether it is poison, taking time to verify each step.",
+          "label": "Taste the unknown mineral to judge whether it is poison, without testing the danger ahead.",
           "failTitle": "Failure at The limeworks",
           "failText": "A reckless decision at the limeworks gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -372,14 +372,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Compare the pale grit with the list of village wells, taking time to verify each step.",
+          "label": "Compare the pale grit with the list of village wells, using the clearest clue from this approach.",
           "scoreDelta": 1,
           "nextNodeId": "R05B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Search the limeworks room by room with Jorin, taking time to verify each step.",
+          "label": "Search the limeworks room by room with Jorin, while keeping the safer line open.",
           "scoreDelta": 0,
           "nextNodeId": "R05C"
         }
@@ -398,21 +398,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Compare the pale grit with the list of village wells, despite the ground already lost.",
+          "label": "Compare the pale grit with the list of village wells, with old and new signs considered together.",
           "scoreDelta": 1,
           "nextNodeId": "R05C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Search the limeworks room by room with Jorin, despite the ground already lost.",
+          "label": "Search the limeworks room by room with Jorin, without committing every resource at once.",
           "scoreDelta": 0,
           "nextNodeId": "R05A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Taste the unknown mineral to judge whether it is poison, despite the ground already lost.",
+          "label": "Taste the unknown mineral to judge whether it is poison, without securing help or a retreat.",
           "failTitle": "Failure at The limeworks",
           "failText": "A reckless decision at the limeworks gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -466,21 +466,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Offer Jorin protection in exchange for the full payment trail, taking time to verify each step.",
+          "label": "Offer Jorin protection in exchange for the full payment trail, on the strongest evidence available.",
           "scoreDelta": 1,
           "nextNodeId": "R06B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Keep Jorin under watch while following the towpath, taking time to verify each step.",
+          "label": "Keep Jorin under watch while following the towpath, by the slower but steadier course.",
           "scoreDelta": 0,
           "nextNodeId": "R06C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Beat a confession from the ferryman and lose his trust, taking time to verify each step.",
+          "label": "Beat a confession from the ferryman and lose his trust, despite the doubts raised by the evidence.",
           "failTitle": "Failure at Jorin’s warning",
           "failText": "A reckless decision at jorin’s warning gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -500,14 +500,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Keep Jorin under watch while following the towpath, despite the ground already lost.",
+          "label": "Keep Jorin under watch while following the towpath, leaving room to change course.",
           "scoreDelta": 0,
           "nextNodeId": "R06A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Beat a confession from the ferryman and lose his trust, despite the ground already lost.",
+          "label": "Beat a confession from the ferryman and lose his trust, on the strength of one uncertain sign.",
           "failTitle": "Failure at Jorin’s warning",
           "failText": "A reckless decision at jorin’s warning gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -515,7 +515,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Offer Jorin protection in exchange for the full payment trail, despite the ground already lost.",
+          "label": "Offer Jorin protection in exchange for the full payment trail, along the route least likely to alert the quarry.",
           "scoreDelta": 1,
           "nextNodeId": "R06C"
         }
@@ -568,14 +568,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Wait in concealment for the lone rider to return, taking time to verify each step.",
+          "label": "Wait in concealment for the lone rider to return, without committing every resource at once.",
           "scoreDelta": 0,
           "nextNodeId": "R07C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Scatter the maps as worthless surveyor’s work, taking time to verify each step.",
+          "label": "Scatter the maps as worthless surveyor’s work, without securing help or a retreat.",
           "failTitle": "Failure at The willow camp",
           "failText": "A reckless decision at the willow camp gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -583,7 +583,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Study the camp maps for the route connecting the marked wells, taking time to verify each step.",
+          "label": "Study the camp maps for the route connecting the marked wells, with old and new signs considered together.",
           "scoreDelta": 1,
           "nextNodeId": "R07B"
         }
@@ -602,7 +602,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Scatter the maps as worthless surveyor’s work, despite the ground already lost.",
+          "label": "Scatter the maps as worthless surveyor’s work, without hearing the nearest witness.",
           "failTitle": "Failure at The willow camp",
           "failText": "A reckless decision at the willow camp gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -610,14 +610,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Study the camp maps for the route connecting the marked wells, despite the ground already lost.",
+          "label": "Study the camp maps for the route connecting the marked wells, with the strongest account in hand.",
           "scoreDelta": 1,
           "nextNodeId": "R07C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Wait in concealment for the lone rider to return, despite the ground already lost.",
+          "label": "Wait in concealment for the lone rider to return, after securing the ground already won.",
           "scoreDelta": 0,
           "nextNodeId": "R07A"
         }
@@ -670,7 +670,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Seize Ansa before checking any of her evidence, taking time to verify each step.",
+          "label": "Seize Ansa before checking any of her evidence, on the strength of one uncertain sign.",
           "failTitle": "Failure at The red ochre mark",
           "failText": "A reckless decision at the red ochre mark gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -678,14 +678,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Let Ansa test the ochre while you cover the riverbank, taking time to verify each step.",
+          "label": "Let Ansa test the ochre while you cover the riverbank, along the route least likely to alert the quarry.",
           "scoreDelta": 1,
           "nextNodeId": "R08B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Hear Ansa’s account but retain the suspicious jars, taking time to verify each step.",
+          "label": "Hear Ansa’s account but retain the suspicious jars, leaving room to change course.",
           "scoreDelta": 0,
           "nextNodeId": "R08C"
         }
@@ -704,21 +704,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Let Ansa test the ochre while you cover the riverbank, despite the ground already lost.",
+          "label": "Let Ansa test the ochre while you cover the riverbank, following the trail that best fits the evidence.",
           "scoreDelta": 1,
           "nextNodeId": "R08C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Hear Ansa’s account but retain the suspicious jars, despite the ground already lost.",
+          "label": "Hear Ansa’s account but retain the suspicious jars, with the remaining risks kept in view.",
           "scoreDelta": 0,
           "nextNodeId": "R08A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Seize Ansa before checking any of her evidence, despite the ground already lost.",
+          "label": "Seize Ansa before checking any of her evidence, with the warning signs still unresolved.",
           "failTitle": "Failure at The red ochre mark",
           "failText": "A reckless decision at the red ochre mark gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -772,21 +772,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Separate the jar layers and compare them with river sediment, taking time to verify each step.",
+          "label": "Separate the jar layers and compare them with river sediment, with the strongest account in hand.",
           "scoreDelta": 1,
           "nextNodeId": "R09B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Hide the jars and move toward the old plague pits, taking time to verify each step.",
+          "label": "Hide the jars and move toward the old plague pits, after securing the ground already won.",
           "scoreDelta": 0,
           "nextNodeId": "R09C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Pour the contents into the river to see what happens, taking time to verify each step.",
+          "label": "Pour the contents into the river to see what happens, without hearing the nearest witness.",
           "failTitle": "Failure at Ansa’s evidence",
           "failText": "A reckless decision at ansa’s evidence gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -806,14 +806,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Hide the jars and move toward the old plague pits, despite the ground already lost.",
+          "label": "Hide the jars and move toward the old plague pits, while keeping the safer line open.",
           "scoreDelta": 0,
           "nextNodeId": "R09A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Pour the contents into the river to see what happens, despite the ground already lost.",
+          "label": "Pour the contents into the river to see what happens, without testing the danger ahead.",
           "failTitle": "Failure at Ansa’s evidence",
           "failText": "A reckless decision at ansa’s evidence gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -821,7 +821,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Separate the jar layers and compare them with river sediment, despite the ground already lost.",
+          "label": "Separate the jar layers and compare them with river sediment, using the clearest clue from this approach.",
           "scoreDelta": 1,
           "nextNodeId": "R09C"
         }
@@ -874,14 +874,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Delay them with questions while Ansa secures the jars, taking time to verify each step.",
+          "label": "Delay them with questions while Ansa secures the jars, with the remaining risks kept in view.",
           "scoreDelta": 0,
           "nextNodeId": "R10C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Surrender Ansa to men carrying forged papers, taking time to verify each step.",
+          "label": "Surrender Ansa to men carrying forged papers, with the warning signs still unresolved.",
           "failTitle": "Failure at The toll riders",
           "failText": "A reckless decision at the toll riders gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -889,7 +889,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Expose the riders’ dead seal and protect the ferry rope, taking time to verify each step.",
+          "label": "Expose the riders’ dead seal and protect the ferry rope, following the trail that best fits the evidence.",
           "scoreDelta": 1,
           "nextNodeId": "R10B"
         }
@@ -908,7 +908,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Surrender Ansa to men carrying forged papers, despite the ground already lost.",
+          "label": "Surrender Ansa to men carrying forged papers, despite the doubts raised by the evidence.",
           "failTitle": "Failure at The toll riders",
           "failText": "A reckless decision at the toll riders gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -916,14 +916,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Expose the riders’ dead seal and protect the ferry rope, despite the ground already lost.",
+          "label": "Expose the riders’ dead seal and protect the ferry rope, on the strongest evidence available.",
           "scoreDelta": 1,
           "nextNodeId": "R10C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Delay them with questions while Ansa secures the jars, despite the ground already lost.",
+          "label": "Delay them with questions while Ansa secures the jars, by the slower but steadier course.",
           "scoreDelta": 0,
           "nextNodeId": "R10A"
         }
@@ -976,7 +976,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Break the marker apart and leave its meaning unread, taking time to verify each step.",
+          "label": "Break the marker apart and leave its meaning unread, without testing the danger ahead.",
           "failTitle": "Failure at The drowned marker",
           "failText": "A reckless decision at the drowned marker gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -984,14 +984,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Raise the drowned marker and locate the forgotten intake, taking time to verify each step.",
+          "label": "Raise the drowned marker and locate the forgotten intake, using the clearest clue from this approach.",
           "scoreDelta": 1,
           "nextNodeId": "R11B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Mark the intake’s position before returning to the road, taking time to verify each step.",
+          "label": "Mark the intake’s position before returning to the road, while keeping the safer line open.",
           "scoreDelta": 0,
           "nextNodeId": "R11C"
         }
@@ -1010,21 +1010,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Raise the drowned marker and locate the forgotten intake, despite the ground already lost.",
+          "label": "Raise the drowned marker and locate the forgotten intake, with old and new signs considered together.",
           "scoreDelta": 1,
           "nextNodeId": "R11C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Mark the intake’s position before returning to the road, despite the ground already lost.",
+          "label": "Mark the intake’s position before returning to the road, without committing every resource at once.",
           "scoreDelta": 0,
           "nextNodeId": "R11A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Break the marker apart and leave its meaning unread, despite the ground already lost.",
+          "label": "Break the marker apart and leave its meaning unread, without securing help or a retreat.",
           "failTitle": "Failure at The drowned marker",
           "failText": "A reckless decision at the drowned marker gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1078,21 +1078,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Compare Pell’s night entries with the missing lockhouse key, taking time to verify each step.",
+          "label": "Compare Pell’s night entries with the missing lockhouse key, on the strongest evidence available.",
           "scoreDelta": 1,
           "nextNodeId": "R12B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Seal the lockhouse and send a warden to find Pell, taking time to verify each step.",
+          "label": "Seal the lockhouse and send a warden to find Pell, by the slower but steadier course.",
           "scoreDelta": 0,
           "nextNodeId": "R12C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Assume every signed entry proves lawful access, taking time to verify each step.",
+          "label": "Assume every signed entry proves lawful access, despite the doubts raised by the evidence.",
           "failTitle": "Failure at The lockhouse",
           "failText": "A reckless decision at the lockhouse gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1112,14 +1112,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Seal the lockhouse and send a warden to find Pell, despite the ground already lost.",
+          "label": "Seal the lockhouse and send a warden to find Pell, leaving room to change course.",
           "scoreDelta": 0,
           "nextNodeId": "R12A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Assume every signed entry proves lawful access, despite the ground already lost.",
+          "label": "Assume every signed entry proves lawful access, on the strength of one uncertain sign.",
           "failTitle": "Failure at The lockhouse",
           "failText": "A reckless decision at the lockhouse gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1127,7 +1127,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Compare Pell’s night entries with the missing lockhouse key, despite the ground already lost.",
+          "label": "Compare Pell’s night entries with the missing lockhouse key, along the route least likely to alert the quarry.",
           "scoreDelta": 1,
           "nextNodeId": "R12C"
         }
@@ -1180,14 +1180,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Take Pell into custody and preserve his muddy clothing, taking time to verify each step.",
+          "label": "Take Pell into custody and preserve his muddy clothing, without committing every resource at once.",
           "scoreDelta": 0,
           "nextNodeId": "R13C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Let the frightened clerk flee with the remaining records, taking time to verify each step.",
+          "label": "Let the frightened clerk flee with the remaining records, without securing help or a retreat.",
           "failTitle": "Failure at Pell’s secret",
           "failText": "A reckless decision at pell’s secret gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1195,7 +1195,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Keep Pell talking until he explains the House Vey cloth, taking time to verify each step.",
+          "label": "Keep Pell talking until he explains the House Vey cloth, with old and new signs considered together.",
           "scoreDelta": 1,
           "nextNodeId": "R13B"
         }
@@ -1214,7 +1214,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Let the frightened clerk flee with the remaining records, despite the ground already lost.",
+          "label": "Let the frightened clerk flee with the remaining records, without hearing the nearest witness.",
           "failTitle": "Failure at Pell’s secret",
           "failText": "A reckless decision at pell’s secret gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1222,14 +1222,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Keep Pell talking until he explains the House Vey cloth, despite the ground already lost.",
+          "label": "Keep Pell talking until he explains the House Vey cloth, with the strongest account in hand.",
           "scoreDelta": 1,
           "nextNodeId": "R13C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Take Pell into custody and preserve his muddy clothing, despite the ground already lost.",
+          "label": "Take Pell into custody and preserve his muddy clothing, after securing the ground already won.",
           "scoreDelta": 0,
           "nextNodeId": "R13A"
         }
@@ -1282,7 +1282,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Accept Corra’s road-repair story without viewing the cargo, taking time to verify each step.",
+          "label": "Accept Corra’s road-repair story without viewing the cargo, on the strength of one uncertain sign.",
           "failTitle": "Failure at House Vey’s mill",
           "failText": "A reckless decision at house vey’s mill gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1290,14 +1290,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Inspect the hidden mill channel before confronting Lady Corra, taking time to verify each step.",
+          "label": "Inspect the hidden mill channel before confronting Lady Corra, along the route least likely to alert the quarry.",
           "scoreDelta": 1,
           "nextNodeId": "R14B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Question the mill hands away from their mistress, taking time to verify each step.",
+          "label": "Question the mill hands away from their mistress, leaving room to change course.",
           "scoreDelta": 0,
           "nextNodeId": "R14C"
         }
@@ -1316,21 +1316,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Inspect the hidden mill channel before confronting Lady Corra, despite the ground already lost.",
+          "label": "Inspect the hidden mill channel before confronting Lady Corra, following the trail that best fits the evidence.",
           "scoreDelta": 1,
           "nextNodeId": "R14C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Question the mill hands away from their mistress, despite the ground already lost.",
+          "label": "Question the mill hands away from their mistress, with the remaining risks kept in view.",
           "scoreDelta": 0,
           "nextNodeId": "R14A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Accept Corra’s road-repair story without viewing the cargo, despite the ground already lost.",
+          "label": "Accept Corra’s road-repair story without viewing the cargo, with the warning signs still unresolved.",
           "failTitle": "Failure at House Vey’s mill",
           "failText": "A reckless decision at house vey’s mill gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1384,21 +1384,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Test where the thickened water flows beyond the millrace, taking time to verify each step.",
+          "label": "Test where the thickened water flows beyond the millrace, with the strongest account in hand.",
           "scoreDelta": 1,
           "nextNodeId": "R15B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Block the side channel while Ansa surveys the hollow, taking time to verify each step.",
+          "label": "Block the side channel while Ansa surveys the hollow, after securing the ground already won.",
           "scoreDelta": 0,
           "nextNodeId": "R15C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Open every sluice at once and flood the lower farms, taking time to verify each step.",
+          "label": "Open every sluice at once and flood the lower farms, without hearing the nearest witness.",
           "failTitle": "Failure at The millrace",
           "failText": "A reckless decision at the millrace gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1418,14 +1418,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Block the side channel while Ansa surveys the hollow, despite the ground already lost.",
+          "label": "Block the side channel while Ansa surveys the hollow, while keeping the safer line open.",
           "scoreDelta": 0,
           "nextNodeId": "R15A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Open every sluice at once and flood the lower farms, despite the ground already lost.",
+          "label": "Open every sluice at once and flood the lower farms, without testing the danger ahead.",
           "failTitle": "Failure at The millrace",
           "failText": "A reckless decision at the millrace gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1433,7 +1433,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Test where the thickened water flows beyond the millrace, despite the ground already lost.",
+          "label": "Test where the thickened water flows beyond the millrace, using the clearest clue from this approach.",
           "scoreDelta": 1,
           "nextNodeId": "R15C"
         }
@@ -1486,14 +1486,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Question the captured worker outside the excavation, taking time to verify each step.",
+          "label": "Question the captured worker outside the excavation, with the remaining risks kept in view.",
           "scoreDelta": 0,
           "nextNodeId": "R16C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Send villagers into the unsupported tunnel ahead of you, taking time to verify each step.",
+          "label": "Send villagers into the unsupported tunnel ahead of you, with the warning signs still unresolved.",
           "failTitle": "Failure at The old plague pits",
           "failText": "A reckless decision at the old plague pits gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1501,7 +1501,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Enter the plague-pit tunnel with ropes and marked exits, taking time to verify each step.",
+          "label": "Enter the plague-pit tunnel with ropes and marked exits, following the trail that best fits the evidence.",
           "scoreDelta": 1,
           "nextNodeId": "R16B"
         }
@@ -1520,7 +1520,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Send villagers into the unsupported tunnel ahead of you, despite the ground already lost.",
+          "label": "Send villagers into the unsupported tunnel ahead of you, despite the doubts raised by the evidence.",
           "failTitle": "Failure at The old plague pits",
           "failText": "A reckless decision at the old plague pits gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": false
@@ -1528,14 +1528,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Enter the plague-pit tunnel with ropes and marked exits, despite the ground already lost.",
+          "label": "Enter the plague-pit tunnel with ropes and marked exits, on the strongest evidence available.",
           "scoreDelta": 1,
           "nextNodeId": "R16C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Question the captured worker outside the excavation, despite the ground already lost.",
+          "label": "Question the captured worker outside the excavation, by the slower but steadier course.",
           "scoreDelta": 0,
           "nextNodeId": "R16A"
         }
@@ -1588,7 +1588,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Burn the letters because foreign names appear upon them, taking time to verify each step.",
+          "label": "Burn the letters because foreign names appear upon them, without testing the danger ahead.",
           "failTitle": "Failure at The buried chamber",
           "failText": "A reckless decision at the buried chamber gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -1596,14 +1596,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Secure the correspondence before examining the barrels, taking time to verify each step.",
+          "label": "Secure the correspondence before examining the barrels, using the clearest clue from this approach.",
           "scoreDelta": 1,
           "nextNodeId": "R17B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Copy the names and seals while Jorin guards the chamber, taking time to verify each step.",
+          "label": "Copy the names and seals while Jorin guards the chamber, while keeping the safer line open.",
           "scoreDelta": 0,
           "nextNodeId": "R17C"
         }
@@ -1622,21 +1622,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Secure the correspondence before examining the barrels, despite the ground already lost.",
+          "label": "Secure the correspondence before examining the barrels, with old and new signs considered together.",
           "scoreDelta": 1,
           "nextNodeId": "R17C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Copy the names and seals while Jorin guards the chamber, despite the ground already lost.",
+          "label": "Copy the names and seals while Jorin guards the chamber, without committing every resource at once.",
           "scoreDelta": 0,
           "nextNodeId": "R17A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Burn the letters because foreign names appear upon them, despite the ground already lost.",
+          "label": "Burn the letters because foreign names appear upon them, without securing help or a retreat.",
           "failTitle": "Failure at The buried chamber",
           "failText": "A reckless decision at the buried chamber gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -1690,21 +1690,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Send Jorin to warn villages while Ansa clears the intake, taking time to verify each step.",
+          "label": "Send Jorin to warn villages while Ansa clears the intake, on the strongest evidence available.",
           "scoreDelta": 1,
           "nextNodeId": "R18B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Move the evidence uphill before the flood arrives, taking time to verify each step.",
+          "label": "Move the evidence uphill before the flood arrives, by the slower but steadier course.",
           "scoreDelta": 0,
           "nextNodeId": "R18C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Keep everyone together and leave the villages unwarned, taking time to verify each step.",
+          "label": "Keep everyone together and leave the villages unwarned, despite the doubts raised by the evidence.",
           "failTitle": "Failure at The rising water",
           "failText": "A reckless decision at the rising water gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -1724,14 +1724,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Move the evidence uphill before the flood arrives, despite the ground already lost.",
+          "label": "Move the evidence uphill before the flood arrives, leaving room to change course.",
           "scoreDelta": 0,
           "nextNodeId": "R18A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Keep everyone together and leave the villages unwarned, despite the ground already lost.",
+          "label": "Keep everyone together and leave the villages unwarned, on the strength of one uncertain sign.",
           "failTitle": "Failure at The rising water",
           "failText": "A reckless decision at the rising water gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -1739,7 +1739,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Send Jorin to warn villages while Ansa clears the intake, despite the ground already lost.",
+          "label": "Send Jorin to warn villages while Ansa clears the intake, along the route least likely to alert the quarry.",
           "scoreDelta": 1,
           "nextNodeId": "R18C"
         }
@@ -1792,14 +1792,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Hold the near bank until Jorin’s warning boats return, taking time to verify each step.",
+          "label": "Hold the near bank until Jorin’s warning boats return, without committing every resource at once.",
           "scoreDelta": 0,
           "nextNodeId": "R19C"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Charge the rotten footbridge with the whole party, taking time to verify each step.",
+          "label": "Charge the rotten footbridge with the whole party, without securing help or a retreat.",
           "failTitle": "Failure at The night crossing",
           "failText": "A reckless decision at the night crossing gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -1807,7 +1807,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Cross under cover of rain and cut off Corra’s barrel crew, taking time to verify each step.",
+          "label": "Cross under cover of rain and cut off Corra’s barrel crew, with old and new signs considered together.",
           "scoreDelta": 1,
           "nextNodeId": "R19B"
         }
@@ -1826,7 +1826,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Charge the rotten footbridge with the whole party, despite the ground already lost.",
+          "label": "Charge the rotten footbridge with the whole party, without hearing the nearest witness.",
           "failTitle": "Failure at The night crossing",
           "failText": "A reckless decision at the night crossing gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -1834,14 +1834,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Cross under cover of rain and cut off Corra’s barrel crew, despite the ground already lost.",
+          "label": "Cross under cover of rain and cut off Corra’s barrel crew, with the strongest account in hand.",
           "scoreDelta": 1,
           "nextNodeId": "R19C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Hold the near bank until Jorin’s warning boats return, despite the ground already lost.",
+          "label": "Hold the near bank until Jorin’s warning boats return, after securing the ground already won.",
           "scoreDelta": 0,
           "nextNodeId": "R19A"
         }
@@ -1894,7 +1894,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Pursue Corra while the blocked intake begins to burst, taking time to verify each step.",
+          "label": "Pursue Corra while the blocked intake begins to burst, on the strength of one uncertain sign.",
           "failTitle": "Failure at The river remembers",
           "failText": "A reckless decision at the river remembers gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -1902,14 +1902,14 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Save the letters and open the lock gate before taking Corra, taking time to verify each step.",
+          "label": "Save the letters and open the lock gate before taking Corra, along the route least likely to alert the quarry.",
           "scoreDelta": 1,
           "nextNodeId": "R20B"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Brace the bridge and demand the mill hands surrender, taking time to verify each step.",
+          "label": "Brace the bridge and demand the mill hands surrender, leaving room to change course.",
           "scoreDelta": 0,
           "nextNodeId": "R20C"
         }
@@ -1928,21 +1928,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Save the letters and open the lock gate before taking Corra, despite the ground already lost.",
+          "label": "Save the letters and open the lock gate before taking Corra, following the trail that best fits the evidence.",
           "scoreDelta": 1,
           "nextNodeId": "R20C"
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Brace the bridge and demand the mill hands surrender, despite the ground already lost.",
+          "label": "Brace the bridge and demand the mill hands surrender, with the remaining risks kept in view.",
           "scoreDelta": 0,
           "nextNodeId": "R20A"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Pursue Corra while the blocked intake begins to burst, despite the ground already lost.",
+          "label": "Pursue Corra while the blocked intake begins to burst, with the warning signs still unresolved.",
           "failTitle": "Failure at The river remembers",
           "failText": "A reckless decision at the river remembers gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -2000,7 +2000,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Present the surviving records and water samples to Aldric, taking time to verify each step.",
+          "label": "Present the surviving records and water samples to Aldric, with the strongest account in hand.",
           "scoreDelta": 1,
           "endStory": true,
           "endType": "high",
@@ -2009,7 +2009,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Keep the intake guarded while the wells recover, taking time to verify each step.",
+          "label": "Keep the intake guarded while the wells recover, after securing the ground already won.",
           "scoreDelta": 0,
           "endStory": true,
           "endType": "low",
@@ -2018,7 +2018,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Allow House Vey to remove the remaining mineral in secret, taking time to verify each step.",
+          "label": "Allow House Vey to remove the remaining mineral in secret, without hearing the nearest witness.",
           "failTitle": "Failure at A clear bank",
           "failText": "A reckless decision at a clear bank gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -2038,7 +2038,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Keep the intake guarded while the wells recover, despite the ground already lost.",
+          "label": "Keep the intake guarded while the wells recover, while keeping the safer line open.",
           "scoreDelta": 0,
           "endStory": true,
           "endType": "low",
@@ -2047,7 +2047,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Allow House Vey to remove the remaining mineral in secret, despite the ground already lost.",
+          "label": "Allow House Vey to remove the remaining mineral in secret, without testing the danger ahead.",
           "failTitle": "Failure at A clear bank",
           "failText": "A reckless decision at a clear bank gives the opposition the time and confusion it needs. The trail is broken before you can recover it.",
           "death": true
@@ -2055,7 +2055,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Present the surviving records and water samples to Aldric, despite the ground already lost.",
+          "label": "Present the surviving records and water samples to Aldric, using the clearest clue from this approach.",
           "scoreDelta": 1,
           "endStory": true,
           "endType": "high",

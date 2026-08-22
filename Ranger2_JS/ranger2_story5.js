@@ -4,7 +4,7 @@ window.RANGER2_STORIES.push({
   "title": "The Hollow Bell of Saint Bryn",
   "summary": "When empty death-bells ring from the ruined hospice of Saint Bryn and skilled townsfolk vanish from Oakenhurst, the ranger must cut through fear, false hauntings, and a hidden camp in Elderwood to stop a desperate search beneath the hill before greed buries truth and the living together.",
   "maxTurns": 20,
-  "startNodeId": "K01B",
+  "startNodeId": "P01A",
   "goodScoreThreshold": 13,
   "epilogues": {
     "high": "With Holl taken, the captives saved, and the ledgers preserved, Oakenhurst learns that old theft had indeed been buried under Saint Bryn's hill, though never cleanly enough to stay buried forever. Duke Aldric's officers later sort the claims under Maelin's witness and Sister Elswyth's records, the recovered silver is accounted for rather than plundered, and the tale of the empty bell becomes not a ghost story but a hard memory of fear mastered in time.",
@@ -12,7 +12,7 @@ window.RANGER2_STORIES.push({
   },
   "nodes": [
     {
-      "id": "K01A",
+      "id": "P01A",
       "turn": 1,
       "title": "The Empty Peal - Clear Advantage",
       "narrative": [
@@ -25,7 +25,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Question Maelin and Elswyth closely, then go by the quieter lane",
-          "nextNodeId": "K02A",
+          "nextNodeId": "P02A",
           "scoreDelta": 1
         },
         {
@@ -40,13 +40,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Hear the townsfolk through and take the common road to the hospice",
-          "nextNodeId": "K02B",
+          "nextNodeId": "P02B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K01B",
+      "id": "P01B",
       "turn": 1,
       "title": "The Empty Peal - Narrow Trail",
       "narrative": [
@@ -58,21 +58,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Hear the townsfolk through and take the common road to the hospice",
-          "nextNodeId": "K02C",
+          "label": "Hear the townsfolk through and take the common road to the hospice, leaving room to change course",
+          "nextNodeId": "P02C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Question Maelin and Elswyth closely, then go by the quieter lane",
-          "nextNodeId": "K02A",
+          "label": "Question Maelin and Elswyth closely, then go by the quieter lane, along the route least likely to alert the quarry",
+          "nextNodeId": "P02A",
           "scoreDelta": 1
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Ride straight to the bell tower alone and call out into the dark",
+          "label": "Ride straight to the bell tower alone and call out into the dark, on the strength of one uncertain sign",
           "failTitle": "Arrow in the Ruins",
           "failText": "A hidden watcher answers your challenge before any honest soul can reach you. You go down among the wet stones, and Oakenhurst spends the night with fear unbroken and no ranger to stand against it.",
           "death": true
@@ -80,7 +80,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K01C",
+      "id": "P01C",
       "turn": 1,
       "title": "The Empty Peal - Hard Pressed",
       "narrative": [
@@ -92,7 +92,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Ride straight to the bell tower alone and call out into the dark",
+          "label": "Ride straight to the bell tower alone and call out into the dark, with the warning signs still unresolved",
           "failTitle": "Arrow in the Ruins",
           "failText": "A hidden watcher answers your challenge before any honest soul can reach you. You go down among the wet stones, and Oakenhurst spends the night with fear unbroken and no ranger to stand against it.",
           "death": true
@@ -100,21 +100,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Hear the townsfolk through and take the common road to the hospice",
-          "nextNodeId": "K02C",
+          "label": "Hear the townsfolk through and take the common road to the hospice, with the remaining risks kept in view",
+          "nextNodeId": "P02C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Question Maelin and Elswyth closely, then go by the quieter lane",
-          "nextNodeId": "K02B",
+          "label": "Question Maelin and Elswyth closely, then go by the quieter lane, following the trail that best fits the evidence",
+          "nextNodeId": "P02B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K02A",
+      "id": "P02A",
       "turn": 2,
       "title": "White Clay at Saint Bryn's - Clear Advantage",
       "narrative": [
@@ -127,7 +127,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Search the ground and the doorway for plain signs",
-          "nextNodeId": "K03B",
+          "nextNodeId": "P03B",
           "scoreDelta": 0
         },
         {
@@ -142,13 +142,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Read the rope splice, the token, and the prints together before moving on",
-          "nextNodeId": "K03A",
+          "nextNodeId": "P03A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K02B",
+      "id": "P02B",
       "turn": 2,
       "title": "White Clay at Saint Bryn's - Narrow Trail",
       "narrative": [
@@ -160,21 +160,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Read the rope splice, the token, and the prints together before moving on",
-          "nextNodeId": "K03A",
+          "label": "Read the rope splice, the token, and the prints together before moving on, with the strongest account in hand",
+          "nextNodeId": "P03A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Search the ground and the doorway for plain signs",
-          "nextNodeId": "K03C",
+          "label": "Search the ground and the doorway for plain signs, after securing the ground already won",
+          "nextNodeId": "P03C",
           "scoreDelta": 0
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Climb the cracked belfry steps in haste",
+          "label": "Climb the cracked belfry steps in haste, without hearing the nearest witness",
           "failTitle": "The Tower Gives Way",
           "failText": "The ruined stair was waiting for a heavier fool than the last one who used it. Stone breaks under you, and the hunt ends in shattered dark beneath Saint Bryn's bell.",
           "death": true
@@ -182,7 +182,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K02C",
+      "id": "P02C",
       "turn": 2,
       "title": "White Clay at Saint Bryn's - Hard Pressed",
       "narrative": [
@@ -194,7 +194,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Climb the cracked belfry steps in haste",
+          "label": "Climb the cracked belfry steps in haste, without testing the danger ahead",
           "failTitle": "The Tower Gives Way",
           "failText": "The ruined stair was waiting for a heavier fool than the last one who used it. Stone breaks under you, and the hunt ends in shattered dark beneath Saint Bryn's bell.",
           "death": true
@@ -202,21 +202,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Read the rope splice, the token, and the prints together before moving on",
-          "nextNodeId": "K03B",
+          "label": "Read the rope splice, the token, and the prints together before moving on, using the clearest clue from this approach",
+          "nextNodeId": "P03B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Search the ground and the doorway for plain signs",
-          "nextNodeId": "K03C",
+          "label": "Search the ground and the doorway for plain signs, while keeping the safer line open",
+          "nextNodeId": "P03C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K03A",
+      "id": "P03A",
       "turn": 3,
       "title": "The Cooper's Yard - Clear Advantage",
       "narrative": [
@@ -229,7 +229,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Win Tomlin's trust and compare his memory with the tracks",
-          "nextNodeId": "K04A",
+          "nextNodeId": "P04A",
           "scoreDelta": 1
         },
         {
@@ -244,13 +244,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Search the yard and follow the clearest cart marks",
-          "nextNodeId": "K04B",
+          "nextNodeId": "P04B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K03B",
+      "id": "P03B",
       "turn": 3,
       "title": "The Cooper's Yard - Narrow Trail",
       "narrative": [
@@ -262,21 +262,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Search the yard and follow the clearest cart marks",
-          "nextNodeId": "K04C",
+          "label": "Search the yard and follow the clearest cart marks, with the remaining risks kept in view",
+          "nextNodeId": "P04C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Win Tomlin's trust and compare his memory with the tracks",
-          "nextNodeId": "K04A",
+          "label": "Win Tomlin's trust and compare his memory with the tracks, following the trail that best fits the evidence",
+          "nextNodeId": "P04A",
           "scoreDelta": 1
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Drag Tomlin out before the crowd and force his story",
+          "label": "Drag Tomlin out before the crowd and force his story, with the warning signs still unresolved",
           "failTitle": "A Witness Lost",
           "failText": "The boy bolts in terror, the crowd surges, and the yard becomes useless confusion. By the time order returns, the trail has truly gone cold.",
           "death": false
@@ -284,7 +284,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K03C",
+      "id": "P03C",
       "turn": 3,
       "title": "The Cooper's Yard - Hard Pressed",
       "narrative": [
@@ -296,7 +296,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Drag Tomlin out before the crowd and force his story",
+          "label": "Drag Tomlin out before the crowd and force his story, despite the doubts raised by the evidence",
           "failTitle": "A Witness Lost",
           "failText": "The boy bolts in terror, the crowd surges, and the yard becomes useless confusion. By the time order returns, the trail has truly gone cold.",
           "death": false
@@ -304,21 +304,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Search the yard and follow the clearest cart marks",
-          "nextNodeId": "K04C",
+          "label": "Search the yard and follow the clearest cart marks, by the slower but steadier course",
+          "nextNodeId": "P04C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Win Tomlin's trust and compare his memory with the tracks",
-          "nextNodeId": "K04B",
+          "label": "Win Tomlin's trust and compare his memory with the tracks, on the strongest evidence available",
+          "nextNodeId": "P04B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K04A",
+      "id": "P04A",
       "turn": 4,
       "title": "Lamps in Elderwood - Clear Advantage",
       "narrative": [
@@ -331,7 +331,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Shadow the marked path and keep to cover",
-          "nextNodeId": "K05B",
+          "nextNodeId": "P05B",
           "scoreDelta": 0
         },
         {
@@ -346,13 +346,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use Hobb's knowledge to circle wide and read the watchers from behind",
-          "nextNodeId": "K05A",
+          "nextNodeId": "P05A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K04B",
+      "id": "P04B",
       "turn": 4,
       "title": "Lamps in Elderwood - Narrow Trail",
       "narrative": [
@@ -364,21 +364,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Use Hobb's knowledge to circle wide and read the watchers from behind",
-          "nextNodeId": "K05A",
+          "label": "Use Hobb's knowledge to circle wide and read the watchers from behind, using the clearest clue from this approach",
+          "nextNodeId": "P05A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Shadow the marked path and keep to cover",
-          "nextNodeId": "K05C",
+          "label": "Shadow the marked path and keep to cover, while keeping the safer line open",
+          "nextNodeId": "P05C",
           "scoreDelta": 0
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Strike at the first moving light in the trees",
+          "label": "Strike at the first moving light in the trees, without testing the danger ahead",
           "failTitle": "The Forest Answers",
           "failText": "You loose too soon and find not a leader but a decoy. The real sentries close on your position, and Elderwood swallows your chance in silence and steel.",
           "death": true
@@ -386,7 +386,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K04C",
+      "id": "P04C",
       "turn": 4,
       "title": "Lamps in Elderwood - Hard Pressed",
       "narrative": [
@@ -398,7 +398,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Strike at the first moving light in the trees",
+          "label": "Strike at the first moving light in the trees, without securing help or a retreat",
           "failTitle": "The Forest Answers",
           "failText": "You loose too soon and find not a leader but a decoy. The real sentries close on your position, and Elderwood swallows your chance in silence and steel.",
           "death": true
@@ -406,21 +406,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Use Hobb's knowledge to circle wide and read the watchers from behind",
-          "nextNodeId": "K05B",
+          "label": "Use Hobb's knowledge to circle wide and read the watchers from behind, with old and new signs considered together",
+          "nextNodeId": "P05B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Shadow the marked path and keep to cover",
-          "nextNodeId": "K05C",
+          "label": "Shadow the marked path and keep to cover, without committing every resource at once",
+          "nextNodeId": "P05C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K05A",
+      "id": "P05A",
       "turn": 5,
       "title": "Marks in the Charcoal Ash - Clear Advantage",
       "narrative": [
@@ -433,7 +433,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Look for a captive's mark and learn what labor the camp is built for",
-          "nextNodeId": "K06A",
+          "nextNodeId": "P06A",
           "scoreDelta": 1
         },
         {
@@ -448,13 +448,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Stay hidden and study the camp's order",
-          "nextNodeId": "K06B",
+          "nextNodeId": "P06B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K05B",
+      "id": "P05B",
       "turn": 5,
       "title": "Marks in the Charcoal Ash - Narrow Trail",
       "narrative": [
@@ -466,21 +466,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Stay hidden and study the camp's order",
-          "nextNodeId": "K06C",
+          "label": "Stay hidden and study the camp's order, by the slower but steadier course",
+          "nextNodeId": "P06C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Look for a captive's mark and learn what labor the camp is built for",
-          "nextNodeId": "K06A",
+          "label": "Look for a captive's mark and learn what labor the camp is built for, on the strongest evidence available",
+          "nextNodeId": "P06A",
           "scoreDelta": 1
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Rush the hidden camp and try to free the captives at once",
+          "label": "Rush the hidden camp and try to free the captives at once, despite the doubts raised by the evidence",
           "failTitle": "Too Many Blades",
           "failText": "The camp wakes in a heartbeat, and courage without numbers becomes only noise. The captives are dragged deeper into the wood while you are brought down or driven off.",
           "death": true
@@ -488,7 +488,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K05C",
+      "id": "P05C",
       "turn": 5,
       "title": "Marks in the Charcoal Ash - Hard Pressed",
       "narrative": [
@@ -500,7 +500,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Rush the hidden camp and try to free the captives at once",
+          "label": "Rush the hidden camp and try to free the captives at once, on the strength of one uncertain sign",
           "failTitle": "Too Many Blades",
           "failText": "The camp wakes in a heartbeat, and courage without numbers becomes only noise. The captives are dragged deeper into the wood while you are brought down or driven off.",
           "death": true
@@ -508,21 +508,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Stay hidden and study the camp's order",
-          "nextNodeId": "K06C",
+          "label": "Stay hidden and study the camp's order, leaving room to change course",
+          "nextNodeId": "P06C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Look for a captive's mark and learn what labor the camp is built for",
-          "nextNodeId": "K06B",
+          "label": "Look for a captive's mark and learn what labor the camp is built for, along the route least likely to alert the quarry",
+          "nextNodeId": "P06B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K06A",
+      "id": "P06A",
       "turn": 6,
       "title": "The Leper Barn - Clear Advantage",
       "narrative": [
@@ -535,7 +535,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Listen from cover and withdraw with what you hear",
-          "nextNodeId": "K07B",
+          "nextNodeId": "P07B",
           "scoreDelta": 0
         },
         {
@@ -550,13 +550,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Edge closer, sort the voices, and learn what each leader wants",
-          "nextNodeId": "K07A",
+          "nextNodeId": "P07A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K06B",
+      "id": "P06B",
       "turn": 6,
       "title": "The Leper Barn - Narrow Trail",
       "narrative": [
@@ -568,21 +568,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Edge closer, sort the voices, and learn what each leader wants",
-          "nextNodeId": "K07A",
+          "label": "Edge closer, sort the voices, and learn what each leader wants, with old and new signs considered together",
+          "nextNodeId": "P07A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Listen from cover and withdraw with what you hear",
-          "nextNodeId": "K07C",
+          "label": "Listen from cover and withdraw with what you hear, without committing every resource at once",
+          "nextNodeId": "P07C",
           "scoreDelta": 0
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Burst into the leper barn and challenge the leaders openly",
+          "label": "Burst into the leper barn and challenge the leaders openly, without securing help or a retreat",
           "failTitle": "Steel Before Truth",
           "failText": "Holl has men enough at hand to make a bold entrance into a short death. You learn nothing useful, and the hidden band closes ranks around the work.",
           "death": true
@@ -590,7 +590,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K06C",
+      "id": "P06C",
       "turn": 6,
       "title": "The Leper Barn - Hard Pressed",
       "narrative": [
@@ -602,7 +602,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Burst into the leper barn and challenge the leaders openly",
+          "label": "Burst into the leper barn and challenge the leaders openly, without hearing the nearest witness",
           "failTitle": "Steel Before Truth",
           "failText": "Holl has men enough at hand to make a bold entrance into a short death. You learn nothing useful, and the hidden band closes ranks around the work.",
           "death": true
@@ -610,21 +610,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Edge closer, sort the voices, and learn what each leader wants",
-          "nextNodeId": "K07B",
+          "label": "Edge closer, sort the voices, and learn what each leader wants, with the strongest account in hand",
+          "nextNodeId": "P07B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Listen from cover and withdraw with what you hear",
-          "nextNodeId": "K07C",
+          "label": "Listen from cover and withdraw with what you hear, after securing the ground already won",
+          "nextNodeId": "P07C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K07A",
+      "id": "P07A",
       "turn": 7,
       "title": "What Lies Beneath the Hill - Clear Advantage",
       "narrative": [
@@ -637,7 +637,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Search for written proof of what lies beneath Saint Bryn's hill",
-          "nextNodeId": "K08A",
+          "nextNodeId": "P08A",
           "scoreDelta": 1
         },
         {
@@ -652,13 +652,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Piece the clues together and carry the warning back",
-          "nextNodeId": "K08B",
+          "nextNodeId": "P08B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K07B",
+      "id": "P07B",
       "turn": 7,
       "title": "What Lies Beneath the Hill - Narrow Trail",
       "narrative": [
@@ -670,21 +670,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Piece the clues together and carry the warning back",
-          "nextNodeId": "K08C",
+          "label": "Piece the clues together and carry the warning back, leaving room to change course",
+          "nextNodeId": "P08C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Search for written proof of what lies beneath Saint Bryn's hill",
-          "nextNodeId": "K08A",
+          "label": "Search for written proof of what lies beneath Saint Bryn's hill, along the route least likely to alert the quarry",
+          "nextNodeId": "P08A",
           "scoreDelta": 1
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Set fire to the barn and hope the plan dies with it",
+          "label": "Set fire to the barn and hope the plan dies with it, on the strength of one uncertain sign",
           "failTitle": "The Wrong Flame",
           "failText": "The blaze scatters the hidden company but does not stop them. Captives vanish into the trees, records are moved, and the night turns wild in all the ways you most needed to avoid.",
           "death": false
@@ -692,7 +692,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K07C",
+      "id": "P07C",
       "turn": 7,
       "title": "What Lies Beneath the Hill - Hard Pressed",
       "narrative": [
@@ -704,7 +704,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Set fire to the barn and hope the plan dies with it",
+          "label": "Set fire to the barn and hope the plan dies with it, with the warning signs still unresolved",
           "failTitle": "The Wrong Flame",
           "failText": "The blaze scatters the hidden company but does not stop them. Captives vanish into the trees, records are moved, and the night turns wild in all the ways you most needed to avoid.",
           "death": false
@@ -712,21 +712,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Piece the clues together and carry the warning back",
-          "nextNodeId": "K08C",
+          "label": "Piece the clues together and carry the warning back, with the remaining risks kept in view",
+          "nextNodeId": "P08C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Search for written proof of what lies beneath Saint Bryn's hill",
-          "nextNodeId": "K08B",
+          "label": "Search for written proof of what lies beneath Saint Bryn's hill, following the trail that best fits the evidence",
+          "nextNodeId": "P08B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K08A",
+      "id": "P08A",
       "turn": 8,
       "title": "Word Sent Before Dark - Clear Advantage",
       "narrative": [
@@ -739,7 +739,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Confide in Maelin and gather what help the town can quietly spare",
-          "nextNodeId": "K09B",
+          "nextNodeId": "P09B",
           "scoreDelta": 0
         },
         {
@@ -754,13 +754,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Set Maelin, Elswyth, and Hobb to separate tasks before the enemy can shift",
-          "nextNodeId": "K09A",
+          "nextNodeId": "P09A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K08B",
+      "id": "P08B",
       "turn": 8,
       "title": "Word Sent Before Dark - Narrow Trail",
       "narrative": [
@@ -772,21 +772,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Set Maelin, Elswyth, and Hobb to separate tasks before the enemy can shift",
-          "nextNodeId": "K09A",
+          "label": "Set Maelin, Elswyth, and Hobb to separate tasks before the enemy can shift, with the strongest account in hand",
+          "nextNodeId": "P09A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Confide in Maelin and gather what help the town can quietly spare",
-          "nextNodeId": "K09C",
+          "label": "Confide in Maelin and gather what help the town can quietly spare, after securing the ground already won",
+          "nextNodeId": "P09C",
           "scoreDelta": 0
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Tell the whole town everything at once",
+          "label": "Tell the whole town everything at once, without hearing the nearest witness",
           "failTitle": "Panic Takes the Reins",
           "failText": "The truth, shouted too broadly and too soon, arrives in Oakenhurst as rumor and terror. By nightfall the lanes are chaos, and Holl gains exactly the confusion he needs.",
           "death": false
@@ -794,7 +794,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K08C",
+      "id": "P08C",
       "turn": 8,
       "title": "Word Sent Before Dark - Hard Pressed",
       "narrative": [
@@ -806,7 +806,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Tell the whole town everything at once",
+          "label": "Tell the whole town everything at once, without testing the danger ahead",
           "failTitle": "Panic Takes the Reins",
           "failText": "The truth, shouted too broadly and too soon, arrives in Oakenhurst as rumor and terror. By nightfall the lanes are chaos, and Holl gains exactly the confusion he needs.",
           "death": false
@@ -814,21 +814,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Set Maelin, Elswyth, and Hobb to separate tasks before the enemy can shift",
-          "nextNodeId": "K09B",
+          "label": "Set Maelin, Elswyth, and Hobb to separate tasks before the enemy can shift, using the clearest clue from this approach",
+          "nextNodeId": "P09B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Confide in Maelin and gather what help the town can quietly spare",
-          "nextNodeId": "K09C",
+          "label": "Confide in Maelin and gather what help the town can quietly spare, while keeping the safer line open",
+          "nextNodeId": "P09C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K09A",
+      "id": "P09A",
       "turn": 9,
       "title": "The Lime Quarry - Clear Advantage",
       "narrative": [
@@ -841,7 +841,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Intercept a lesser man and wring names and purpose from him",
-          "nextNodeId": "K10A",
+          "nextNodeId": "P10A",
           "scoreDelta": 1
         },
         {
@@ -856,13 +856,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Search the sheds and seize what clear evidence remains",
-          "nextNodeId": "K10B",
+          "nextNodeId": "P10B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K09B",
+      "id": "P09B",
       "turn": 9,
       "title": "The Lime Quarry - Narrow Trail",
       "narrative": [
@@ -874,21 +874,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Search the sheds and seize what clear evidence remains",
-          "nextNodeId": "K10C",
+          "label": "Search the sheds and seize what clear evidence remains, with the remaining risks kept in view",
+          "nextNodeId": "P10C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Intercept a lesser man and wring names and purpose from him",
-          "nextNodeId": "K10A",
+          "label": "Intercept a lesser man and wring names and purpose from him, following the trail that best fits the evidence",
+          "nextNodeId": "P10A",
           "scoreDelta": 1
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Wait at the quarry in hopes of taking Holl himself",
+          "label": "Wait at the quarry in hopes of taking Holl himself, with the warning signs still unresolved",
           "failTitle": "The Empty Ambush",
           "failText": "Holl never comes, and the hours bleed away while the real work moves elsewhere. When at last you leave the quarry, you are chasing the night instead of shaping it.",
           "death": false
@@ -896,7 +896,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K09C",
+      "id": "P09C",
       "turn": 9,
       "title": "The Lime Quarry - Hard Pressed",
       "narrative": [
@@ -908,7 +908,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Wait at the quarry in hopes of taking Holl himself",
+          "label": "Wait at the quarry in hopes of taking Holl himself, despite the doubts raised by the evidence",
           "failTitle": "The Empty Ambush",
           "failText": "Holl never comes, and the hours bleed away while the real work moves elsewhere. When at last you leave the quarry, you are chasing the night instead of shaping it.",
           "death": false
@@ -916,21 +916,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Search the sheds and seize what clear evidence remains",
-          "nextNodeId": "K10C",
+          "label": "Search the sheds and seize what clear evidence remains, by the slower but steadier course",
+          "nextNodeId": "P10C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Intercept a lesser man and wring names and purpose from him",
-          "nextNodeId": "K10B",
+          "label": "Intercept a lesser man and wring names and purpose from him, on the strongest evidence available",
+          "nextNodeId": "P10B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K10A",
+      "id": "P10A",
       "turn": 10,
       "title": "A Split in the Hidden Camp - Clear Advantage",
       "narrative": [
@@ -943,7 +943,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Watch from cover and judge the split in their ranks",
-          "nextNodeId": "K11B",
+          "nextNodeId": "P11B",
           "scoreDelta": 0
         },
         {
@@ -958,13 +958,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Study both men closely and learn where their aims part",
-          "nextNodeId": "K11A",
+          "nextNodeId": "P11A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K10B",
+      "id": "P10B",
       "turn": 10,
       "title": "A Split in the Hidden Camp - Narrow Trail",
       "narrative": [
@@ -976,21 +976,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Study both men closely and learn where their aims part",
-          "nextNodeId": "K11A",
+          "label": "Study both men closely and learn where their aims part, using the clearest clue from this approach",
+          "nextNodeId": "P11A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Watch from cover and judge the split in their ranks",
-          "nextNodeId": "K11C",
+          "label": "Watch from cover and judge the split in their ranks, while keeping the safer line open",
+          "nextNodeId": "P11C",
           "scoreDelta": 0
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Loose an arrow into the council fire to break them apart",
+          "label": "Loose an arrow into the council fire to break them apart, without testing the danger ahead",
           "failTitle": "The Wood Erupts",
           "failText": "The shot scatters the camp, but not in your favor. Men vanish with captives, orders change, and the last chance to learn their division is lost in a running fight.",
           "death": false
@@ -998,7 +998,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K10C",
+      "id": "P10C",
       "turn": 10,
       "title": "A Split in the Hidden Camp - Hard Pressed",
       "narrative": [
@@ -1010,7 +1010,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Loose an arrow into the council fire to break them apart",
+          "label": "Loose an arrow into the council fire to break them apart, without securing help or a retreat",
           "failTitle": "The Wood Erupts",
           "failText": "The shot scatters the camp, but not in your favor. Men vanish with captives, orders change, and the last chance to learn their division is lost in a running fight.",
           "death": false
@@ -1018,21 +1018,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Study both men closely and learn where their aims part",
-          "nextNodeId": "K11B",
+          "label": "Study both men closely and learn where their aims part, with old and new signs considered together",
+          "nextNodeId": "P11B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Watch from cover and judge the split in their ranks",
-          "nextNodeId": "K11C",
+          "label": "Watch from cover and judge the split in their ranks, without committing every resource at once",
+          "nextNodeId": "P11C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K11A",
+      "id": "P11A",
       "turn": 11,
       "title": "Brother Cenn's Claim - Clear Advantage",
       "narrative": [
@@ -1045,7 +1045,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Draw out the truth of Cenn's grievance while keeping Holl in sight",
-          "nextNodeId": "K12A",
+          "nextNodeId": "P12A",
           "scoreDelta": 1
         },
         {
@@ -1060,13 +1060,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Take the claim seriously but prepare for force",
-          "nextNodeId": "K12B",
+          "nextNodeId": "P12B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K11B",
+      "id": "P11B",
       "turn": 11,
       "title": "Brother Cenn's Claim - Narrow Trail",
       "narrative": [
@@ -1078,21 +1078,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Take the claim seriously but prepare for force",
-          "nextNodeId": "K12C",
+          "label": "Take the claim seriously but prepare for force, by the slower but steadier course",
+          "nextNodeId": "P12C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Draw out the truth of Cenn's grievance while keeping Holl in sight",
-          "nextNodeId": "K12A",
+          "label": "Draw out the truth of Cenn's grievance while keeping Holl in sight, on the strongest evidence available",
+          "nextNodeId": "P12A",
           "scoreDelta": 1
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Accept Cenn's words and leave him to his own conscience",
+          "label": "Accept Cenn's words and leave him to his own conscience, despite the doubts raised by the evidence",
           "failTitle": "Mercy Misplaced",
           "failText": "Whatever remains of Cenn's purpose, Holl is the sharper will now. Your retreat gives the deserter captain the very hours he needs to seize the work entire.",
           "death": false
@@ -1100,7 +1100,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K11C",
+      "id": "P11C",
       "turn": 11,
       "title": "Brother Cenn's Claim - Hard Pressed",
       "narrative": [
@@ -1112,7 +1112,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Accept Cenn's words and leave him to his own conscience",
+          "label": "Accept Cenn's words and leave him to his own conscience, on the strength of one uncertain sign",
           "failTitle": "Mercy Misplaced",
           "failText": "Whatever remains of Cenn's purpose, Holl is the sharper will now. Your retreat gives the deserter captain the very hours he needs to seize the work entire.",
           "death": false
@@ -1120,21 +1120,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Take the claim seriously but prepare for force",
-          "nextNodeId": "K12C",
+          "label": "Take the claim seriously but prepare for force, leaving room to change course",
+          "nextNodeId": "P12C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Draw out the truth of Cenn's grievance while keeping Holl in sight",
-          "nextNodeId": "K12B",
+          "label": "Draw out the truth of Cenn's grievance while keeping Holl in sight, along the route least likely to alert the quarry",
+          "nextNodeId": "P12B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K12A",
+      "id": "P12A",
       "turn": 12,
       "title": "The Bells Before Midnight - Clear Advantage",
       "narrative": [
@@ -1147,7 +1147,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Signal your allies and move on the hill by the safer side",
-          "nextNodeId": "K13B",
+          "nextNodeId": "P13B",
           "scoreDelta": 0
         },
         {
@@ -1162,13 +1162,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Anticipate Holl's push and use the bell's confusion against him",
-          "nextNodeId": "K13A",
+          "nextNodeId": "P13A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K12B",
+      "id": "P12B",
       "turn": 12,
       "title": "The Bells Before Midnight - Narrow Trail",
       "narrative": [
@@ -1180,21 +1180,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Anticipate Holl's push and use the bell's confusion against him",
-          "nextNodeId": "K13A",
+          "label": "Anticipate Holl's push and use the bell's confusion against him, with old and new signs considered together",
+          "nextNodeId": "P13A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Signal your allies and move on the hill by the safer side",
-          "nextNodeId": "K13C",
+          "label": "Signal your allies and move on the hill by the safer side, without committing every resource at once",
+          "nextNodeId": "P13C",
           "scoreDelta": 0
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Race straight for the captives through the open road",
+          "label": "Race straight for the captives through the open road, without securing help or a retreat",
           "failTitle": "Crossed in the Bell's Shadow",
           "failText": "Holl's covering men were waiting for just such haste. The road becomes a killing ground, and the night closes over the rescue before it begins.",
           "death": true
@@ -1202,7 +1202,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K12C",
+      "id": "P12C",
       "turn": 12,
       "title": "The Bells Before Midnight - Hard Pressed",
       "narrative": [
@@ -1214,7 +1214,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Race straight for the captives through the open road",
+          "label": "Race straight for the captives through the open road, without hearing the nearest witness",
           "failTitle": "Crossed in the Bell's Shadow",
           "failText": "Holl's covering men were waiting for just such haste. The road becomes a killing ground, and the night closes over the rescue before it begins.",
           "death": true
@@ -1222,21 +1222,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Anticipate Holl's push and use the bell's confusion against him",
-          "nextNodeId": "K13B",
+          "label": "Anticipate Holl's push and use the bell's confusion against him, with the strongest account in hand",
+          "nextNodeId": "P13B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Signal your allies and move on the hill by the safer side",
-          "nextNodeId": "K13C",
+          "label": "Signal your allies and move on the hill by the safer side, after securing the ground already won",
+          "nextNodeId": "P13C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K13A",
+      "id": "P13A",
       "turn": 13,
       "title": "Panic on Hospice Hill - Clear Advantage",
       "narrative": [
@@ -1249,7 +1249,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Steady Maelin's line and open a path toward the lower entrance",
-          "nextNodeId": "K14A",
+          "nextNodeId": "P14A",
           "scoreDelta": 1
         },
         {
@@ -1264,13 +1264,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Hold the crowd back and work toward the breach carefully",
-          "nextNodeId": "K14B",
+          "nextNodeId": "P14B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K13B",
+      "id": "P13B",
       "turn": 13,
       "title": "Panic on Hospice Hill - Narrow Trail",
       "narrative": [
@@ -1282,21 +1282,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Hold the crowd back and work toward the breach carefully",
-          "nextNodeId": "K14C",
+          "label": "Hold the crowd back and work toward the breach carefully, leaving room to change course",
+          "nextNodeId": "P14C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Steady Maelin's line and open a path toward the lower entrance",
-          "nextNodeId": "K14A",
+          "label": "Steady Maelin's line and open a path toward the lower entrance, along the route least likely to alert the quarry",
+          "nextNodeId": "P14A",
           "scoreDelta": 1
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Let the frightened villagers charge the ruins ahead of you",
+          "label": "Let the frightened villagers charge the ruins ahead of you, on the strength of one uncertain sign",
           "failTitle": "Panic on the Slope",
           "failText": "The rush breaks against Holl's sentries and turns to trampling, screams, and blind retreat. The hill is given wholly to the enemy for the worst possible hour.",
           "death": false
@@ -1304,7 +1304,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K13C",
+      "id": "P13C",
       "turn": 13,
       "title": "Panic on Hospice Hill - Hard Pressed",
       "narrative": [
@@ -1316,7 +1316,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Let the frightened villagers charge the ruins ahead of you",
+          "label": "Let the frightened villagers charge the ruins ahead of you, with the warning signs still unresolved",
           "failTitle": "Panic on the Slope",
           "failText": "The rush breaks against Holl's sentries and turns to trampling, screams, and blind retreat. The hill is given wholly to the enemy for the worst possible hour.",
           "death": false
@@ -1324,21 +1324,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Hold the crowd back and work toward the breach carefully",
-          "nextNodeId": "K14C",
+          "label": "Hold the crowd back and work toward the breach carefully, with the remaining risks kept in view",
+          "nextNodeId": "P14C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Steady Maelin's line and open a path toward the lower entrance",
-          "nextNodeId": "K14B",
+          "label": "Steady Maelin's line and open a path toward the lower entrance, following the trail that best fits the evidence",
+          "nextNodeId": "P14B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K14A",
+      "id": "P14A",
       "turn": 14,
       "title": "The Drain Under Stone - Clear Advantage",
       "narrative": [
@@ -1351,7 +1351,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Take the drain and trust the cramped old route",
-          "nextNodeId": "K15B",
+          "nextNodeId": "P15B",
           "scoreDelta": 0
         },
         {
@@ -1366,13 +1366,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use Ivo's knowledge and the drain together to reach the lower ward cleanly",
-          "nextNodeId": "K15A",
+          "nextNodeId": "P15A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K14B",
+      "id": "P14B",
       "turn": 14,
       "title": "The Drain Under Stone - Narrow Trail",
       "narrative": [
@@ -1384,21 +1384,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Use Ivo's knowledge and the drain together to reach the lower ward cleanly",
-          "nextNodeId": "K15A",
+          "label": "Use Ivo's knowledge and the drain together to reach the lower ward cleanly, with the strongest account in hand",
+          "nextNodeId": "P15A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Take the drain and trust the cramped old route",
-          "nextNodeId": "K15C",
+          "label": "Take the drain and trust the cramped old route, after securing the ground already won",
+          "nextNodeId": "P15C",
           "scoreDelta": 0
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Force the first blocked stair without checking the stone",
+          "label": "Force the first blocked stair without checking the stone, without hearing the nearest witness",
           "failTitle": "Buried Below",
           "failText": "The rubble shifts under your weight and comes down in a grinding sheet. Earth and old masonry seal the passage, and the ward keeps its secrets over your grave.",
           "death": true
@@ -1406,7 +1406,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K14C",
+      "id": "P14C",
       "turn": 14,
       "title": "The Drain Under Stone - Hard Pressed",
       "narrative": [
@@ -1418,7 +1418,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Force the first blocked stair without checking the stone",
+          "label": "Force the first blocked stair without checking the stone, without testing the danger ahead",
           "failTitle": "Buried Below",
           "failText": "The rubble shifts under your weight and comes down in a grinding sheet. Earth and old masonry seal the passage, and the ward keeps its secrets over your grave.",
           "death": true
@@ -1426,21 +1426,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Use Ivo's knowledge and the drain together to reach the lower ward cleanly",
-          "nextNodeId": "K15B",
+          "label": "Use Ivo's knowledge and the drain together to reach the lower ward cleanly, using the clearest clue from this approach",
+          "nextNodeId": "P15B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Take the drain and trust the cramped old route",
-          "nextNodeId": "K15C",
+          "label": "Take the drain and trust the cramped old route, while keeping the safer line open",
+          "nextNodeId": "P15C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K15A",
+      "id": "P15A",
       "turn": 15,
       "title": "The Buried Ward - Clear Advantage",
       "narrative": [
@@ -1453,7 +1453,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Read the chamber, the records, and Holl's obsession in a single glance",
-          "nextNodeId": "K16A",
+          "nextNodeId": "P16A",
           "scoreDelta": 1
         },
         {
@@ -1468,13 +1468,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Secure the way in and measure the danger before pressing farther",
-          "nextNodeId": "K16B",
+          "nextNodeId": "P16B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K15B",
+      "id": "P15B",
       "turn": 15,
       "title": "The Buried Ward - Narrow Trail",
       "narrative": [
@@ -1486,21 +1486,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the way in and measure the danger before pressing farther",
-          "nextNodeId": "K16C",
+          "label": "Secure the way in and measure the danger before pressing farther, with the remaining risks kept in view",
+          "nextNodeId": "P16C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the chamber, the records, and Holl's obsession in a single glance",
-          "nextNodeId": "K16A",
+          "label": "Read the chamber, the records, and Holl's obsession in a single glance, following the trail that best fits the evidence",
+          "nextNodeId": "P16A",
           "scoreDelta": 1
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Go straight for the silver and trust the chamber to hold",
+          "label": "Go straight for the silver and trust the chamber to hold, with the warning signs still unresolved",
           "failTitle": "Greed's Companion",
           "failText": "You step where Holl stepped in spirit if not in motive. The floor answers badly, and the ward begins to fall before the living can clear it.",
           "death": true
@@ -1508,7 +1508,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K15C",
+      "id": "P15C",
       "turn": 15,
       "title": "The Buried Ward - Hard Pressed",
       "narrative": [
@@ -1520,7 +1520,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Go straight for the silver and trust the chamber to hold",
+          "label": "Go straight for the silver and trust the chamber to hold, despite the doubts raised by the evidence",
           "failTitle": "Greed's Companion",
           "failText": "You step where Holl stepped in spirit if not in motive. The floor answers badly, and the ward begins to fall before the living can clear it.",
           "death": true
@@ -1528,21 +1528,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Secure the way in and measure the danger before pressing farther",
-          "nextNodeId": "K16C",
+          "label": "Secure the way in and measure the danger before pressing farther, by the slower but steadier course",
+          "nextNodeId": "P16C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Read the chamber, the records, and Holl's obsession in a single glance",
-          "nextNodeId": "K16B",
+          "label": "Read the chamber, the records, and Holl's obsession in a single glance, on the strongest evidence available",
+          "nextNodeId": "P16B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K16A",
+      "id": "P16A",
       "turn": 16,
       "title": "A Choice Among the Dead - Clear Advantage",
       "narrative": [
@@ -1555,7 +1555,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Take what truth matters and move to stop Holl",
-          "nextNodeId": "K17B",
+          "nextNodeId": "P17B",
           "scoreDelta": 0
         },
         {
@@ -1570,13 +1570,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Turn Cenn's confession into leverage against Holl at once",
-          "nextNodeId": "K17A",
+          "nextNodeId": "P17A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K16B",
+      "id": "P16B",
       "turn": 16,
       "title": "A Choice Among the Dead - Narrow Trail",
       "narrative": [
@@ -1588,21 +1588,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Turn Cenn's confession into leverage against Holl at once",
-          "nextNodeId": "K17A",
+          "label": "Turn Cenn's confession into leverage against Holl at once, using the clearest clue from this approach",
+          "nextNodeId": "P17A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Take what truth matters and move to stop Holl",
-          "nextNodeId": "K17C",
+          "label": "Take what truth matters and move to stop Holl, while keeping the safer line open",
+          "nextNodeId": "P17C",
           "scoreDelta": 0
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Stop to argue the whole of justice with Cenn",
+          "label": "Stop to argue the whole of justice with Cenn, without testing the danger ahead",
           "failTitle": "Words Under Falling Stone",
           "failText": "The chamber has moved beyond speeches. While you spend your breath on blame and confession, Holl takes the deeper route with coin, records, and the last of the advantage.",
           "death": false
@@ -1610,7 +1610,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K16C",
+      "id": "P16C",
       "turn": 16,
       "title": "A Choice Among the Dead - Hard Pressed",
       "narrative": [
@@ -1622,7 +1622,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Stop to argue the whole of justice with Cenn",
+          "label": "Stop to argue the whole of justice with Cenn, without securing help or a retreat",
           "failTitle": "Words Under Falling Stone",
           "failText": "The chamber has moved beyond speeches. While you spend your breath on blame and confession, Holl takes the deeper route with coin, records, and the last of the advantage.",
           "death": false
@@ -1630,21 +1630,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Turn Cenn's confession into leverage against Holl at once",
-          "nextNodeId": "K17B",
+          "label": "Turn Cenn's confession into leverage against Holl at once, with old and new signs considered together",
+          "nextNodeId": "P17B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Take what truth matters and move to stop Holl",
-          "nextNodeId": "K17C",
+          "label": "Take what truth matters and move to stop Holl, without committing every resource at once",
+          "nextNodeId": "P17C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K17A",
+      "id": "P17A",
       "turn": 17,
       "title": "Horn and Chapel Light - Clear Advantage",
       "narrative": [
@@ -1657,7 +1657,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Coordinate Maelin, Hobb, and Elswyth so the hill answers as one",
-          "nextNodeId": "K18A",
+          "nextNodeId": "P18A",
           "scoreDelta": 1
         },
         {
@@ -1672,13 +1672,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Gather the steadiest hands and tighten the net slowly",
-          "nextNodeId": "K18B",
+          "nextNodeId": "P18B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K17B",
+      "id": "P17B",
       "turn": 17,
       "title": "Horn and Chapel Light - Narrow Trail",
       "narrative": [
@@ -1690,21 +1690,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Gather the steadiest hands and tighten the net slowly",
-          "nextNodeId": "K18C",
+          "label": "Gather the steadiest hands and tighten the net slowly, by the slower but steadier course",
+          "nextNodeId": "P18C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Coordinate Maelin, Hobb, and Elswyth so the hill answers as one",
-          "nextNodeId": "K18A",
+          "label": "Coordinate Maelin, Hobb, and Elswyth so the hill answers as one, on the strongest evidence available",
+          "nextNodeId": "P18A",
           "scoreDelta": 1
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Drive everyone forward in one blind rush",
+          "label": "Drive everyone forward in one blind rush, despite the doubts raised by the evidence",
           "failTitle": "The Line Breaks",
           "failText": "Too many feet, too little room, and too much fear undo the push at once. Holl slips the crush, and good men are hurt by friends as much as foes.",
           "death": false
@@ -1712,7 +1712,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K17C",
+      "id": "P17C",
       "turn": 17,
       "title": "Horn and Chapel Light - Hard Pressed",
       "narrative": [
@@ -1724,7 +1724,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Drive everyone forward in one blind rush",
+          "label": "Drive everyone forward in one blind rush, on the strength of one uncertain sign",
           "failTitle": "The Line Breaks",
           "failText": "Too many feet, too little room, and too much fear undo the push at once. Holl slips the crush, and good men are hurt by friends as much as foes.",
           "death": false
@@ -1732,21 +1732,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Gather the steadiest hands and tighten the net slowly",
-          "nextNodeId": "K18C",
+          "label": "Gather the steadiest hands and tighten the net slowly, leaving room to change course",
+          "nextNodeId": "P18C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Coordinate Maelin, Hobb, and Elswyth so the hill answers as one",
-          "nextNodeId": "K18B",
+          "label": "Coordinate Maelin, Hobb, and Elswyth so the hill answers as one, along the route least likely to alert the quarry",
+          "nextNodeId": "P18B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K18A",
+      "id": "P18A",
       "turn": 18,
       "title": "The Bell Chamber Run - Clear Advantage",
       "narrative": [
@@ -1759,7 +1759,7 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Press carefully and deny Holl an easy escape",
-          "nextNodeId": "K19B",
+          "nextNodeId": "P19B",
           "scoreDelta": 0
         },
         {
@@ -1774,13 +1774,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use Holl's burden and the chamber's shape against him",
-          "nextNodeId": "K19A",
+          "nextNodeId": "P19A",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K18B",
+      "id": "P18B",
       "turn": 18,
       "title": "The Bell Chamber Run - Narrow Trail",
       "narrative": [
@@ -1792,21 +1792,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Use Holl's burden and the chamber's shape against him",
-          "nextNodeId": "K19A",
+          "label": "Use Holl's burden and the chamber's shape against him, with old and new signs considered together",
+          "nextNodeId": "P19A",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Press carefully and deny Holl an easy escape",
-          "nextNodeId": "K19C",
+          "label": "Press carefully and deny Holl an easy escape, without committing every resource at once",
+          "nextNodeId": "P19C",
           "scoreDelta": 0
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Charge Holl across the narrow gallery",
+          "label": "Charge Holl across the narrow gallery, without securing help or a retreat",
           "failTitle": "The Black Water Below",
           "failText": "He gives way just enough to draw you on, then uses the shaft and the dark as weapons of their own. The fall is short only in the telling.",
           "death": true
@@ -1814,7 +1814,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K18C",
+      "id": "P18C",
       "turn": 18,
       "title": "The Bell Chamber Run - Hard Pressed",
       "narrative": [
@@ -1826,7 +1826,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Charge Holl across the narrow gallery",
+          "label": "Charge Holl across the narrow gallery, without hearing the nearest witness",
           "failTitle": "The Black Water Below",
           "failText": "He gives way just enough to draw you on, then uses the shaft and the dark as weapons of their own. The fall is short only in the telling.",
           "death": true
@@ -1834,21 +1834,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Use Holl's burden and the chamber's shape against him",
-          "nextNodeId": "K19B",
+          "label": "Use Holl's burden and the chamber's shape against him, with the strongest account in hand",
+          "nextNodeId": "P19B",
           "scoreDelta": 1
         },
         {
           "id": "normal",
           "type": "normal",
-          "label": "Press carefully and deny Holl an easy escape",
-          "nextNodeId": "K19C",
+          "label": "Press carefully and deny Holl an easy escape, after securing the ground already won",
+          "nextNodeId": "P19C",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K19A",
+      "id": "P19A",
       "turn": 19,
       "title": "At the Winch Shaft - Clear Advantage",
       "narrative": [
@@ -1861,7 +1861,7 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Take Holl alive and keep the records out of the shaft",
-          "nextNodeId": "K20A",
+          "nextNodeId": "P20A",
           "scoreDelta": 1
         },
         {
@@ -1876,13 +1876,13 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Force Holl to yield even if some proof is spoiled in the struggle",
-          "nextNodeId": "K20B",
+          "nextNodeId": "P20B",
           "scoreDelta": 0
         }
       ]
     },
     {
-      "id": "K19B",
+      "id": "P19B",
       "turn": 19,
       "title": "At the Winch Shaft - Narrow Trail",
       "narrative": [
@@ -1894,21 +1894,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Force Holl to yield even if some proof is spoiled in the struggle",
-          "nextNodeId": "K20C",
+          "label": "Force Holl to yield even if some proof is spoiled in the struggle, leaving room to change course",
+          "nextNodeId": "P20C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Take Holl alive and keep the records out of the shaft",
-          "nextNodeId": "K20A",
+          "label": "Take Holl alive and keep the records out of the shaft, along the route least likely to alert the quarry",
+          "nextNodeId": "P20A",
           "scoreDelta": 1
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cut the haul rope to end the standoff at once",
+          "label": "Cut the haul rope to end the standoff at once, on the strength of one uncertain sign",
           "failTitle": "Truth in the Water",
           "failText": "The rope parts, and with it go silver, records, and the best proof of the night's deeper crime. Holl may die or live, but the town loses what it most needed to face daylight honestly.",
           "death": false
@@ -1916,7 +1916,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K19C",
+      "id": "P19C",
       "turn": 19,
       "title": "At the Winch Shaft - Hard Pressed",
       "narrative": [
@@ -1928,7 +1928,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Cut the haul rope to end the standoff at once",
+          "label": "Cut the haul rope to end the standoff at once, with the warning signs still unresolved",
           "failTitle": "Truth in the Water",
           "failText": "The rope parts, and with it go silver, records, and the best proof of the night's deeper crime. Holl may die or live, but the town loses what it most needed to face daylight honestly.",
           "death": false
@@ -1936,21 +1936,21 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Force Holl to yield even if some proof is spoiled in the struggle",
-          "nextNodeId": "K20C",
+          "label": "Force Holl to yield even if some proof is spoiled in the struggle, with the remaining risks kept in view",
+          "nextNodeId": "P20C",
           "scoreDelta": 0
         },
         {
           "id": "good",
           "type": "good",
-          "label": "Take Holl alive and keep the records out of the shaft",
-          "nextNodeId": "K20B",
+          "label": "Take Holl alive and keep the records out of the shaft, following the trail that best fits the evidence",
+          "nextNodeId": "P20B",
           "scoreDelta": 1
         }
       ]
     },
     {
-      "id": "K20A",
+      "id": "P20A",
       "turn": 20,
       "title": "Dawn Over Oakenhurst - Clear Advantage",
       "narrative": [
@@ -1988,7 +1988,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K20B",
+      "id": "P20B",
       "turn": 20,
       "title": "Dawn Over Oakenhurst - Narrow Trail",
       "narrative": [
@@ -2000,7 +2000,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Lay out the whole truth and bind justice to mercy where you can",
+          "label": "Lay out the whole truth and bind justice to mercy where you can, with the strongest account in hand",
           "endStory": true,
           "endType": "high",
           "nextNodeId": null,
@@ -2009,7 +2009,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Settle for the safer account and close the matter quietly",
+          "label": "Settle for the safer account and close the matter quietly, after securing the ground already won",
           "endStory": true,
           "endType": "low",
           "nextNodeId": null,
@@ -2018,7 +2018,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Let rage rule the last judgment",
+          "label": "Let rage rule the last judgment, without hearing the nearest witness",
           "failTitle": "A Bitter Morning",
           "failText": "Vengeance spoken in the heat of dawn turns the hill from hard-won rescue to fresh wrong. Oakenhurst remembers the ranger not as a shield but as another armed man who chose wrath over measure.",
           "death": false
@@ -2026,7 +2026,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K20C",
+      "id": "P20C",
       "turn": 20,
       "title": "Dawn Over Oakenhurst - Hard Pressed",
       "narrative": [
@@ -2038,7 +2038,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Let rage rule the last judgment",
+          "label": "Let rage rule the last judgment, without testing the danger ahead",
           "failTitle": "A Bitter Morning",
           "failText": "Vengeance spoken in the heat of dawn turns the hill from hard-won rescue to fresh wrong. Oakenhurst remembers the ranger not as a shield but as another armed man who chose wrath over measure.",
           "death": false
@@ -2046,7 +2046,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "good",
           "type": "good",
-          "label": "Lay out the whole truth and bind justice to mercy where you can",
+          "label": "Lay out the whole truth and bind justice to mercy where you can, using the clearest clue from this approach",
           "endStory": true,
           "endType": "high",
           "nextNodeId": null,
@@ -2055,7 +2055,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "normal",
           "type": "normal",
-          "label": "Settle for the safer account and close the matter quietly",
+          "label": "Settle for the safer account and close the matter quietly, while keeping the safer line open",
           "endStory": true,
           "endType": "low",
           "nextNodeId": null,

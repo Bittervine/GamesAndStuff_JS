@@ -4,7 +4,7 @@ window.RANGER2_STORIES.push({
   "title": "The Black Sluice of Sallow Mere",
   "summary": "When horned saboteurs begin stealing keys from the old marsh floodgates, the ranger of Brackenwald rides into the Deep Marshes to stop a disgraced waterwright from opening a buried master-sluice, tearing apart the river works, and reaching a war cache hidden beneath a drowned priory.",
   "maxTurns": 20,
-  "startNodeId": "K01A",
+  "startNodeId": "Y01A",
   "goodScoreThreshold": 14,
   "epilogues": {
     "high": "Corren Vane's design fails at the edge of triumph. The marsh works hold well enough for spring planting, the lower farms are warned in time, and Duke Aldric comes in person to witness the sealed toll cellar beneath Saint Edda's drowned stones. Fenbridge speaks your name with relief rather than dread, Elsbeth's wardens keep the banks, and the Deep Marshes remember that careful hands, not old fear, rule the water.",
@@ -12,7 +12,7 @@ window.RANGER2_STORIES.push({
   },
   "nodes": [
     {
-      "id": "K01A",
+      "id": "Y01A",
       "turn": 1,
       "title": "The Duke's Summons - Hall Road",
       "narrative": [
@@ -26,14 +26,14 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Ride for Fenbridge at once and read the breach before dawn.",
           "scoreDelta": 1,
-          "nextNodeId": "K02A"
+          "nextNodeId": "Y02A"
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Stop first at Saint Edda's chapel and hear Brother Senan's account.",
           "scoreDelta": 0,
-          "nextNodeId": "K02B"
+          "nextNodeId": "Y02B"
         },
         {
           "id": "fail",
@@ -46,7 +46,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K01B",
+      "id": "Y01B",
       "turn": 1,
       "title": "The Chapel Warning - Marsh Road",
       "narrative": [
@@ -60,14 +60,14 @@ window.RANGER2_STORIES.push({
           "type": "normal",
           "label": "Stay a little longer and force Senan to show every surviving chart he has.",
           "scoreDelta": 0,
-          "nextNodeId": "K02C"
+          "nextNodeId": "Y02C"
         },
         {
           "id": "good",
           "type": "good",
           "label": "Take Senan's warning as enough and ride hard for Fenbridge.",
           "scoreDelta": 1,
-          "nextNodeId": "K02A"
+          "nextNodeId": "Y02A"
         },
         {
           "id": "fail",
@@ -80,7 +80,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K01C",
+      "id": "Y01C",
       "turn": 1,
       "title": "The Broken Bund - Reed Road",
       "narrative": [
@@ -102,19 +102,19 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Work the bank carefully and let the signs tell you where the saboteurs went.",
           "scoreDelta": 1,
-          "nextNodeId": "K02B"
+          "nextNodeId": "Y02B"
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Push straight along the reed road in hope of sighting the culprits quickly.",
           "scoreDelta": 0,
-          "nextNodeId": "K02C"
+          "nextNodeId": "Y02C"
         }
       ]
     },
     {
-      "id": "K02A",
+      "id": "Y02A",
       "turn": 2,
       "title": "Fresh Sign at Fenbridge - Clear Lead",
       "narrative": [
@@ -124,11 +124,18 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
+          "id": "good",
+          "type": "good",
+          "label": "Take the pole-sledge marks at once and cut for the old towpath.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y03A"
+        },
+        {
           "id": "normal",
           "type": "normal",
           "label": "Secure the keeper's yard and question Fenbridge's witnesses before the trail dries.",
           "scoreDelta": 0,
-          "nextNodeId": "K03B"
+          "nextNodeId": "Y03B"
         },
         {
           "id": "fail",
@@ -137,18 +144,11 @@ window.RANGER2_STORIES.push({
           "failTitle": "Taken by the Cut",
           "failText": "The culvert drops into a blind surge under the bank. Cold water slams you into stone and the marsh closes over the hunt.",
           "death": true
-        },
-        {
-          "id": "good",
-          "type": "good",
-          "label": "Take the pole-sledge marks at once and cut for the old towpath.",
-          "scoreDelta": 1,
-          "nextNodeId": "K03A"
         }
       ]
     },
     {
-      "id": "K02B",
+      "id": "Y02B",
       "turn": 2,
       "title": "Marsh Lore and Fading Mud - Steady Ground",
       "narrative": [
@@ -158,18 +158,18 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Use Senan's old survey marks to cut ahead toward the towpath.",
-          "scoreDelta": 1,
-          "nextNodeId": "K03A"
-        },
-        {
           "id": "normal",
           "type": "normal",
           "label": "Search the houses, stables, and keeper's shed for one clue too many.",
           "scoreDelta": 0,
-          "nextNodeId": "K03C"
+          "nextNodeId": "Y03C"
+        },
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Use Senan's old survey marks to cut ahead toward the towpath.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y03A"
         },
         {
           "id": "fail",
@@ -182,7 +182,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K02C",
+      "id": "Y02C",
       "turn": 2,
       "title": "Trampled Banks - Lost Ground",
       "narrative": [
@@ -204,19 +204,19 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Take the ferryman's pin and the old woman's word, then rebuild the trail piece by piece.",
           "scoreDelta": 1,
-          "nextNodeId": "K03B"
+          "nextNodeId": "Y03B"
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Ride straight for the towpath and hope speed will mend what time has spoiled.",
           "scoreDelta": 0,
-          "nextNodeId": "K03C"
+          "nextNodeId": "Y03C"
         }
       ]
     },
     {
-      "id": "K03A",
+      "id": "Y03A",
       "turn": 3,
       "title": "Towpath Sign - Clear Lead",
       "narrative": [
@@ -230,7 +230,7 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Circle wide with Thorne and cut for the alder rise before anyone can be warned.",
           "scoreDelta": 1,
-          "nextNodeId": "K04A"
+          "nextNodeId": "Y04A"
         },
         {
           "id": "fail",
@@ -245,12 +245,12 @@ window.RANGER2_STORIES.push({
           "type": "normal",
           "label": "Search the charcoal shed and gather every sign before moving on.",
           "scoreDelta": 0,
-          "nextNodeId": "K04B"
+          "nextNodeId": "Y04B"
         }
       ]
     },
     {
-      "id": "K03B",
+      "id": "Y03B",
       "turn": 3,
       "title": "Towpath Sign - Recovered Trail",
       "narrative": [
@@ -264,14 +264,14 @@ window.RANGER2_STORIES.push({
           "type": "normal",
           "label": "Go openly to Fenbridge and hear the reeve's account before the village closes against you.",
           "scoreDelta": 0,
-          "nextNodeId": "K04C"
+          "nextNodeId": "Y04C"
         },
         {
           "id": "good",
           "type": "good",
           "label": "Slip through the willow cut and come at Fenbridge by the back dike.",
           "scoreDelta": 1,
-          "nextNodeId": "K04A"
+          "nextNodeId": "Y04A"
         },
         {
           "id": "fail",
@@ -284,7 +284,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K03C",
+      "id": "Y03C",
       "turn": 3,
       "title": "Towpath Sign - Spoiled Ground",
       "narrative": [
@@ -294,31 +294,31 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Question the old reed-cutter privately and take what she knows of Corren Vane.",
-          "scoreDelta": 1,
-          "nextNodeId": "K04B"
-        },
-        {
-          "id": "normal",
-          "type": "normal",
-          "label": "Ride straight to Fenbridge's hall and let the reeve see you coming.",
-          "scoreDelta": 0,
-          "nextNodeId": "K04C"
-        },
-        {
           "id": "fail",
           "type": "fail",
           "label": "Cross the rotten side plank toward a better view of the bank.",
           "failTitle": "The Plank Gives Way",
           "failText": "The board breaks under you and throws you into a narrow run of water between hidden stakes. You do not come out again.",
           "death": true
+        },
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Question the old reed-cutter privately and take what she knows of Corren Vane.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y04B"
+        },
+        {
+          "id": "normal",
+          "type": "normal",
+          "label": "Ride straight to Fenbridge's hall and let the reeve see you coming.",
+          "scoreDelta": 0,
+          "nextNodeId": "Y04C"
         }
       ]
     },
     {
-      "id": "K04A",
+      "id": "Y04A",
       "turn": 4,
       "title": "Fenbridge Before Rumor - Clear Lead",
       "narrative": [
@@ -328,6 +328,13 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
+          "id": "good",
+          "type": "good",
+          "label": "Ride for Heron Reach at once before Niall can send word ahead.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y05A"
+        },
+        {
           "id": "fail",
           "type": "fail",
           "label": "Accuse Niall aloud before the village without proof in hand.",
@@ -336,23 +343,16 @@ window.RANGER2_STORIES.push({
           "death": false
         },
         {
-          "id": "good",
-          "type": "good",
-          "label": "Ride for Heron Reach at once before Niall can send word ahead.",
-          "scoreDelta": 1,
-          "nextNodeId": "K05A"
-        },
-        {
           "id": "normal",
           "type": "normal",
           "label": "Keep your courtesy, gather statements, and move only after dusk.",
           "scoreDelta": 0,
-          "nextNodeId": "K05B"
+          "nextNodeId": "Y05B"
         }
       ]
     },
     {
-      "id": "K04B",
+      "id": "Y04B",
       "turn": 4,
       "title": "Fenbridge Under Watch - Steady Ground",
       "narrative": [
@@ -362,18 +362,18 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Slip away with Elsbeth for Heron Reach before the reeve knows you are gone.",
-          "scoreDelta": 1,
-          "nextNodeId": "K05A"
-        },
-        {
           "id": "normal",
           "type": "normal",
           "label": "Stay in the hall and compare ledgers, marks, and memories a little too long.",
           "scoreDelta": 0,
-          "nextNodeId": "K05C"
+          "nextNodeId": "Y05C"
+        },
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Slip away with Elsbeth for Heron Reach before the reeve knows you are gone.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y05A"
         },
         {
           "id": "fail",
@@ -386,7 +386,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K04C",
+      "id": "Y04C",
       "turn": 4,
       "title": "Fenbridge Closed Up - Lost Ground",
       "narrative": [
@@ -396,13 +396,6 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "normal",
-          "type": "normal",
-          "label": "Post guards and spend precious hours trying to steady the village.",
-          "scoreDelta": 0,
-          "nextNodeId": "K05C"
-        },
-        {
           "id": "fail",
           "type": "fail",
           "label": "Sleep in the reeve's hall and trust his wine not to blunt the edge of the hunt.",
@@ -411,16 +404,23 @@ window.RANGER2_STORIES.push({
           "death": false
         },
         {
+          "id": "normal",
+          "type": "normal",
+          "label": "Post guards and spend precious hours trying to steady the village.",
+          "scoreDelta": 0,
+          "nextNodeId": "Y05C"
+        },
+        {
           "id": "good",
           "type": "good",
           "label": "Slip to Maelin's loft by the back lane and question her through the night.",
           "scoreDelta": 1,
-          "nextNodeId": "K05B"
+          "nextNodeId": "Y05B"
         }
       ]
     },
     {
-      "id": "K05A",
+      "id": "Y05A",
       "turn": 5,
       "title": "Heron Reach Dike House - Clear Lead",
       "narrative": [
@@ -434,14 +434,14 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Hide in the dark and seize whoever has returned to watch the house.",
           "scoreDelta": 1,
-          "nextNodeId": "K06A"
+          "nextNodeId": "Y06A"
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Take the papers and withdraw before more men close on the place.",
           "scoreDelta": 0,
-          "nextNodeId": "K06B"
+          "nextNodeId": "Y06B"
         },
         {
           "id": "fail",
@@ -454,7 +454,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K05B",
+      "id": "Y05B",
       "turn": 5,
       "title": "Heron Reach Dike House - Steady Ground",
       "narrative": [
@@ -468,7 +468,7 @@ window.RANGER2_STORIES.push({
           "type": "normal",
           "label": "Carry the charred plans to Senan before you lose the writing altogether.",
           "scoreDelta": 0,
-          "nextNodeId": "K06C"
+          "nextNodeId": "Y06C"
         },
         {
           "id": "fail",
@@ -483,12 +483,12 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Follow the dragged ferry boots toward the reed islands at once.",
           "scoreDelta": 1,
-          "nextNodeId": "K06A"
+          "nextNodeId": "Y06A"
         }
       ]
     },
     {
-      "id": "K05C",
+      "id": "Y05C",
       "turn": 5,
       "title": "Heron Reach in Ashes - Lost Ground",
       "narrative": [
@@ -498,31 +498,31 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Read the mud carefully, find the dragged line, and follow it toward the reeds.",
-          "scoreDelta": 1,
-          "nextNodeId": "K06B"
-        },
-        {
-          "id": "normal",
-          "type": "normal",
-          "label": "Circle the marsh in widening sweeps and hope to blunder into the captors.",
-          "scoreDelta": 0,
-          "nextNodeId": "K06C"
-        },
-        {
           "id": "fail",
           "type": "fail",
           "label": "Drive Thorne onto the half-rotted plank road in the dark for speed.",
           "failTitle": "The Road Breaks Beneath You",
           "failText": "The plank road shears away over deep black water. Horse and rider are left floundering where armed men need only watch.",
           "death": false
+        },
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Read the mud carefully, find the dragged line, and follow it toward the reeds.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y06B"
+        },
+        {
+          "id": "normal",
+          "type": "normal",
+          "label": "Circle the marsh in widening sweeps and hope to blunder into the captors.",
+          "scoreDelta": 0,
+          "nextNodeId": "Y06C"
         }
       ]
     },
     {
-      "id": "K06A",
+      "id": "Y06A",
       "turn": 6,
       "title": "Reed Island Rescue - Clear Lead",
       "narrative": [
@@ -531,6 +531,13 @@ window.RANGER2_STORIES.push({
         "Tobin had also seen a toothed iron fitting wrapped in oilcloth, guarded more carefully than coin. Whatever that piece belonged to, Corren meant to marry it to old works that should have stayed buried."
       ],
       "options": [
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Press Tobin to guide you by hidden cut straight to Saint Edda's chapel.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y07A"
+        },
         {
           "id": "fail",
           "type": "fail",
@@ -544,19 +551,12 @@ window.RANGER2_STORIES.push({
           "type": "normal",
           "label": "Send Tobin under guard and search the punts for every scrap of gear.",
           "scoreDelta": 0,
-          "nextNodeId": "K07B"
-        },
-        {
-          "id": "good",
-          "type": "good",
-          "label": "Press Tobin to guide you by hidden cut straight to Saint Edda's chapel.",
-          "scoreDelta": 1,
-          "nextNodeId": "K07A"
+          "nextNodeId": "Y07B"
         }
       ]
     },
     {
-      "id": "K06B",
+      "id": "Y06B",
       "turn": 6,
       "title": "Fishers' Huts and Broken Camp - Steady Ground",
       "narrative": [
@@ -566,11 +566,18 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
+          "id": "normal",
+          "type": "normal",
+          "label": "Search the huts for the missing windlass piece before leaving.",
+          "scoreDelta": 0,
+          "nextNodeId": "Y07C"
+        },
+        {
           "id": "good",
           "type": "good",
           "label": "Bind Tobin's wounds and ride with him straight to Brother Senan.",
           "scoreDelta": 1,
-          "nextNodeId": "K07A"
+          "nextNodeId": "Y07A"
         },
         {
           "id": "fail",
@@ -579,18 +586,11 @@ window.RANGER2_STORIES.push({
           "failTitle": "Snared on the Causeway",
           "failText": "The causeway is baited with concealed hooks and a hanging net. You spend your last minutes struggling where no ally can reach you.",
           "death": true
-        },
-        {
-          "id": "normal",
-          "type": "normal",
-          "label": "Search the huts for the missing windlass piece before leaving.",
-          "scoreDelta": 0,
-          "nextNodeId": "K07C"
         }
       ]
     },
     {
-      "id": "K06C",
+      "id": "Y06C",
       "turn": 6,
       "title": "A Wounded Witness - Lost Ground",
       "narrative": [
@@ -600,31 +600,31 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "normal",
-          "type": "normal",
-          "label": "Hide Tobin with villagers and push on toward the priory rumor alone.",
-          "scoreDelta": 0,
-          "nextNodeId": "K07C"
-        },
-        {
-          "id": "good",
-          "type": "good",
-          "label": "Use your herbs, steady Tobin, and take him to Senan at once.",
-          "scoreDelta": 1,
-          "nextNodeId": "K07B"
-        },
-        {
           "id": "fail",
           "type": "fail",
           "label": "Force the ferryman back into the saddle at speed despite the wound.",
           "failTitle": "The Witness Fails",
           "failText": "Tobin dies before first light, and with him goes the last honest account of what Corren seeks.",
           "death": false
+        },
+        {
+          "id": "normal",
+          "type": "normal",
+          "label": "Hide Tobin with villagers and push on toward the priory rumor alone.",
+          "scoreDelta": 0,
+          "nextNodeId": "Y07C"
+        },
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Use your herbs, steady Tobin, and take him to Senan at once.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y07B"
         }
       ]
     },
     {
-      "id": "K07A",
+      "id": "Y07A",
       "turn": 7,
       "title": "The Black Sluice Named - Clear Lead",
       "narrative": [
@@ -638,14 +638,14 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Take Senan's hidden survey notes and ride for the western spillway before Corren gathers all the keys.",
           "scoreDelta": 1,
-          "nextNodeId": "K08A"
+          "nextNodeId": "Y08A"
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Copy the map, send warnings, and lose an hour to prudence.",
           "scoreDelta": 0,
-          "nextNodeId": "K08B"
+          "nextNodeId": "Y08B"
         },
         {
           "id": "fail",
@@ -658,7 +658,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K07B",
+      "id": "Y07B",
       "turn": 7,
       "title": "The Black Sluice Half Hidden - Steady Ground",
       "narrative": [
@@ -667,6 +667,13 @@ window.RANGER2_STORIES.push({
         "You could take what notes he had and move before Corren did, or spend longer making certain of every mark while the marsh continued to draw breath around you."
       ],
       "options": [
+        {
+          "id": "normal",
+          "type": "normal",
+          "label": "Leave Senan to search for more while you post warnings along the banks.",
+          "scoreDelta": 0,
+          "nextNodeId": "Y08C"
+        },
         {
           "id": "fail",
           "type": "fail",
@@ -680,19 +687,12 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Force the old priest to show every concealed survey mark at once.",
           "scoreDelta": 1,
-          "nextNodeId": "K08A"
-        },
-        {
-          "id": "normal",
-          "type": "normal",
-          "label": "Leave Senan to search for more while you post warnings along the banks.",
-          "scoreDelta": 0,
-          "nextNodeId": "K08C"
+          "nextNodeId": "Y08A"
         }
       ]
     },
     {
-      "id": "K07C",
+      "id": "Y07C",
       "turn": 7,
       "title": "The Black Sluice in Rain - Lost Ground",
       "narrative": [
@@ -702,31 +702,31 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Search the loft by lamp and recover enough of the old survey to move by dawn.",
-          "scoreDelta": 1,
-          "nextNodeId": "K08B"
-        },
-        {
-          "id": "normal",
-          "type": "normal",
-          "label": "Wait out the rain and question Senan more slowly until daylight.",
-          "scoreDelta": 0,
-          "nextNodeId": "K08C"
-        },
-        {
           "id": "fail",
           "type": "fail",
           "label": "Leave Senan unguarded while you sleep.",
           "failTitle": "The Chart Is Taken",
           "failText": "Niall's men come before dawn and carry off both priest and paper. You wake to hoofbeats and a chapel door swinging on its latch.",
           "death": false
+        },
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Search the loft by lamp and recover enough of the old survey to move by dawn.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y08B"
+        },
+        {
+          "id": "normal",
+          "type": "normal",
+          "label": "Wait out the rain and question Senan more slowly until daylight.",
+          "scoreDelta": 0,
+          "nextNodeId": "Y08C"
         }
       ]
     },
     {
-      "id": "K08A",
+      "id": "Y08A",
       "turn": 8,
       "title": "Western Spillway - Clear Lead",
       "narrative": [
@@ -736,11 +736,18 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
+          "id": "good",
+          "type": "good",
+          "label": "Set an ambush in the spillhouse and hold fire until hands touch the wheel.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y09A"
+        },
+        {
           "id": "normal",
           "type": "normal",
           "label": "Pull the wedges now and spend time shoring the sill with local hands.",
           "scoreDelta": 0,
-          "nextNodeId": "K09B"
+          "nextNodeId": "Y09B"
         },
         {
           "id": "fail",
@@ -749,18 +756,11 @@ window.RANGER2_STORIES.push({
           "failTitle": "Bolts on Open Water",
           "failText": "Crossbows answer from both banks. You never reach the wheelhouse door.",
           "death": true
-        },
-        {
-          "id": "good",
-          "type": "good",
-          "label": "Set an ambush in the spillhouse and hold fire until hands touch the wheel.",
-          "scoreDelta": 1,
-          "nextNodeId": "K09A"
         }
       ]
     },
     {
-      "id": "K08B",
+      "id": "Y08B",
       "turn": 8,
       "title": "Western Spillway - Hard-Won Timing",
       "narrative": [
@@ -770,18 +770,18 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Use the hidden bypass and come at the saboteurs from below the bank.",
-          "scoreDelta": 1,
-          "nextNodeId": "K09A"
-        },
-        {
           "id": "normal",
           "type": "normal",
           "label": "Set villagers to repairs while you search the wider banks for tracks.",
           "scoreDelta": 0,
-          "nextNodeId": "K09C"
+          "nextNodeId": "Y09C"
+        },
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Use the hidden bypass and come at the saboteurs from below the bank.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y09A"
         },
         {
           "id": "fail",
@@ -794,7 +794,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K08C",
+      "id": "Y08C",
       "turn": 8,
       "title": "Western Spillway - Weather Against You",
       "narrative": [
@@ -804,13 +804,6 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Rig a rope over the side trench and cross to the maintenance crawl.",
-          "scoreDelta": 1,
-          "nextNodeId": "K09B"
-        },
-        {
           "id": "fail",
           "type": "fail",
           "label": "Split your few helpers into three weak groups to watch everything at once.",
@@ -819,16 +812,23 @@ window.RANGER2_STORIES.push({
           "death": false
         },
         {
+          "id": "good",
+          "type": "good",
+          "label": "Rig a rope over the side trench and cross to the maintenance crawl.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y09B"
+        },
+        {
           "id": "normal",
           "type": "normal",
           "label": "Hold the visible walkway and hope the saboteurs come straight at you.",
           "scoreDelta": 0,
-          "nextNodeId": "K09C"
+          "nextNodeId": "Y09C"
         }
       ]
     },
     {
-      "id": "K09A",
+      "id": "Y09A",
       "turn": 9,
       "title": "Spillhouse Ambush - Clear Lead",
       "narrative": [
@@ -838,6 +838,13 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
+          "id": "good",
+          "type": "good",
+          "label": "Ride for Fenbridge at once by the alder ridge and leave Elsbeth to hold the spillway.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y10A"
+        },
+        {
           "id": "fail",
           "type": "fail",
           "label": "Pursue the lone fleeing scout by yourself across the flood trench.",
@@ -846,23 +853,16 @@ window.RANGER2_STORIES.push({
           "death": true
         },
         {
-          "id": "good",
-          "type": "good",
-          "label": "Ride for Fenbridge at once by the alder ridge and leave Elsbeth to hold the spillway.",
-          "scoreDelta": 1,
-          "nextNodeId": "K10A"
-        },
-        {
           "id": "normal",
           "type": "normal",
           "label": "Question the prisoners longer and send warning riders ahead of you.",
           "scoreDelta": 0,
-          "nextNodeId": "K10B"
+          "nextNodeId": "Y10B"
         }
       ]
     },
     {
-      "id": "K09B",
+      "id": "Y09B",
       "turn": 9,
       "title": "Spillhouse Fight - Steady Ground",
       "narrative": [
@@ -872,18 +872,18 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Gallop with Tobin for Fenbridge and seize Niall before he can move.",
-          "scoreDelta": 1,
-          "nextNodeId": "K10A"
-        },
-        {
           "id": "normal",
           "type": "normal",
           "label": "Stay to finish the repairs before turning back toward the village.",
           "scoreDelta": 0,
-          "nextNodeId": "K10C"
+          "nextNodeId": "Y10C"
+        },
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Gallop with Tobin for Fenbridge and seize Niall before he can move.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y10A"
         },
         {
           "id": "fail",
@@ -896,7 +896,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K09C",
+      "id": "Y09C",
       "turn": 9,
       "title": "Spillhouse Strain - Lost Ground",
       "narrative": [
@@ -906,13 +906,6 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "normal",
-          "type": "normal",
-          "label": "Send Elsbeth while you linger to secure the wheelhouse.",
-          "scoreDelta": 0,
-          "nextNodeId": "K10C"
-        },
-        {
           "id": "fail",
           "type": "fail",
           "label": "Ignore the message as bait and stay where you are.",
@@ -921,16 +914,23 @@ window.RANGER2_STORIES.push({
           "death": false
         },
         {
+          "id": "normal",
+          "type": "normal",
+          "label": "Send Elsbeth while you linger to secure the wheelhouse.",
+          "scoreDelta": 0,
+          "nextNodeId": "Y10C"
+        },
+        {
           "id": "good",
           "type": "good",
           "label": "Break the seal, trust the warning, and ride hard for Fenbridge.",
           "scoreDelta": 1,
-          "nextNodeId": "K10B"
+          "nextNodeId": "Y10B"
         }
       ]
     },
     {
-      "id": "K10A",
+      "id": "Y10A",
       "turn": 10,
       "title": "The Reeve in the Cellar - Clear Lead",
       "narrative": [
@@ -944,14 +944,14 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Cut across the cattle lane on foot and take him at the bridge mouth.",
           "scoreDelta": 1,
-          "nextNodeId": "K11A"
+          "nextNodeId": "Y11A"
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Search the cellar first for what he was too rushed to carry.",
           "scoreDelta": 0,
-          "nextNodeId": "K11B"
+          "nextNodeId": "Y11B"
         },
         {
           "id": "fail",
@@ -964,7 +964,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K10B",
+      "id": "Y10B",
       "turn": 10,
       "title": "The Reeve Bolts - Steady Ground",
       "narrative": [
@@ -978,14 +978,14 @@ window.RANGER2_STORIES.push({
           "type": "normal",
           "label": "Stamp out the fire, save the papers, and then take up the pursuit.",
           "scoreDelta": 0,
-          "nextNodeId": "K11C"
+          "nextNodeId": "Y11C"
         },
         {
           "id": "good",
           "type": "good",
           "label": "Follow at once with Thorne along the dike lane before the fire spreads.",
           "scoreDelta": 1,
-          "nextNodeId": "K11A"
+          "nextNodeId": "Y11A"
         },
         {
           "id": "fail",
@@ -998,7 +998,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K10C",
+      "id": "Y10C",
       "turn": 10,
       "title": "A Village Already Stirring - Lost Ground",
       "narrative": [
@@ -1008,13 +1008,6 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Read the torn survey marks and take the eel-track shortcut through the reeds.",
-          "scoreDelta": 1,
-          "nextNodeId": "K11B"
-        },
-        {
           "id": "fail",
           "type": "fail",
           "label": "Spend the dawn line by line in Niall's accounts looking for a cleaner answer.",
@@ -1023,16 +1016,23 @@ window.RANGER2_STORIES.push({
           "death": false
         },
         {
+          "id": "good",
+          "type": "good",
+          "label": "Read the torn survey marks and take the eel-track shortcut through the reeds.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y11B"
+        },
+        {
           "id": "normal",
           "type": "normal",
           "label": "Gather men and follow the broad road at first light.",
           "scoreDelta": 0,
-          "nextNodeId": "K11C"
+          "nextNodeId": "Y11C"
         }
       ]
     },
     {
-      "id": "K11A",
+      "id": "Y11A",
       "turn": 11,
       "title": "The Eel Fires Chase - Clear Lead",
       "narrative": [
@@ -1042,11 +1042,18 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
+          "id": "good",
+          "type": "good",
+          "label": "Seize the chart and leave Elsbeth to keep after Niall while you angle for Saint Edda.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y12A"
+        },
+        {
           "id": "normal",
           "type": "normal",
           "label": "Stay on Niall's heels and trust Tobin to recover the fallen chart tube.",
           "scoreDelta": 0,
-          "nextNodeId": "K12B"
+          "nextNodeId": "Y12B"
         },
         {
           "id": "fail",
@@ -1055,18 +1062,11 @@ window.RANGER2_STORIES.push({
           "failTitle": "Burned in the Eel Grounds",
           "failText": "The horse vanishes under you in smoke and sudden mud. Fire, water, and panic finish what the enemy began.",
           "death": true
-        },
-        {
-          "id": "good",
-          "type": "good",
-          "label": "Seize the chart and leave Elsbeth to keep after Niall while you angle for Saint Edda.",
-          "scoreDelta": 1,
-          "nextNodeId": "K12A"
         }
       ]
     },
     {
-      "id": "K11B",
+      "id": "Y11B",
       "turn": 11,
       "title": "Smoke and Broken Sign - Steady Ground",
       "narrative": [
@@ -1076,18 +1076,18 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Use the surviving chart marks and race for the priory instead of the man.",
-          "scoreDelta": 1,
-          "nextNodeId": "K12A"
-        },
-        {
           "id": "normal",
           "type": "normal",
           "label": "Keep hunting Niall through the eel smoke until you have him in hand.",
           "scoreDelta": 0,
-          "nextNodeId": "K12C"
+          "nextNodeId": "Y12C"
+        },
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Use the surviving chart marks and race for the priory instead of the man.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y12A"
         },
         {
           "id": "fail",
@@ -1100,7 +1100,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K11C",
+      "id": "Y11C",
       "turn": 11,
       "title": "Dawn in the Eel Grounds - Lost Ground",
       "narrative": [
@@ -1122,19 +1122,19 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Match the spared page to Senan's memory and head for Saint Edda at once.",
           "scoreDelta": 1,
-          "nextNodeId": "K12B"
+          "nextNodeId": "Y12B"
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Sweep the eel grounds for Niall's sign until the light is fully up.",
           "scoreDelta": 0,
-          "nextNodeId": "K12C"
+          "nextNodeId": "Y12C"
         }
       ]
     },
     {
-      "id": "K12A",
+      "id": "Y12A",
       "turn": 12,
       "title": "The Design Revealed - Clear Lead",
       "narrative": [
@@ -1148,14 +1148,14 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Send Tobin to muster boats while you and Elsbeth ride straight for Saint Edda.",
           "scoreDelta": 1,
-          "nextNodeId": "K13A"
+          "nextNodeId": "Y13A"
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Warn the lower farms first and lose an hour to duty.",
           "scoreDelta": 0,
-          "nextNodeId": "K13B"
+          "nextNodeId": "Y13B"
         },
         {
           "id": "fail",
@@ -1168,7 +1168,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K12B",
+      "id": "Y12B",
       "turn": 12,
       "title": "The Design Revealed in Fragments - Steady Ground",
       "narrative": [
@@ -1182,7 +1182,7 @@ window.RANGER2_STORIES.push({
           "type": "normal",
           "label": "Stop to warn Fenbridge and gather whatever men will still stand with you.",
           "scoreDelta": 0,
-          "nextNodeId": "K13C"
+          "nextNodeId": "Y13C"
         },
         {
           "id": "fail",
@@ -1197,12 +1197,12 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Pull Elsbeth onto the dykers' back embankment and ride for the priory by the harder road.",
           "scoreDelta": 1,
-          "nextNodeId": "K13A"
+          "nextNodeId": "Y13A"
         }
       ]
     },
     {
-      "id": "K12C",
+      "id": "Y12C",
       "turn": 12,
       "title": "The Design Revealed Too Late - Lost Ground",
       "narrative": [
@@ -1212,31 +1212,31 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Abandon the hunt for Niall and cut across the drowned hay meads for Saint Edda now.",
-          "scoreDelta": 1,
-          "nextNodeId": "K13B"
-        },
-        {
-          "id": "normal",
-          "type": "normal",
-          "label": "Wait for more hands before moving on the priory.",
-          "scoreDelta": 0,
-          "nextNodeId": "K13C"
-        },
-        {
           "id": "fail",
           "type": "fail",
           "label": "Hide the truth from Elsbeth and try to manage the whole matter alone.",
           "failTitle": "A House Divided",
           "failText": "Elsbeth rides one way and you another. Corren profits from the split as surely as if he had ordered it himself.",
           "death": false
+        },
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Abandon the hunt for Niall and cut across the drowned hay meads for Saint Edda now.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y13B"
+        },
+        {
+          "id": "normal",
+          "type": "normal",
+          "label": "Wait for more hands before moving on the priory.",
+          "scoreDelta": 0,
+          "nextNodeId": "Y13C"
         }
       ]
     },
     {
-      "id": "K13A",
+      "id": "Y13A",
       "turn": 13,
       "title": "The Priory Margin - Clear Lead",
       "narrative": [
@@ -1246,6 +1246,13 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
+          "id": "good",
+          "type": "good",
+          "label": "Cross by punt and seize the outer wheelhouse before full dark.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y14A"
+        },
+        {
           "id": "fail",
           "type": "fail",
           "label": "Loose an arrow at the first distant lantern and reveal yourself too soon.",
@@ -1254,23 +1261,16 @@ window.RANGER2_STORIES.push({
           "death": false
         },
         {
-          "id": "good",
-          "type": "good",
-          "label": "Cross by punt and seize the outer wheelhouse before full dark.",
-          "scoreDelta": 1,
-          "nextNodeId": "K14A"
-        },
-        {
           "id": "normal",
           "type": "normal",
           "label": "Hold the rise, watch the traffic, and wait for deeper dark.",
           "scoreDelta": 0,
-          "nextNodeId": "K14B"
+          "nextNodeId": "Y14B"
         }
       ]
     },
     {
-      "id": "K13B",
+      "id": "Y13B",
       "turn": 13,
       "title": "The Priory Margin - Steady Ground",
       "narrative": [
@@ -1280,18 +1280,18 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Send Tobin to mark the hidden landing while you and Elsbeth work around the western stones.",
-          "scoreDelta": 1,
-          "nextNodeId": "K14A"
-        },
-        {
           "id": "normal",
           "type": "normal",
           "label": "Bring up villagers and make a cautious line on the willow rise.",
           "scoreDelta": 0,
-          "nextNodeId": "K14C"
+          "nextNodeId": "Y14C"
+        },
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Send Tobin to mark the hidden landing while you and Elsbeth work around the western stones.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y14A"
         },
         {
           "id": "fail",
@@ -1304,7 +1304,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K13C",
+      "id": "Y13C",
       "turn": 13,
       "title": "The Priory Margin - Lost Ground",
       "narrative": [
@@ -1314,31 +1314,31 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "normal",
-          "type": "normal",
-          "label": "Keep the whole fearful band together and edge down the main causeway.",
-          "scoreDelta": 0,
-          "nextNodeId": "K14C"
-        },
-        {
-          "id": "good",
-          "type": "good",
-          "label": "Send the wavering villagers back and move with only Elsbeth and the steadiest hands.",
-          "scoreDelta": 1,
-          "nextNodeId": "K14B"
-        },
-        {
           "id": "fail",
           "type": "fail",
           "label": "Rouse the men with talk of silver in the toll cellar.",
           "failTitle": "Looters Instead of Allies",
           "failText": "The promise of buried wealth shatters the last of your order. Corren's scouts cut down the first rush and the rest break in panic.",
           "death": false
+        },
+        {
+          "id": "normal",
+          "type": "normal",
+          "label": "Keep the whole fearful band together and edge down the main causeway.",
+          "scoreDelta": 0,
+          "nextNodeId": "Y14C"
+        },
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Send the wavering villagers back and move with only Elsbeth and the steadiest hands.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y14B"
         }
       ]
     },
     {
-      "id": "K14A",
+      "id": "Y14A",
       "turn": 14,
       "title": "The First Feeder Opens - Clear Lead",
       "narrative": [
@@ -1352,7 +1352,7 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Hit Niall's chain gang now before the second feeder can open.",
           "scoreDelta": 1,
-          "nextNodeId": "K15A"
+          "nextNodeId": "Y15A"
         },
         {
           "id": "fail",
@@ -1367,12 +1367,12 @@ window.RANGER2_STORIES.push({
           "type": "normal",
           "label": "Pull back enough men to shore the landing and keep an escape open.",
           "scoreDelta": 0,
-          "nextNodeId": "K15B"
+          "nextNodeId": "Y15B"
         }
       ]
     },
     {
-      "id": "K14B",
+      "id": "Y14B",
       "turn": 14,
       "title": "The First Feeder Opens - Steady Ground",
       "narrative": [
@@ -1386,14 +1386,14 @@ window.RANGER2_STORIES.push({
           "type": "normal",
           "label": "Circle for the bell tower stump and look for the second feeder housing.",
           "scoreDelta": 0,
-          "nextNodeId": "K15C"
+          "nextNodeId": "Y15C"
         },
         {
           "id": "good",
           "type": "good",
           "label": "Cut straight for the chain gang in the lower yard.",
           "scoreDelta": 1,
-          "nextNodeId": "K15A"
+          "nextNodeId": "Y15A"
         },
         {
           "id": "fail",
@@ -1406,7 +1406,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K14C",
+      "id": "Y14C",
       "turn": 14,
       "title": "The First Feeder Opens - Lost Ground",
       "narrative": [
@@ -1416,31 +1416,31 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Break for the bell tower side where the next housing ought to lie.",
-          "scoreDelta": 1,
-          "nextNodeId": "K15B"
-        },
-        {
-          "id": "normal",
-          "type": "normal",
-          "label": "Hold the main yard and try to keep a foothold as the water changes.",
-          "scoreDelta": 0,
-          "nextNodeId": "K15C"
-        },
-        {
           "id": "fail",
           "type": "fail",
           "label": "Order a full retreat at once and let fear set the pace.",
           "failTitle": "Rout on the Causeway",
           "failText": "Men run, slip, and push one another into dark water. Corren does not have to kill those the marsh is already taking.",
           "death": false
+        },
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Break for the bell tower side where the next housing ought to lie.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y15B"
+        },
+        {
+          "id": "normal",
+          "type": "normal",
+          "label": "Hold the main yard and try to keep a foothold as the water changes.",
+          "scoreDelta": 0,
+          "nextNodeId": "Y15C"
         }
       ]
     },
     {
-      "id": "K15A",
+      "id": "Y15A",
       "turn": 15,
       "title": "Niall's Chain Gang Broken - Clear Lead",
       "narrative": [
@@ -1450,11 +1450,18 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
+          "id": "good",
+          "type": "good",
+          "label": "Take the keys and rush the outer wheelhouse before Corren shifts more men below.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y16A"
+        },
+        {
           "id": "normal",
           "type": "normal",
           "label": "Drag the chain free and deny them the feeder you have just won.",
           "scoreDelta": 0,
-          "nextNodeId": "K16B"
+          "nextNodeId": "Y16B"
         },
         {
           "id": "fail",
@@ -1463,18 +1470,11 @@ window.RANGER2_STORIES.push({
           "failTitle": "A Bolt for Your Learning",
           "failText": "A quarrel from the gallery pins you to the stone before the chalk is half read.",
           "death": true
-        },
-        {
-          "id": "good",
-          "type": "good",
-          "label": "Take the keys and rush the outer wheelhouse before Corren shifts more men below.",
-          "scoreDelta": 1,
-          "nextNodeId": "K16A"
         }
       ]
     },
     {
-      "id": "K15B",
+      "id": "Y15B",
       "turn": 15,
       "title": "The Lower Yard Held - Steady Ground",
       "narrative": [
@@ -1484,18 +1484,18 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Take only the steadiest three and push through the transept crawl to the wheelhouse.",
-          "scoreDelta": 1,
-          "nextNodeId": "K16A"
-        },
-        {
           "id": "normal",
           "type": "normal",
           "label": "Patch Tobin's craft, bind Elsbeth's arm, and move a little too carefully.",
           "scoreDelta": 0,
-          "nextNodeId": "K16C"
+          "nextNodeId": "Y16C"
+        },
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Take only the steadiest three and push through the transept crawl to the wheelhouse.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y16A"
         },
         {
           "id": "fail",
@@ -1508,7 +1508,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K15C",
+      "id": "Y15C",
       "turn": 15,
       "title": "The Bell Tower Side - Lost Ground",
       "narrative": [
@@ -1530,19 +1530,19 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Pry loose one brace and slip through the gap toward the wheelhouse below.",
           "scoreDelta": 1,
-          "nextNodeId": "K16B"
+          "nextNodeId": "Y16B"
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Hammer at the feeder housing from outside and trust brute force to solve it.",
           "scoreDelta": 0,
-          "nextNodeId": "K16C"
+          "nextNodeId": "Y16C"
         }
       ]
     },
     {
-      "id": "K16A",
+      "id": "Y16A",
       "turn": 16,
       "title": "The Outer Wheelhouse Taken - Clear Lead",
       "narrative": [
@@ -1556,14 +1556,14 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Jam the ratchet with the windlass tooth and drop straight for the lower chamber.",
           "scoreDelta": 1,
-          "nextNodeId": "K17A"
+          "nextNodeId": "Y17A"
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Lash the wheelhouse secure first so Corren cannot retake it behind you.",
           "scoreDelta": 0,
-          "nextNodeId": "K17B"
+          "nextNodeId": "Y17B"
         },
         {
           "id": "fail",
@@ -1576,7 +1576,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K16B",
+      "id": "Y16B",
       "turn": 16,
       "title": "The Outer Wheelhouse Contested - Steady Ground",
       "narrative": [
@@ -1590,14 +1590,14 @@ window.RANGER2_STORIES.push({
           "type": "normal",
           "label": "Barricade the stair and buy time to study the mechanism.",
           "scoreDelta": 0,
-          "nextNodeId": "K17C"
+          "nextNodeId": "Y17C"
         },
         {
           "id": "good",
           "type": "good",
           "label": "Fit the tooth and force one hard reverse turn to blunt the draw.",
           "scoreDelta": 1,
-          "nextNodeId": "K17A"
+          "nextNodeId": "Y17A"
         },
         {
           "id": "fail",
@@ -1610,7 +1610,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K16C",
+      "id": "Y16C",
       "turn": 16,
       "title": "The Outer Wheelhouse Slipping - Lost Ground",
       "narrative": [
@@ -1620,13 +1620,6 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Ignore the failing outer wheel and follow the chain down at once.",
-          "scoreDelta": 1,
-          "nextNodeId": "K17B"
-        },
-        {
           "id": "fail",
           "type": "fail",
           "label": "Shout victory too early and draw the hidden axeman from the dark.",
@@ -1635,16 +1628,23 @@ window.RANGER2_STORIES.push({
           "death": true
         },
         {
+          "id": "good",
+          "type": "good",
+          "label": "Ignore the failing outer wheel and follow the chain down at once.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y17B"
+        },
+        {
           "id": "normal",
           "type": "normal",
           "label": "Stay and wrestle the outer mechanism though the true fight is already below.",
           "scoreDelta": 0,
-          "nextNodeId": "K17C"
+          "nextNodeId": "Y17C"
         }
       ]
     },
     {
-      "id": "K17A",
+      "id": "Y17A",
       "turn": 17,
       "title": "The Undercroft Gate - Clear Lead",
       "narrative": [
@@ -1654,6 +1654,13 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
+          "id": "good",
+          "type": "good",
+          "label": "Drop Niall with a clean shot and seize the lock before it turns.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y18A"
+        },
+        {
           "id": "fail",
           "type": "fail",
           "label": "Rush both prisoner and traitor across the slick steps at once.",
@@ -1662,23 +1669,16 @@ window.RANGER2_STORIES.push({
           "death": true
         },
         {
-          "id": "good",
-          "type": "good",
-          "label": "Drop Niall with a clean shot and seize the lock before it turns.",
-          "scoreDelta": 1,
-          "nextNodeId": "K18A"
-        },
-        {
           "id": "normal",
           "type": "normal",
           "label": "Cut Senan loose first and trust Elsbeth to hold Niall for a heartbeat.",
           "scoreDelta": 0,
-          "nextNodeId": "K18B"
+          "nextNodeId": "Y18B"
         }
       ]
     },
     {
-      "id": "K17B",
+      "id": "Y17B",
       "turn": 17,
       "title": "The Undercroft Gate - Steady Ground",
       "narrative": [
@@ -1688,18 +1688,18 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Throw the recovered key ring through the bars to jam the lower cogs before Niall can turn them.",
-          "scoreDelta": 1,
-          "nextNodeId": "K18A"
-        },
-        {
           "id": "normal",
           "type": "normal",
           "label": "Free the hostage first and yield the first move below.",
           "scoreDelta": 0,
-          "nextNodeId": "K18C"
+          "nextNodeId": "Y18C"
+        },
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Throw the recovered key ring through the bars to jam the lower cogs before Niall can turn them.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y18A"
         },
         {
           "id": "fail",
@@ -1712,7 +1712,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K17C",
+      "id": "Y17C",
       "turn": 17,
       "title": "The Undercroft Gate - Lost Ground",
       "narrative": [
@@ -1722,31 +1722,31 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Put the wounded ally behind you and charge Niall before the chain settles.",
-          "scoreDelta": 1,
-          "nextNodeId": "K18B"
-        },
-        {
-          "id": "normal",
-          "type": "normal",
-          "label": "Cut the ally free and go after Corren second.",
-          "scoreDelta": 0,
-          "nextNodeId": "K18C"
-        },
-        {
           "id": "fail",
           "type": "fail",
           "label": "Stop to search the chamber for another hidden lever.",
           "failTitle": "The Last Lock Falls",
           "failText": "While you fumble for a cleaner answer, the machine receives the only answer it needs. The surge takes the chamber and you with it.",
           "death": true
+        },
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Put the wounded ally behind you and charge Niall before the chain settles.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y18B"
+        },
+        {
+          "id": "normal",
+          "type": "normal",
+          "label": "Cut the ally free and go after Corren second.",
+          "scoreDelta": 0,
+          "nextNodeId": "Y18C"
         }
       ]
     },
     {
-      "id": "K18A",
+      "id": "Y18A",
       "turn": 18,
       "title": "The Black Sluice Chamber - Clear Lead",
       "narrative": [
@@ -1760,14 +1760,14 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Close with Corren at once while Elsbeth holds the lever chain.",
           "scoreDelta": 1,
-          "nextNodeId": "K19A"
+          "nextNodeId": "Y19A"
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Answer him long enough to learn how many turns remain before full release.",
           "scoreDelta": 0,
-          "nextNodeId": "K19B"
+          "nextNodeId": "Y19B"
         },
         {
           "id": "fail",
@@ -1780,7 +1780,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K18B",
+      "id": "Y18B",
       "turn": 18,
       "title": "The Black Sluice Chamber - Steady Ground",
       "narrative": [
@@ -1794,14 +1794,14 @@ window.RANGER2_STORIES.push({
           "type": "normal",
           "label": "Go wide for the side brake wheel and stop the next pull instead of the man.",
           "scoreDelta": 0,
-          "nextNodeId": "K19C"
+          "nextNodeId": "Y19C"
         },
         {
           "id": "good",
           "type": "good",
           "label": "Cut the chain-man first and make the lever a one-on-one struggle.",
           "scoreDelta": 1,
-          "nextNodeId": "K19B"
+          "nextNodeId": "Y19B"
         },
         {
           "id": "fail",
@@ -1814,7 +1814,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K18C",
+      "id": "Y18C",
       "turn": 18,
       "title": "The Black Sluice Chamber - Lost Ground",
       "narrative": [
@@ -1836,19 +1836,19 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Dive for the side brake and trust your allies to distract Corren.",
           "scoreDelta": 1,
-          "nextNodeId": "K19B"
+          "nextNodeId": "Y19B"
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Throw your full weight onto the main chain and try to slow what is already moving.",
           "scoreDelta": 0,
-          "nextNodeId": "K19C"
+          "nextNodeId": "Y19C"
         }
       ]
     },
     {
-      "id": "K19A",
+      "id": "Y19A",
       "turn": 19,
       "title": "At the Lever - Clear Lead",
       "narrative": [
@@ -1858,13 +1858,6 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "normal",
-          "type": "normal",
-          "label": "Leave Corren to Elsbeth for a heartbeat and dive for the brake pins.",
-          "scoreDelta": 0,
-          "nextNodeId": "K20B"
-        },
-        {
           "id": "good",
           "type": "good",
           "label": "Wrench the lever into the half-lock and strike Corren down before the crest hits.",
@@ -1872,6 +1865,13 @@ window.RANGER2_STORIES.push({
           "nextNodeId": null,
           "endStory": true,
           "endType": "high"
+        },
+        {
+          "id": "normal",
+          "type": "normal",
+          "label": "Leave Corren to Elsbeth for a heartbeat and dive for the brake pins.",
+          "scoreDelta": 0,
+          "nextNodeId": "Y20B"
         },
         {
           "id": "fail",
@@ -1884,7 +1884,7 @@ window.RANGER2_STORIES.push({
       ]
     },
     {
-      "id": "K19B",
+      "id": "Y19B",
       "turn": 19,
       "title": "At the Lever - Steady Ground",
       "narrative": [
@@ -1893,6 +1893,13 @@ window.RANGER2_STORIES.push({
         "You still had enough in hand to choose the shape of the dawn. Not the whole of it, perhaps, but enough."
       ],
       "options": [
+        {
+          "id": "normal",
+          "type": "normal",
+          "label": "Hold the brake and let Corren flee deeper if he must while you save the marsh first.",
+          "scoreDelta": 0,
+          "nextNodeId": "Y20C"
+        },
         {
           "id": "fail",
           "type": "fail",
@@ -1906,19 +1913,12 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Kick free the side brake and throw Corren off balance in the same motion.",
           "scoreDelta": 1,
-          "nextNodeId": "K20A"
-        },
-        {
-          "id": "normal",
-          "type": "normal",
-          "label": "Hold the brake and let Corren flee deeper if he must while you save the marsh first.",
-          "scoreDelta": 0,
-          "nextNodeId": "K20C"
+          "nextNodeId": "Y20A"
         }
       ]
     },
     {
-      "id": "K19C",
+      "id": "Y19C",
       "turn": 19,
       "title": "At the Lever - Lost Ground",
       "narrative": [
@@ -1928,13 +1928,6 @@ window.RANGER2_STORIES.push({
       ],
       "options": [
         {
-          "id": "good",
-          "type": "good",
-          "label": "Abandon the chance to seize Corren and hammer the brake pin home with your sword pommel.",
-          "scoreDelta": 1,
-          "nextNodeId": "K20B"
-        },
-        {
           "id": "fail",
           "type": "fail",
           "label": "Leap for the cellar path the instant it clears.",
@@ -1943,16 +1936,23 @@ window.RANGER2_STORIES.push({
           "death": true
         },
         {
+          "id": "good",
+          "type": "good",
+          "label": "Abandon the chance to seize Corren and hammer the brake pin home with your sword pommel.",
+          "scoreDelta": 1,
+          "nextNodeId": "Y20B"
+        },
+        {
           "id": "normal",
           "type": "normal",
           "label": "Hold the chain and shout for the others to clear the lower farms.",
           "scoreDelta": 0,
-          "nextNodeId": "K20C"
+          "nextNodeId": "Y20C"
         }
       ]
     },
     {
-      "id": "K20A",
+      "id": "Y20A",
       "turn": 20,
       "title": "Dawn over Saint Edda - Clear Victory",
       "narrative": [
@@ -1961,6 +1961,15 @@ window.RANGER2_STORIES.push({
         "The night leaves you cold, sore, and black with priory silt, but the Deep Marshes remain a place that can be repaired rather than mourned. Corren breathes, if barely, and the first gray light finds you standing over a danger kept from becoming a legend."
       ],
       "options": [
+        {
+          "id": "good",
+          "type": "good",
+          "label": "Seal the lever with Senan's witness and ride at first light to warn every lower farm yourself.",
+          "scoreDelta": 1,
+          "nextNodeId": null,
+          "endStory": true,
+          "endType": "high"
+        },
         {
           "id": "normal",
           "type": "normal",
@@ -1977,20 +1986,11 @@ window.RANGER2_STORIES.push({
           "failTitle": "The Vault Collapses",
           "failText": "The half-revealed cellar roof gives under your meddling. Mud, stone, and scandal bury the victory you had already won.",
           "death": false
-        },
-        {
-          "id": "good",
-          "type": "good",
-          "label": "Seal the lever with Senan's witness and ride at first light to warn every lower farm yourself.",
-          "scoreDelta": 1,
-          "nextNodeId": null,
-          "endStory": true,
-          "endType": "high"
         }
       ]
     },
     {
-      "id": "K20B",
+      "id": "Y20B",
       "turn": 20,
       "title": "Dawn over Saint Edda - Hard-Won Holding",
       "narrative": [
@@ -1999,6 +1999,15 @@ window.RANGER2_STORIES.push({
         "At dawn the hard work begins instead of the mourning. Men who might have fled now take spades and rope. Tobin curses, Senan prays, and Thorne stands shivering but steady under a sky that has finally spent most of its rain."
       ],
       "options": [
+        {
+          "id": "normal",
+          "type": "normal",
+          "label": "Take Corren's trail into the reeds and leave Fenbridge to mend without you.",
+          "scoreDelta": 0,
+          "nextNodeId": null,
+          "endStory": true,
+          "endType": "low"
+        },
         {
           "id": "fail",
           "type": "fail",
@@ -2015,20 +2024,11 @@ window.RANGER2_STORIES.push({
           "nextNodeId": null,
           "endStory": true,
           "endType": "high"
-        },
-        {
-          "id": "normal",
-          "type": "normal",
-          "label": "Take Corren's trail into the reeds and leave Fenbridge to mend without you.",
-          "scoreDelta": 0,
-          "nextNodeId": null,
-          "endStory": true,
-          "endType": "low"
         }
       ]
     },
     {
-      "id": "K20C",
+      "id": "Y20C",
       "turn": 20,
       "title": "Dawn over Saint Edda - Bitter Saving",
       "narrative": [
@@ -2037,6 +2037,14 @@ window.RANGER2_STORIES.push({
         "It is not the dawn you wanted, but it is still a dawn with living people in it. In Brackenwald that has often been the difference between failure and duty done."
       ],
       "options": [
+        {
+          "id": "fail",
+          "type": "fail",
+          "label": "Run for the first glimpse of coin beneath the cellar door.",
+          "failTitle": "A Poor End",
+          "failText": "The old stones shift under greedy feet. What the flood spared, the collapse finishes.",
+          "death": true
+        },
         {
           "id": "good",
           "type": "good",
@@ -2054,14 +2062,6 @@ window.RANGER2_STORIES.push({
           "nextNodeId": null,
           "endStory": true,
           "endType": "low"
-        },
-        {
-          "id": "fail",
-          "type": "fail",
-          "label": "Run for the first glimpse of coin beneath the cellar door.",
-          "failTitle": "A Poor End",
-          "failText": "The old stones shift under greedy feet. What the flood spared, the collapse finishes.",
-          "death": true
         }
       ]
     }

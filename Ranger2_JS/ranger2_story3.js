@@ -2,7 +2,7 @@ window.RANGER2_STORIES = window.RANGER2_STORIES || [];
 window.RANGER2_STORIES.push({
   "id": "bell-under-blackmere",
   "title": "The Bell Under Blackmere",
-  "summary": "A more verbose Deep Marsh story about a stolen relief barge, ghost-bell rumors, forged flood orders, and a smuggling ring that tries to replace lawful ferries with extortion dressed as rescue.",
+  "summary": "A stolen relief barge, ghost-bell rumors, and false flood orders divide the Deep Marshes as the ranger hunts a ring seeking to replace lawful ferries with extortion disguised as rescue.",
   "maxTurns": 20,
   "startNodeId": "M01A",
   "goodScoreThreshold": 11,
@@ -51,8 +51,8 @@ window.RANGER2_STORIES.push({
       "title": "The Silent Barge - Lantern Ledger",
       "narrative": [
         "Under the leaking eaves of <strong>Reedwatch Abbey Wharf</strong>, you unroll freight tallies with <strong>Sister Maelin</strong> and mark the hour the relief barge vanished from every expected lantern point. Salt, fever draughts, and lamp oil were all due upriver before nightfall and none of it arrived.",
-        "The missing vessel, the <strong>Saint Rowan</strong>, carried winter stores too essential to vanish by accident. Someone cut it out of the channel in heavy mist, and whoever did it wanted the marsh villages frightened enough to accept private tolls, private ferries, and private law before dawn.",
-        "If the first story to spread is that the marsh itself devoured the barge, then the real thieves gain half their victory without drawing another blade."
+        "Cross-checking the details leaves less room for doubt. The missing vessel, the <strong>Saint Rowan</strong>, carried winter stores too essential to vanish by accident. Someone cut it out of the channel in heavy mist, and whoever did it wanted the marsh villages frightened enough to accept private tolls, private ferries, and private law before dawn.",
+        "The wider threat comes into focus. If the first story to spread is that the marsh itself devoured the barge, then the real thieves gain half their victory without drawing another blade."
       ],
       "options": [
         {
@@ -72,7 +72,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Assume the barge simply drifted loose in the fog and search the open water first.",
+          "label": "Assume the barge simply drifted loose in the fog and search the open water first, on the strength of one uncertain sign.",
           "failTitle": "The Marsh Takes the Lead",
           "failText": "By the time you realize the towline was cut and the drift was staged, the true track through the side channels is trampled out. The thieves move the cargo while the marsh watches you search the wrong water.",
           "death": false
@@ -85,14 +85,14 @@ window.RANGER2_STORIES.push({
       "title": "The Silent Barge - Ferry Guard",
       "narrative": [
         "At the crowded landing by <strong>Blackmere Reach</strong>, you keep ferrymen, villagers, and abbey novices from collapsing into rumor while <strong>Warden Hester Vale</strong> counts what the marsh just swallowed. Every face there knows the lost cargo was meant for sick hamlets deeper in the reeds.",
-        "The missing vessel, the <strong>Saint Rowan</strong>, carried winter stores too essential to vanish by accident. Someone cut it out of the channel in heavy mist, and whoever did it wanted the marsh villages frightened enough to accept private tolls, private ferries, and private law before dawn.",
-        "If the first story to spread is that the marsh itself devoured the barge, then the real thieves gain half their victory without drawing another blade."
+        "The hurried route reaches the same hard conclusion. The missing vessel, the <strong>Saint Rowan</strong>, carried winter stores too essential to vanish by accident. Someone cut it out of the channel in heavy mist, and whoever did it wanted the marsh villages frightened enough to accept private tolls, private ferries, and private law before dawn.",
+        "Delay would turn the finding into a wider loss. If the first story to spread is that the marsh itself devoured the barge, then the real thieves gain half their victory without drawing another blade."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Assume the barge simply drifted loose in the fog and search the open water first.",
+          "label": "Assume the barge simply drifted loose in the fog and search the open water first, with the warning signs still unresolved.",
           "failTitle": "The Marsh Takes the Lead",
           "failText": "By the time you realize the towline was cut and the drift was staged, the true track through the side channels is trampled out. The thieves move the cargo while the marsh watches you search the wrong water.",
           "death": false
@@ -153,8 +153,8 @@ window.RANGER2_STORIES.push({
       "title": "Bells in the Fog - Lantern Ledger",
       "narrative": [
         "With <strong>Sister Maelin</strong> at a lamp table, you compare witness phrases and realize every frightened ferryman repeats the same details in the same order, as if the rumor itself was handed out like a notice. The ghost-bell story was prepared before anyone claimed to hear it.",
-        "Somebody is weaponizing the marsh's oldest superstition: the bell said to ring when the drowned priory wants another soul. A thief who can make good men believe that old sound has returned can close routes, redirect cargo, and collect silver for the 'safe' crossings he controls.",
-        "If the villages accept a haunted marsh as the cause, no one will look hard at the living hands placing bells, poles, and lies in the dark."
+        "The slower examination reveals another useful detail. Somebody is weaponizing the marsh's oldest superstition: the bell said to ring when the drowned priory wants another soul. A thief who can make good men believe that old sound has returned can close routes, redirect cargo, and collect silver for the 'safe' crossings he controls.",
+        "What follows from it is difficult to ignore. If the villages accept a haunted marsh as the cause, no one will look hard at the living hands placing bells, poles, and lies in the dark."
       ],
       "options": [
         {
@@ -174,7 +174,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Repeat the ghost-bell warning to keep civilians away from the water.",
+          "label": "Repeat the ghost-bell warning to keep civilians away from the water, without hearing the nearest witness.",
           "failTitle": "The Fog Serves the Thieves",
           "failText": "The warning does what the smugglers hoped it would do. Honest traffic stops, the side channels empty, and the stolen cargo moves beneath a fear you helped strengthen.",
           "death": false
@@ -187,14 +187,14 @@ window.RANGER2_STORIES.push({
       "title": "Bells in the Fog - Ferry Guard",
       "narrative": [
         "You move among moored skiffs with <strong>Warden Hester Vale</strong>, keeping crews from cutting free and fleeing to drier ground. Fear is spreading faster than water, and frightened ferrymen are already speaking of closing the night crossings entirely.",
-        "Somebody is weaponizing the marsh's oldest superstition: the bell said to ring when the drowned priory wants another soul. A thief who can make good men believe that old sound has returned can close routes, redirect cargo, and collect silver for the 'safe' crossings he controls.",
-        "If the villages accept a haunted marsh as the cause, no one will look hard at the living hands placing bells, poles, and lies in the dark."
+        "With the road tightening around you, the evidence still holds. Somebody is weaponizing the marsh's oldest superstition: the bell said to ring when the drowned priory wants another soul. A thief who can make good men believe that old sound has returned can close routes, redirect cargo, and collect silver for the 'safe' crossings he controls.",
+        "The next mistake would carry a heavy cost. If the villages accept a haunted marsh as the cause, no one will look hard at the living hands placing bells, poles, and lies in the dark."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Repeat the ghost-bell warning to keep civilians away from the water.",
+          "label": "Repeat the ghost-bell warning to keep civilians away from the water, without testing the danger ahead.",
           "failTitle": "The Fog Serves the Thieves",
           "failText": "The warning does what the smugglers hoped it would do. Honest traffic stops, the side channels empty, and the stolen cargo moves beneath a fear you helped strengthen.",
           "death": false
@@ -255,8 +255,8 @@ window.RANGER2_STORIES.push({
       "title": "Survivors Among the Reeds - Lantern Ledger",
       "narrative": [
         "You shelter the survivors in a reed hut and let <strong>Sister Maelin</strong> steady them with broth while you test each memory against the other. One remembers a toll-captain's voice giving orders from the fog; the other remembers a hand lantern painted blue, not abbey white.",
-        "The bargemen speak of masked men, hooked poles, and a command to 'ring it again' when the first tow went wide. They also describe an official-sounding order to divert the cargo for 'flood quarantine,' a phrase too tidy and too useful to have been improvised on the water.",
-        "A false order, spoken in the right voice, can command a marsh lane faster than any drawn steel."
+        "Measured work here strengthens the case. The bargemen speak of masked men, hooked poles, and a command to 'ring it again' when the first tow went wide. They also describe an official-sounding order to divert the cargo for 'flood quarantine,' a phrase too tidy and too useful to have been improvised on the water.",
+        "The practical danger is now plain. A false order, spoken in the right voice, can command a marsh lane faster than any drawn steel."
       ],
       "options": [
         {
@@ -276,7 +276,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Force the survivors to name suspects before they can breathe properly.",
+          "label": "Force the survivors to name suspects before they can breathe properly, with the warning signs still unresolved.",
           "failTitle": "The Witnesses Break",
           "failText": "You press too hard and get only fear, contradiction, and silence. What could have become a clean thread of testimony collapses into panic and doubt.",
           "death": false
@@ -289,14 +289,14 @@ window.RANGER2_STORIES.push({
       "title": "Survivors Among the Reeds - Ferry Guard",
       "narrative": [
         "With <strong>Warden Hester Vale</strong>, you secure the small inlet where the survivors drifted in and keep curious villagers back while the men are treated. The last thing you need is a frightened crowd teaching the witnesses which details to remember.",
-        "The bargemen speak of masked men, hooked poles, and a command to 'ring it again' when the first tow went wide. They also describe an official-sounding order to divert the cargo for 'flood quarantine,' a phrase too tidy and too useful to have been improvised on the water.",
-        "A false order, spoken in the right voice, can command a marsh lane faster than any drawn steel."
+        "Lost time makes each detail more urgent. The bargemen speak of masked men, hooked poles, and a command to 'ring it again' when the first tow went wide. They also describe an official-sounding order to divert the cargo for 'flood quarantine,' a phrase too tidy and too useful to have been improvised on the water.",
+        "Pressure makes the consequence immediate. A false order, spoken in the right voice, can command a marsh lane faster than any drawn steel."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Force the survivors to name suspects before they can breathe properly.",
+          "label": "Force the survivors to name suspects before they can breathe properly, despite the doubts raised by the evidence.",
           "failTitle": "The Witnesses Break",
           "failText": "You press too hard and get only fear, contradiction, and silence. What could have become a clean thread of testimony collapses into panic and doubt.",
           "death": false
@@ -357,8 +357,8 @@ window.RANGER2_STORIES.push({
       "title": "Orders Marked with Flood Ink - Lantern Ledger",
       "narrative": [
         "You lay the supposed flood warrant beside older abbey notices while <strong>Sister Maelin</strong> compares ink, clerk hands, and the stamp cut into its wax. The seal was copied well enough to fool a tired ferryman in rain, but not well enough to survive patient reading.",
-        "The forged order closes the north channel for flood damage and reopens a private cut under licensed escort. It is not merely a lie; it is a tool designed to turn public safety into a toll gate owned by whoever printed it.",
-        "Once a forged order governs movement, the marsh starts to belong to whoever carries the best imitation of law."
+        "The more careful approach confirms the essential facts. The forged order closes the north channel for flood damage and reopens a private cut under licensed escort. It is not merely a lie; it is a tool designed to turn public safety into a toll gate owned by whoever printed it.",
+        "The cost of delay is easier to see. Once a forged order governs movement, the marsh starts to belong to whoever carries the best imitation of law."
       ],
       "options": [
         {
@@ -378,7 +378,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Accept the warrant as genuine until someone from the duke can confirm it.",
+          "label": "Accept the warrant as genuine until someone from the duke can confirm it, without testing the danger ahead.",
           "failTitle": "The False Closure Holds",
           "failText": "By treating the order as possibly lawful, you hand the smugglers the delay they wanted. Boats stay put, the villages wait, and the cargo keeps moving beneath borrowed authority.",
           "death": false
@@ -391,14 +391,14 @@ window.RANGER2_STORIES.push({
       "title": "Orders Marked with Flood Ink - Ferry Guard",
       "narrative": [
         "You keep the landing from erupting as <strong>Warden Hester Vale</strong> reads the order aloud for the gathered boatmen. Some have already obeyed it, and all of them know how much authority can hide inside a wet sheet of paper tied to a post.",
-        "The forged order closes the north channel for flood damage and reopens a private cut under licensed escort. It is not merely a lie; it is a tool designed to turn public safety into a toll gate owned by whoever printed it.",
-        "Once a forged order governs movement, the marsh starts to belong to whoever carries the best imitation of law."
+        "Even under guard, the central evidence remains clear. The forged order closes the north channel for flood damage and reopens a private cut under licensed escort. It is not merely a lie; it is a tool designed to turn public safety into a toll gate owned by whoever printed it.",
+        "There is little time left to contain the damage. Once a forged order governs movement, the marsh starts to belong to whoever carries the best imitation of law."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Accept the warrant as genuine until someone from the duke can confirm it.",
+          "label": "Accept the warrant as genuine until someone from the duke can confirm it, without securing help or a retreat.",
           "failTitle": "The False Closure Holds",
           "failText": "By treating the order as possibly lawful, you hand the smugglers the delay they wanted. Boats stay put, the villages wait, and the cargo keeps moving beneath borrowed authority.",
           "death": false
@@ -459,8 +459,8 @@ window.RANGER2_STORIES.push({
       "title": "The Abbey Wharf Ledger - Lantern Ledger",
       "narrative": [
         "Inside the abbey counting room, you work with <strong>Sister Maelin</strong> over freight books whose neat lines break only where one page has been removed with monkish precision. Whoever cut it knew how to steal information without advertising panic.",
-        "One torn ledger stub suggests an extra pickup at dusk, long before the barge was ever reported missing. The missing page likely named the second delivery point, the one the thieves needed to control if they meant to sell the villages back their own medicine.",
-        "The more orderly the theft appears, the more likely it was prepared from inside the route and not merely taken from outside it."
+        "Patient questioning gives the evidence a firmer shape. One torn ledger stub suggests an extra pickup at dusk, long before the barge was ever reported missing. The missing page likely named the second delivery point, the one the thieves needed to control if they meant to sell the villages back their own medicine.",
+        "That leaves one immediate risk. The more orderly the theft appears, the more likely it was prepared from inside the route and not merely taken from outside it."
       ],
       "options": [
         {
@@ -480,7 +480,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Search the abbey publicly and accuse the staff before the evidence is sorted.",
+          "label": "Search the abbey publicly and accuse the staff before the evidence is sorted, despite the doubts raised by the evidence.",
           "failTitle": "The Wharf Turns Inward",
           "failText": "Your sweep shatters trust at the one place still keeping records straight. Doors close, memories harden, and the missing ledger trail goes cold under wounded pride.",
           "death": false
@@ -493,14 +493,14 @@ window.RANGER2_STORIES.push({
       "title": "The Abbey Wharf Ledger - Ferry Guard",
       "narrative": [
         "You keep the abbey yard calm while novices move the remaining reserve crates into a watched store under <strong>Warden Hester Vale</strong>. If the thieves learn there is panic at the wharf, they will strike again before the day is out.",
-        "One torn ledger stub suggests an extra pickup at dusk, long before the barge was ever reported missing. The missing page likely named the second delivery point, the one the thieves needed to control if they meant to sell the villages back their own medicine.",
-        "The more orderly the theft appears, the more likely it was prepared from inside the route and not merely taken from outside it."
+        "Mounting pressure cannot hide the essential facts. One torn ledger stub suggests an extra pickup at dusk, long before the barge was ever reported missing. The missing page likely named the second delivery point, the one the thieves needed to control if they meant to sell the villages back their own medicine.",
+        "The danger now reaches beyond this one place. The more orderly the theft appears, the more likely it was prepared from inside the route and not merely taken from outside it."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Search the abbey publicly and accuse the staff before the evidence is sorted.",
+          "label": "Search the abbey publicly and accuse the staff before the evidence is sorted, on the strength of one uncertain sign.",
           "failTitle": "The Wharf Turns Inward",
           "failText": "Your sweep shatters trust at the one place still keeping records straight. Doors close, memories harden, and the missing ledger trail goes cold under wounded pride.",
           "death": false
@@ -561,8 +561,8 @@ window.RANGER2_STORIES.push({
       "title": "Stakes in the Side Channel - Lantern Ledger",
       "narrative": [
         "With <strong>Sister Maelin</strong>, you map the stolen route against old flood charts and realize the smugglers are using obsolete water knowledge that only longtime marsh hands or old abbey records would preserve. The theft is running on memory as much as muscle.",
-        "The side channel leads toward the drowned fringe of <strong>Saint Olwen's Mere</strong>, where reed islands and old masonry create natural blind spots. A ring with time, local knowledge, and false paperwork could move whole loads through here while honest boatmen tell themselves the route is cursed or closed.",
-        "Every hidden stake is proof that this operation was built patiently, and patient criminals are harder to rattle than desperate ones."
+        "Cross-checking the details leaves less room for doubt. The side channel leads toward the drowned fringe of <strong>Saint Olwen's Mere</strong>, where reed islands and old masonry create natural blind spots. A ring with time, local knowledge, and false paperwork could move whole loads through here while honest boatmen tell themselves the route is cursed or closed.",
+        "The wider threat comes into focus. Every hidden stake is proof that this operation was built patiently, and patient criminals are harder to rattle than desperate ones."
       ],
       "options": [
         {
@@ -582,7 +582,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Pull every stake immediately and assume the route is broken for good.",
+          "label": "Pull every stake immediately and assume the route is broken for good, without securing help or a retreat.",
           "failTitle": "The Channel Goes Quiet",
           "failText": "You destroy the visible trap and teach the smugglers that their hidden lane is discovered. By nightfall they have shifted to another path, and the side channel yields only spoiled evidence.",
           "death": false
@@ -595,14 +595,14 @@ window.RANGER2_STORIES.push({
       "title": "Stakes in the Side Channel - Ferry Guard",
       "narrative": [
         "You place guards at the main junction while <strong>Warden Hester Vale</strong> keeps ferries moving one at a time past the suspected cut. The villagers do not need to understand every stake hidden beneath the water; they only need to know the ranger still controls the lane.",
-        "The side channel leads toward the drowned fringe of <strong>Saint Olwen's Mere</strong>, where reed islands and old masonry create natural blind spots. A ring with time, local knowledge, and false paperwork could move whole loads through here while honest boatmen tell themselves the route is cursed or closed.",
-        "Every hidden stake is proof that this operation was built patiently, and patient criminals are harder to rattle than desperate ones."
+        "The hurried route reaches the same hard conclusion. The side channel leads toward the drowned fringe of <strong>Saint Olwen's Mere</strong>, where reed islands and old masonry create natural blind spots. A ring with time, local knowledge, and false paperwork could move whole loads through here while honest boatmen tell themselves the route is cursed or closed.",
+        "Delay would turn the finding into a wider loss. Every hidden stake is proof that this operation was built patiently, and patient criminals are harder to rattle than desperate ones."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Pull every stake immediately and assume the route is broken for good.",
+          "label": "Pull every stake immediately and assume the route is broken for good, without hearing the nearest witness.",
           "failTitle": "The Channel Goes Quiet",
           "failText": "You destroy the visible trap and teach the smugglers that their hidden lane is discovered. By nightfall they have shifted to another path, and the side channel yields only spoiled evidence.",
           "death": false
@@ -663,8 +663,8 @@ window.RANGER2_STORIES.push({
       "title": "Villagers Paying Twice - Lantern Ledger",
       "narrative": [
         "You sit with <strong>Sister Maelin</strong> and three marsh families whose payment tokens all bear the same counterfeit flood seal used on the false route closures. The villagers are not buying contraband; they are buying back what should have reached them lawfully yesterday.",
-        "The packet sizes are too precise and the prices too steady to be looting. This is controlled extortion, run by people who expect the routes to stay frightened, the ferries to stay divided, and the villages to mistake order for mercy.",
-        "Once the sick believe relief arrives only through private hands, every lawful authority in the marsh starts to look weak and late."
+        "The slower examination reveals another useful detail. The packet sizes are too precise and the prices too steady to be looting. This is controlled extortion, run by people who expect the routes to stay frightened, the ferries to stay divided, and the villages to mistake order for mercy.",
+        "What follows from it is difficult to ignore. Once the sick believe relief arrives only through private hands, every lawful authority in the marsh starts to look weak and late."
       ],
       "options": [
         {
@@ -684,7 +684,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Seize every packet at once without first replacing the medicine for the sick.",
+          "label": "Seize every packet at once without first replacing the medicine for the sick, on the strength of one uncertain sign.",
           "failTitle": "The Landing Turns on You",
           "failText": "The villagers do not see a rescue; they see medicine taken from fever mats while a ranger lectures them about procedure. The smugglers keep their network, and you lose the crowd that should have backed you.",
           "death": false
@@ -697,14 +697,14 @@ window.RANGER2_STORIES.push({
       "title": "Villagers Paying Twice - Ferry Guard",
       "narrative": [
         "With <strong>Warden Hester Vale</strong>, you hold the square together while frightened people ask whether the abbey has abandoned them. If you move clumsily here, desperate families will see only another authority taking medicine away.",
-        "The packet sizes are too precise and the prices too steady to be looting. This is controlled extortion, run by people who expect the routes to stay frightened, the ferries to stay divided, and the villages to mistake order for mercy.",
-        "Once the sick believe relief arrives only through private hands, every lawful authority in the marsh starts to look weak and late."
+        "With the road tightening around you, the evidence still holds. The packet sizes are too precise and the prices too steady to be looting. This is controlled extortion, run by people who expect the routes to stay frightened, the ferries to stay divided, and the villages to mistake order for mercy.",
+        "The next mistake would carry a heavy cost. Once the sick believe relief arrives only through private hands, every lawful authority in the marsh starts to look weak and late."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Seize every packet at once without first replacing the medicine for the sick.",
+          "label": "Seize every packet at once without first replacing the medicine for the sick, with the warning signs still unresolved.",
           "failTitle": "The Landing Turns on You",
           "failText": "The villagers do not see a rescue; they see medicine taken from fever mats while a ranger lectures them about procedure. The smugglers keep their network, and you lose the crowd that should have backed you.",
           "death": false
@@ -765,8 +765,8 @@ window.RANGER2_STORIES.push({
       "title": "The Boatman with Two Messages - Lantern Ledger",
       "narrative": [
         "In a shuttered fish shed, you set the two damp messages beside one another with <strong>Sister Maelin</strong> and watch the contradictions appear line by line. One closes the high ferries for safety; the other schedules a private cargo to pass the same hour under paid escort.",
-        "The boatman is no mastermind. He is a hired pair of hands paid to trust seals, fear flood warnings, and keep his head down. But the duplicate messages prove the ring is coordinating public fear and private logistics from the same center.",
-        "A frightened courier can still point toward a hidden master, but only if you give him reason to believe surviving the truth is possible."
+        "Measured work here strengthens the case. The boatman is no mastermind. He is a hired pair of hands paid to trust seals, fear flood warnings, and keep his head down. But the duplicate messages prove the ring is coordinating public fear and private logistics from the same center.",
+        "The practical danger is now plain. A frightened courier can still point toward a hidden master, but only if you give him reason to believe surviving the truth is possible."
       ],
       "options": [
         {
@@ -786,7 +786,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Threaten the courier with hanging unless he names his employer immediately.",
+          "label": "Threaten the courier with hanging unless he names his employer immediately, without hearing the nearest witness.",
           "failTitle": "The Courier Freezes",
           "failText": "You give him terror and nothing else. He locks down, says nothing useful, and by the time he gathers courage the ring has shifted its next move.",
           "death": false
@@ -799,14 +799,14 @@ window.RANGER2_STORIES.push({
       "title": "The Boatman with Two Messages - Ferry Guard",
       "narrative": [
         "You keep the courier under firm guard with <strong>Warden Hester Vale</strong> while word spreads that another false order has been caught. The arrest alone matters less than what his panic may teach you about the ring's remaining relay points.",
-        "The boatman is no mastermind. He is a hired pair of hands paid to trust seals, fear flood warnings, and keep his head down. But the duplicate messages prove the ring is coordinating public fear and private logistics from the same center.",
-        "A frightened courier can still point toward a hidden master, but only if you give him reason to believe surviving the truth is possible."
+        "Lost time makes each detail more urgent. The boatman is no mastermind. He is a hired pair of hands paid to trust seals, fear flood warnings, and keep his head down. But the duplicate messages prove the ring is coordinating public fear and private logistics from the same center.",
+        "Pressure makes the consequence immediate. A frightened courier can still point toward a hidden master, but only if you give him reason to believe surviving the truth is possible."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Threaten the courier with hanging unless he names his employer immediately.",
+          "label": "Threaten the courier with hanging unless he names his employer immediately, without testing the danger ahead.",
           "failTitle": "The Courier Freezes",
           "failText": "You give him terror and nothing else. He locks down, says nothing useful, and by the time he gathers courage the ring has shifted its next move.",
           "death": false
@@ -867,8 +867,8 @@ window.RANGER2_STORIES.push({
       "title": "Ivo Sedge Found Alive - Lantern Ledger",
       "narrative": [
         "With <strong>Sister Maelin</strong> kneeling beside him, you hear Ivo describe the blue lantern, the false flood order, and the man who kept calling for the bell to sound again until the bargemen scattered. He also names <strong>Toll-Captain Corin Sedge</strong> as the officer whose patrol timings vanished from the lawful books exactly when the barge was seized.",
-        "Ivo also speaks of a deeper figure: a broker who never loads cargo himself, never signs a public order, and yet always seems to own the second stage of every theft. The name that surfaces half-spoken is <strong>Garran Pell</strong>, a marsh merchant who grew rich whenever the lawful ferries faltered.",
-        "Once Corin or Pell learns Ivo is alive, the ring will stop trading on caution and start trading on urgency."
+        "The more careful approach confirms the essential facts. Ivo also speaks of a deeper figure: a broker who never loads cargo himself, never signs a public order, and yet always seems to own the second stage of every theft. The name that surfaces half-spoken is <strong>Garran Pell</strong>, a marsh merchant who grew rich whenever the lawful ferries faltered.",
+        "The cost of delay is easier to see. Once Corin or Pell learns Ivo is alive, the ring will stop trading on caution and start trading on urgency."
       ],
       "options": [
         {
@@ -888,7 +888,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Leave Ivo hidden on the island while you rush after Corin alone.",
+          "label": "Leave Ivo hidden on the island while you rush after Corin alone, with the warning signs still unresolved.",
           "failTitle": "The Ferryman Vanishes",
           "failText": "You win a few miles and lose your best witness. By the time you return, the island is empty and the ring has erased the voice most able to name it.",
           "death": false
@@ -901,14 +901,14 @@ window.RANGER2_STORIES.push({
       "title": "Ivo Sedge Found Alive - Ferry Guard",
       "narrative": [
         "You clear the island and place Ivo under <strong>Warden Hester Vale</strong>'s protection before anyone else learns he has been found. A living ferryman who knows the old routes is worth more to the ring dead than frightened.",
-        "Ivo also speaks of a deeper figure: a broker who never loads cargo himself, never signs a public order, and yet always seems to own the second stage of every theft. The name that surfaces half-spoken is <strong>Garran Pell</strong>, a marsh merchant who grew rich whenever the lawful ferries faltered.",
-        "Once Corin or Pell learns Ivo is alive, the ring will stop trading on caution and start trading on urgency."
+        "Even under guard, the central evidence remains clear. Ivo also speaks of a deeper figure: a broker who never loads cargo himself, never signs a public order, and yet always seems to own the second stage of every theft. The name that surfaces half-spoken is <strong>Garran Pell</strong>, a marsh merchant who grew rich whenever the lawful ferries faltered.",
+        "There is little time left to contain the damage. Once Corin or Pell learns Ivo is alive, the ring will stop trading on caution and start trading on urgency."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Leave Ivo hidden on the island while you rush after Corin alone.",
+          "label": "Leave Ivo hidden on the island while you rush after Corin alone, despite the doubts raised by the evidence.",
           "failTitle": "The Ferryman Vanishes",
           "failText": "You win a few miles and lose your best witness. By the time you return, the island is empty and the ring has erased the voice most able to name it.",
           "death": false
@@ -969,8 +969,8 @@ window.RANGER2_STORIES.push({
       "title": "The Tollhouse Account Book - Lantern Ledger",
       "narrative": [
         "You sit with <strong>Sister Maelin</strong> over the tollhouse ledger and discover that the false flood closures line up neatly with unexplained private escort fees. The pattern is too disciplined to belong to ordinary theft; it belongs to a business pretending to be emergency governance.",
-        "The account book does not place Garran Pell at every scene, but it circles him all the same: cargo transfers near his reed warehouse, private ferries paid in his token silver, and night lanterns purchased through his factor at suspiciously regular intervals.",
-        "You now know the ring is organized, solvent, and practiced, which means exposing it will require more than catching one load in motion."
+        "Patient questioning gives the evidence a firmer shape. The account book does not place Garran Pell at every scene, but it circles him all the same: cargo transfers near his reed warehouse, private ferries paid in his token silver, and night lanterns purchased through his factor at suspiciously regular intervals.",
+        "That leaves one immediate risk. You now know the ring is organized, solvent, and practiced, which means exposing it will require more than catching one load in motion."
       ],
       "options": [
         {
@@ -990,7 +990,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Arrest every tollman whose name appears near a false fee entry.",
+          "label": "Arrest every tollman whose name appears near a false fee entry, without testing the danger ahead.",
           "failTitle": "The Tollhouse Breaks Apart",
           "failText": "Your rush turns partial guilt into total chaos. Honest men resist out of fear, guilty ones vanish in the confusion, and the account book becomes a brawl instead of a case.",
           "death": false
@@ -1003,14 +1003,14 @@ window.RANGER2_STORIES.push({
       "title": "The Tollhouse Account Book - Ferry Guard",
       "narrative": [
         "You hold the tollhouse yard under <strong>Warden Hester Vale</strong> so no guard burns papers or bolts into the reeds with whatever memory still sits in his head. Men who only yesterday called this routine work are suddenly very aware that routine can become evidence.",
-        "The account book does not place Garran Pell at every scene, but it circles him all the same: cargo transfers near his reed warehouse, private ferries paid in his token silver, and night lanterns purchased through his factor at suspiciously regular intervals.",
-        "You now know the ring is organized, solvent, and practiced, which means exposing it will require more than catching one load in motion."
+        "Mounting pressure cannot hide the essential facts. The account book does not place Garran Pell at every scene, but it circles him all the same: cargo transfers near his reed warehouse, private ferries paid in his token silver, and night lanterns purchased through his factor at suspiciously regular intervals.",
+        "The danger now reaches beyond this one place. You now know the ring is organized, solvent, and practiced, which means exposing it will require more than catching one load in motion."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Arrest every tollman whose name appears near a false fee entry.",
+          "label": "Arrest every tollman whose name appears near a false fee entry, without securing help or a retreat.",
           "failTitle": "The Tollhouse Breaks Apart",
           "failText": "Your rush turns partial guilt into total chaos. Honest men resist out of fear, guilty ones vanish in the confusion, and the account book becomes a brawl instead of a case.",
           "death": false
@@ -1071,8 +1071,8 @@ window.RANGER2_STORIES.push({
       "title": "Rain Over the Flats - Lantern Ledger",
       "narrative": [
         "Sheltered in a watch hut with <strong>Sister Maelin</strong>, you compare route times and realize the storm does not close every channel equally. A careful smuggler would choose the lanes where rain blinds distant eyes but leaves the water still enough for pole work.",
-        "Pell has been using bad weather as a second accomplice. Honest traffic slows, frightened boatmen take shelter, and private ferries with prepared pilots suddenly become the only vessels 'brave enough' to move between isolated homes.",
-        "A storm narrows every margin. A clever move in it can break the ring; a clumsy one can hand it the whole evening."
+        "Cross-checking the details leaves less room for doubt. Pell has been using bad weather as a second accomplice. Honest traffic slows, frightened boatmen take shelter, and private ferries with prepared pilots suddenly become the only vessels 'brave enough' to move between isolated homes.",
+        "The wider threat comes into focus. A storm narrows every margin. A clever move in it can break the ring; a clumsy one can hand it the whole evening."
       ],
       "options": [
         {
@@ -1092,7 +1092,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Wait out the rain in full shelter and assume the smugglers will do the same.",
+          "label": "Wait out the rain in full shelter and assume the smugglers will do the same, despite the doubts raised by the evidence.",
           "failTitle": "The Storm Works for Pell",
           "failText": "Pell is not sheltering; he is using the weather exactly as planned. While you wait for clear skies, he moves cargo and rumor together through the darkened flats.",
           "death": false
@@ -1105,14 +1105,14 @@ window.RANGER2_STORIES.push({
       "title": "Rain Over the Flats - Ferry Guard",
       "narrative": [
         "You keep the relief skiffs moving under <strong>Warden Hester Vale</strong> while lightning flickers behind the reed line and makes every delay feel like surrender. The villagers need to see that weather belongs to no thief, no matter how expertly he exploits it.",
-        "Pell has been using bad weather as a second accomplice. Honest traffic slows, frightened boatmen take shelter, and private ferries with prepared pilots suddenly become the only vessels 'brave enough' to move between isolated homes.",
-        "A storm narrows every margin. A clever move in it can break the ring; a clumsy one can hand it the whole evening."
+        "The hurried route reaches the same hard conclusion. Pell has been using bad weather as a second accomplice. Honest traffic slows, frightened boatmen take shelter, and private ferries with prepared pilots suddenly become the only vessels 'brave enough' to move between isolated homes.",
+        "Delay would turn the finding into a wider loss. A storm narrows every margin. A clever move in it can break the ring; a clumsy one can hand it the whole evening."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Wait out the rain in full shelter and assume the smugglers will do the same.",
+          "label": "Wait out the rain in full shelter and assume the smugglers will do the same, on the strength of one uncertain sign.",
           "failTitle": "The Storm Works for Pell",
           "failText": "Pell is not sheltering; he is using the weather exactly as planned. While you wait for clear skies, he moves cargo and rumor together through the darkened flats.",
           "death": false
@@ -1173,8 +1173,8 @@ window.RANGER2_STORIES.push({
       "title": "Three Hamlets, One Rumor - Lantern Ledger",
       "narrative": [
         "With <strong>Sister Maelin</strong>, you set receipts, ferry marks, and witness names on a plank table while elders from all three hamlets glare across the lantern light. The documents show one pattern clearly: all of them were lied to by the same hands, merely in slightly different words.",
-        "Corin has been feeding each hamlet a tailored version of the same lie: that another village hoarded relief, informed on the ferries, or bought special passage through the closures. It is social sabotage meant to ensure no shared front ever forms against the ring.",
-        "If marsh folk start policing one another by rumor, lawful authority becomes merely one more voice in the shouting."
+        "The slower examination reveals another useful detail. Corin has been feeding each hamlet a tailored version of the same lie: that another village hoarded relief, informed on the ferries, or bought special passage through the closures. It is social sabotage meant to ensure no shared front ever forms against the ring.",
+        "What follows from it is difficult to ignore. If marsh folk start policing one another by rumor, lawful authority becomes merely one more voice in the shouting."
       ],
       "options": [
         {
@@ -1194,7 +1194,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Side openly with the loudest hamlet and force the others to accept it.",
+          "label": "Side openly with the loudest hamlet and force the others to accept it, without securing help or a retreat.",
           "failTitle": "The Hamlets Divide",
           "failText": "You turn suspicion into a verdict before the proof is complete. Pell no longer needs ghost bells or forged notices; the hamlets will keep one another divided for him.",
           "death": false
@@ -1207,14 +1207,14 @@ window.RANGER2_STORIES.push({
       "title": "Three Hamlets, One Rumor - Ferry Guard",
       "narrative": [
         "You hold the muddy lane with <strong>Warden Hester Vale</strong>, keeping boat hooks low and tempers lower while frightened families watch from behind shutter cracks. If the hamlets split, Pell will not need to command them; he will only need to sell each side safety from the others.",
-        "Corin has been feeding each hamlet a tailored version of the same lie: that another village hoarded relief, informed on the ferries, or bought special passage through the closures. It is social sabotage meant to ensure no shared front ever forms against the ring.",
-        "If marsh folk start policing one another by rumor, lawful authority becomes merely one more voice in the shouting."
+        "With the road tightening around you, the evidence still holds. Corin has been feeding each hamlet a tailored version of the same lie: that another village hoarded relief, informed on the ferries, or bought special passage through the closures. It is social sabotage meant to ensure no shared front ever forms against the ring.",
+        "The next mistake would carry a heavy cost. If marsh folk start policing one another by rumor, lawful authority becomes merely one more voice in the shouting."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Side openly with the loudest hamlet and force the others to accept it.",
+          "label": "Side openly with the loudest hamlet and force the others to accept it, without hearing the nearest witness.",
           "failTitle": "The Hamlets Divide",
           "failText": "You turn suspicion into a verdict before the proof is complete. Pell no longer needs ghost bells or forged notices; the hamlets will keep one another divided for him.",
           "death": false
@@ -1275,8 +1275,8 @@ window.RANGER2_STORIES.push({
       "title": "Corin Sedge Breaks Cover - Lantern Ledger",
       "narrative": [
         "You confront Corin with ledgers, witness accounts, and the forged orders while <strong>Sister Maelin</strong> keeps every contradiction exact. Several of his own men look more frightened than loyal once they hear the papers read out in full.",
-        "Corin demands the seized papers, claims the north routes remain under flood restriction, and insists Garran Pell is merely a contractor filling the void left by abbey delay. The lie is broad now, no longer subtle, which means the ring is starting to feel the bank giving way beneath it.",
-        "Break Corin cleanly and his men may yield. Mishandle him and every frightened ferryman nearby will think the marsh has entered open civil war."
+        "Measured work here strengthens the case. Corin demands the seized papers, claims the north routes remain under flood restriction, and insists Garran Pell is merely a contractor filling the void left by abbey delay. The lie is broad now, no longer subtle, which means the ring is starting to feel the bank giving way beneath it.",
+        "The practical danger is now plain. Break Corin cleanly and his men may yield. Mishandle him and every frightened ferryman nearby will think the marsh has entered open civil war."
       ],
       "options": [
         {
@@ -1296,7 +1296,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Draw steel on Corin before his own men hear the evidence against him.",
+          "label": "Draw steel on Corin before his own men hear the evidence against him, on the strength of one uncertain sign.",
           "failTitle": "The Checkpoint Explodes",
           "failText": "The lane erupts into blind violence before truth has time to do its work. Corin escapes through confusion, and even honest guards come away unsure who began the betrayal.",
           "death": false
@@ -1309,14 +1309,14 @@ window.RANGER2_STORIES.push({
       "title": "Corin Sedge Breaks Cover - Ferry Guard",
       "narrative": [
         "With <strong>Warden Hester Vale</strong>, you anchor the checkpoint and address the uncertain guards before Corin can turn confusion into a skirmish. Many of them served a captain; not all of them knowingly served a racket.",
-        "Corin demands the seized papers, claims the north routes remain under flood restriction, and insists Garran Pell is merely a contractor filling the void left by abbey delay. The lie is broad now, no longer subtle, which means the ring is starting to feel the bank giving way beneath it.",
-        "Break Corin cleanly and his men may yield. Mishandle him and every frightened ferryman nearby will think the marsh has entered open civil war."
+        "Lost time makes each detail more urgent. Corin demands the seized papers, claims the north routes remain under flood restriction, and insists Garran Pell is merely a contractor filling the void left by abbey delay. The lie is broad now, no longer subtle, which means the ring is starting to feel the bank giving way beneath it.",
+        "Pressure makes the consequence immediate. Break Corin cleanly and his men may yield. Mishandle him and every frightened ferryman nearby will think the marsh has entered open civil war."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Draw steel on Corin before his own men hear the evidence against him.",
+          "label": "Draw steel on Corin before his own men hear the evidence against him, with the warning signs still unresolved.",
           "failTitle": "The Checkpoint Explodes",
           "failText": "The lane erupts into blind violence before truth has time to do its work. Corin escapes through confusion, and even honest guards come away unsure who began the betrayal.",
           "death": false
@@ -1377,8 +1377,8 @@ window.RANGER2_STORIES.push({
       "title": "Cargo Beneath the Chapel Steps - Lantern Ledger",
       "narrative": [
         "You compare burial records and cargo tallies with <strong>Sister Maelin</strong> in the ruined vestry and find the same fraud repeated in two languages: one for the pious, one for the practical. Pell has been disguising relief loads as maintenance stores for the old chapel keepers.",
-        "This is not the whole cache, but it is the heaviest night transfer yet: enough salt and medicine to keep Pell bargaining with whole hamlets for another week. If he gets it past the chapel and into the deeper reed islands, the marsh will have to be searched a second time under worse conditions.",
-        "You are no longer chasing leftovers. You are standing almost directly on the artery that keeps the scheme alive."
+        "The more careful approach confirms the essential facts. This is not the whole cache, but it is the heaviest night transfer yet: enough salt and medicine to keep Pell bargaining with whole hamlets for another week. If he gets it past the chapel and into the deeper reed islands, the marsh will have to be searched a second time under worse conditions.",
+        "The cost of delay is easier to see. You are no longer chasing leftovers. You are standing almost directly on the artery that keeps the scheme alive."
       ],
       "options": [
         {
@@ -1398,7 +1398,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Rush the chapel steps with torches and shout for surrender.",
+          "label": "Rush the chapel steps with torches and shout for surrender, without hearing the nearest witness.",
           "failTitle": "The Water Goes Dark",
           "failText": "The carriers kill the lights, dump the obvious route, and vanish through side water only they know. You are left with churned mud, half a crate, and no clean proof of where the rest went.",
           "death": false
@@ -1411,14 +1411,14 @@ window.RANGER2_STORIES.push({
       "title": "Cargo Beneath the Chapel Steps - Ferry Guard",
       "narrative": [
         "You place <strong>Warden Hester Vale</strong> on the chapel path and keep villagers back while men move below the steps in the dark. If the crowd sees only armed figures around a shrine, fear will do the ring's work for free.",
-        "This is not the whole cache, but it is the heaviest night transfer yet: enough salt and medicine to keep Pell bargaining with whole hamlets for another week. If he gets it past the chapel and into the deeper reed islands, the marsh will have to be searched a second time under worse conditions.",
-        "You are no longer chasing leftovers. You are standing almost directly on the artery that keeps the scheme alive."
+        "Even under guard, the central evidence remains clear. This is not the whole cache, but it is the heaviest night transfer yet: enough salt and medicine to keep Pell bargaining with whole hamlets for another week. If he gets it past the chapel and into the deeper reed islands, the marsh will have to be searched a second time under worse conditions.",
+        "There is little time left to contain the damage. You are no longer chasing leftovers. You are standing almost directly on the artery that keeps the scheme alive."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Rush the chapel steps with torches and shout for surrender.",
+          "label": "Rush the chapel steps with torches and shout for surrender, without testing the danger ahead.",
           "failTitle": "The Water Goes Dark",
           "failText": "The carriers kill the lights, dump the obvious route, and vanish through side water only they know. You are left with churned mud, half a crate, and no clean proof of where the rest went.",
           "death": false
@@ -1479,8 +1479,8 @@ window.RANGER2_STORIES.push({
       "title": "Fire on Mireglass Causeway - Lantern Ledger",
       "narrative": [
         "You read the arson for what it is and tell <strong>Sister Maelin</strong> that the fire matters because something worse is moving behind it. Pell wants not just hidden cargo, but broken routes, so every rescue after this one will have to pass through his ferries.",
-        "The causeway blaze is meant to divide your attention, cut lawful relief from the eastern reeds, and make private passage look indispensable by dawn. It is the first moment Pell's ring stops pretending to manage the marsh and begins openly trying to own it through ruin.",
-        "For the first time, the ring is willing to destroy public routes rather than merely profit from them."
+        "Patient questioning gives the evidence a firmer shape. The causeway blaze is meant to divide your attention, cut lawful relief from the eastern reeds, and make private passage look indispensable by dawn. It is the first moment Pell's ring stops pretending to manage the marsh and begins openly trying to own it through ruin.",
+        "That leaves one immediate risk. For the first time, the ring is willing to destroy public routes rather than merely profit from them."
       ],
       "options": [
         {
@@ -1500,7 +1500,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Charge straight onto the burning causeway to fight the saboteurs hand to hand.",
+          "label": "Charge straight onto the burning causeway to fight the saboteurs hand to hand, with the warning signs still unresolved.",
           "failTitle": "The Causeway Claims You",
           "failText": "A burning plank gives way under your boots and throws you into the marsh beside the falling frame. The causeway burns through, the eastern hamlets are cut off, and Pell's ferries become the only road left.",
           "death": true
@@ -1513,14 +1513,14 @@ window.RANGER2_STORIES.push({
       "title": "Fire on Mireglass Causeway - Ferry Guard",
       "narrative": [
         "With <strong>Warden Hester Vale</strong>, you set bucket lines, archers, and hook poles while sparks whip sideways over black water. People beyond the causeway are already ill; if this bridge fails tonight, even a later victory will feel narrow and bitter.",
-        "The causeway blaze is meant to divide your attention, cut lawful relief from the eastern reeds, and make private passage look indispensable by dawn. It is the first moment Pell's ring stops pretending to manage the marsh and begins openly trying to own it through ruin.",
-        "For the first time, the ring is willing to destroy public routes rather than merely profit from them."
+        "Mounting pressure cannot hide the essential facts. The causeway blaze is meant to divide your attention, cut lawful relief from the eastern reeds, and make private passage look indispensable by dawn. It is the first moment Pell's ring stops pretending to manage the marsh and begins openly trying to own it through ruin.",
+        "The danger now reaches beyond this one place. For the first time, the ring is willing to destroy public routes rather than merely profit from them."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Charge straight onto the burning causeway to fight the saboteurs hand to hand.",
+          "label": "Charge straight onto the burning causeway to fight the saboteurs hand to hand, despite the doubts raised by the evidence.",
           "failTitle": "The Causeway Claims You",
           "failText": "A burning plank gives way under your boots and throws you into the marsh beside the falling frame. The causeway burns through, the eastern hamlets are cut off, and Pell's ferries become the only road left.",
           "death": true
@@ -1581,8 +1581,8 @@ window.RANGER2_STORIES.push({
       "title": "The Reed-Island Storehouse - Lantern Ledger",
       "narrative": [
         "You spread the ledgers, stamp molds, and token silver beside <strong>Sister Maelin</strong> and feel the case harden into something bigger than scattered theft. Here is the administrative heart of the racket: route closures, payment records, false safety notices, and the schedule by which fear was sold back to the sick.",
-        "The storehouse confirms everything. Pell has not merely been diverting relief; he has been building a parallel authority in the marsh, using false flood management, hired ferries, and rationed medicine to train whole settlements into dependence.",
-        "The ring is exposed, but Pell still has silver, loyalists, and one final fallback below the old bell tower at Blackmere."
+        "Cross-checking the details leaves less room for doubt. The storehouse confirms everything. Pell has not merely been diverting relief; he has been building a parallel authority in the marsh, using false flood management, hired ferries, and rationed medicine to train whole settlements into dependence.",
+        "The wider threat comes into focus. The ring is exposed, but Pell still has silver, loyalists, and one final fallback below the old bell tower at Blackmere."
       ],
       "options": [
         {
@@ -1602,7 +1602,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Move the entire storehouse at once before checking whether the retreat route is trapped.",
+          "label": "Move the entire storehouse at once before checking whether the retreat route is trapped, without testing the danger ahead.",
           "failTitle": "The Proof Breaks Apart",
           "failText": "A prepared collapse and a hidden fire pot destroy half the evidence as you rush the seizure. You save crates, but the cleanest trail to Pell's upper network scatters into smoke and swamp.",
           "death": false
@@ -1615,14 +1615,14 @@ window.RANGER2_STORIES.push({
       "title": "The Reed-Island Storehouse - Ferry Guard",
       "narrative": [
         "Under <strong>Warden Hester Vale</strong>, you ring the storehouse with disciplined guards so nothing leaves before it is counted. Villagers who were beginning to doubt their own memories can now see the machinery of deceit laid out in wood, wax, and stolen crates.",
-        "The storehouse confirms everything. Pell has not merely been diverting relief; he has been building a parallel authority in the marsh, using false flood management, hired ferries, and rationed medicine to train whole settlements into dependence.",
-        "The ring is exposed, but Pell still has silver, loyalists, and one final fallback below the old bell tower at Blackmere."
+        "The hurried route reaches the same hard conclusion. The storehouse confirms everything. Pell has not merely been diverting relief; he has been building a parallel authority in the marsh, using false flood management, hired ferries, and rationed medicine to train whole settlements into dependence.",
+        "Delay would turn the finding into a wider loss. The ring is exposed, but Pell still has silver, loyalists, and one final fallback below the old bell tower at Blackmere."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Move the entire storehouse at once before checking whether the retreat route is trapped.",
+          "label": "Move the entire storehouse at once before checking whether the retreat route is trapped, without securing help or a retreat.",
           "failTitle": "The Proof Breaks Apart",
           "failText": "A prepared collapse and a hidden fire pot destroy half the evidence as you rush the seizure. You save crates, but the cleanest trail to Pell's upper network scatters into smoke and swamp.",
           "death": false
@@ -1683,8 +1683,8 @@ window.RANGER2_STORIES.push({
       "title": "The Marsh Council Gathers - Lantern Ledger",
       "narrative": [
         "With <strong>Sister Maelin</strong>, you lay the ledgers, forged notices, token silver, and witness chain in plain order so even the least literate elder can follow the theft from wharf to extortion table. The story grows heavier as it grows clearer.",
-        "This is the political hinge of the case. If the marsh stands together now, Pell loses his best shield: the claim that he alone can coordinate frightened, isolated villages. If the council fractures, he can still slip into one faction's fear and bargain himself a smaller survival.",
-        "Truth is finally strong enough to unite the marsh, but only if it is carried with discipline instead of triumph."
+        "The slower examination reveals another useful detail. This is the political hinge of the case. If the marsh stands together now, Pell loses his best shield: the claim that he alone can coordinate frightened, isolated villages. If the council fractures, he can still slip into one faction's fear and bargain himself a smaller survival.",
+        "What follows from it is difficult to ignore. Truth is finally strong enough to unite the marsh, but only if it is carried with discipline instead of triumph."
       ],
       "options": [
         {
@@ -1698,15 +1698,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Bind the hamlets to witness together and break Pell's political shelter in the same breath.",
-          "nextNodeId": null,
-          "scoreDelta": 1,
-          "endStory": true,
-          "endType": "high"
+          "nextNodeId": "M18B",
+          "scoreDelta": 1
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Promise instant justice before the prisoners and evidence are fully secured.",
+          "label": "Promise instant justice before the prisoners and evidence are fully secured, despite the doubts raised by the evidence.",
           "failTitle": "The Dock Erupts",
           "failText": "The crowd surges before the law can speak. Prisoners vanish, witnesses scatter, and the marsh trades one form of extortion for another: the rule of panic.",
           "death": false
@@ -1719,14 +1717,14 @@ window.RANGER2_STORIES.push({
       "title": "The Marsh Council Gathers - Ferry Guard",
       "narrative": [
         "You keep the dock steady with <strong>Warden Hester Vale</strong>, making sure grief does not become vengeance before the prisoners and proof are secure. Some want Corin dead now; others care only that medicine moves before another child worsens overnight.",
-        "This is the political hinge of the case. If the marsh stands together now, Pell loses his best shield: the claim that he alone can coordinate frightened, isolated villages. If the council fractures, he can still slip into one faction's fear and bargain himself a smaller survival.",
-        "Truth is finally strong enough to unite the marsh, but only if it is carried with discipline instead of triumph."
+        "With the road tightening around you, the evidence still holds. This is the political hinge of the case. If the marsh stands together now, Pell loses his best shield: the claim that he alone can coordinate frightened, isolated villages. If the council fractures, he can still slip into one faction's fear and bargain himself a smaller survival.",
+        "The next mistake would carry a heavy cost. Truth is finally strong enough to unite the marsh, but only if it is carried with discipline instead of triumph."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Promise instant justice before the prisoners and evidence are fully secured.",
+          "label": "Promise instant justice before the prisoners and evidence are fully secured, on the strength of one uncertain sign.",
           "failTitle": "The Dock Erupts",
           "failText": "The crowd surges before the law can speak. Prisoners vanish, witnesses scatter, and the marsh trades one form of extortion for another: the rule of panic.",
           "death": false
@@ -1776,10 +1774,8 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Cut through the side vault at once and strike the tunnel Pell still thinks belongs to him.",
-          "nextNodeId": null,
-          "scoreDelta": 1,
-          "endStory": true,
-          "endType": "high"
+          "nextNodeId": "M19A",
+          "scoreDelta": 1
         }
       ]
     },
@@ -1789,8 +1785,8 @@ window.RANGER2_STORIES.push({
       "title": "Stone Under the Bell Tower - Lantern Ledger",
       "narrative": [
         "You compare the priory burial register, the storehouse ledger, and the tower keys with <strong>Sister Maelin</strong> until the hidden chamber line becomes certain. Pell wants either time to flee through the lower tide tunnel or a narrow deal that lets him keep enough silver to start again elsewhere.",
-        "Pell still thinks he can negotiate because he has spent months acting like necessity itself. He believes the marsh would rather keep him half-useful than drag his whole scheme into the daylight and admit how close it came to working.",
-        "The next move decides whether this ends in law, in compromise, or in another season of telling children the bell rings on its own."
+        "Measured work here strengthens the case. Pell still thinks he can negotiate because he has spent months acting like necessity itself. He believes the marsh would rather keep him half-useful than drag his whole scheme into the daylight and admit how close it came to working.",
+        "The practical danger is now plain. The next move decides whether this ends in law, in compromise, or in another season of telling children the bell rings on its own."
       ],
       "options": [
         {
@@ -1810,7 +1806,7 @@ window.RANGER2_STORIES.push({
         {
           "id": "fail",
           "type": "fail",
-          "label": "Take Pell's offer to speak alone and trust him long enough to hear the bargain.",
+          "label": "Take Pell's offer to speak alone and trust him long enough to hear the bargain, without securing help or a retreat.",
           "failTitle": "Pell Slips the Tide Tunnel",
           "failText": "Pell only wanted darkness and distance. By the time you understand the trick, he is gone through the lower passage and the marsh has lost its cleanest chance to take him whole.",
           "death": false
@@ -1823,14 +1819,14 @@ window.RANGER2_STORIES.push({
       "title": "Stone Under the Bell Tower - Ferry Guard",
       "narrative": [
         "With <strong>Warden Hester Vale</strong>, you hold the priory grounds and keep villagers well back from the old stones while Pell's last men retreat below. One wrong move here and the tower becomes a legend again instead of a solved crime scene.",
-        "Pell still thinks he can negotiate because he has spent months acting like necessity itself. He believes the marsh would rather keep him half-useful than drag his whole scheme into the daylight and admit how close it came to working.",
-        "The next move decides whether this ends in law, in compromise, or in another season of telling children the bell rings on its own."
+        "Lost time makes each detail more urgent. Pell still thinks he can negotiate because he has spent months acting like necessity itself. He believes the marsh would rather keep him half-useful than drag his whole scheme into the daylight and admit how close it came to working.",
+        "Pressure makes the consequence immediate. The next move decides whether this ends in law, in compromise, or in another season of telling children the bell rings on its own."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Take Pell's offer to speak alone and trust him long enough to hear the bargain.",
+          "label": "Take Pell's offer to speak alone and trust him long enough to hear the bargain, without hearing the nearest witness.",
           "failTitle": "Pell Slips the Tide Tunnel",
           "failText": "Pell only wanted darkness and distance. By the time you understand the trick, he is gone through the lower passage and the marsh has lost its cleanest chance to take him whole.",
           "death": false
@@ -1846,10 +1842,8 @@ window.RANGER2_STORIES.push({
           "id": "normal",
           "type": "normal",
           "label": "Hold the priory and the relief boats first, even if Pell buys himself a little room.",
-          "nextNodeId": null,
-          "scoreDelta": 0,
-          "endStory": true,
-          "endType": "low"
+          "nextNodeId": "M19A",
+          "scoreDelta": 0
         }
       ]
     },
@@ -1867,10 +1861,8 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Use the ferry chain, pin the escort, and take Pell alive before he can force open water.",
-          "nextNodeId": null,
-          "scoreDelta": 1,
-          "endStory": true,
-          "endType": "high"
+          "nextNodeId": "M20A",
+          "scoreDelta": 1
         },
         {
           "id": "fail",
@@ -1895,8 +1887,8 @@ window.RANGER2_STORIES.push({
       "title": "Judgment at Hollow Lantern Ferry - Lantern Ledger",
       "narrative": [
         "You stand above the landing with <strong>Sister Maelin</strong>, the case assembled in your hands and the final choice no longer about discovery but about settlement. The truth is already known; now it must be made durable.",
-        "Everyone who still matters has converged on the crossing: the saved ferrymen, the hamlet elders, Corin's shaken men, abbey witnesses, and Pell himself with whatever silver and bravado he still thinks count as power. The marsh has become a courtroom made of planks and wet rope.",
-        "This is the last place where order can prevail without feeling weak and mercy can prevail without feeling bought."
+        "The more careful approach confirms the essential facts. Everyone who still matters has converged on the crossing: the saved ferrymen, the hamlet elders, Corin's shaken men, abbey witnesses, and Pell himself with whatever silver and bravado he still thinks count as power. The marsh has become a courtroom made of planks and wet rope.",
+        "The cost of delay is easier to see. This is the last place where order can prevail without feeling weak and mercy can prevail without feeling bought."
       ],
       "options": [
         {
@@ -1910,15 +1902,13 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Break Pell with the full case in front of the marsh and seize him the instant his own men hesitate.",
-          "nextNodeId": null,
-          "scoreDelta": 1,
-          "endStory": true,
-          "endType": "high"
+          "nextNodeId": "M20B",
+          "scoreDelta": 1
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Break formation to chase Pell alone across the ferry deck.",
+          "label": "Break formation to chase Pell alone across the ferry deck, on the strength of one uncertain sign.",
           "failTitle": "The Ferry Turns to Chaos",
           "failText": "You give Pell the confusion he wanted. The line buckles, the crowd panics, and the broker buys his last chance in the smoke of frightened people moving the wrong way at once.",
           "death": false
@@ -1931,14 +1921,14 @@ window.RANGER2_STORIES.push({
       "title": "Judgment at Hollow Lantern Ferry - Ferry Guard",
       "narrative": [
         "With <strong>Warden Hester Vale</strong>, you lock both approaches to the ferry and deny Pell the open confusion he has always preferred. If he breaks through here, many will survive the winter, but none will trust the spring.",
-        "Everyone who still matters has converged on the crossing: the saved ferrymen, the hamlet elders, Corin's shaken men, abbey witnesses, and Pell himself with whatever silver and bravado he still thinks count as power. The marsh has become a courtroom made of planks and wet rope.",
-        "This is the last place where order can prevail without feeling weak and mercy can prevail without feeling bought."
+        "Even under guard, the central evidence remains clear. Everyone who still matters has converged on the crossing: the saved ferrymen, the hamlet elders, Corin's shaken men, abbey witnesses, and Pell himself with whatever silver and bravado he still thinks count as power. The marsh has become a courtroom made of planks and wet rope.",
+        "There is little time left to contain the damage. This is the last place where order can prevail without feeling weak and mercy can prevail without feeling bought."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Break formation to chase Pell alone across the ferry deck.",
+          "label": "Break formation to chase Pell alone across the ferry deck, with the warning signs still unresolved.",
           "failTitle": "The Ferry Turns to Chaos",
           "failText": "You give Pell the confusion he wanted. The line buckles, the crowd panics, and the broker buys his last chance in the smoke of frightened people moving the wrong way at once.",
           "death": false
@@ -1954,10 +1944,8 @@ window.RANGER2_STORIES.push({
           "id": "good",
           "type": "good",
           "label": "Lock both landing points, shield the crowd, and leave Pell nowhere lawful or physical to run.",
-          "nextNodeId": null,
-          "scoreDelta": 1,
-          "endStory": true,
-          "endType": "high"
+          "nextNodeId": "M20C",
+          "scoreDelta": 1
         }
       ]
     },
@@ -1976,7 +1964,9 @@ window.RANGER2_STORIES.push({
           "type": "normal",
           "label": "Reopen the routes under heavy watch and let the lesser names be judged in due course.",
           "nextNodeId": null,
-          "scoreDelta": 0
+          "scoreDelta": 0,
+          "endStory": true,
+          "endType": "low"
         },
         {
           "id": "fail",
@@ -1991,7 +1981,9 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Reopen the ferries, lock the case, and name the chain of command that will keep the marsh honest after you ride on.",
           "nextNodeId": null,
-          "scoreDelta": 1
+          "scoreDelta": 1,
+          "endStory": true,
+          "endType": "high"
         }
       ]
     },
@@ -2001,8 +1993,8 @@ window.RANGER2_STORIES.push({
       "title": "Morning Tide - Lantern Ledger",
       "narrative": [
         "At a long table set between abbey crates and ferry ropes, you order the ledgers, seized tokens, and witness statements one final time with <strong>Sister Maelin</strong> beside you. What was once rumor is now record, and what was once fear is finally being given names.",
-        "Medicine is moving again. The sick have the first honest relief in days, the ferrymen know whose orders to trust, and the old bell tower is only stone now rather than the mouth of an unanswerable tale. What remains is not survival alone but the shape of the peace that follows it.",
-        "The final choice is no longer about whether the marsh lives through the week, but about what kind of authority it will recognize when the next crisis comes."
+        "Patient questioning gives the evidence a firmer shape. Medicine is moving again. The sick have the first honest relief in days, the ferrymen know whose orders to trust, and the old bell tower is only stone now rather than the mouth of an unanswerable tale. What remains is not survival alone but the shape of the peace that follows it.",
+        "That leaves one immediate risk. The final choice is no longer about whether the marsh lives through the week, but about what kind of authority it will recognize when the next crisis comes."
       ],
       "options": [
         {
@@ -2010,19 +2002,23 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Finish the case in full, secure every witness, and force a judgment strong enough to outlast the season.",
           "nextNodeId": null,
-          "scoreDelta": 1
+          "scoreDelta": 1,
+          "endStory": true,
+          "endType": "high"
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Deliver the evidence cleanly and accept a practical settlement if it keeps relief moving.",
           "nextNodeId": null,
-          "scoreDelta": 0
+          "scoreDelta": 0,
+          "endStory": true,
+          "endType": "low"
         },
         {
           "id": "fail",
           "type": "fail",
-          "label": "Step away without making the final chain of authority unmistakably clear.",
+          "label": "Step away without making the final chain of authority unmistakably clear, without hearing the nearest witness.",
           "failTitle": "The Story Frays",
           "failText": "Relief still moves, but the settlement is left loose enough for frightened men to retell it badly. The marsh survives without quite feeling restored.",
           "death": false
@@ -2035,14 +2031,14 @@ window.RANGER2_STORIES.push({
       "title": "Morning Tide - Ferry Guard",
       "narrative": [
         "You stand with <strong>Warden Hester Vale</strong> among reopened skiffs, guarded prisoners, and waiting elders as the villages decide how to remember this season. They will speak of hunger, certainly, and of mist and false bells, but also of the day the marsh ceased mistaking coercion for competence.",
-        "Medicine is moving again. The sick have the first honest relief in days, the ferrymen know whose orders to trust, and the old bell tower is only stone now rather than the mouth of an unanswerable tale. What remains is not survival alone but the shape of the peace that follows it.",
-        "The final choice is no longer about whether the marsh lives through the week, but about what kind of authority it will recognize when the next crisis comes."
+        "Mounting pressure cannot hide the essential facts. Medicine is moving again. The sick have the first honest relief in days, the ferrymen know whose orders to trust, and the old bell tower is only stone now rather than the mouth of an unanswerable tale. What remains is not survival alone but the shape of the peace that follows it.",
+        "The danger now reaches beyond this one place. The final choice is no longer about whether the marsh lives through the week, but about what kind of authority it will recognize when the next crisis comes."
       ],
       "options": [
         {
           "id": "fail",
           "type": "fail",
-          "label": "Step away without making the final chain of authority unmistakably clear.",
+          "label": "Step away without making the final chain of authority unmistakably clear, without testing the danger ahead.",
           "failTitle": "The Story Frays",
           "failText": "Relief still moves, but the settlement is left loose enough for frightened men to retell it badly. The marsh survives without quite feeling restored.",
           "death": false
@@ -2052,14 +2048,18 @@ window.RANGER2_STORIES.push({
           "type": "good",
           "label": "Set the ferries, the villages, and the prisoners under one lawful settlement that closes Pell's system for good.",
           "nextNodeId": null,
-          "scoreDelta": 1
+          "scoreDelta": 1,
+          "endStory": true,
+          "endType": "high"
         },
         {
           "id": "normal",
           "type": "normal",
           "label": "Put medicine movement first and let the political reckoning settle with time.",
           "nextNodeId": null,
-          "scoreDelta": 0
+          "scoreDelta": 0,
+          "endStory": true,
+          "endType": "low"
         }
       ]
     }
