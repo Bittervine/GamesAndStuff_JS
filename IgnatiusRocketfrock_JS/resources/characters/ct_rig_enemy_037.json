@@ -1,7 +1,7 @@
 {
     "meta": {
         "version": 4,
-        "note": "Revision 182 Human Pirate rig using head_15, body_09, and the shared rapier artwork. The articulated Raider animation topology is retained."
+        "note": "Revision 182 Human Pirate rig using head_15, body_09, and the shared rapier artwork. The articulated Raider animation topology is retained. Revision 435 aligns the melee attack handoff timing with the user-authored enemy_036 thrust."
     },
     "rigId": "ct_rig_enemy_037",
     "atlasId": "ct_atlas_enemy_030",
@@ -387,15 +387,15 @@
             "parentConstraint": {
                 "parentPart": "rightLowerArm",
                 "parentPoint": {
-                    "x": 0.78,
-                    "y": 0.9
+                    "x": 0.6590209449570069,
+                    "y": 0.8393444889387364
                 }
             },
             "attackHandoff": {
                 "enabled": true,
                 "id": "melee",
                 "animationSlot": "attack",
-                "releaseTime": 0.35,
+                "releaseTime": 0.34,
                 "detach": false
             }
         },

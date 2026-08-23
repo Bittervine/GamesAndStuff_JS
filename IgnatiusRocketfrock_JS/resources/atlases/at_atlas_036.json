@@ -7,34 +7,40 @@
     "image": "at_atlas_036.png",
     "frames": {
         "cave_ground_036_01": {
-            "x": 2,
+            "x": 0,
             "y": 0,
-            "w": 1469,
-            "h": 157
+            "w": 1439,
+            "h": 165
         },
         "cave_ground_036_02": {
-            "x": 5,
-            "y": 194,
-            "w": 1464,
-            "h": 159
+            "x": 0,
+            "y": 197,
+            "w": 1439,
+            "h": 165
         },
         "cave_ground_036_03": {
-            "x": 1,
-            "y": 393,
-            "w": 1472,
-            "h": 154
+            "x": 0,
+            "y": 394,
+            "w": 1439,
+            "h": 165
         },
         "cave_ground_036_04": {
             "x": 0,
-            "y": 580,
-            "w": 1470,
-            "h": 150
+            "y": 591,
+            "w": 1439,
+            "h": 165
         },
         "cave_ground_036_05": {
             "x": 0,
-            "y": 768,
-            "w": 1473,
-            "h": 169
+            "y": 788,
+            "w": 1439,
+            "h": 165
+        },
+        "cave_ground_036_blend_1": {
+            "x": 534,
+            "y": 394,
+            "w": 356,
+            "h": 165
         }
     },
     "objects": {
@@ -66,33 +72,33 @@
             "nodes": [
                 {
                     "id": "n1",
-                    "x": 129,
-                    "y": 37
+                    "x": 40,
+                    "y": 44
                 },
                 {
                     "id": "n2",
-                    "x": 1320,
-                    "y": 41
+                    "x": 1399,
+                    "y": 44
                 },
                 {
                     "id": "n3",
-                    "x": 1461,
-                    "y": 64
+                    "x": 1429,
+                    "y": 67
                 },
                 {
                     "id": "n4",
-                    "x": 1443,
-                    "y": 145
+                    "x": 1414,
+                    "y": 152
                 },
                 {
                     "id": "n5",
-                    "x": 26,
-                    "y": 145
+                    "x": 25,
+                    "y": 152
                 },
                 {
                     "id": "n6",
                     "x": 10,
-                    "y": 58
+                    "y": 61
                 }
             ],
             "lines": [
@@ -141,8 +147,10 @@
             ],
             "generationTags": [
                 "biome.cave",
-                "layer.terrain",
-                "capability.platform"
+                "capability.doorSupport",
+                "capability.platform",
+                "capability.runAndGunGround",
+                "layer.terrain"
             ]
         },
         "cave_ground_036_02": {
@@ -173,33 +181,33 @@
             "nodes": [
                 {
                     "id": "n1",
-                    "x": 77,
-                    "y": 38
+                    "x": 40,
+                    "y": 44
                 },
                 {
                     "id": "n2",
-                    "x": 1348,
-                    "y": 36
+                    "x": 1399,
+                    "y": 44
                 },
                 {
                     "id": "n3",
-                    "x": 1462,
-                    "y": 66
+                    "x": 1429,
+                    "y": 68
                 },
                 {
                     "id": "n4",
-                    "x": 1438,
-                    "y": 147
+                    "x": 1413,
+                    "y": 153
                 },
                 {
                     "id": "n5",
                     "x": 26,
-                    "y": 147
+                    "y": 153
                 },
                 {
                     "id": "n6",
                     "x": 10,
-                    "y": 63
+                    "y": 65
                 }
             ],
             "lines": [
@@ -248,8 +256,10 @@
             ],
             "generationTags": [
                 "biome.cave",
-                "layer.terrain",
-                "capability.platform"
+                "capability.doorSupport",
+                "capability.platform",
+                "capability.runAndGunGround",
+                "layer.terrain"
             ]
         },
         "cave_ground_036_03": {
@@ -280,33 +290,33 @@
             "nodes": [
                 {
                     "id": "n1",
-                    "x": 109,
-                    "y": 32
+                    "x": 40,
+                    "y": 44
                 },
                 {
                     "id": "n2",
-                    "x": 1359,
-                    "y": 35
+                    "x": 1399,
+                    "y": 44
                 },
                 {
                     "id": "n3",
-                    "x": 1462,
-                    "y": 52
+                    "x": 1429,
+                    "y": 56
                 },
                 {
                     "id": "n4",
-                    "x": 1446,
-                    "y": 142
+                    "x": 1414,
+                    "y": 152
                 },
                 {
                     "id": "n5",
-                    "x": 26,
-                    "y": 142
+                    "x": 25,
+                    "y": 152
                 },
                 {
                     "id": "n6",
                     "x": 10,
-                    "y": 52
+                    "y": 56
                 }
             ],
             "lines": [
@@ -355,8 +365,10 @@
             ],
             "generationTags": [
                 "biome.cave",
-                "layer.terrain",
-                "capability.platform"
+                "capability.doorSupport",
+                "capability.platform",
+                "capability.runAndGunGround",
+                "layer.terrain"
             ]
         },
         "cave_ground_036_04": {
@@ -387,33 +399,33 @@
             "nodes": [
                 {
                     "id": "n1",
-                    "x": 146,
-                    "y": 34
+                    "x": 40,
+                    "y": 44
                 },
                 {
                     "id": "n2",
-                    "x": 1337,
-                    "y": 32
+                    "x": 1399,
+                    "y": 44
                 },
                 {
                     "id": "n3",
-                    "x": 1460,
-                    "y": 51
+                    "x": 1429,
+                    "y": 56
                 },
                 {
                     "id": "n4",
-                    "x": 1444,
-                    "y": 138
+                    "x": 1414,
+                    "y": 152
                 },
                 {
                     "id": "n5",
-                    "x": 26,
-                    "y": 138
+                    "x": 25,
+                    "y": 152
                 },
                 {
                     "id": "n6",
                     "x": 10,
-                    "y": 51
+                    "y": 56
                 }
             ],
             "lines": [
@@ -462,8 +474,10 @@
             ],
             "generationTags": [
                 "biome.cave",
-                "layer.terrain",
-                "capability.platform"
+                "capability.doorSupport",
+                "capability.platform",
+                "capability.runAndGunGround",
+                "layer.terrain"
             ]
         },
         "cave_ground_036_05": {
@@ -494,33 +508,33 @@
             "nodes": [
                 {
                     "id": "n1",
-                    "x": 125,
-                    "y": 34
+                    "x": 40,
+                    "y": 44
                 },
                 {
                     "id": "n2",
-                    "x": 1306,
+                    "x": 1399,
                     "y": 44
                 },
                 {
                     "id": "n3",
-                    "x": 1463,
-                    "y": 57
+                    "x": 1429,
+                    "y": 56
                 },
                 {
                     "id": "n4",
-                    "x": 1447,
-                    "y": 157
+                    "x": 1414,
+                    "y": 153
                 },
                 {
                     "id": "n5",
-                    "x": 26,
-                    "y": 157
+                    "x": 25,
+                    "y": 153
                 },
                 {
                     "id": "n6",
                     "x": 10,
-                    "y": 57
+                    "y": 56
                 }
             ],
             "lines": [
@@ -569,9 +583,36 @@
             ],
             "generationTags": [
                 "biome.cave",
-                "layer.terrain",
-                "capability.platform"
+                "capability.doorSupport",
+                "capability.platform",
+                "capability.runAndGunGround",
+                "layer.terrain"
             ]
+        },
+        "cave_ground_036_blend_1": {
+            "id": "cave_ground_036_blend_1",
+            "frame": "cave_ground_036_blend_1",
+            "type": "decor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": []
         }
     }
 }

@@ -1,5 +1,5 @@
 {
-  "version": 13,
+  "version": 14,
   "catalogId": "cavern-enemy-generation-v1",
   "enemies": {
     "enemy_001": {
@@ -518,6 +518,25 @@
       "preferredProgressMax": 0.99,
       "requiresNavigation": false,
       "notes": "Explicit dormant metadata for the passive Training Dummy. It uses the ordinary enemy pipeline for practice targets but should stay out of ordinary generated levels."
+    },
+    "enemy_901": {
+      "placementClass": "groundMelee",
+      "groupMin": 1,
+      "groupMax": 1,
+      "difficultyCost": 2.7,
+      "weight": 0.05,
+      "minDifficulty": 1,
+      "maxDifficulty": 1,
+      "minWalkableWidth": 330,
+      "edgeClearance": 58,
+      "landingBuffer": 138,
+      "headroom": 210,
+      "patrolRoom": 220,
+      "minGroupSpacing": 92,
+      "preferredProgressMin": 0.95,
+      "preferredProgressMax": 0.99,
+      "requiresNavigation": false,
+      "notes": "Explicit dormant metadata for the invisible passive cutscene speaker. It is an authoring-only speech-bubble anchor and must stay out of ordinary generated levels."
     }
   }
 }

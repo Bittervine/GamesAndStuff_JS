@@ -212,6 +212,17 @@ const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = [
     }
 ];
 
+const REQUIRED_RUNTIME_ATLAS_MANIFESTS = Object.freeze([
+    "items/it_atlas_001.json"
+]);
+
+function withRequiredRuntimeAtlasManifests(manifestUrls = []) {
+    return [...new Set([
+        ...(Array.isArray(manifestUrls) ? manifestUrls : []),
+        ...REQUIRED_RUNTIME_ATLAS_MANIFESTS
+    ].map(String).filter(Boolean))];
+}
+
 const REQUIRED_RIG_SECTIONS = ["global", "animation", "anchors", "legMotion", "pivots", "parts"];
 
 const assetUrl = resourceUrl;
@@ -642,12 +653,54 @@ export function computeThoughtBubblePlacement({
     const maxX = Math.max(marginX, (Number(viewportWidth) || w) - w - marginX);
     const maxY = Math.max(marginTop, (Number(viewportHeight) || h) - h - marginBottom);
     const x = clamp((Number(speakerX) || 0) - tailLocalX, marginX, maxX);
-    const y = clamp((Number(speakerY) || 0) - tailLocalY - 5 * safeZoom, marginTop, maxY);
+    const speakerGap = 30 * safeZoom;
+    const y = clamp((Number(speakerY) || 0) - tailLocalY - speakerGap, marginTop, maxY);
     return {
         x,
         y,
         tailX: x + tailLocalX,
         tailY: y + tailLocalY
+    };
+}
+
+export function computeSpeechBubblePlacement({
+    speakerX,
+    speakerY,
+    bubbleWidth,
+    bubbleHeight,
+    viewportWidth,
+    viewportHeight,
+    zoom = 1,
+    dpr = 1
+}) {
+    const safeZoom = Math.max(0.01, Number(zoom) || 1);
+    const safeDpr = Math.max(1, Number(dpr) || 1);
+    const w = Math.max(1, Number(bubbleWidth) || 1);
+    const h = Math.max(1, Number(bubbleHeight) || 1);
+    const viewportW = Math.max(w, Number(viewportWidth) || w);
+    const viewportH = Math.max(h, Number(viewportHeight) || h);
+    const margin = Math.max(10 * safeDpr, 12 * safeZoom);
+    const tailInsetX = w * 0.073;
+    const tailInsetY = h;
+    let flipX = false;
+    let x = (Number(speakerX) || 0) - tailInsetX;
+    if (x + w > viewportW - margin) {
+        flipX = true;
+        x = (Number(speakerX) || 0) - (w - tailInsetX);
+    }
+    x = clamp(x, margin, Math.max(margin, viewportW - w - margin));
+    const speakerGap = 50 * safeZoom;
+    const y = clamp(
+        (Number(speakerY) || 0) - tailInsetY - speakerGap,
+        margin,
+        Math.max(margin, viewportH - h - margin)
+    );
+    return {
+        x,
+        y,
+        flipX,
+        tailX: x + (flipX ? w - tailInsetX : tailInsetX),
+        tailY: y + tailInsetY
     };
 }
 
@@ -666,6 +719,16 @@ export function probeWebGL2RendererSupport(ownerDocument) {
 function canonicalRuntimeResourceUrl(value) {
     const text = String(value || "").trim();
     return text ? assetUrl(text) : "";
+}
+
+function missingEnvironmentManifestUrls(environmentAtlases, manifestUrls) {
+    const loadedUrls = new Set([...environmentAtlases.values()]
+        .map((atlas) => canonicalRuntimeResourceUrl(atlas?.manifestUrl))
+        .filter(Boolean));
+    return [...new Set((manifestUrls || [])
+        .map(canonicalRuntimeResourceUrl)
+        .filter(Boolean))]
+        .filter((url) => !loadedUrls.has(url));
 }
 
 function prepareRuntimeCharacterProjectPresentation(project, isPlayer = false) {
@@ -729,10 +792,10 @@ export async function createRenderer(canvas, options = {}) {
     const onProgress = typeof options.onProgress === "function" ? options.onProgress : () => {};
     const hasExplicitEnvironmentManifestUrls = Array.isArray(options.environmentAtlasManifestUrls);
     const environmentManifestUrls = hasExplicitEnvironmentManifestUrls
-        ? options.environmentAtlasManifestUrls.map(String).filter(Boolean)
+        ? withRequiredRuntimeAtlasManifests(options.environmentAtlasManifestUrls)
         : [];
     const environmentCandidates = hasExplicitEnvironmentManifestUrls
-        ? environmentManifestUrls.map((url) => ({ url }))
+        ? environmentManifestUrls.map((url) => ({ url, required: true }))
         : ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES;
     const hasExplicitEnemyCharacterUrls = Array.isArray(options.enemyCharacterUrls);
     const configuredEnemyCharacterUrls = hasExplicitEnemyCharacterUrls
@@ -746,7 +809,7 @@ export async function createRenderer(canvas, options = {}) {
         ...enemyCharacterUrls.map((url, index) => ({
             key: `enemy_${index + 1}`,
             url,
-            required: false,
+            required: true,
             weight: 2
         }))
     ];
@@ -782,15 +845,16 @@ export async function createRenderer(canvas, options = {}) {
         } catch (error) {
             reportTaskProgress(spec.key, 1, `Skipped unavailable character ${spec.url}`);
             if (spec.required) {
+                if (spec.key !== "player") {
+                    options.onRecoverableException?.({
+                        type: "enemyCharacterProjectFailure",
+                        resourceUrl: spec.url,
+                        error: String(error?.message || error),
+                        message: `Required enemy character project could not be loaded: ${spec.url}`
+                    });
+                }
                 throw error;
             }
-            console.warn(`Optional runtime character could not be loaded: ${spec.url}`, error);
-            options.onRecoverableException?.({
-                type: "enemyCharacterProjectFallback",
-                resourceUrl: spec.url,
-                error: String(error?.message || error),
-                message: `Enemy character project could not be loaded: ${spec.url}`
-            });
             return { spec, project: null };
         }
     });
@@ -802,6 +866,12 @@ export async function createRenderer(canvas, options = {}) {
         Promise.all(projectJobs),
         environmentJob
     ]);
+    if (hasExplicitEnvironmentManifestUrls) {
+        const unresolvedAtlasUrls = missingEnvironmentManifestUrls(environmentAtlases, environmentManifestUrls);
+        if (unresolvedAtlasUrls.length) {
+            throw new Error(`Required level atlases did not load completely: ${unresolvedAtlasUrls.join(", ")}`);
+        }
+    }
 
     const playerProject = projectResults.find((result) => result.spec.key === "player")?.project;
     if (!playerProject) {
@@ -838,6 +908,15 @@ export async function createRenderer(canvas, options = {}) {
     });
     onProgress({ progress: 1, label: "Game assets ready" });
     return renderer;
+}
+
+export function playerGroundPresentationSpeed(state) {
+    const cutscene = state?.story?.cutscene;
+    const command = cutscene?.active ? cutscene.commands?.[cutscene.commandIndex] : null;
+    if (command?.type === "GOTO" && command.characterId === "wizard") {
+        return Math.hypot(Number(state?.player?.vx) || 0, Number(state?.player?.vy) || 0);
+    }
+    return Math.abs(Number(state?.player?.vx) || 0);
 }
 
 class RocketfrockRenderer {
@@ -1472,7 +1551,7 @@ class RocketfrockRenderer {
     }
 
     async ensureEnvironmentAtlases(manifestUrls = [], options = {}) {
-        const requestedUrls = [...new Set((manifestUrls || [])
+        const requestedUrls = [...new Set(withRequiredRuntimeAtlasManifests(manifestUrls)
             .map(canonicalRuntimeResourceUrl)
             .filter(Boolean))];
         const requestedUrlSet = new Set(requestedUrls);
@@ -1480,9 +1559,13 @@ class RocketfrockRenderer {
         let loadedCount = 0;
         if (missingUrls.length) {
             const loaded = await loadEnvironmentAtlases({
-                candidates: missingUrls.map((url) => ({ url })),
+                candidates: missingUrls.map((url) => ({ url, required: true })),
                 onProgress: ({ progress, label }) => options.onProgress?.({ progress, label })
             });
+            const unresolvedLoadedUrls = missingEnvironmentManifestUrls(loaded, missingUrls);
+            if (unresolvedLoadedUrls.length) {
+                throw new Error(`Required level atlases did not load completely: ${unresolvedLoadedUrls.join(", ")}`);
+            }
             for (const [atlasId, atlas] of loaded) {
                 const existing = this.environmentAtlases.get(atlasId);
                 if (existing && existing !== atlas) this.releaseEnvironmentAtlas(existing);
@@ -1504,6 +1587,10 @@ class RocketfrockRenderer {
         this.environmentManifestUrls = new Set([...this.environmentAtlases.values()]
             .map((atlas) => canonicalRuntimeResourceUrl(atlas?.manifestUrl))
             .filter(Boolean));
+        const unresolvedRequestedUrls = requestedUrls.filter((url) => !this.environmentManifestUrls.has(url));
+        if (unresolvedRequestedUrls.length) {
+            throw new Error(`Required level atlases did not remain loaded completely: ${unresolvedRequestedUrls.join(", ")}`);
+        }
 
         if (!missingUrls.length) {
             options.onProgress?.({ progress: 1, label: unloadedCount ? "Released unused level atlases" : "Level atlases already loaded" });
@@ -1557,13 +1644,13 @@ class RocketfrockRenderer {
                 loadedByUrl.set(canonicalRuntimeResourceUrl(project.sourceUrl), project);
                 loadedCount += 1;
             } catch (error) {
-                console.warn(`Optional runtime character could not be loaded: ${url}`, error);
                 this.onRecoverableException?.({
-                    type: "enemyCharacterProjectFallback",
+                    type: "enemyCharacterProjectFailure",
                     resourceUrl: url,
                     error: String(error?.message || error),
-                    message: `Enemy character project could not be loaded: ${url}`
+                    message: `Required enemy character project could not be loaded: ${url}`
                 });
+                throw error;
             }
         }
 
@@ -1874,6 +1961,7 @@ class RocketfrockRenderer {
         this.environmentColorMap = colorMap;
         this.environmentColorExchange = colorExchange;
         this.environmentColorMapKey = cacheKey;
+        for (const surface of this.foregroundSpriteCache.values()) this.webglBackend?.invalidateTexture(surface);
         this.foregroundSpriteCache.clear();
         for (const surface of this.layerBrightnessCache.values()) this.webglBackend?.invalidateTexture(surface);
         this.layerBrightnessCache.clear();
@@ -1955,7 +2043,7 @@ class RocketfrockRenderer {
         };
         const speedRatio = Math.min(
             playback.maxSpeedRatio,
-            Math.abs(state.player.vx) / Math.max(1, state.tuning.maxRunSpeed)
+            playerGroundPresentationSpeed(state) / Math.max(1, state.tuning.maxRunSpeed)
         );
         if (!state.player.onGround) {
             // Airborne poses are state poses, not a slow copy of the run cycle.
@@ -3849,13 +3937,17 @@ class RocketfrockRenderer {
 
         const story = state.story?.mailboxEvent;
         const hasStoryOverlay = Boolean(story?.active && (story.phase === "letter" || story.phase === "thought"));
+        const cutsceneCommand = state.story?.cutscene?.active
+            ? state.story.cutscene.commands?.[state.story.cutscene.commandIndex]
+            : null;
+        const hasCutsceneSpeechOverlay = cutsceneCommand?.type === "SAY";
         const hasProximityTextOverlay = this.hasActiveProximityText(state);
         const hasDebugOverlay = Boolean(state.debug?.showHitboxes || state.debug?.showVelocity);
         const hasScreenMessageOverlay = this.syncScreenMessages(state);
-        if (hasProximityTextOverlay || hasStoryOverlay || hasDebugOverlay || hasScreenMessageOverlay) {
+        if (hasProximityTextOverlay || hasStoryOverlay || hasCutsceneSpeechOverlay || hasDebugOverlay || hasScreenMessageOverlay) {
             this.clearStagingLayer();
             if (hasProximityTextOverlay) this.drawProximityTexts(state, view);
-            if (hasStoryOverlay) this.drawMailboxStoryOverlay(state, view);
+            if (hasStoryOverlay || hasCutsceneSpeechOverlay) this.drawMailboxStoryOverlay(state, view);
             if (hasScreenMessageOverlay) this.drawScreenMessages(state, view, false);
             if (hasDebugOverlay) this.drawDebug(state, view, inputFrame);
             this.uploadStagingLayer(view);
@@ -3978,16 +4070,20 @@ class RocketfrockRenderer {
         this.frameRenderBreakdown.worldVisualsMs += Math.max(0, foregroundEnd - foregroundBakeStart);
         const story = state.story?.mailboxEvent;
         const hasStoryOverlay = Boolean(story?.active && (story.phase === "letter" || story.phase === "thought"));
+        const cutsceneCommand = state.story?.cutscene?.active
+            ? state.story.cutscene.commands?.[state.story.cutscene.commandIndex]
+            : null;
+        const hasCutsceneSpeechOverlay = cutsceneCommand?.type === "SAY";
         const hasProximityTextOverlay = this.hasActiveProximityText(state);
         const hasDebugOverlay = Boolean(
             state.debug?.showHitboxes ||
             state.debug?.showVelocity
         );
         const hasScreenMessageOverlay = this.syncScreenMessages(state);
-        if (hasProximityTextOverlay || hasStoryOverlay || hasDebugOverlay || hasScreenMessageOverlay) {
+        if (hasProximityTextOverlay || hasStoryOverlay || hasCutsceneSpeechOverlay || hasDebugOverlay || hasScreenMessageOverlay) {
             this.clearStagingLayer();
             if (hasProximityTextOverlay) this.drawProximityTexts(state, view);
-            if (hasStoryOverlay) this.drawMailboxStoryOverlay(state, view);
+            if (hasStoryOverlay || hasCutsceneSpeechOverlay) this.drawMailboxStoryOverlay(state, view);
             if (hasScreenMessageOverlay) this.drawScreenMessages(state, view, false);
             if (hasDebugOverlay) this.drawDebug(state, view, inputFrame);
             this.uploadStagingLayer(view);
@@ -4102,6 +4198,10 @@ class RocketfrockRenderer {
 
         const story = state.story?.mailboxEvent;
         const hasStoryOverlay = Boolean(story?.active && (story.phase === "letter" || story.phase === "thought"));
+        const cutsceneCommand = state.story?.cutscene?.active
+            ? state.story.cutscene.commands?.[state.story.cutscene.commandIndex]
+            : null;
+        const hasCutsceneSpeechOverlay = cutsceneCommand?.type === "SAY";
         const hasProximityTextOverlay = this.hasActiveProximityText(state);
         const hasDebugOverlay = Boolean(
             state.debug.showCollision ||
@@ -4109,10 +4209,10 @@ class RocketfrockRenderer {
             state.debug.showVelocity
         );
         const hasScreenMessageOverlay = this.syncScreenMessages(state);
-        if (hasProximityTextOverlay || hasStoryOverlay || hasDebugOverlay || hasScreenMessageOverlay) {
+        if (hasProximityTextOverlay || hasStoryOverlay || hasCutsceneSpeechOverlay || hasDebugOverlay || hasScreenMessageOverlay) {
             this.clearStagingLayer();
             if (hasProximityTextOverlay) this.drawProximityTexts(state, view);
-            if (hasStoryOverlay) this.drawMailboxStoryOverlay(state, view);
+            if (hasStoryOverlay || hasCutsceneSpeechOverlay) this.drawMailboxStoryOverlay(state, view);
             if (hasScreenMessageOverlay) this.drawScreenMessages(state, view, false);
             if (hasDebugOverlay) this.drawDebug(state, view, inputFrame);
             this.uploadStagingLayer(view);
@@ -5817,7 +5917,6 @@ class RocketfrockRenderer {
     drawEnemyGuides(state, view) {
         if (!state.debug.showPuppetGuide) return;
         for (const enemy of state.enemies || []) {
-            if (enemy.visualized) continue;
             const width = Math.max(1, Number(enemy.width) || 1);
             const height = Math.max(1, Number(enemy.height) || 1);
             const guideBounds = {
@@ -5955,9 +6054,6 @@ class RocketfrockRenderer {
 
         if (state.debug.showPuppetGuide) {
             for (const enemy of state.enemies) {
-                if (enemy.visualized) {
-                    continue;
-                }
                 const width = Math.max(1, Number(enemy.width) || 1);
                 const height = Math.max(1, Number(enemy.height) || 1);
                 const guideBounds = {
@@ -8015,6 +8111,7 @@ class RocketfrockRenderer {
 
     drawMailboxStoryOverlay(state, view) {
         this.drawPlayerOverheadSymbol(state, view);
+        this.drawCutsceneSpeechOverlay(state, view);
         const story = state.story?.mailboxEvent;
         if (!story?.active || (story.phase !== "letter" && story.phase !== "thought")) return;
 
@@ -8029,6 +8126,111 @@ class RocketfrockRenderer {
         } else {
             this.drawThoughtOverlay(state, story, view);
         }
+    }
+
+    drawCutsceneSpeechOverlay(state, view) {
+        const cutscene = state.story?.cutscene;
+        if (!cutscene?.active) return;
+        const command = cutscene.commands?.[cutscene.commandIndex];
+        const thinking = command?.type === "THINK";
+        if (!command || (!thinking && command.type !== "SAY")) return;
+        const actor = command.characterId === "wizard"
+            ? state.player
+            : (state.enemies || []).find((enemy) => enemy?.id === command.characterId || enemy?.entityId === command.characterId);
+        if (!actor) return;
+
+        const atlas = this.environmentAtlases.get(thinking
+            ? (cutscene.thoughtAtlasId || "it_atlas_001")
+            : (cutscene.speechAtlasId || "it_atlas_001"));
+        const frame = atlas?.frames?.[thinking
+            ? (cutscene.thoughtAssetId || "thought_bubble_large")
+            : (cutscene.speechAssetId || "speech_bubble_large")];
+        if (!atlas?.image || !frame) return;
+
+        const virtualW = Math.min(thinking ? 440 : 430, view.virtualW * (thinking ? 0.74 : 0.68));
+        const virtualH = virtualW * frame.h / Math.max(1, frame.w);
+        const w = virtualW * view.zoom;
+        const h = virtualH * view.zoom;
+        const actorX = actor.shownTransform?.x ?? actor.currentTransform?.x ?? actor.x ?? 0;
+        const actorY = actor.shownTransform?.y ?? actor.currentTransform?.y ?? actor.y ?? 0;
+        const speaker = this.worldToScreen(view, actorX, actorY - Math.max(1, Number(actor.height) || 104) * (thinking ? 0.88 : 0.90));
+        const placement = thinking
+            ? computeThoughtBubblePlacement({
+                speakerX: speaker.x,
+                speakerY: speaker.y,
+                bubbleWidth: w,
+                bubbleHeight: h,
+                viewportWidth: view.w,
+                viewportHeight: view.h,
+                zoom: view.zoom,
+                dpr: view.dpr
+            })
+            : computeSpeechBubblePlacement({
+                speakerX: speaker.x,
+                speakerY: speaker.y,
+                bubbleWidth: w,
+                bubbleHeight: h,
+                viewportWidth: view.w,
+                viewportHeight: view.h,
+                zoom: view.zoom,
+                dpr: view.dpr
+            });
+        const { x, y } = placement;
+        const ctx = this.ctx;
+        ctx.save();
+        if (!thinking && placement.flipX) {
+            ctx.translate(x + w, y);
+            ctx.scale(-1, 1);
+            ctx.drawImage(atlas.renderImage || atlas.image, frame.x, frame.y, frame.w, frame.h, 0, 0, w, h);
+        } else {
+            ctx.drawImage(atlas.renderImage || atlas.image, frame.x, frame.y, frame.w, frame.h, x, y, w, h);
+        }
+        ctx.restore();
+
+        const fontScale = view.zoom || 1;
+        const textX = x + w * (thinking ? 0.15 : 0.10);
+        const textW = w * (thinking ? 0.70 : 0.80);
+        const bodyTop = y + h * (thinking ? 0.19 : 0.12);
+        const bodyBottom = y + h * (thinking ? 0.675 : 0.70);
+        const bodyHeight = Math.max(1, bodyBottom - bodyTop);
+        const text = command.text || "";
+        const fitted = this.fitWrappedText(text, textW, bodyHeight, {
+            maxFontSize: (thinking ? 15.8 : 17) * fontScale,
+            minFontSize: 9 * fontScale,
+            lineHeightRatio: thinking ? 1.31 : 1.28,
+            font: "Georgia, 'Times New Roman', serif",
+            weight: 600
+        });
+        const layout = computeTimedTextViewportLayout(
+            fitted.contentHeight,
+            bodyHeight,
+            cutscene.commandTime,
+            command.duration,
+            command.characterCount || storyCharacterCount(text),
+            STORY_READING_CHARACTERS_PER_SECOND
+        );
+        ctx.save();
+        ctx.fillStyle = thinking ? "rgba(53, 35, 67, 0.96)" : "rgba(57, 40, 54, 0.96)";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.beginPath();
+        ctx.rect(textX, bodyTop, textW, bodyHeight);
+        ctx.clip();
+        this.drawWrappedLines(fitted.lines, textX, bodyTop + layout.contentOffset, textW, fitted.lineHeight, true);
+        ctx.restore();
+        if (layout.maxScroll > 0) {
+            this.drawStoryScrollbar(
+                textX + textW + 4 * fontScale,
+                bodyTop,
+                bodyHeight,
+                fitted.contentHeight,
+                layout.scrollOffset,
+                fontScale,
+                thinking ? "rgba(76, 48, 90, 0.16)" : "rgba(83, 55, 76, 0.15)",
+                thinking ? "rgba(76, 48, 90, 0.48)" : "rgba(83, 55, 76, 0.45)"
+            );
+        }
+        this.markDynamicDrawn();
     }
 
     drawPlayerOverheadSymbol(state, view) {
@@ -8751,6 +8953,19 @@ class RocketfrockRenderer {
     }
 
     computeRigPose(state, zoom = 1) {
+        const cutscene = state.story?.cutscene;
+        const command = cutscene?.active ? cutscene.commands?.[cutscene.commandIndex] : null;
+        const wizardWalking = command?.type === "GOTO" && command.characterId === "wizard";
+        const override = cutscene?.active && !wizardWalking ? cutscene.animationOverrides?.wizard : null;
+        const overrideClip = override?.slot ? this.animations.get(override.slot) : null;
+        if (overrideClip) {
+            const startedAt = Number.isFinite(Number(override.startedAt)) ? Number(override.startedAt) : state.clock.time;
+            const localPose = sampleAnimationClip(overrideClip, Math.max(0, state.clock.time - startedAt));
+            return {
+                poseMode: `cutscene:${override.slot}`,
+                transforms: animationPoseToRuntimeTransforms(localPose, this.rigConfig, zoom)
+            };
+        }
         const walkClip = this.animations.get("walk");
         if (state.player.onGround) {
             if (!walkClip) {
@@ -8775,7 +8990,7 @@ class RocketfrockRenderer {
     }
 
     computeDataDrivenGroundPose(state, zoom, clip) {
-        const speedRatio = Math.min(1.25, Math.abs(state.player.vx) / Math.max(1, state.tuning.maxRunSpeed));
+        const speedRatio = Math.min(1.25, playerGroundPresentationSpeed(state) / Math.max(1, state.tuning.maxRunSpeed));
         const motionAmount = smoothstep(0.05, 0.24, speedRatio);
         const time = animationTimeFromPhase(this.phase, clip.duration);
         const sampledWalkPose = sampleAnimationClip(clip, time);
@@ -9220,24 +9435,36 @@ async function loadEnvironmentAtlases(options = {}) {
     const onProgress = typeof options.onProgress === "function" ? options.onProgress : () => {};
     const records = await Promise.all(candidates.map(async (candidate) => {
         const url = assetUrl(candidate.url || "");
-        onProgress({ url, progress: 0.02, label: `Loading atlas manifest ${url}` });
-        let manifest = null;
-        try {
-            const response = await fetch(url, { cache: "no-store" });
-            if (!response.ok) {
-                onProgress({ url, progress: 1, label: `Skipped unavailable atlas ${url}` });
-                return null;
+        const required = candidate.required === true;
+        const unavailable = (message, error = null) => {
+            onProgress({ url, progress: 1, label: message });
+            if (required) {
+                const detail = error?.message ? ` ${error.message}` : "";
+                throw new Error(`${message}.${detail}`.trim());
             }
-            manifest = await response.json();
-        } catch (error) {
-            onProgress({ url, progress: 1, label: `Skipped unavailable atlas ${url}` });
             return null;
+        };
+
+        onProgress({ url, progress: 0.02, label: `Loading atlas manifest ${url}` });
+        let response = null;
+        try {
+            response = await fetch(url, { cache: "no-store" });
+        } catch (error) {
+            return unavailable(`${required ? "Required atlas manifest" : "Atlas manifest"} could not be loaded: ${url}`, error);
+        }
+        if (!response.ok) {
+            return unavailable(`${required ? "Required atlas manifest" : "Atlas manifest"} is unavailable: ${url} (${response.status})`);
         }
 
+        let manifest = null;
+        try {
+            manifest = await response.json();
+        } catch (error) {
+            return unavailable(`${required ? "Required atlas manifest" : "Atlas manifest"} is not valid JSON: ${url}`, error);
+        }
         manifest = normalizeEnvironmentManifest(manifest, candidate.forceAtlasId, candidate.forceImage);
         if (!manifest || !manifest.atlasId || !manifest.image) {
-            onProgress({ url, progress: 1, label: `Skipped invalid atlas ${url}` });
-            return null;
+            return unavailable(`${required ? "Required atlas manifest" : "Atlas manifest"} is invalid: ${url}`);
         }
         onProgress({ url, progress: 0.35, label: `Loaded atlas manifest ${manifest.atlasId}` });
 
@@ -9246,8 +9473,7 @@ async function loadEnvironmentAtlases(options = {}) {
         try {
             image = await loadImage(imageUrl);
         } catch (error) {
-            onProgress({ url, progress: 1, label: `Skipped missing atlas image ${manifest.image}` });
-            return null;
+            return unavailable(`${required ? "Required atlas image" : "Atlas image"} could not be loaded: ${imageUrl}`, error);
         }
         onProgress({ url, progress: 1, label: `Decoded atlas ${manifest.atlasId}` });
         return {
@@ -9263,11 +9489,24 @@ async function loadEnvironmentAtlases(options = {}) {
         };
     }));
 
+    return environmentAtlasMapFromRecords(records);
+}
+
+export function environmentAtlasMapFromRecords(records = []) {
     const atlases = new Map();
     for (const atlas of records) {
-        if (atlas && !atlases.has(atlas.id)) {
-            atlases.set(atlas.id, atlas);
+        if (!atlas) continue;
+        const atlasId = String(atlas.id || "").trim();
+        if (!atlasId) {
+            throw new Error("Loaded environment atlas has no atlasId.");
         }
+        const existing = atlases.get(atlasId);
+        if (existing) {
+            const firstSource = String(existing.manifestUrl || existing.source || "unknown manifest");
+            const secondSource = String(atlas.manifestUrl || atlas.source || "unknown manifest");
+            throw new Error(`Duplicate atlasId '${atlasId}' in ${firstSource} and ${secondSource}`);
+        }
+        atlases.set(atlasId, atlas);
     }
     return atlases;
 }

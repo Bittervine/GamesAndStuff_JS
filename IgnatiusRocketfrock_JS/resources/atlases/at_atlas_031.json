@@ -35,6 +35,12 @@
             "y": 626,
             "w": 1149,
             "h": 200
+        },
+        "shore_sea_1": {
+            "x": 601,
+            "y": 418,
+            "w": 448,
+            "h": 155
         }
     },
     "objects": {
@@ -472,6 +478,31 @@
                     "tags": []
                 }
             ]
+        },
+        "shore_sea_1": {
+            "id": "shore_sea_1",
+            "frame": "shore_sea_1",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": []
         }
     }
 }

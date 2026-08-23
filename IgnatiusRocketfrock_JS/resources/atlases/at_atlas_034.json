@@ -35,6 +35,12 @@
             "y": 798,
             "w": 1492,
             "h": 169
+        },
+        "cave_ground_034_blend": {
+            "x": 667,
+            "y": 597,
+            "w": 362,
+            "h": 160
         }
     },
     "objects": {
@@ -141,8 +147,9 @@
             ],
             "generationTags": [
                 "biome.cave",
-                "layer.terrain",
-                "capability.platform"
+                "capability.doorSupport",
+                "capability.platform",
+                "layer.terrain"
             ]
         },
         "cave_ground_034_02": {
@@ -248,8 +255,9 @@
             ],
             "generationTags": [
                 "biome.cave",
-                "layer.terrain",
-                "capability.platform"
+                "capability.doorSupport",
+                "capability.platform",
+                "layer.terrain"
             ]
         },
         "cave_ground_034_03": {
@@ -355,8 +363,9 @@
             ],
             "generationTags": [
                 "biome.cave",
-                "layer.terrain",
-                "capability.platform"
+                "capability.doorSupport",
+                "capability.platform",
+                "layer.terrain"
             ]
         },
         "cave_ground_034_04": {
@@ -462,8 +471,9 @@
             ],
             "generationTags": [
                 "biome.cave",
-                "layer.terrain",
-                "capability.platform"
+                "capability.doorSupport",
+                "capability.platform",
+                "layer.terrain"
             ]
         },
         "cave_ground_034_05": {
@@ -569,9 +579,35 @@
             ],
             "generationTags": [
                 "biome.cave",
-                "layer.terrain",
-                "capability.platform"
+                "capability.doorSupport",
+                "capability.platform",
+                "layer.terrain"
             ]
+        },
+        "cave_ground_034_blend": {
+            "id": "cave_ground_034_blend",
+            "frame": "cave_ground_034_blend",
+            "type": "decor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": []
         }
     }
 }

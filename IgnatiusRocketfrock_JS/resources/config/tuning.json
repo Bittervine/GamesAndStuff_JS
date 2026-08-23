@@ -46,6 +46,7 @@
   "playerContactDamageInvulnerabilitySeconds": 0.45,
   "playerContactDamageKnockbackX": 95,
   "playerContactDamageKnockbackY": -70,
+  "hazardContactDamage": 20,
   "fallDamageEnabled": true,
   "fallDamageSafeImpactSpeed": 1441,
   "fallDamagePerWizardHeight": 10,

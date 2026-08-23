@@ -54,7 +54,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "",
             "order": 203
         },
         {
@@ -73,7 +72,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "",
             "order": 131
         },
         {
@@ -92,7 +90,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "",
             "order": 132
         },
         {
@@ -110,7 +107,6 @@
             "layer": "terrain",
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "",
             "order": 129
         },
         {
@@ -128,7 +124,6 @@
             "layer": "terrain",
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "",
             "order": 128
         }
     ],

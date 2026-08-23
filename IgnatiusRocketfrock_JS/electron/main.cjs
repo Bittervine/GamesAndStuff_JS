@@ -42,6 +42,11 @@ function resolveAppRequest(requestUrl) {
         return null;
     }
     const appRoot = app.isPackaged ? app.getAppPath() : path.resolve(__dirname, "..");
+    if (url.pathname === "/__ignatius_build_revision.txt") {
+        return app.isPackaged
+            ? path.join(appRoot, "BUILD_REVISION.txt")
+            : path.resolve(appRoot, "..", "BUILD_REVISION.txt");
+    }
     const relativePath = decodeURIComponent(url.pathname).replace(/^\/+/, "") || "game.html";
     const resolvedPath = path.resolve(appRoot, relativePath);
     const rootPrefix = `${appRoot}${path.sep}`;

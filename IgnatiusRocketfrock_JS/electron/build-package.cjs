@@ -82,6 +82,7 @@ ensureDir(appDir);
 for (const entry of runtimeEntries) {
     copyRequiredEntry(entry);
 }
+copyRecursive(path.resolve(projectRoot, "..", "BUILD_REVISION.txt"), path.join(appDir, "BUILD_REVISION.txt"));
 copyRecursive(path.join(electronDir, "main.cjs"), path.join(appDir, "main.cjs"));
 copyRecursive(path.join(electronDir, "preload.cjs"), path.join(appDir, "preload.cjs"));
 
@@ -103,6 +104,7 @@ const stagedPackage = {
         files: [
             "main.cjs",
             "preload.cjs",
+            "BUILD_REVISION.txt",
             "game.html",
             "GameManual.html",
             "favicon.ico",

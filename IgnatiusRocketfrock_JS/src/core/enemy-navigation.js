@@ -417,6 +417,9 @@ export function buildEnemyNavigationSupports(world, options = {}) {
     const rawSupports = [];
     const polygonEdges = polygonTopEdgeMetadata(world);
     for (const segment of world?.segments || []) {
+        // Ground enemies never treat a moving platform as a route support. The
+        // platform may still carry an actor who is already physically standing
+        // on it, but pathfinding remains entirely on static authored geometry.
         if (segment.movingPlatformId) {
             continue;
         }
@@ -1542,13 +1545,6 @@ function groundStrideFootholdMatchesNavigationSupport(sweepResult, to, bodyWidth
 
 function strideArcDirectTransition(from, to, options) {
     if (!options.world) return legacyDirectTransition(from, to, options);
-    // Moving-platform boarding/disembarking is handled by a separate dynamic
-    // support system. Those supports are intentionally excluded from the
-    // static stride candidate geometry, so retain the established direct test.
-    if (from.movingPlatformId || to.movingPlatformId) {
-        return legacyDirectTransition(from, to, options);
-    }
-
     const overlapMin = Math.max(from.xMin, to.xMin);
     const overlapMax = Math.min(from.xMax, to.xMax);
     // Continuous/overlapping support seams do not require a discontinuity
@@ -1701,9 +1697,6 @@ export function enemyNavigationWalkOffEndpointExposed(sourceSupport, direction, 
     const seamYTolerance = 1.0;
     for (const support of supports) {
         if (!support || support.id === sourceSupport.id) {
-            continue;
-        }
-        if (support.movingPlatformId && support.movingPlatformId !== sourceSupport.movingPlatformId) {
             continue;
         }
         const xMin = Number(support.xMin);

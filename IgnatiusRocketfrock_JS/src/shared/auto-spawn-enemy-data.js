@@ -3,12 +3,12 @@ import { parseEnemySelection } from "./enemy-pool-data.js";
 export const DEFAULT_AUTO_SPAWN_ENEMIES = Object.freeze({
     enabled: false,
     probabilityPercent: 0,
-    enemyPool: "1-999"
+    enemyPool: "1-900"
 });
 
 export const DEFAULT_ENEMY_SPAWNER = Object.freeze({
     probabilityPercent: 10,
-    enemyPool: "1-999"
+    enemyPool: "1-900"
 });
 
 function clamp(value, min, max) {

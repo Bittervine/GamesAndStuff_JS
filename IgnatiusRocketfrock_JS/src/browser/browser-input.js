@@ -139,6 +139,10 @@ export class RocketfrockInput {
         if (!this.shouldUsePointerEvent(event)) {
             return;
         }
+        if (this.pointer.active) {
+            if (pointerTypeFromEvent(event) === "touch") event.preventDefault();
+            return;
+        }
 
         this.beginPointerContact(event, event.pointerId, event.clientX, event.clientY, event.pointerType || "pointer", "pointer");
         this.capturePointer(event);
@@ -200,10 +204,7 @@ export class RocketfrockInput {
 
         const touch = event.changedTouches[0];
         if (this.pointer.active) {
-            if (this.pointer.pointerType === "touch") {
-                event.preventDefault();
-                this.pointer.activeTouchId = touchId(touch);
-            }
+            if (this.pointer.pointerType === "touch") event.preventDefault();
             return;
         }
 
@@ -329,10 +330,7 @@ export class RocketfrockInput {
     findRelevantTouch(touchList) {
         const preferredId = this.pointer.activeTouchId || (String(this.pointer.pointerId).startsWith("touch:") ? this.pointer.pointerId : null);
         if (preferredId) {
-            const touch = findChangedTouch(touchList, preferredId);
-            if (touch) {
-                return touch;
-            }
+            return findChangedTouch(touchList, preferredId);
         }
         return touchList.length === 1 ? touchList[0] : null;
     }

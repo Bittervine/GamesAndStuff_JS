@@ -12,7 +12,18 @@ function storageKey(slotId) {
     return `${SAVE_GAME_STORAGE_PREFIX}${slotId}`;
 }
 
-export function loadStoredSaveGame(slotId, storage = globalThis.localStorage) {
+function resolvedStorage(storage) {
+    if (storage !== undefined) return storage;
+    try {
+        return globalThis.localStorage;
+    } catch (error) {
+        console.warn("Ignatius Rocketfrock browser storage is unavailable.", error);
+        return null;
+    }
+}
+
+export function loadStoredSaveGame(slotId, storage) {
+    storage = resolvedStorage(storage);
     if (!storage || typeof storage.getItem !== "function") return null;
     try {
         const raw = storage.getItem(storageKey(slotId));
@@ -29,18 +40,21 @@ export function loadStoredSaveGame(slotId, storage = globalThis.localStorage) {
     }
 }
 
-export function saveStoredSaveGame(slotId, record, storage = globalThis.localStorage) {
+export function saveStoredSaveGame(slotId, record, storage) {
     const normalized = normalizeSaveGameRecord({ ...record, slotId }, slotId);
-    if (!storage || typeof storage.setItem !== "function") return normalized;
+    storage = resolvedStorage(storage);
+    if (!storage || typeof storage.setItem !== "function") return null;
     try {
         storage.setItem(storageKey(slotId), JSON.stringify(normalized));
+        return normalized;
     } catch (error) {
         console.warn(`Could not save Ignatius Rocketfrock slot ${slotId}.`, error);
+        return null;
     }
-    return normalized;
 }
 
-export function clearStoredSaveGame(slotId, storage = globalThis.localStorage) {
+export function clearStoredSaveGame(slotId, storage) {
+    storage = resolvedStorage(storage);
     if (!storage || typeof storage.removeItem !== "function") return;
     try {
         storage.removeItem(storageKey(slotId));
@@ -49,10 +63,11 @@ export function clearStoredSaveGame(slotId, storage = globalThis.localStorage) {
     }
 }
 
-export function loadManualSaveGames(storage = globalThis.localStorage) {
-    return MANUAL_SAVE_SLOT_IDS.map((slotId) => loadStoredSaveGame(slotId, storage));
+export function loadManualSaveGames(storage) {
+    const resolved = resolvedStorage(storage);
+    return MANUAL_SAVE_SLOT_IDS.map((slotId) => loadStoredSaveGame(slotId, resolved));
 }
 
-export function loadStoredAutosave(storage = globalThis.localStorage) {
-    return loadStoredSaveGame(AUTOSAVE_SLOT_ID, storage);
+export function loadStoredAutosave(storage) {
+    return loadStoredSaveGame(AUTOSAVE_SLOT_ID, resolvedStorage(storage));
 }

@@ -10,8 +10,11 @@
         "rightFoot",
         "robe",
         "head",
-        "hat",
-        "rightArm"
+        "rightArm",
+        "head_look",
+        "head_wink",
+        "head_away",
+        "hat"
     ],
     "global": {
         "scale": 0.35,
@@ -99,6 +102,18 @@
         "rightArm": {
             "x": 0.46,
             "y": 0.135
+        },
+        "head_look": {
+            "x": 0.5,
+            "y": 0.5
+        },
+        "head_wink": {
+            "x": 0.5,
+            "y": 0.5
+        },
+        "head_away": {
+            "x": 0.5,
+            "y": 0.5
         }
     },
     "parts": {
@@ -221,8 +236,8 @@
             "parentConstraint": {
                 "parentPart": "head",
                 "parentPoint": {
-                    "x": 0.5285573079081162,
-                    "y": 0.10877852072357252
+                    "x": 0.57,
+                    "y": 0.1088
                 }
             }
         },
@@ -249,6 +264,42 @@
                     "y": 0.27
                 }
             }
+        },
+        "head_look": {
+            "frame": "head_look",
+            "role": "head_look",
+            "tags": [],
+            "offset": {
+                "x": 0,
+                "y": 0
+            },
+            "scale": 1,
+            "targetHeight": 106,
+            "alpha": 1
+        },
+        "head_wink": {
+            "frame": "head_wink",
+            "role": "head_wink",
+            "tags": [],
+            "offset": {
+                "x": 0,
+                "y": 0
+            },
+            "scale": 1,
+            "targetHeight": 106,
+            "alpha": 1
+        },
+        "head_away": {
+            "frame": "head_away",
+            "role": "head_away",
+            "tags": [],
+            "offset": {
+                "x": 0,
+                "y": 0
+            },
+            "scale": 1,
+            "targetHeight": 108,
+            "alpha": 1
         }
     },
     "rigId": "ct_rig_wizard_1",

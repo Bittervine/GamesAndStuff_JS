@@ -10,7 +10,7 @@ The right mouse button pans the canvas regardless of the active tool. **Fit** fr
 
 ## Live object inspector
 
-The Selected object panel has no Apply button. Position, dimensions, rotation, and notes update while edited. Selects, checkboxes, IDs, and nonvisual values commit on their normal change event. Enemy scale remains a live uniform multiplier for the Character Editor-authored hitbox, artwork scale, artwork offsets, and projectile radius. Character-enemy W/H fields display the resulting hitbox and remain read-only.
+The Selected object panel has no Apply button. Position, dimensions, and rotation update while edited. Selects, checkboxes, IDs, and nonvisual values commit on their normal change event. Level placements and entities no longer carry free-form `notes` metadata. Timed power-up pickups expose an optional **Custom duration** checkbox; unchecked pickups omit `durationSeconds` and inherit the built-in effect duration, while checking it authors a per-instance override. Enemy scale remains a live uniform multiplier for the Character Editor-authored hitbox, artwork scale, artwork offsets, and projectile radius. Character-enemy W/H fields display the resulting hitbox and remain read-only.
 
 Generated locked records reject inspector changes until unlocked. Changing a wizard door or character enemy may perform the same floor snap that the previous Apply action performed when the field is committed.
 
@@ -34,7 +34,7 @@ After changing hunter mobility data, support extraction, or static traversal pol
 
 The Generator panel exposes four independent choices: **Theme**, **Colour modifier**, **Recipe**, and **Enemy pool**. A theme is appearance data only. It chooses tagged terrain, moving-platform, foreground, and background asset pools, plus presentation policy such as whether the cave perimeter should be populated. A colour modifier is a separate atlas allowlisted colour map, so Frost can reskin the Cave theme without every cave asset being tagged twice. The current authored themes are Cave, Forest, and Castle.
 
-A **Generator recipe** is the curated level-builder choice. It locks route implementation, cavern implementation, traversal settings, validation profile, and length into one tested combination. The editor therefore does not expose raw Route, Cavern, or Length permutation controls. The initial Domed Compact, Domed Standard, and Domed Long recipes all use the horizontal run-and-gun route with a Domed cavern, while their route budgets and lengths remain recipe-owned data. New algorithms should be introduced as new recipes and seed-swept against every compatible theme before appearing in the editor.
+A **Generator recipe** is the curated level-builder choice. It locks route implementation, cavern implementation, traversal settings, validation profile, and length into one tested combination. The editor therefore does not expose raw Route, Cavern, or Length permutation controls. Domed Compact, Domed Standard, and Domed Long use the established horizontal run-and-gun route with the ordinary Domed cavern. The Cave-only **Domed Grounded** recipe is based on Domed Long but places deep Atlas 035-039 ground runs before tracing the cavern, advances adjacent floor texture bands by at most one atlas step, and anchors most of the lower perimeter to those floors so only sparse stalagmite accents remain. Theme-restricted recipes are hidden when an incompatible biome is selected. New algorithms should be introduced as new recipes and seed-swept against every compatible theme before appearing in the editor.
 
 Asset membership is authored through symbolic generation tags. `resources/editor/asset-generation-tags.json` is the shared valid-tag catalog; atlas objects store readable `generationTags` arrays, and the Asset Editor presents grouped checkboxes from that catalog. Theme pool queries use `all`, `any`, and `none` clauses. The ordinary manual **Populate perimeter** command uses the currently selected Generator theme and therefore admits only objects matching both that theme's biome and its Foreground-layer query. Generator roles and measured collision constraints remain separate from semantic tags.
 
@@ -56,7 +56,7 @@ Colour mapping never modifies source PNG files. Recolored atlas copies are cache
 
 ## Moving platforms
 
-Shuttle is the safe default and pauses at both endpoints. Vanishing patterns always restore the platform after their hidden reset time. The circular END handle edits the route directly on the canvas.
+Shuttle is the safe default and pauses at both endpoints. Vanishing patterns always restore the platform after their hidden reset time. The circular END handle edits the route directly on the canvas. Enable **Persistent through respawn** when a platform must retain its current position, phase, fade/collision state, and remaining phase timer when Ignatius dies or is otherwise reset; this does not alter the platform's normal shuttle/vanish cycle. Rider activation can trigger again whenever the platform returns to `waitForTrigger`. Signal activation can likewise respond to each newer channel revision: levers can therefore retrigger a platform after being left and approached again, while keyholes and `proximitySignalTrigger` are one-shot emitters.
 
 ## Signals, gates, and boss defeat
 
@@ -70,7 +70,9 @@ The `magicRingPickup` grants the timed `magicRing` effect for 30 seconds and ref
 
 Each mailbox owns its letter, thought, trigger distance, and timing. Long text scrolls automatically and Jump advances or closes it. Treasure chests open once when Ignatius approaches, award their score, briefly display loot, then remain open and empty.
 
-Entry doors replace the legacy wizard-start marker. Exit doors are mirrored by default. An empty exit destination resolves to the next numbered level; if loading fails, the current level is restored.
+Scripted cutscenes accept `GOTO`, `ANIM`, `SAY`, `THINK`, and `DELAY`. `THINK <character> "text"` has the same timing, skip input, and actor anchoring as `SAY`, but uses the shared large thought bubble instead of the speech bubble.
+
+Entry doors replace the legacy wizard-start marker. Exit doors are mirrored by default. An empty exit destination resolves to the next numbered level; if loading fails, the current level is restored. Set an exit entity's destination to the reserved value `credits` to end gameplay and start the shared credits roll instead of loading another level. A cutscene may start immediately from a trigger at the Wizard spawn, and exits remain suppressed while scripted cutscene control is active, so a final cutscene can walk the Wizard onto the exit and release control there. Edit `resources/ui/credits.md` for the roll: `# Heading` is the only heading syntax, every other non-empty line is a centered row, and blank lines add spacing. Completion or a fresh user interruption returns to the title screen; `credits` is never stored as a resume level.
 
 
 ## Character combat sounds (revisions 204-205)
@@ -84,7 +86,7 @@ The wizard character now names its ground animation `walk`, not `run`, and its m
 
 ## Puppet Forge enemy defaults (revision 353)
 
-For a catalog-backed enemy, Puppet Forge places type-wide tuning in four adjacent panels: **Metadata**, **Movement**, **Attack behavior**, and **Projectile behavior**. Ordinary level placements inherit these catalog values; use Level Editor instance overrides only for intentional one-offs such as bosses. Attack behavior exposes Damage, Cooldown, Attack reach, Vertical reach, melee radius, Awareness range, Awareness half-angle, Awareness hold, and the projectile-only Preferred attack range / Preferred minimum range. Projectile behavior owns kind, launch type, flight parameters, spread, rotation, effects, and AoE presentation.
+For a catalog-backed enemy, Puppet Forge places type-wide tuning in four adjacent panels: **Metadata**, **Movement**, **Attack behavior**, and **Projectile behavior**. Ordinary level placements inherit these catalog values; use Level Editor instance overrides only for intentional one-offs such as bosses. Attack behavior exposes Damage, Cooldown, Attack reach, Vertical reach, the legacy handoff-centered melee radius, Awareness range, Awareness half-angle, Awareness hold, and the projectile-only Preferred attack range / Preferred minimum range. Revision 432 also exposes the committed-melee `meleeHitRange`, `lungeRangeMin`, `lungeRangeMax`, `lungeSpeed`, and `lungeTargetDist` fields. A positive `meleeHitRange` takes precedence over the older handoff-radius hit test and measures forward reach beginning at the authored melee handoff position. Projectile behavior owns kind, launch type, flight parameters, spread, rotation, effects, and AoE presentation.
 
 The old **All defaults JSON** field is intentionally absent. **Enemy Catalog JSON** is the single complete raw JSON surface for `ct_enemies_001.json`; the structured panels edit the selected enemy entry directly. In Character, Level, and Asset tools, a right-side panel with no saved local preference starts collapsed. Opening or closing it records that panel's state for future sessions.
 
@@ -95,6 +97,8 @@ The Known project dropdown is catalog-driven. At startup Puppet Forge loads `res
 ## Character enemies
 
 The placement point is the enemy foot position. Awareness uses distance and facing cone rather than line-of-sight collision, although terrain may still block movement and attacks. Simple patrol retains local movement. Hunters leave patrol, choose reachable attack positions, cross gaps with one jump, glare while the target is unreachable, and attempt to return home. A hunter unable to climb home adopts its current support as a temporary patrol and periodically retries.
+
+`enemy_901` (**Invisible Cutscene Speaker**) is an ordinary passive Training Dummy-derived enemy intended only as a hidden speech-bubble anchor. Place it like any other catalog enemy and reference that placed enemy ID from cutscene dialogue. Its generic `visualized` catalog default makes the runtime omit its artwork/shadow/health presentation; there is no speaker-specific AI or cutscene behavior. Move or otherwise author it far enough away outside the intended scene when it should not participate in gameplay.
 
 ## Reactive objects
 
@@ -152,7 +156,7 @@ Player rocket firing is edge-triggered but has no simulation cooldown. `src/core
 
 ## Revision 310 wrench launch-path tuning
 
-Yellow Fivefold keeps five evenly spaced non-homing rockets in the canonical `[-7.5, -3.75, 0, 3.75, 7.5]` fan around the nearest-forward aim line. Blue Homing Triple keeps its authored `[-12, 0, 12]` fan and standard homing behavior.
+Yellow Fivefold keeps five evenly spaced non-homing rockets in the canonical `[-7.5, -3.75, 0, 3.75, 7.5]` fan around the nearest-forward aim line. Cyan Dart launches horizontally and then turns weakly toward the easiest forward target, preferring the smallest angular error over raw distance; its steering is fixed at 0.035° per world pixel actually travelled, independent of camera geometry and the rocket's current angle. Blue Homing Triple keeps its authored `[-12, 0, 12]` fan and standard homing behavior.
 
 Both yellow Fivefold and blue Homing Triple now use a small deterministic shared wedge-direction perturbation bounded by `HOMING_TRIPLE_INITIAL_DIRECTION_JITTER_DEGREES`, currently 2 degrees. `src/core/simulation.js` samples that offset once per volley and applies the same value to every projectile in the volley, so the wedge keeps its internal spacing while rapidly repeated volleys no longer retrace one rigid set of rails. The salt includes the level, level-load count, and volley identity; identical seeded replays therefore remain identical. Keep this randomness in portable simulation data; do not use `Math.random()` or renderer-owned variation.
 
@@ -544,12 +548,14 @@ SDL build revision 142 groups the most useful diagnostics under **Settings → D
 
 ### Windows incremental builds
 
+`BUILD_REVISION.txt` at the repository root is the single authored revision source. Change only that file when advancing the build number; CMake derives the native compile-time revision from it, and the build scripts refresh `reference/BUILD_REVISION.txt` as a generated numeric mirror for ordinary static browser servers before packaging the same root value with runtime content. Do not hand-edit revision literals in C++, JavaScript, HTML, or the generated `reference/BUILD_REVISION.txt` mirror.
+
 Run `build.bat` for the normal Windows build. It preserves `build\` and delegates dependency decisions to CMake and Visual Studio/MSBuild, so unchanged C++ translation units are not rebuilt. It also uses `robocopy` to synchronize only changed runtime assets, shader content, reference modules, and development HTML. A packaged ZIP can occasionally carry source timestamps older than existing object files; after the first incremental pass, `build.bat` verifies the executable against `BUILD_REVISION.txt`. Only when that verification fails does it refresh project-source timestamps and retry. If that retry still fails, it performs one clean rebuild. To force a fresh configure and compile manually, delete `build\` before running the script. No custom hash database is involved.
 
 
 ## Revision 532 rocket-fuel Flight governor
 
-The canonical rocket-fuel effect is `POWER_UP_EFFECT_IDS.FLIGHT` with serialized ID `flight`. Authored `fuel` and `fuelPickup` entities normalize to this timed effect rather than immediately adding a fixed fuel amount. The built-in duration is 60 seconds, stacking refreshes the timer, and its Power HUD priority is 190: below every wrench at 200, above Shield at 150 and Overdrive at 100. The HUD icon remains `rocket_fuel_canister`.
+The canonical rocket-fuel effect is `POWER_UP_EFFECT_IDS.FLIGHT` with serialized ID `flight`. Authored `fuel` and `fuelPickup` entities normalize to this timed effect rather than immediately adding a fixed fuel amount. The built-in duration is 30 seconds, stacking refreshes the timer, and its Power HUD priority is 190: below every wrench at 200, above Shield at 150 and Overdrive at 100. The HUD icon remains `rocket_fuel_canister`.
 
 While Flight is active, `applyFlightGovernor()` replaces ordinary gravity, jumping, and attached-boost drain. No vertical input targets zero vertical velocity; Up/jump/boost targets `-flightVerticalSpeed`; Down/drop targets `+flightVerticalSpeed`. `flightVerticalAcceleration` approaches those targets so takeoff, stopping, and direction changes have running-like inertia. Horizontal control uses ground acceleration and friction in the air. Holding Down continuously refreshes one-way-platform drop-through grace so a direction reversal cannot outlast the drop window.
 
@@ -708,3 +714,45 @@ Player rocket distance controls are authored in `resources/config/tuning.json`. 
 When several power-ups are active at once, the Power bar now displays whichever timed effect will expire first. The shared helper is `shortestRemainingActivePowerUpEffect` in JavaScript and C++; do not reproduce the ordering in browser or SDL presentation code. Permanent/no-expiry effects are treated as having infinite remaining time and therefore appear only when there is no active timed effect. Ties use the most recently activated effect and then stable effect ID.
 
 The numeric `hud.priority` values on built-in effect definitions are now legacy metadata. They are intentionally preserved in the schema and authored definitions, but they do not decide which active effect appears in the Power bar. Effect stacking, wrench exclusivity, refresh behavior, expiry, and gameplay multipliers are unchanged.
+
+## Revision 414 native memory-stress loop
+
+The SDL executable has a rendered memory-stress mode intended for long resource-lifetime runs on Windows:
+
+```text
+IgnatiusSDL.exe --memory-stress --memory-stress-cycles=500 --memory-stress-csv=logs\memory-stress.csv
+```
+
+The mode always starts on reserved fixture `level_t20` and loops through `level_t21` and back. `level_t20` is cave-window content and `level_t21` is forest content; they deliberately use different environment-atlas sets, enemy character projects, and music so ordinary level transitions repeatedly destroy, retain, and allocate real runtime resources. The driver holds right and pulses weapon fire. Ordinary combat damage is suppressed only for this diagnostic mode so the run cannot end because an enemy kills Ignatius. Traversal is not bypassed: if a fixture fails to reach its normal exit portal within the watchdog, the process exits with code 6.
+
+`--memory-stress-cycles=N` means N complete `level_t20 -> level_t21 -> level_t20` loops. `--memory-stress-transitions=N` may be used when an exact transition count is preferable. `--memory-stress-max-ticks=N` changes the per-level watchdog; the default is 3600 simulation ticks. If no CSV path is supplied, the executable writes `logs/ignatius_memory_stress_rev<revision>.csv` beside the executable's local output tree.
+
+The CSV records a row at startup and after every completed transition. On Windows, `private_bytes` is the process's private committed memory and `private_bytes_available` confirms that the operating-system query succeeded. `working_set_bytes` and `peak_working_set_bytes` are also recorded, together with environment-atlas, character-project, sound, treatment-texture, raw-world-cache, visual, enemy, projectile, and smoke-puff counts. Compare repeated checkpoints for the **same level** after the first few warm-up loops. A stable plateau is expected; a persistent same-level upward trend is the signal to investigate. Linux fills the working-set columns from `/proc/self/status` and leaves `private_bytes` at zero; that path exists to smoke-test the harness rather than define Windows leak acceptance.
+
+For memory-corruption investigations, run this same rendered loop under a Windows memory-error detector such as MSVC AddressSanitizer or Page Heap. Playback remains useful for deterministic combat-heavy reproduction, but it intentionally suppresses level transitions and therefore does not replace this fixture loop for resource-allocation/free churn.
+
+## Revision 415 generalized stress backends
+
+Revision 415 keeps the Revision 414 `level_t20 <-> level_t21` driver and exposes it as the `level-cycle` scenario through three explicit native backends:
+
+```text
+IgnatiusSDL.exe --stress-sim=level-cycle --stress-cycles=500
+IgnatiusSDL.exe --stress-renderer=level-cycle --stress-cycles=500 --windowed
+IgnatiusSDL.exe --stress-gpu=level-cycle --stress-cycles=500 --windowed
+```
+
+`--stress-sim` performs no SDL video/audio/presentation initialization and runs the C++ simulation/resource-state loop as fast as possible. `--stress-renderer` requires the legacy SDL_Renderer path. `--stress-gpu` is intentionally strict: it requires SDL_GPU, raw-GPU world rendering, raw-GPU presentation, and the offscreen frame FIFO used by the production-oriented GPU stress path. It does not silently fall back to SDL_Renderer or direct-present mode.
+
+The generalized option aliases are `--stress-cycles`, `--stress-transitions`, `--stress-max-ticks`, and `--stress-csv`. The older `--memory-stress*` names remain supported for compatibility. The CSV includes backend/scenario identity, total ticks and elapsed time in addition to the Revision 414 process-memory/resource counters.
+
+The evolving rationale, current measurements, planned scenarios, and Windows validation checklist live in repository-root `STRESS_TEST_PLAN.md`. Do not treat that document as a frozen specification; update it when measurements or discovered bugs change which stress work has the best diagnostic value.
+
+## Revision 432 committed melee lunges
+
+The old short attack-time tracking nudge is retired. A grounded melee enemy becomes lunge-eligible only when its authored `lungeRangeMax` and `lungeSpeed` are both positive. Inside positive `meleeHitRange` it swings normally without lunging; when `meleeHitRange` is zero, ordinary close attacks fall back to `attackRange` and the legacy handoff-centered `meleeHitRadius`. Between the effective close range and `lungeRangeMin` it keeps pursuing; between `lungeRangeMin` and `lungeRangeMax` it may commit if the complete grounded path to the target position is traversable. The burst destination is Ignatius's position at lunge launch minus `lungeTargetDist` in the attack direction, with both melee reach and target separation scaled by enemy instance scale. The destination does not home after launch. Full-path validity is checked before commitment and at launch; once moving, the burst advances through small collision/support-aware substeps so newly appearing distant blockers do not freeze it early, while walls and gaps still stop it without tunnelling. The enemy remains at the resulting position after the swing.
+
+Long lunges preserve authored `lungeSpeed` without slowing the attack animation. The attack animation plays at authored speed through its wind-up until the first melee handoff/impact pose. That impact pose is then held while the enemy physically lunges; the handoff is delayed until the burst completes, after which the remaining follow-through resumes at authored speed. Physical lunge speed is world-space px/s and is intentionally independent of the global melee attack-rate scale. If an in-flight lunge physically reaches a newly introduced wall, ledge, or unsupported boundary, that stop position immediately ends the lunge and resolves the delayed handoff there; removing the obstruction later cannot restart the burst.
+
+For positive `meleeHitRange`, the authored handoff position is the start of a forward horizontal reach segment at the critical frame. A hit occurs when that reach intersects Ignatius's hurt box and terrain does not block the attack. This remains gameplay geometry rather than pixel-alpha weapon collision, but moving the handoff or changing the reach now changes the actual strike geometry. When `meleeHitRange` is zero, the legacy handoff-centered `meleeHitRadius` path remains in use.
+
+Lunge eligibility is catalog data, not a fixed enemy-family rule. Zero `lungeRangeMax` disables lunging, and a positive maximum below `lungeRangeMin` is treated as an invalid disabled band rather than being silently collapsed. Current playtesting uses 600 px maximum range and 2000 px/s where enabled, but individual Skeleton, Raider, or Pirate variants may enable or disable lunging independently. Tests use synthetic lunge fixtures so balance decisions such as disabling Human Raider lunges do not fail mechanics regressions.

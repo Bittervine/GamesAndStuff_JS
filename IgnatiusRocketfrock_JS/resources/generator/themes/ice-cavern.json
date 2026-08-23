@@ -10,7 +10,7 @@
     "safety": 0.76,
     "enemyDensity": 0.36,
     "rewardDensity": 0.4,
-    "allowedEnemies": "1-999",
+    "allowedEnemies": "1-900",
     "allowThoughts": false
   },
   "route": {

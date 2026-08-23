@@ -4672,3 +4672,45 @@ SDL settings and save slots move to the stable SDL preference directory, with sa
 
 The reserved `level_t09.json` through `level_t12.json` fixtures predated canonical `level.layerVisuals` version 3 and caused the editor schema gate to stop at the first missing record. Fixed immediately by adding the current default independent-axis Background/Foreground layer settings to those four fixtures only; runtime compatibility behavior is unchanged.
 
+
+
+## Revision 412 fresh-review correctness fixes
+
+- Fixed browser pointer ownership so a second touch cannot replace or terminate the finger already driving the virtual stick.
+- Fixed browser vertical damage knockback to clear the player's stale `supportId`, matching native ground-state invalidation.
+- Hardened browser save/settings storage access against denied `localStorage`; manual save/autosave success is now reported only after an actual write. Asset Tool and Dev Tool optional local state no longer breaks editing when storage is unavailable or corrupt.
+- Replaced the native save/settings destination without deleting the previous valid file first. Windows uses `ReplaceFileW`/`MoveFileExW`; POSIX retains atomic `rename`, and cleanup errors cannot overwrite the real replacement diagnostic.
+- Removed fail-open handling for required enemy/loot catalogs and required enemy character projects in both runtimes. These dependencies now record a structured invariant failure and stop the affected load instead of silently changing gameplay.
+- Synchronized the nested browser exception policy with the root policy so essential-state/resource failure is no longer documented as a preferred graceful-degradation case.
+- Moved Linux case-sensitive include aliases from `src/` into the generated build tree, so an ordinary Linux build leaves the source checkout unchanged.
+
+Revision 440 makes root `BUILD_REVISION.txt` the single authored source of the product revision; native CMake builds and browser/runtime staging derive their revision from that file instead of synchronized hardcoded literals.
+
+## Revision 449 test-gate efficiency
+
+- The Linux build helper now defaults to an optimized Release build, matching the Windows build helper. Debug remains available explicitly for diagnostic builds.
+- The native resource-loader regression hydrates one representative projectile enemy end to end, including project, rig, atlas, animation, texture, and sound resolution, instead of decoding the full character catalog. Lightweight catalog/schema tests continue to cover the remaining character definitions.
+- Generator regressions retain every theme/configuration assertion while using two deterministic representative seeds per configuration instead of repeating the same invariants across large seed matrices. The dedicated macro-room and compatibility cases still cover both themes and all relevant route/cavern variants.
+- Profiling-only resident-memory sampling tolerates hosts where Node cannot report process RSS; test pass/fail behavior is unchanged.
+
+## Revision 450 test-gate coverage corrections
+
+- Keep the ordinary automatic-generator compatibility regression on the complete cross-product of the two supported themes, two route lengths, two route implementations, and two cavern implementations. Extra seed breadth remains in `npm run test:stress`; supported input dimensions are not interchangeable with redundant seeds.
+- When current RSS is unavailable, profiling reports Node's process-wide `resourceUsage().maxRSS` peak with an explicit `max RSS` label. If neither metric is available, report `RSS unavailable`; never manufacture a zero sample.
+- Cover native character parent-constraint drawing with two synthetic parts and one tiny in-memory texture. The native suite continues to load only one real enemy project end to end.
+
+## Revision 451 Level Editor stacked-canvas presentation fix
+
+- Fixed a Level Editor race where pointer-down immediately marked a selected object as a transient moving record even before the movement threshold had been crossed. If a queued dirty runtime-world rebuild landed in that interval, the clicked asset could be omitted from the runtime snapshot; a click-only pointer-up did not dirty the snapshot again, so the asset could remain invisible until a later authored mutation. Runtime omission and overlay promotion now begin only after the drag is confirmed as moved.
+- Fixed the same pre-threshold transient path drawing a duplicate selected asset on the transparent overlay above every runtime-rendered placement, which could temporarily violate authored stack order and expose an otherwise covered platform seam.
+- Restored the documented compositor contract for both Level Editor canvases. `#stage` and `#stage-overlay` now request synchronized Canvas2D contexts. The first `getContext()` call on `#stage` previously requested `desynchronized: true`, silently defeating the production renderer's later synchronized request; this was especially risky in the WebView2-hosted Ignatius Dev Tool where independently presented stacked canvases could expose incomplete or stale frames.
+- The editor continues to use the same production Canvas renderer, overlap-blend implementation, authored ordering, and level data as gameplay. No gameplay rendering or serialized level semantics change.
+
+
+## Revision 452 Domed Grounded endpoint parallax clearance
+
+Domed Grounded exposed a generator-only side-boundary defect on long caves. The generated cave spline was wide enough around the entrance and exit in authored world coordinates, but the Foreground cave mask uses `parallaxX = 1.08` around the technical world-centre anchor. At the far left that shifts the visible cave boundary inward to the right; at the far right it shifts it inward to the left. Because Domed Grounded spans roughly twice the width of the established Domed Long terrain, this inward travel could exceed two thousand world units and place the first/last ground artwork outside both the visible full-black contour and the gameplay player boundary.
+
+The grounded cavern builder now expands only its two endpoint chambers horizontally by the maximum parallax travel implied by half of the generated grounded-floor span and the generated Foreground X factor. The ordinary route, grounded floor bands, lower floor-seated perimeter, terrain placement, endpoint placement, random streams, and runtime parallax formula are unchanged. The additional chamber width is therefore an outward safety allowance in the presentation perimeter rather than a gameplay collision workaround.
+
+Grounded-cavern presentation validation now measures the first and last grounded terrain edges against both the parallax-adjusted full-black outset and the parallax-adjusted player boundary, using the same world-centre anchor as gameplay. A generated Domed Grounded draft is invalid if either horizontal end falls outside either contour. Regression coverage independently projects both boundaries at the endpoint terrain extremes so this failure cannot return silently.

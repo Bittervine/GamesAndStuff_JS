@@ -337,8 +337,11 @@ Object.assign(knife.defaults, {
     projectileVolleyHalfAngle: 8,
     projectileKnockbackX: 180,
     projectileKnockbackY: -90,
-    attackLungeDistance: 0,
-    attackLungeSpeed: 0
+    meleeHitRange: 0,
+    lungeTargetDist: 0,
+    lungeRangeMin: 0,
+    lungeRangeMax: 0,
+    lungeSpeed: 0
 });
 knife.description = "A blonde human knife thrower using body_02/head_02. He performs an articulated throwing motion and releases a three-knife fan from the dagger artwork in the shared human atlas.";
 writeJson("ct_enemies_001.json", catalog);
@@ -362,7 +365,6 @@ const level = JSON.parse(fs.readFileSync(levelPath, "utf8"));
 for (const entity of level.entities || []) {
     if (entity.enemyCatalogId === "enemy_030" || entity.enemyCatalogId === "enemy_031") {
         entity.h = 194;
-        entity.notes = catalog.enemies[entity.enemyCatalogId].description;
     }
 }
 fs.writeFileSync(levelPath, `${JSON.stringify(level, null, 4)}\n`);

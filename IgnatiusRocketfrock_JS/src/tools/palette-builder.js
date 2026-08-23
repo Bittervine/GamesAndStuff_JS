@@ -9,7 +9,7 @@ import {
 import { scaledEnemyRenderScale } from "../shared/enemy-scale-data.js";
 import { sha256Hex } from "./resource-hash.js";
 
-const BUILDER_VERSION = 2;
+const BUILDER_VERSION = 3;
 const BUILDER_ID = "browser-html-js";
 const DEFAULT_CELL_SIZE = 64;
 const DEFAULT_MAX_SIZE = 8192;
@@ -575,6 +575,10 @@ async function buildAssetEntries(cache, cellSize, sourceFiles, progress) {
             const visible = alphaBounds(frameCanvasObject);
             const tagsRaw = objectData.tags || objectData.generationTags || [];
             const tags = Array.isArray(tagsRaw) ? tagsRaw.map(String) : typeof tagsRaw === "string" ? [String(tagsRaw)] : [];
+            const generationTagsRaw = objectData.generationTags || [];
+            const generationTags = Array.isArray(generationTagsRaw)
+                ? generationTagsRaw.map(String)
+                : typeof generationTagsRaw === "string" ? [String(generationTagsRaw)] : [];
             const assetType = String(objectData.type || "asset");
             entries.push({
                 key: `asset:${atlasId}:${assetId}`,
@@ -593,6 +597,8 @@ async function buildAssetEntries(cache, cellSize, sourceFiles, progress) {
                     frame,
                     type: assetType,
                     tags,
+                    generationTags,
+                    defaultScale: safeNumber(objectData.defaultScale, 1),
                     paletteOrder: safeNumber(objectData.paletteOrder)
                 },
                 image: fitIntoCell(visible ? frameCanvasObject : placeholderThumbnail(assetId, Math.max(128, cellSize * 4)), cellSize)

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Ignatius Rocketfrock - HTML BUILD 390</title>
+    <title>Ignatius Rocketfrock - HTML BUILD</title>
     <style>
         @font-face {
             font-family: "Ignatius Inter";
@@ -129,6 +129,64 @@
             color: var(--muted);
             font-size: 12px;
             line-height: 1.4;
+        }
+
+        #credits-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 95;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at 50% 46%, rgba(66, 43, 94, 0.24), transparent 42rem),
+                #03030a;
+            color: #f2edf8;
+            font-family: "Ignatius Inter", system-ui, sans-serif;
+            pointer-events: auto;
+            cursor: default;
+        }
+
+        #credits-screen[hidden] {
+            display: none !important;
+        }
+
+        #credits-track {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            width: min(92vw, 980px);
+            transform: translate3d(-50%, 100vh, 0);
+            will-change: transform;
+            text-align: center;
+        }
+
+        .credits-line {
+            width: 100%;
+            margin: 0;
+            padding: 0 18px;
+            text-align: center;
+            overflow-wrap: anywhere;
+        }
+
+        .credits-line.heading {
+            min-height: 64px;
+            padding-top: 12px;
+            font-size: clamp(24px, 3.2vw, 38px);
+            font-weight: 850;
+            letter-spacing: 0.035em;
+            line-height: 1.18;
+            color: #f7f1ff;
+        }
+
+        .credits-line.row {
+            min-height: 34px;
+            font-size: clamp(15px, 1.8vw, 20px);
+            font-weight: 650;
+            line-height: 1.35;
+            color: rgba(242, 237, 248, 0.92);
+        }
+
+        .credits-line.spacer {
+            height: 28px;
         }
 
         #title-screen {
@@ -284,6 +342,12 @@ font-size: clamp(13px, 2vw, 18px);
             z-index: 4;
             pointer-events: none;
             text-align: center;
+        }
+
+        body.credits-screen-active #hud,
+        body.credits-screen-active #boss-hud,
+        body.credits-screen-active #game-menu-controls {
+            display: none !important;
         }
 
         #boss-name {
@@ -951,6 +1015,10 @@ font-size: 14px;
     </style>
 </head>
 <body>
+    <section id="credits-screen" hidden aria-label="Credits" tabindex="-1">
+        <div id="credits-track" aria-live="off"></div>
+    </section>
+
     <div id="loading-screen" role="status" aria-live="polite" aria-label="Loading game">
         <div id="loading-card">
             <div id="loading-title-row">

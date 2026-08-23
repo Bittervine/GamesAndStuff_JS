@@ -14,6 +14,7 @@
         "test:fast": "node devel/run_test_gate.mjs fast",
         "test:list": "node devel/run_test_gate.mjs --list",
         "test:profile": "node tests/testbench.mjs --progress --profile",
+        "test:stress": "node --expose-gc tests/testbench.mjs --progress --profile --stress",
         "audit:renderer": "node devel/audit_renderer_boundary.mjs",
         "inspect:editor-stress": "node devel/inspect_editor_stress_fixture.mjs",
         "capture:recording": "node devel/capture_recording_frame.mjs",

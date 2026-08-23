@@ -101,6 +101,9 @@ export const FIXED_DT = 1 / 60;
 export const PICKUP_PROXIMITY_DISTANCE_SCALE = 0.67;
 const AUTOMATIC_STEP_HEIGHT_RATIO = 0.2;
 const PLAYER_STANDABLE_SLOPE_RATIO = 0.75;
+const PLAYER_MAX_WALKABLE_SLOPE_RATIO = 5.671281819617707; // tan(80 degrees)
+const PLAYER_WALKABLE_SEAM_MAX_DISTANCE = 1.0;
+const PLAYER_WALKABLE_SEAM_MIN_TANGENT_DOT = 0.9993908270190958; // cos(2 degrees)
 function playerAutomaticStepHeight(player) {
     return Math.max(0, player.height * AUTOMATIC_STEP_HEIGHT_RATIO);
 }
@@ -109,12 +112,15 @@ function playerSegmentIsStandable(segment) {
     if (!segment || !isSolidSegmentKind(segment.kind)) {
         return false;
     }
-    if (segment.kind === "walkable") {
-        return true;
-    }
     const dx = Number(segment.x2) - Number(segment.x1);
     const dy = Number(segment.y2) - Number(segment.y1);
-    return Math.abs(dx) > 0.001 && Math.abs(dy) <= Math.abs(dx) * PLAYER_STANDABLE_SLOPE_RATIO;
+    if (Math.abs(dx) <= 0.001) {
+        return false;
+    }
+    const slopeRatio = segment.kind === "walkable"
+        ? PLAYER_MAX_WALKABLE_SLOPE_RATIO
+        : PLAYER_STANDABLE_SLOPE_RATIO;
+    return Math.abs(dy) <= Math.abs(dx) * slopeRatio;
 }
 
 function isMusketProjectileKind(projectileKind) {
@@ -247,7 +253,6 @@ export function doubleJumpLaunchVelocity(tuning, currentVerticalVelocity) {
         : -jumpSpeed;
 }
 
-const MOVING_PLATFORM_NAVIGATION_CACHE = new WeakMap();
 const STATIC_ENEMY_NAVIGATION_CACHE = new WeakMap();
 const CHARACTER_ENEMY_TRAVERSAL_EDGE_CACHE = new WeakMap();
 
@@ -365,8 +370,6 @@ export const DEFAULT_TUNING = Object.freeze({
     enemyDefaultAttackDuration: 0.44,
     enemyDefaultAttackHitTime: 0.36,
     enemyDefaultAttackCooldown: 0.12,
-    enemyDefaultAttackLungeDistance: 20,
-    enemyDefaultAttackLungeSpeed: 180,
     enemyDefaultAttackKnockbackX: 330,
     enemyDefaultAttackKnockbackY: -250,
     enemyDefaultAttackMode: "melee",
@@ -856,6 +859,8 @@ export function createInitialGameState(overrides = {}) {
             portalExit: null,
             mailboxEvent: null,
             mailboxEvents: [],
+            cutscene: null,
+            cutsceneScripts: [],
             symbolTriggers: [],
             overheadSymbol: null,
             proximityTexts: [],
@@ -1012,7 +1017,6 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
     const segments = [];
     const polygons = [];
     const visuals = Array.isArray(state.world.visuals) ? state.world.visuals : [];
-
     for (const visual of visuals) {
         if (visual.kind !== "atlasSprite") {
             continue;
@@ -2112,6 +2116,602 @@ function configureOverheadSymbolTriggers(state, entities) {
     state.story.overheadSymbol = null;
 }
 
+function cutsceneScriptEntities(entities) {
+    return (entities || []).filter((entity) =>
+        entity?.type === "cutsceneTrigger" || entity?.interaction === "scriptedCutscene"
+    );
+}
+
+function tokenizeCutsceneScriptLine(line) {
+    const tokens = [];
+    let token = "";
+    let quote = null;
+    let escaped = false;
+    const flush = () => {
+        if (token.length > 0) {
+            tokens.push(token);
+            token = "";
+        }
+    };
+    for (const ch of String(line || "")) {
+        if (escaped) {
+            token += ch === "n" ? "\n" : ch === "t" ? "\t" : ch;
+            escaped = false;
+            continue;
+        }
+        if (quote) {
+            if (ch === "\\") {
+                escaped = true;
+            } else if (ch === quote) {
+                quote = null;
+            } else {
+                token += ch;
+            }
+            continue;
+        }
+        if (ch === '"' || ch === "'") {
+            quote = ch;
+        } else if (/\s/.test(ch)) {
+            flush();
+        } else {
+            token += ch;
+        }
+    }
+    if (escaped) token += "\\";
+    if (quote) return { tokens, error: "unterminated quoted string" };
+    flush();
+    return { tokens, error: null };
+}
+
+function parseCutsceneScript(scriptText) {
+    const commands = [];
+    const errors = [];
+    const lines = String(scriptText || "").replace(/\r/g, "").split("\n");
+    lines.forEach((rawLine, index) => {
+        const lineNumber = index + 1;
+        const line = rawLine.trim();
+        if (!line || line.startsWith("#")) return;
+        const parsed = tokenizeCutsceneScriptLine(line);
+        if (parsed.error) {
+            errors.push(`Line ${lineNumber}: ${parsed.error}.`);
+            return;
+        }
+        const tokens = parsed.tokens;
+        const type = String(tokens[0] || "").toUpperCase();
+        if (type === "GOTO") {
+            if (tokens.length < 4 || tokens.length > 5) {
+                errors.push(`Line ${lineNumber}: GOTO expects <character> <x> <y> [speed].`);
+                return;
+            }
+            const x = Number(tokens[2]);
+            const y = Number(tokens[3]);
+            const speed = tokens.length >= 5 ? Number(tokens[4]) : null;
+            if (!Number.isInteger(x) || !Number.isInteger(y)) {
+                errors.push(`Line ${lineNumber}: GOTO x and y must be integer level coordinates.`);
+                return;
+            }
+            if (speed !== null && (!Number.isFinite(speed) || speed <= 0)) {
+                errors.push(`Line ${lineNumber}: GOTO speed must be a positive pixels/second value.`);
+                return;
+            }
+            commands.push({ type, lineNumber, characterId: String(tokens[1] || ""), x, y, speed });
+            return;
+        }
+        if (type === "ANIM") {
+            if (tokens.length !== 3) {
+                errors.push(`Line ${lineNumber}: ANIM expects <character> <animation_name>.`);
+                return;
+            }
+            commands.push({ type, lineNumber, characterId: String(tokens[1] || ""), animationName: String(tokens[2] || "") });
+            return;
+        }
+        if (type === "SAY" || type === "THINK") {
+            if (tokens.length < 3) {
+                errors.push(`Line ${lineNumber}: ${type} expects <character> <"text">.`);
+                return;
+            }
+            const text = tokens.slice(2).join(" ");
+            commands.push({
+                type,
+                lineNumber,
+                characterId: String(tokens[1] || ""),
+                text,
+                characterCount: storyCharacterCount(text),
+                duration: storyReadingDuration(text)
+            });
+            return;
+        }
+        if (type === "DELAY") {
+            if (tokens.length !== 2) {
+                errors.push(`Line ${lineNumber}: DELAY expects <seconds>.`);
+                return;
+            }
+            const duration = Number(tokens[1]);
+            if (!Number.isFinite(duration) || duration < 0) {
+                errors.push(`Line ${lineNumber}: DELAY seconds must be zero or greater.`);
+                return;
+            }
+            commands.push({ type, lineNumber, duration });
+            return;
+        }
+        errors.push(`Line ${lineNumber}: unknown cutscene command "${tokens[0]}".`);
+    });
+    return { commands, errors };
+}
+
+function cutsceneScriptRecord(state, entity) {
+    const parsed = parseCutsceneScript(entity?.script);
+    const completed = String(entity?.state || "available") === "consumed";
+    const participantEnemyIds = [...new Set(parsed.commands
+        .map((command) => String(command?.characterId || ""))
+        .filter((characterId) => characterId && characterId !== "wizard"))];
+    return {
+        id: String(entity?.id || ""),
+        entityId: String(entity?.id || ""),
+        active: false,
+        completed,
+        triggerDistance: Math.max(8, Number(entity?.triggerDistance) || 96),
+        verticalTolerance: Math.max(24, Number(entity?.verticalTolerance) || Math.max(state.player.height * 0.75, Number(entity?.h) || 160)),
+        speechAtlasId: String(entity?.speechAtlasId || "it_atlas_001"),
+        speechAssetId: String(entity?.speechAssetId || "speech_bubble_large"),
+        thoughtAtlasId: String(entity?.thoughtAtlasId || "it_atlas_001"),
+        thoughtAssetId: String(entity?.thoughtAssetId || "thought_bubble_large"),
+        scriptText: String(entity?.script || ""),
+        commands: parsed.commands,
+        parseErrors: parsed.errors,
+        participantEnemyIds,
+        commandIndex: 0,
+        commandTime: 0,
+        commandStartedAt: null,
+        startedAt: null,
+        completedAt: null,
+        animationOverrides: {}
+    };
+}
+
+function configureCutsceneScripts(state, entities) {
+    state.story.cutsceneScripts = cutsceneScriptEntities(entities).map((entity) => cutsceneScriptRecord(state, entity));
+    state.story.cutscene = null;
+    return state.story.cutsceneScripts.length > 0;
+}
+
+function cutsceneCharacter(state, characterId) {
+    const id = String(characterId || "");
+    if (id === "wizard") return { kind: "wizard", id, actor: state.player };
+    const enemy = (state.enemies || []).find((candidate) => candidate?.id === id || candidate?.entityId === id);
+    return enemy ? { kind: "enemy", id, actor: enemy } : null;
+}
+
+function cutsceneEnemyIsAlive(enemy) {
+    return Boolean(enemy) && Number(enemy.health) > 0 && enemy.combatState !== ENEMY_COMBAT_STATE.DEAD && enemy.combatState !== "dead";
+}
+
+function cutsceneScriptInvalidParticipant(state, script) {
+    for (const characterId of script?.participantEnemyIds || []) {
+        const character = cutsceneCharacter(state, characterId);
+        if (!character || character.kind !== "enemy") {
+            return { characterId, reason: "missing" };
+        }
+        if (!cutsceneEnemyIsAlive(character.actor)) {
+            return { characterId, reason: "dead" };
+        }
+    }
+    return null;
+}
+
+function cutsceneEnemyProtected(state, enemy) {
+    const script = state.story?.cutscene;
+    if (!script?.active || !enemy) return false;
+    return (script.participantEnemyIds || []).some((characterId) =>
+        enemy.id === characterId || enemy.entityId === characterId
+    );
+}
+
+function playerStorySequenceInvulnerable(state) {
+    return Boolean(state.story?.cutscene?.active || state.story?.portalExit?.active);
+}
+
+function cutsceneCharacterNormalSpeed(state, character) {
+    if (!character) return 0;
+    if (character.kind === "wizard") return Math.max(1, Number(state.tuning?.maxRunSpeed) || 360);
+    return Math.max(1, Number(character.actor?.runSpeed) || Number(character.actor?.walkSpeed) || 56);
+}
+
+function cutsceneCharacterPosition(character) {
+    if (!character) return { x: 0, y: 0 };
+    if (character.kind === "wizard") {
+        return {
+            x: Number(character.actor?.currentTransform?.x) || 0,
+            y: Number(character.actor?.currentTransform?.y) || 0
+        };
+    }
+    return {
+        x: Number(character.actor?.currentTransform?.x) || 0,
+        y: Number(character.actor?.currentTransform?.y) || 0
+    };
+}
+
+function detachCutsceneCharacterFromMovingPlatform(character) {
+    if (!character?.actor) return;
+    const actor = character.actor;
+    if (character.kind === "wizard") {
+        actor.supportId = null;
+        actor.groundStride = null;
+        return;
+    }
+    actor.supportId = null;
+    actor.ridingPlatformId = null;
+    actor.currentSupportId = null;
+}
+
+function setCutsceneCharacterMotion(state, character, x, y, vx, vy) {
+    if (!character) return;
+    const actor = character.actor;
+    if (character.kind === "wizard") {
+        actor.currentTransform.x = x;
+        actor.currentTransform.y = y;
+        actor.vx = vx;
+        actor.vy = vy;
+        actor.ax = 0;
+        actor.ay = 0;
+        actor.onGround = true;
+        actor.wasOnGround = true;
+        actor.groundStride = null;
+        actor.ordinaryJumpActive = false;
+        if (Math.abs(vx) > 0.001) actor.facing = vx < 0 ? -1 : 1;
+        return;
+    }
+    actor.currentTransform.x = x;
+    actor.currentTransform.y = y;
+    actor.velocityX = vx;
+    actor.velocityY = vy;
+    actor.groundVelocityX = vx;
+    actor.airborne = actor.locomotion === "flying";
+    if (Math.abs(vx) > 0.001) actor.facing = vx < 0 ? -1 : 1;
+    syncCharacterEnemyTarget(state, actor);
+}
+
+function releaseCutsceneWizardGotoMotion(state, character) {
+    if (!character || character.kind !== "wizard" || !character.actor) return;
+    const player = character.actor;
+    player.vx = 0;
+    player.vy = 0;
+    player.ax = 0;
+    player.ay = 0;
+    player.groundStride = null;
+    player.ordinaryJumpActive = false;
+
+    const support = findCharacterEnemyGroundSupport(
+        state,
+        player.currentTransform.x,
+        player.currentTransform.y,
+        2,
+        2,
+        player.width
+    );
+    if (support) {
+        player.currentTransform.y = support.y;
+        player.onGround = true;
+        player.wasOnGround = true;
+        player.supportId = support.id || null;
+        player.airborneTime = 0;
+        player.airBoostArmed = true;
+    } else {
+        player.onGround = false;
+        player.wasOnGround = false;
+        player.supportId = null;
+        player.airborneTime = 0;
+    }
+}
+
+function releaseCutsceneCharacterGotoMotion(state, character) {
+    if (character?.kind === "wizard") {
+        releaseCutsceneWizardGotoMotion(state, character);
+        return;
+    }
+    releaseCutsceneEnemyGotoMotion(state, character);
+}
+
+function releaseCutsceneEnemyGotoMotion(state, character) {
+    if (!character || character.kind !== "enemy" || !character.actor) return;
+    const enemy = character.actor;
+    if (enemy.locomotion === "flying") {
+        // GOTO owns velocity while active, but releasing it should not rewrite
+        // the flying enemy's frozen AI state. Restore only physical/presentation
+        // invariants; ordinary AI will resume from its prior state afterward.
+        enemy.airborne = true;
+        enemy.velocityX = 0;
+        enemy.velocityY = 0;
+        enemy.groundVelocityX = 0;
+        setCharacterEnemyAnimation(enemy, "fly");
+        syncCharacterEnemyTarget(state, enemy);
+        return;
+    }
+
+    enemy.airTimer = 0;
+    enemy.airTraversalType = null;
+    enemy.airSourceSupportId = null;
+    enemy.airSourceObstacleId = null;
+    enemy.airTargetSupportId = null;
+    enemy.velocityX = 0;
+    enemy.velocityY = 0;
+    enemy.groundVelocityX = 0;
+
+    const support = findCharacterEnemyGroundSupport(
+        state,
+        enemy.currentTransform.x,
+        enemy.currentTransform.y,
+        2,
+        2,
+        enemy.width
+    );
+    if (support) {
+        enemy.currentTransform.y = support.y;
+        enemy.airborne = false;
+        enemy.currentSupportId = null;
+        setCharacterEnemyGroundSupportIdentity(state, enemy, support);
+    } else {
+        enemy.airborne = true;
+        enemy.supportId = null;
+        enemy.ridingPlatformId = null;
+        enemy.currentSupportId = null;
+        enemy.movementPhase = "air";
+    }
+    syncCharacterEnemyTarget(state, enemy);
+}
+
+function restoreCutsceneEnemyAnimation(script, character) {
+    if (!character || character.kind !== "enemy") return;
+    const override = script.animationOverrides?.[character.id];
+    const defaultSlot = character.actor?.locomotion === "flying" ? "fly" : "idle";
+    setCharacterEnemyAnimation(character.actor, override?.slot || defaultSlot);
+}
+
+function setCutsceneAnimationOverride(state, script, characterId, animationName) {
+    const character = cutsceneCharacter(state, characterId);
+    if (!character) return false;
+    const slot = String(animationName || "idle");
+    script.animationOverrides[character.id] = { slot, startedAt: state.clock.time };
+    if (character.kind === "enemy") setCharacterEnemyAnimation(character.actor, slot);
+    return true;
+}
+
+function advanceCutsceneEnemyAnimations(state, script, dt, activeGotoCharacterId = null) {
+    for (const [characterId, override] of Object.entries(script.animationOverrides || {})) {
+        if (characterId === "wizard" || characterId === activeGotoCharacterId) continue;
+        const character = cutsceneCharacter(state, characterId);
+        if (!character || character.kind !== "enemy") continue;
+        if (character.actor.animationSlot !== override.slot) setCharacterEnemyAnimation(character.actor, override.slot);
+        character.actor.animationClock.current = Math.max(0, Number(character.actor.animationClock.current) || 0) + dt;
+    }
+}
+
+function cutsceneRuntimeError(state, script, command, message) {
+    addEvent(state, "CUTSCENE_SCRIPT_ERROR", {
+        triggerId: script.entityId,
+        lineNumber: command?.lineNumber || 0,
+        message
+    });
+}
+
+function skipCutsceneScript(state, script, issue) {
+    script.active = false;
+    script.completed = true;
+    script.commandIndex = 0;
+    script.commandTime = 0;
+    script.commandStartedAt = null;
+    script.startedAt = null;
+    script.completedAt = state.clock.time;
+    script.animationOverrides = {};
+    state.story.cutscene = null;
+    if (script.entityId) setWorldEntityState(state, script.entityId, "consumed");
+    addEvent(state, "CUTSCENE_SCRIPT_SKIPPED", {
+        triggerId: script.entityId,
+        characterId: issue?.characterId || null,
+        reason: issue?.reason || "invalidParticipant"
+    });
+}
+
+function startCutsceneScript(state, script) {
+    const invalidParticipant = cutsceneScriptInvalidParticipant(state, script);
+    if (invalidParticipant) {
+        skipCutsceneScript(state, script, invalidParticipant);
+        return false;
+    }
+
+    script.active = true;
+    script.completed = false;
+    script.commandIndex = 0;
+    script.commandTime = 0;
+    script.commandStartedAt = null;
+    script.startedAt = state.clock.time;
+    script.completedAt = null;
+    script.animationOverrides = {};
+    state.story.cutscene = script;
+    if (script.entityId) setWorldEntityState(state, script.entityId, "consumed");
+    if (state.equipment?.rocket?.attachedBoosting) {
+        // Player-held boost is an input-driven action. End it when story control
+        // starts; passive Flight power-up physics may continue independently.
+        stopAttachedBoost(state, "cutscene");
+    }
+    if (state.player.onGround) {
+        // Ground movement is player intent and stops when story control begins.
+        state.player.vx = 0;
+        state.player.vy = 0;
+    }
+    // Airborne velocity is passive physics and continues until/unless a
+    // GOTO wizard command explicitly takes ownership of movement.
+    state.player.ax = 0;
+    state.player.ay = 0;
+    addEvent(state, "CUTSCENE_SCRIPT_STARTED", { triggerId: script.entityId });
+    if (script.parseErrors.length) {
+        for (const message of script.parseErrors) cutsceneRuntimeError(state, script, null, message);
+    }
+    return true;
+}
+
+function completeCutsceneScript(state, script) {
+    script.active = false;
+    script.completed = true;
+    script.completedAt = state.clock.time;
+    script.commandTime = 0;
+    script.commandStartedAt = null;
+    for (const characterId of Object.keys(script.animationOverrides || {})) {
+        const character = cutsceneCharacter(state, characterId);
+        if (character?.kind === "enemy") {
+            // ANIM owns presentation only. Releasing an override must not erase
+            // passive jump/fall momentum that continued during the cutscene.
+            setCharacterEnemyAnimation(character.actor, character.actor?.locomotion === "flying" ? "fly" : "idle");
+        }
+    }
+    script.animationOverrides = {};
+    if (state.player.onGround) {
+        state.player.vx = 0;
+        state.player.vy = 0;
+    }
+    state.story.cutscene = null;
+    addEvent(state, "CUTSCENE_SCRIPT_COMPLETED", { triggerId: script.entityId });
+}
+
+function updateCutsceneCamera(state, dt) {
+    const p = state.player;
+    state.camera.currentTransform.x += (p.currentTransform.x - state.camera.currentTransform.x) * Math.min(1, dt * 5);
+    state.camera.currentTransform.y += (p.currentTransform.y - 170 - state.camera.currentTransform.y) * Math.min(1, dt * 5);
+}
+
+function updateCutsceneScript(state, input, dt) {
+    let script = state.story?.cutscene || null;
+    if (!script) {
+        for (const candidate of state.story?.cutsceneScripts || []) {
+            if (candidate.completed || candidate.active) continue;
+            const entity = worldEntityById(state, candidate.entityId);
+            if (!entity || state.player.visible === false || state.player.combatState === "dead") continue;
+            const horizontalDistance = Math.abs(state.player.currentTransform.x - (Number(entity.x) || 0));
+            const verticalDistance = Math.abs(state.player.currentTransform.y - (Number(entity.y) || 0));
+            if (horizontalDistance <= candidate.triggerDistance && verticalDistance <= candidate.verticalTolerance) {
+                if (startCutsceneScript(state, candidate)) script = candidate;
+                break;
+            }
+        }
+        if (!script) return false;
+    }
+
+    if (script.parseErrors.length || script.commands.length === 0 || script.commandIndex >= script.commands.length) {
+        completeCutsceneScript(state, script);
+        return false;
+    }
+
+    const command = script.commands[script.commandIndex];
+    const activeGotoCharacterId = command?.type === "GOTO" ? command.characterId : null;
+    advanceCutsceneEnemyAnimations(state, script, dt, activeGotoCharacterId);
+    const commandStarting = script.commandStartedAt === null;
+    if (commandStarting) script.commandStartedAt = state.clock.time;
+
+    if (command.type === "ANIM") {
+        if (!setCutsceneAnimationOverride(state, script, command.characterId, command.animationName)) {
+            cutsceneRuntimeError(state, script, command, `Unknown character "${command.characterId}".`);
+        }
+        script.commandIndex += 1;
+        script.commandTime = 0;
+        script.commandStartedAt = null;
+    } else if (command.type === "GOTO") {
+        const character = cutsceneCharacter(state, command.characterId);
+        if (character && commandStarting) {
+            // A GOTO command owns authored motion. Detach only when the command
+            // actually starts so SAY/DELAY participants may still ride platforms.
+            detachCutsceneCharacterFromMovingPlatform(character);
+            if (character.kind === "enemy") {
+                // A scripted relocation invalidates any route planned from the
+                // actor's old support/position. Force ordinary AI to replan from
+                // the authored endpoint once the cutscene releases it.
+                clearCharacterEnemyNavigationPlan(character.actor);
+                character.actor.routeRepathTimer = 0;
+                character.actor.navigationFailureCount = 0;
+            }
+        }
+        if (!character) {
+            cutsceneRuntimeError(state, script, command, `Unknown character "${command.characterId}".`);
+            script.commandIndex += 1;
+            script.commandTime = 0;
+            script.commandStartedAt = null;
+        } else {
+            const position = cutsceneCharacterPosition(character);
+            const dx = command.x - position.x;
+            const dy = command.y - position.y;
+            const distance = Math.hypot(dx, dy);
+            const speed = command.speed ?? cutsceneCharacterNormalSpeed(state, character);
+            if (distance <= 0.5) {
+                setCutsceneCharacterMotion(state, character, command.x, command.y, 0, 0);
+                releaseCutsceneCharacterGotoMotion(state, character);
+                restoreCutsceneEnemyAnimation(script, character);
+                script.commandIndex += 1;
+                script.commandTime = 0;
+                script.commandStartedAt = null;
+            } else {
+                const travel = Math.min(distance, Math.max(0, speed) * dt);
+                const ux = dx / distance;
+                const uy = dy / distance;
+                const arrived = travel >= distance - 0.000001;
+                setCutsceneCharacterMotion(
+                    state,
+                    character,
+                    arrived ? command.x : position.x + ux * travel,
+                    arrived ? command.y : position.y + uy * travel,
+                    arrived ? 0 : ux * speed,
+                    arrived ? 0 : uy * speed
+                );
+                if (character.kind === "enemy") {
+                    const locomotionSlot = character.actor.locomotion === "flying" ? "fly" : "walk";
+                    if (character.actor.animationSlot !== locomotionSlot) setCharacterEnemyAnimation(character.actor, locomotionSlot);
+                    character.actor.animationClock.current = Math.max(0, Number(character.actor.animationClock.current) || 0) + dt;
+                }
+                script.commandTime += dt;
+                if (arrived) {
+                    releaseCutsceneCharacterGotoMotion(state, character);
+                    restoreCutsceneEnemyAnimation(script, character);
+                    script.commandIndex += 1;
+                    script.commandTime = 0;
+                    script.commandStartedAt = null;
+                }
+            }
+        }
+    } else if (command.type === "SAY" || command.type === "THINK") {
+        const character = cutsceneCharacter(state, command.characterId);
+        if (!character) {
+            cutsceneRuntimeError(state, script, command, `Unknown character "${command.characterId}".`);
+            script.commandIndex += 1;
+            script.commandTime = 0;
+            script.commandStartedAt = null;
+        } else {
+            const startedThisFrame = script.commandTime <= 0.000001;
+            script.commandTime += dt;
+            const skipped = !startedThisFrame && Boolean(input.jumpPressed || input.weaponPressed);
+            if (skipped || script.commandTime >= command.duration) {
+                script.commandIndex += 1;
+                script.commandTime = 0;
+                script.commandStartedAt = null;
+            }
+        }
+    } else if (command.type === "DELAY") {
+        script.commandTime += dt;
+        if (script.commandTime >= command.duration) {
+            script.commandIndex += 1;
+            script.commandTime = 0;
+            script.commandStartedAt = null;
+        }
+    }
+
+    if (script.commandIndex >= script.commands.length) {
+        completeCutsceneScript(state, script);
+        return false;
+    }
+
+    state.player.ax = 0;
+    state.player.ay = 0;
+    updateCutsceneCamera(state, dt);
+    return true;
+}
+
 function proximityTextEntities(entities) {
     return (entities || []).filter((entity) =>
         entity?.type === "proximityText" || entity?.interaction === "proximityText"
@@ -2451,6 +3051,7 @@ function removeSignalEntityFromWorld(state, target) {
         enemy.supportId = null;
         enemy.ridingPlatformId = null;
         enemy.currentSupportId = null;
+        if (enemy.locomotion !== "flying") enemy.airborne = true;
     }
 
     if (state.world.entityStates) delete state.world.entityStates[entityId];
@@ -2687,6 +3288,64 @@ function clearDeathResetPowerUps(state) {
             delete activeEffects[effectId];
         }
     }
+}
+
+function clearLevelStartTransientStatus(state) {
+    // Permanent upgrades live in playerProgression and are deliberately retained.
+    // A successful level load starts from clean transient movement/status state.
+    state.statusEffects = { active: {} };
+    if (state.health) {
+        state.health.lastDamagedAt = null;
+        state.health.invulnerabilityTimer = 0;
+        state.health.contactInvulnerabilityTimer = 0;
+        state.health.regenerating = false;
+        state.health.low = false;
+    }
+    if (state.fuel) {
+        state.fuel.rechargeDelayTimer = 0;
+        state.fuel.rechargeLatched = false;
+    }
+    const rocket = state.equipment?.rocket;
+    if (rocket) {
+        rocket.state = "mountedReady";
+        rocket.attachedBoosting = false;
+        rocket.attachedBoostTime = 0;
+        rocket.boostKickCharge = state.tuning?.attachedBoostKickChargeMax ?? 1;
+        rocket.boostBurstTimer = 0;
+        rocket.boostAccelerationNow = 0;
+        rocket.boostVisualPowerNow = 0;
+        rocket.attachedSmokeTimer = 0;
+        rocket.fuelBulbFlashTimer = 0;
+    }
+    if (state.player) {
+        state.player.vx = 0;
+        state.player.vy = 0;
+        state.player.ax = 0;
+        state.player.ay = 0;
+        state.player.onGround = false;
+        state.player.wasOnGround = false;
+        state.player.airborneTime = 0;
+        state.player.coyoteTimer = 0;
+        state.player.supportId = null;
+        state.player.groundStride = null;
+        state.player.dropThroughTimer = 0;
+        state.player.inWater = false;
+        state.player.waterSubmersion = 0;
+        state.player.waterRegionId = null;
+        state.player.crushCandidateTicks = 0;
+        state.player.crushCandidateKey = null;
+        state.player.crushCandidateDetail = null;
+        state.player.airBoostArmed = false;
+        state.player.ordinaryJumpActive = false;
+        state.player.ordinaryJumpStartY = null;
+        state.player.ordinaryJumpApexY = null;
+        state.player.lowHealthPulse = 0;
+    }
+    // Projectiles and transient world particles belong to the level that emitted
+    // them. A level boundary is a hard simulation boundary: none may hitchhike
+    // into the newly loaded world.
+    if (Array.isArray(state.projectiles)) state.projectiles.length = 0;
+    if (Array.isArray(state.effects?.smokePuffs)) state.effects.smokePuffs.length = 0;
 }
 
 function updatePickupRespawns(state, dt) {
@@ -3166,6 +3825,7 @@ function setMovingPlatformCollisionAttached(state, platform, attached) {
             enemy.supportId = null;
             enemy.ridingPlatformId = null;
             enemy.currentSupportId = null;
+            if (enemy.locomotion !== "flying") enemy.airborne = true;
         }
     }
     platform.collisionAttached = shouldAttach;
@@ -3481,7 +4141,7 @@ function resetMovingPlatforms(state, reason = "playerReset") {
     let resetCount = 0;
     for (const platform of state.world?.movingPlatforms || []) {
         const movement = platform.movement;
-        if (!movement) continue;
+        if (!movement || movement.persistent) continue;
         setMovingPlatformPosition(state, platform, platform.startX, platform.startY);
         setMovingPlatformOpacity(state, platform, 1);
         setMovingPlatformCollisionAttached(state, platform, true);
@@ -3647,6 +4307,7 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         spawnY: finiteNumberOr(entity.spawnY, y),
         width,
         height,
+        enemyScale,
         health,
         maxHealth: health,
         tuningBaseMaxHealth,
@@ -3817,6 +4478,7 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         projectilePathMargin: Math.max(0, finiteNumberOr(entity.projectilePathMargin, 0)),
         projectileVolleyCount: clamp(Math.round(finiteNumberOr(entity.spreadCount, finiteNumberOr(entity.projectileVolleyCount, 1))), 1, 15),
         projectileVolleyHalfAngle: Math.max(0, finiteNumberOr(entity.spreadAngle, finiteNumberOr(entity.projectileVolleyHalfAngle, 0))),
+        meleeHitRange: Math.max(0, finiteNumberOr(entity.meleeHitRange, 0)),
         meleeHitRadius: Math.max(1, finiteNumberOr(entity.meleeHitRadius, Math.max(12, finiteNumberOr(entity.attackRange, state.tuning.enemyDefaultAttackRange) * 0.5))),
         projectileRendererKind: String(entity.projectileRendererKind || projectileDefaults.rendererKind || "enemyFireball"),
         projectileVisualScale: Math.max(0.01, finiteNumberOr(entity.projectileVisualScale, finiteNumberOr(projectileDefaults.visualScale, 1))),
@@ -3829,13 +4491,23 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         projectileAreaDamageRadiusWizardHeights: Math.max(0, finiteNumberOr(entity.projectileAreaDamageRadiusWizardHeights, finiteNumberOr(projectileDefaults.areaDamageRadiusWizardHeights, 0))),
         projectileKnockbackX: finiteNumberOr(entity.projectileKnockbackX, state.tuning.enemyDefaultProjectileKnockbackX),
         projectileKnockbackY: finiteNumberOr(entity.projectileKnockbackY, state.tuning.enemyDefaultProjectileKnockbackY),
-        attackLungeDistance: Math.max(0, finiteNumberOr(entity.attackLungeDistance, state.tuning.enemyDefaultAttackLungeDistance)),
-        attackLungeSpeed: Math.max(0, finiteNumberOr(entity.attackLungeSpeed, state.tuning.enemyDefaultAttackLungeSpeed)),
+        lungeRangeMax: Math.max(0, finiteNumberOr(entity.lungeRangeMax, 0)),
+        lungeRangeMin: Math.max(0, finiteNumberOr(entity.lungeRangeMin, 0)),
+        lungeSpeed: Math.max(0, finiteNumberOr(entity.lungeSpeed, 0)),
+        lungeTargetDist: Math.max(0, finiteNumberOr(entity.lungeTargetDist, 0)),
         attackKnockbackX: Math.max(0, finiteNumberOr(entity.attackKnockbackX, state.tuning.enemyDefaultAttackKnockbackX)),
         attackKnockbackY: finiteNumberOr(entity.attackKnockbackY, state.tuning.enemyDefaultAttackKnockbackY),
         attackTimer: 0,
         attackCooldownTimer: 0,
-        attackLungeRemaining: 0,
+        attackLungeActive: false,
+        attackLungeStarted: false,
+        attackLungeTargetX: null,
+        attackLungeStartTime: 0,
+        attackLungeImpactTime: 0,
+        attackLungeVisualLaunchTime: 0,
+        attackLungeRateScale: 1,
+        attackHandoffDelay: 0,
+        attackRuntimeDuration: 0,
         attackHitApplied: false,
         hurtTimer: 0,
         deathTimer: health <= 0 ? Math.max(FIXED_DT, finiteNumberOr(entity.deathDuration, state.tuning.enemyDefaultDeathSeconds)) : 0,
@@ -3848,9 +4520,13 @@ function createCharacterEnemyRuntime(state, entity, index = 0) {
         healthBarTimer: 0,
         lastDamagedAt: null,
         lastHitBy: null,
-        renderOffsetX: (Number(entity.renderOffsetX) || 0) * enemyScale,
-        renderOffsetY: (Number(entity.renderOffsetY) || 0) * enemyScale,
-        visualized: false,
+        // Keep artwork offsets in authored character-local units. Presentation
+        // multiplies them by renderScale, which already includes enemyScale, so
+        // pre-scaling here would move the artwork origin by enemyScale twice.
+        renderOffsetX: Number(entity.renderOffsetX) || 0,
+        renderOffsetY: Number(entity.renderOffsetY) || 0,
+        // Historical name: true suppresses the ordinary enemy presentation; debug guides may still render.
+        visualized: entity.visualized === true,
         targetAnchorX: anchorX,
         targetAnchorY: anchorY,
         targetX: x - width * 0.5 + anchorX * width,
@@ -4013,6 +4689,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         return false;
     }
 
+    clearLevelStartTransientStatus(state);
+
     const bounds = hasAuthoredBounds
         ? {
             x: Number(authoredBounds.x),
@@ -4070,6 +4748,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
     state.story.mailboxEvents = [];
+    state.story.cutscene = null;
+    state.story.cutsceneScripts = [];
     state.story.symbolTriggers = [];
     state.story.overheadSymbol = null;
     state.story.proximityTexts = [];
@@ -4094,6 +4774,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     configurePortalIntro(state, runtimeEntities);
     configurePortalExit(state, runtimeEntities);
     configureMailboxStory(state, runtimeEntities);
+    configureCutsceneScripts(state, runtimeEntities);
     configureOverheadSymbolTriggers(state, runtimeEntities);
     configureProximityTexts(state, runtimeEntities);
     configureSignalSystem(state, runtimeEntities);
@@ -5163,17 +5844,7 @@ function pauseAndTurnCharacterEnemy(enemy) {
     setCharacterEnemyAnimation(enemy, "idle");
 }
 
-function characterEnemyAttackBlockedByTerrain(state, enemy) {
-    const player = state.player;
-    const start = {
-        x: enemy.currentTransform.x,
-        y: enemy.currentTransform.y - enemy.height * 0.5
-    };
-    const end = {
-        x: player.currentTransform.x,
-        y: player.currentTransform.y - player.height * 0.5
-    };
-
+function characterEnemyAttackSegmentBlockedByTerrain(state, start, end) {
     const terrainQueryBounds = {
         minX: Math.min(start.x, end.x),
         minY: Math.min(start.y, end.y),
@@ -5202,6 +5873,17 @@ function characterEnemyAttackBlockedByTerrain(state, enemy) {
         }
     }
     return false;
+}
+
+function characterEnemyAttackBlockedByTerrain(state, enemy) {
+    const player = state.player;
+    return characterEnemyAttackSegmentBlockedByTerrain(state, {
+        x: enemy.currentTransform.x,
+        y: enemy.currentTransform.y - enemy.height * 0.5
+    }, {
+        x: player.currentTransform.x,
+        y: player.currentTransform.y - player.height * 0.5
+    });
 }
 
 function playerIsAvailableCombatTarget(state) {
@@ -5976,67 +6658,235 @@ function moveCharacterEnemyToward(state, enemy, targetX, speed, dt, stopDistance
     return moved;
 }
 
-function advanceCharacterEnemyAttackLunge(state, enemy, previousElapsed, elapsed, hitTime, duration) {
-    if (enemy.attackMode === "projectile" || enemy.locomotion === "flying" || enemy.airborne === true) {
-        return 0;
+function characterEnemyAuthoredScale(enemy) {
+    return normalizeEnemyScale(enemy?.enemyScale ?? enemy?.scale, 1);
+}
+
+function characterEnemyMeleeHitRange(enemy) {
+    return Math.max(0, Number(enemy.meleeHitRange) || 0) * characterEnemyAuthoredScale(enemy);
+}
+
+function characterEnemyCloseAttackRange(enemy) {
+    const hitRange = characterEnemyMeleeHitRange(enemy);
+    return hitRange > 0 ? hitRange : Math.max(1, Number(enemy.attackRange) || 1);
+}
+
+function characterEnemyLungeTargetDistance(enemy) {
+    const closeAttackRange = characterEnemyCloseAttackRange(enemy);
+    const authored = Math.max(0, Number(enemy.lungeTargetDist) || 0);
+    const scale = characterEnemyAuthoredScale(enemy);
+    return authored > 0 ? authored * scale : closeAttackRange * 0.75;
+}
+
+function characterEnemyHasLungeAttack(enemy) {
+    const lungeMin = Math.max(characterEnemyCloseAttackRange(enemy), Math.max(0, Number(enemy.lungeRangeMin) || 0));
+    const lungeMax = Math.max(0, Number(enemy.lungeRangeMax) || 0);
+    return enemy.attackMode !== "projectile"
+        && enemy.locomotion !== "flying"
+        && lungeMax > 0
+        && lungeMax + 0.001 >= lungeMin
+        && Math.max(0, Number(enemy.lungeSpeed) || 0) > 0;
+}
+
+function characterEnemyLungePathClear(state, enemy, targetX, origin = null) {
+    const startX = finiteNumberOr(origin?.x, enemy.currentTransform.x);
+    const startY = finiteNumberOr(origin?.y, enemy.currentTransform.y);
+    const dx = targetX - startX;
+    if (Math.abs(dx) <= 0.001) return true;
+    const direction = dx < 0 ? -1 : 1;
+    const probe = {
+        ...enemy,
+        currentTransform: { ...enemy.currentTransform, x: startX, y: startY },
+        previousTransform: { ...(enemy.previousTransform || enemy.currentTransform), x: startX, y: startY },
+        presentationTransform: { ...(enemy.presentationTransform || enemy.currentTransform), x: startX, y: startY }
+    };
+    const step = Math.max(4, Math.min(10, Math.max(1, Number(enemy.width) || 1) * 0.12));
+    let remaining = Math.abs(dx);
+    let guard = 0;
+    while (remaining > 0.001 && guard < 512) {
+        guard += 1;
+        const advance = Math.min(step, remaining);
+        const candidateX = probe.currentTransform.x + direction * advance;
+        const support = findCharacterEnemyWalkingSupport(state, probe, candidateX, direction);
+        if (!support || characterEnemyBodyBlockedAt(state, probe, candidateX, support.y, { groundSlope: support.slope })) {
+            return false;
+        }
+        if (Math.abs(support.y - probe.currentTransform.y) > Math.max(
+            Number(enemy.maxDropDistance) || 0,
+            Number(enemy.maxStepHeight) || 0,
+            4
+        ) + 0.001) {
+            return false;
+        }
+        probe.currentTransform.x = candidateX;
+        probe.currentTransform.y = support.y;
+        remaining -= advance;
     }
-    const remaining = Math.max(0, Number(enemy.attackLungeRemaining) || 0);
-    const totalDistance = Math.max(0, Number(enemy.attackLungeDistance) || 0);
-    const speed = Math.max(0, Number(enemy.attackLungeSpeed) || 0);
-    if (remaining <= 0.0001 || totalDistance <= 0.0001 || speed <= 0.0001 || !playerIsAvailableCombatTarget(state)) {
-        return 0;
+    return remaining <= 0.001;
+}
+
+function characterEnemyCanStartMeleeAttackFromPoint(state, enemy, point) {
+    if (!playerIsAvailableCombatTarget(state)) return false;
+    const player = state.player;
+    const horizontalDistance = Math.abs(player.currentTransform.x - point.x);
+    const enemyCenterY = point.y - enemy.height * 0.55;
+    const playerCenterY = player.currentTransform.y - player.height * 0.5;
+    if (Math.abs(playerCenterY - enemyCenterY) > Math.max(1, Number(enemy.attackVerticalRange) || 1)) {
+        return false;
     }
 
-    // Make the authored lunge lead directly into the first melee handoff instead
-    // of firing immediately at attack start. Attack-rate scaling changes the
-    // real-time duration of this window together with the attack animation.
+    const closeAttackRange = characterEnemyCloseAttackRange(enemy);
+    if (horizontalDistance <= closeAttackRange) {
+        return !characterEnemyAttackBlockedFromPoint(state, enemy, point.x, point.y);
+    }
+
+    if (!characterEnemyHasLungeAttack(enemy)) {
+        return false;
+    }
+
+    const lungeMin = Math.max(closeAttackRange, Number(enemy.lungeRangeMin) || 0);
+    const lungeMax = Math.max(0, Number(enemy.lungeRangeMax) || 0);
+    if (lungeMax + 0.001 < lungeMin
+        || horizontalDistance + 0.001 < lungeMin
+        || horizontalDistance - 0.001 > lungeMax) {
+        return false;
+    }
+    const facing = player.currentTransform.x < point.x ? -1 : 1;
+    const targetX = player.currentTransform.x - facing * characterEnemyLungeTargetDistance(enemy);
+    if ((targetX - point.x) * facing <= 0.001) return false;
+    return characterEnemyLungePathClear(state, enemy, targetX, point);
+}
+
+function attackAuthoredImpactTime(enemy, duration) {
     const firstHandoff = Array.isArray(enemy.attackHandoffs) && enemy.attackHandoffs.length
         ? enemy.attackHandoffs[0]
         : null;
-    const impactTime = clamp(
-        finiteNumberOr(firstHandoff?.releaseTime, hitTime),
-        0,
-        Math.max(FIXED_DT, Number(duration) || FIXED_DT)
-    );
-    const lungeDuration = totalDistance / speed;
-    const lungeStartTime = Math.max(0, impactTime - lungeDuration);
+    return clamp(finiteNumberOr(firstHandoff?.releaseTime, enemy.attackHitTime), 0, Math.max(FIXED_DT, duration));
+}
+
+function attackVisualElapsed(enemy, realElapsed, authoredDuration) {
+    if (enemy.attackLungeActive !== true
+        || enemy.attackLungeStarted !== true
+        || (Number(enemy.attackHandoffDelay) || 0) <= 0) {
+        return clamp(realElapsed, 0, authoredDuration);
+    }
+    const holdStart = clamp(Number(enemy.attackLungeStartTime) || 0, 0, authoredDuration);
+    const holdEnd = Math.max(holdStart, Number(enemy.attackLungeImpactTime) || holdStart);
+    if (realElapsed <= holdStart + 0.000001) return clamp(realElapsed, 0, authoredDuration);
+    if (realElapsed <= holdEnd + 0.000001) return holdStart;
+    return clamp(realElapsed - (Number(enemy.attackHandoffDelay) || 0), 0, authoredDuration);
+}
+
+function moveCharacterEnemyLungeToward(state, enemy, targetX, speed, dt) {
+    if (!(speed > 0) || !(dt > 0)) return 0;
+    const maxStep = Math.max(4, Math.min(10, Math.max(1, Number(enemy.width) || 1) * 0.12));
+    let remainingDt = dt;
+    let movedTotal = 0;
+    let guard = 0;
+    while (remainingDt > 0.000001 && guard < 512) {
+        guard += 1;
+        const remainingDistance = Math.abs(targetX - enemy.currentTransform.x);
+        if (remainingDistance <= 0.0001) break;
+        const stepDistance = Math.min(remainingDistance, speed * remainingDt, maxStep);
+        if (stepDistance <= 0.000001) break;
+        const stepDt = stepDistance / speed;
+        const moved = moveCharacterEnemyToward(state, enemy, targetX, speed, stepDt, 0);
+        movedTotal += moved;
+        remainingDt = Math.max(0, remainingDt - stepDt);
+        if (moved + 0.001 < stepDistance) break;
+    }
+    return movedTotal;
+}
+
+function advanceCharacterEnemyAttackLunge(state, enemy, previousElapsed, elapsed) {
+    if (enemy.attackLungeActive !== true || enemy.locomotion === "flying" || enemy.airborne === true) {
+        return 0;
+    }
+    const speed = Math.max(0, Number(enemy.lungeSpeed) || 0);
+    if (!(speed > 0) || !playerIsAvailableCombatTarget(state)) {
+        return 0;
+    }
+
+    const lungeStartTime = Math.max(0, Number(enemy.attackLungeStartTime) || 0);
+    const attackRateScale = Math.max(0.0001, Number(enemy.attackLungeRateScale) || characterEnemyAttackRateScale(enemy, state.tuning));
+    if (enemy.attackLungeStarted !== true) {
+        if ((Number(elapsed) || 0) + 0.000001 < lungeStartTime) return 0;
+        const targetX = state.player.currentTransform.x - enemy.facing * characterEnemyLungeTargetDistance(enemy);
+        if ((targetX - enemy.currentTransform.x) * enemy.facing <= 0.001
+            || !characterEnemyLungePathClear(state, enemy, targetX)) {
+            const authoredDuration = Math.max(FIXED_DT, Number(enemy.attackDuration) || state.tuning.enemyDefaultAttackDuration || 0.44);
+            clearCharacterEnemyAttackLunge(enemy);
+            enemy.attackRuntimeDuration = authoredDuration;
+            enemy.attackTimer = Math.max(0, authoredDuration - Math.max(0, Number(elapsed) || 0));
+            return 0;
+        }
+
+        const authoredDuration = Math.max(FIXED_DT, Number(enemy.attackDuration) || state.tuning.enemyDefaultAttackDuration || 0.44);
+        const travelTime = Math.abs(targetX - enemy.currentTransform.x) / speed;
+        // attackTimer advances in attack-clock seconds. Convert the real world-space
+        // travel duration into that clock so lungeSpeed remains true px/s even when
+        // global melee attack-rate tuning changes wind-up/follow-through speed.
+        const handoffDelay = Math.max(0, travelTime * attackRateScale);
+        const realImpact = lungeStartTime + handoffDelay;
+        enemy.attackLungeTargetX = targetX;
+        enemy.attackLungeImpactTime = realImpact;
+        enemy.attackHandoffDelay = handoffDelay;
+        enemy.attackRuntimeDuration = Math.max(authoredDuration, Number(enemy.attackRuntimeDuration) || authoredDuration) + handoffDelay;
+        enemy.attackTimer = Math.max(0, Number(enemy.attackTimer) || 0) + handoffDelay;
+        enemy.attackLungeStarted = true;
+        addEvent(state, "ENEMY_LUNGE_STARTED", {
+            enemyId: enemy.id,
+            targetX: round(targetX),
+            speed: round(speed)
+        });
+    }
+
+    const targetX = Number(enemy.attackLungeTargetX);
+    if (!Number.isFinite(targetX)) return 0;
     const activeStart = Math.max(Number(previousElapsed) || 0, lungeStartTime);
-    const activeEnd = Math.min(Number(elapsed) || 0, impactTime);
-    const lungeDt = Math.max(0, activeEnd - activeStart);
-    if (lungeDt <= 0.000001) {
-        return 0;
-    }
+    const activeEnd = Math.min(Number(elapsed) || 0, Number(enemy.attackLungeImpactTime) || 0);
+    const lungeAttackDt = Math.max(0, activeEnd - activeStart);
+    if (lungeAttackDt <= 0.000001) return 0;
+    const lungeRealDt = lungeAttackDt / attackRateScale;
+    const remainingBefore = Math.abs(targetX - enemy.currentTransform.x);
+    const expectedMove = Math.min(remainingBefore, speed * lungeRealDt);
+    const moved = moveCharacterEnemyLungeToward(state, enemy, targetX, speed, lungeRealDt);
 
-    const player = state.player;
-    const enemyCenterY = enemy.currentTransform.y - enemy.height * 0.55;
-    const playerCenterY = player.currentTransform.y - player.height * 0.5;
-    if (Math.abs(playerCenterY - enemyCenterY) > Math.max(1, Number(enemy.attackVerticalRange) || 1)) {
-        return 0;
+    // Once an in-flight burst physically reaches a wall, ledge, or other newly
+    // introduced obstruction, that position is the end of the lunge. Do not hold
+    // the impact pose waiting for the travel time to the now-unreachable target,
+    // and do not resume toward it if the obstruction later disappears.
+    if (expectedMove > 0.001
+        && moved + 0.001 < expectedMove
+        && Math.abs(targetX - enemy.currentTransform.x) > 0.001) {
+        const oldDelay = Math.max(0, Number(enemy.attackHandoffDelay) || 0);
+        const consumedDelay = Math.max(0, activeStart - lungeStartTime)
+            + (moved / speed) * attackRateScale;
+        const newDelay = Math.min(oldDelay, consumedDelay);
+        const unusedDelay = Math.max(0, oldDelay - newDelay);
+        enemy.attackHandoffDelay = newDelay;
+        enemy.attackLungeImpactTime = lungeStartTime + newDelay;
+        enemy.attackLungeTargetX = enemy.currentTransform.x;
+        enemy.attackRuntimeDuration = Math.max(0, Number(enemy.attackRuntimeDuration) || 0) - unusedDelay;
+        enemy.attackTimer = Math.max(0, Number(enemy.attackTimer) || 0) - unusedDelay;
+        addEvent(state, "ENEMY_LUNGE_BLOCKED", {
+            enemyId: enemy.id,
+            x: round(enemy.currentTransform.x)
+        });
     }
-    if (characterEnemyAttackBlockedFromPoint(state, enemy, enemy.currentTransform.x, enemy.currentTransform.y)) {
-        return 0;
-    }
-
-    const dx = player.currentTransform.x - enemy.currentTransform.x;
-    if (Math.abs(dx) <= 0.001) {
-        return 0;
-    }
-    enemy.facing = dx < 0 ? -1 : 1;
-    const stopDistance = Math.max(
-        Math.max(1, Number(enemy.attackRange) || 1),
-        (Math.max(1, Number(enemy.width) || 1) + Math.max(1, Number(player.width) || 1)) * 0.5 - 4
-    );
-    const movementSpeed = Math.min(speed, remaining / lungeDt);
-    const moved = moveCharacterEnemyToward(
-        state,
-        enemy,
-        player.currentTransform.x,
-        movementSpeed,
-        lungeDt,
-        stopDistance
-    );
-    enemy.attackLungeRemaining = Math.max(0, remaining - moved);
     return moved;
+}
+
+function clearCharacterEnemyAttackLunge(enemy) {
+    enemy.attackLungeActive = false;
+    enemy.attackLungeStarted = false;
+    enemy.attackLungeTargetX = null;
+    enemy.attackLungeStartTime = 0;
+    enemy.attackLungeImpactTime = 0;
+    enemy.attackLungeVisualLaunchTime = 0;
+    enemy.attackLungeRateScale = 1;
+    enemy.attackHandoffDelay = 0;
+    enemy.attackRuntimeDuration = 0;
 }
 
 function startCharacterEnemyAttack(state, enemy) {
@@ -6044,9 +6894,9 @@ function startCharacterEnemyAttack(state, enemy) {
     if (Math.abs(dx) > 0.001) {
         enemy.facing = dx < 0 ? -1 : 1;
     }
-    enemy.combatState = ENEMY_COMBAT_STATE.ATTACKING;
-    enemy.movementPhase = "attack";
-    enemy.attackTimer = Math.max(
+    clearCharacterEnemyAttackLunge(enemy);
+
+    const authoredDuration = Math.max(
         FIXED_DT,
         Number(enemy.attackDuration) > 0
             ? Number(enemy.attackDuration)
@@ -6058,17 +6908,46 @@ function startCharacterEnemyAttack(state, enemy) {
             ? Number(enemy.projectileReleaseTime)
             : (Number(enemy.attackHitTime) || 0)
     );
+
+    if (enemy.attackMode !== "projectile" && characterEnemyHasLungeAttack(enemy)) {
+        const horizontalDistance = Math.abs(dx);
+        const closeAttackRange = characterEnemyCloseAttackRange(enemy);
+        const lungeMin = Math.max(closeAttackRange, Number(enemy.lungeRangeMin) || 0);
+        const lungeMax = Math.max(0, Number(enemy.lungeRangeMax) || 0);
+        if (lungeMax + 0.001 >= lungeMin
+            && horizontalDistance > closeAttackRange + 0.001
+            && horizontalDistance + 0.001 >= lungeMin
+            && horizontalDistance - 0.001 <= lungeMax) {
+            const targetX = state.player.currentTransform.x - enemy.facing * characterEnemyLungeTargetDistance(enemy);
+            if ((targetX - enemy.currentTransform.x) * enemy.facing > 0.001
+                && characterEnemyLungePathClear(state, enemy, targetX)) {
+                const authoredImpact = attackAuthoredImpactTime(enemy, authoredDuration);
+                enemy.attackLungeActive = true;
+                enemy.attackLungeTargetX = null;
+                enemy.attackLungeStartTime = authoredImpact;
+                enemy.attackLungeImpactTime = authoredImpact;
+                enemy.attackLungeVisualLaunchTime = authoredImpact;
+                enemy.attackLungeRateScale = characterEnemyAttackRateScale(enemy, state.tuning);
+                enemy.attackHandoffDelay = 0;
+                enemy.attackRuntimeDuration = authoredDuration;
+            }
+        }
+    }
+
+    enemy.combatState = ENEMY_COMBAT_STATE.ATTACKING;
+    enemy.movementPhase = "attack";
+    enemy.attackRuntimeDuration = Math.max(authoredDuration, Number(enemy.attackRuntimeDuration) || 0);
+    enemy.attackTimer = enemy.attackRuntimeDuration;
     enemy.attackHitApplied = false;
     enemy.nextAttackHandoffIndex = 0;
-    enemy.attackLungeRemaining = enemy.attackMode === "projectile"
-        ? 0
-        : Math.max(0, Number(enemy.attackLungeDistance) || 0);
     setCharacterEnemyAnimation(enemy, "attack");
+    enemy.animationClock.current = 0;
     addEvent(state, "ENEMY_ATTACK_STARTED", {
         enemyId: enemy.id,
         characterId: enemy.characterId,
         damage: round(enemy.attackMode === "projectile" ? enemy.projectileDamage : enemy.attackDamage),
         attackMode: enemy.attackMode,
+        lunge: enemy.attackLungeActive === true,
         facing: enemy.facing
     });
 }
@@ -6083,7 +6962,7 @@ function enemyAttackHandoffPoint(enemy, handoff) {
             enemy.facing
         );
         const authoredScale = Math.max(0.0001, Number(handoff.rigScale) || 1)
-            * Math.max(0.05, normalizeEnemyScale(enemy.scale, 1));
+            * Math.max(0.05, Number(enemy.currentTransform?.scaleX) || 1);
         return {
             x: artworkOrigin.x + finiteNumberOr(handoff.originLocalX, 0) * authoredScale * direction,
             y: artworkOrigin.y + finiteNumberOr(handoff.originLocalY, 0) * authoredScale
@@ -6110,19 +6989,59 @@ function applyCharacterEnemyAttackHandoff(enemy, handoff) {
 }
 
 function applyCharacterEnemyMeleeHandoff(state, enemy, handoff) {
-    const origin = enemyAttackHandoffPoint(enemy, handoff);
-    const radius = Math.max(1, Number(enemy.meleeHitRadius) || Math.max(12, Number(enemy.attackRange) * 0.45))
-        * Math.max(0.05, normalizeEnemyScale(enemy.scale, 1));
-    const hit = playerIsAvailableCombatTarget(state) && circleRectOverlap(origin.x, origin.y, radius, getPlayerRect(state));
-    if (!hit) {
-        addEvent(state, "ENEMY_ATTACK_MISSED", {
-            enemyId: enemy.id,
-            handoffPartName: handoff?.partName || null,
-            x: round(origin.x),
-            y: round(origin.y),
-            radius: round(radius)
-        });
-        return false;
+    if (Number(enemy.meleeHitRange) > 0) {
+        const hitRange = characterEnemyMeleeHitRange(enemy);
+        const handoffPoint = enemyAttackHandoffPoint(enemy, handoff);
+        const direction = enemy.facing < 0 ? -1 : 1;
+        // The authored handoff marks the visible far end of the strike. The melee
+        // range reaches backward from that point, avoiding the old double-counting
+        // where a full extra range was projected beyond the sword tip.
+        const strikeStart = { x: handoffPoint.x - direction * hitRange, y: handoffPoint.y };
+        const strikeEnd = handoffPoint;
+        const strikeTolerance = Math.max(4, Math.min(10, Math.max(1, Number(enemy.height) || 1) * 0.05));
+        const playerRect = getPlayerRect(state);
+        const strikePlayerRect = {
+            x: playerRect.x - strikeTolerance,
+            y: playerRect.y - strikeTolerance,
+            w: playerRect.w + strikeTolerance * 2,
+            h: playerRect.h + strikeTolerance * 2
+        };
+        const playerHit = playerIsAvailableCombatTarget(state)
+            ? segmentRectIntersection(strikeStart, strikeEnd, strikePlayerRect)
+            : null;
+        let blocked = false;
+        if (playerHit) {
+            const hitPoint = {
+                x: strikeStart.x + (strikeEnd.x - strikeStart.x) * playerHit.t,
+                y: strikeStart.y + (strikeEnd.y - strikeStart.y) * playerHit.t
+            };
+            blocked = characterEnemyAttackSegmentBlockedByTerrain(state, strikeStart, hitPoint);
+        }
+        if (!playerHit || blocked) {
+            addEvent(state, "ENEMY_ATTACK_MISSED", {
+                enemyId: enemy.id,
+                handoffPartName: handoff?.partName || null,
+                x: round(handoffPoint.x),
+                y: round(handoffPoint.y),
+                reach: round(hitRange)
+            });
+            return false;
+        }
+    } else {
+        const origin = enemyAttackHandoffPoint(enemy, handoff);
+        const radius = Math.max(1, Number(enemy.meleeHitRadius) || Math.max(12, Number(enemy.attackRange) * 0.45))
+            * characterEnemyAuthoredScale(enemy);
+        const hit = playerIsAvailableCombatTarget(state) && circleRectOverlap(origin.x, origin.y, radius, getPlayerRect(state));
+        if (!hit) {
+            addEvent(state, "ENEMY_ATTACK_MISSED", {
+                enemyId: enemy.id,
+                handoffPartName: handoff?.partName || null,
+                x: round(origin.x),
+                y: round(origin.y),
+                radius: round(radius)
+            });
+            return false;
+        }
     }
     const result = damagePlayer(state, enemy.attackDamage, enemy.id, {
         knockbackX: enemy.facing * enemy.attackKnockbackX,
@@ -6131,30 +7050,30 @@ function applyCharacterEnemyMeleeHandoff(state, enemy, handoff) {
     addEvent(state, result.damage > 0 ? "ENEMY_ATTACK_HIT" : "ENEMY_ATTACK_BLOCKED", {
         enemyId: enemy.id,
         damage: round(result.damage),
-        health: round(state.health.amount),
-        handoffPartName: handoff?.partName || null,
-        x: round(origin.x),
-        y: round(origin.y),
-        radius: round(radius)
+        health: round(result.health)
     });
     return result.damage > 0;
 }
 
 function updateCharacterEnemyAttack(state, enemy, dt) {
-    const duration = Math.max(FIXED_DT, Number(enemy.attackDuration) || state.tuning.enemyDefaultAttackDuration || 0.44);
+    const authoredDuration = Math.max(FIXED_DT, Number(enemy.attackDuration) || state.tuning.enemyDefaultAttackDuration || 0.44);
+    const runtimeDuration = Math.max(authoredDuration, Number(enemy.attackRuntimeDuration) || authoredDuration);
     const attackDt = Math.max(0, Number(dt) || 0) * characterEnemyAttackRateScale(enemy, state.tuning);
-    const previousElapsed = duration - Math.max(0, Number(enemy.attackTimer) || 0);
+    const previousElapsed = runtimeDuration - Math.max(0, Number(enemy.attackTimer) || 0);
     enemy.attackTimer = Math.max(0, (Number(enemy.attackTimer) || 0) - attackDt);
-    const elapsed = duration - enemy.attackTimer;
-    const hitTime = clamp(Number(enemy.attackHitTime) || 0, 0, duration);
+    const elapsed = runtimeDuration - enemy.attackTimer;
+    const hitTime = clamp(Number(enemy.attackHitTime) || 0, 0, authoredDuration);
 
-    enemy.facing = (Number(enemy.panicTimer) || 0) > 0
-        ? (Math.cos(Number(enemy.panicAttackAngle) || 0) < 0 ? -1 : 1)
-        : (state.player.currentTransform.x < enemy.currentTransform.x ? -1 : 1);
+    if (enemy.attackLungeActive !== true) {
+        enemy.facing = (Number(enemy.panicTimer) || 0) > 0
+            ? (Math.cos(Number(enemy.panicAttackAngle) || 0) < 0 ? -1 : 1)
+            : (state.player.currentTransform.x < enemy.currentTransform.x ? -1 : 1);
+    }
     enemy.combatState = ENEMY_COMBAT_STATE.ATTACKING;
-    enemy.movementPhase = "attack";
+    enemy.movementPhase = enemy.attackLungeStarted === true ? "lunge" : "attack";
     setCharacterEnemyAnimation(enemy, "attack");
-    advanceCharacterEnemyAttackLunge(state, enemy, previousElapsed, elapsed, hitTime, duration);
+    advanceCharacterEnemyAttackLunge(state, enemy, previousElapsed, elapsed);
+    enemy.animationClock.current = attackVisualElapsed(enemy, elapsed, authoredDuration);
 
     const handoffs = Array.isArray(enemy.attackHandoffs) && enemy.attackHandoffs.length
         ? enemy.attackHandoffs
@@ -6175,7 +7094,11 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
     let handoffIndex = clamp(Math.round(finiteNumberOr(enemy.nextAttackHandoffIndex, 0)), 0, handoffs.length);
     while (handoffIndex < handoffs.length) {
         const handoff = handoffs[handoffIndex];
-        const releaseTime = clamp(finiteNumberOr(handoff.releaseTime, hitTime), 0, duration);
+        const authoredReleaseTime = clamp(finiteNumberOr(handoff.releaseTime, hitTime), 0, authoredDuration);
+        const releaseTime = authoredReleaseTime
+            + (authoredReleaseTime + 0.000001 >= Math.max(0, Number(enemy.attackLungeStartTime) || 0)
+                ? Math.max(0, Number(enemy.attackHandoffDelay) || 0)
+                : 0);
         if (!(previousElapsed <= releaseTime + 0.000001 && elapsed + 0.000001 >= releaseTime)) {
             break;
         }
@@ -6217,7 +7140,7 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
         enemy.movementPhase = "idle";
         enemy.phaseTimer = 0;
         enemy.attackCooldownTimer = Math.max(0, Number(enemy.attackCooldown) || 0);
-        enemy.attackLungeRemaining = 0;
+        clearCharacterEnemyAttackLunge(enemy);
         enemy.attackHitApplied = false;
         enemy.nextAttackHandoffIndex = 0;
         setCharacterEnemyAnimation(enemy, "idle");
@@ -6323,228 +7246,6 @@ function characterEnemyNavigationAdjustedEdge(state, edge, graph = null) {
     return adjustedCost === Number(edge.cost) ? edge : { ...edge, cost: adjustedCost };
 }
 
-function movingPlatformAtEndpoint(state, platform, endpoint, tolerance = 1.5) {
-    const visual = movingPlatformVisual(state, platform);
-    if (!visual) return false;
-    const targetX = endpoint === "end" ? platform.endX : platform.startX;
-    const targetY = endpoint === "end" ? platform.endY : platform.startY;
-    const transform = currentTransformOf(visual);
-    return Math.hypot((Number(transform.x) || 0) - targetX, (Number(transform.y) || 0) - targetY) <= tolerance;
-}
-
-function movingPlatformNavigationSupports(state) {
-    const supports = [];
-    for (const platform of state.world?.movingPlatforms || []) {
-        if (platform.movement?.pattern !== "shuttle" || !["automatic", "rider"].includes(platform.movement?.activation)) {
-            continue;
-        }
-        const visual = movingPlatformVisual(state, platform);
-        if (!visual) continue;
-        const visualTransform = currentTransformOf(visual);
-        const currentOffsetX = (Number(visualTransform.x) || 0) - platform.startX;
-        const currentOffsetY = (Number(visualTransform.y) || 0) - platform.startY;
-        const candidates = (platform.segments || [])
-            .filter((segment) => ["walkable", "blockable"].includes(segment.kind))
-            .map((segment) => {
-                const x1 = Number(segment.x1) || 0;
-                const y1 = Number(segment.y1) || 0;
-                const x2 = Number(segment.x2) || 0;
-                const y2 = Number(segment.y2) || 0;
-                const dx = x2 - x1;
-                return {
-                    segment,
-                    x1,
-                    y1,
-                    x2,
-                    y2,
-                    length: Math.hypot(dx, y2 - y1),
-                    midpointY: (y1 + y2) * 0.5,
-                    horizontalShare: Math.abs(dx) / Math.max(0.001, Math.hypot(dx, y2 - y1))
-                };
-            })
-            .filter((candidate) => candidate.length >= 12 && candidate.horizontalShare >= 0.78);
-        if (!candidates.length) continue;
-        const topY = Math.min(...candidates.map((candidate) => candidate.midpointY));
-        const topCandidates = candidates.filter((candidate) => candidate.midpointY <= topY + 8);
-        for (const candidate of topCandidates) {
-            const base = {
-                kind: "movingPlatform",
-                x1: candidate.x1 - currentOffsetX,
-                y1: candidate.y1 - currentOffsetY,
-                x2: candidate.x2 - currentOffsetX,
-                y2: candidate.y2 - currentOffsetY,
-                movingPlatformId: platform.id,
-                collisionId: candidate.segment.id,
-                sourcePolygonId: `movingPlatform:${platform.id}`,
-                obstacleXMin: null,
-                obstacleXMax: null
-            };
-            const pairId = `${platform.id}:${candidate.segment.id}`;
-            for (const endpoint of ["start", "end"]) {
-                const offsetX = endpoint === "end" ? platform.endX - platform.startX : 0;
-                const offsetY = endpoint === "end" ? platform.endY - platform.startY : 0;
-                const x1 = base.x1 + offsetX;
-                const y1 = base.y1 + offsetY;
-                const x2 = base.x2 + offsetX;
-                const y2 = base.y2 + offsetY;
-                supports.push({
-                    ...base,
-                    id: `moving:${pairId}:${endpoint}`,
-                    x1,
-                    y1,
-                    x2,
-                    y2,
-                    xMin: Math.min(x1, x2),
-                    xMax: Math.max(x1, x2),
-                    platformEndpoint: endpoint,
-                    platformPairId: pairId
-                });
-            }
-        }
-    }
-    return supports;
-}
-
-function movingPlatformNavigationBundle(state, options, staticSupports, staticEdgeMap) {
-    const world = state.world;
-    if (!world || !(staticEdgeMap instanceof Map)) {
-        return { supports: staticSupports, edgeMap: staticEdgeMap };
-    }
-    const profileKey = enemyNavigationProfileKey(options);
-    let worldCache = MOVING_PLATFORM_NAVIGATION_CACHE.get(world);
-    if (!worldCache) {
-        worldCache = new Map();
-        MOVING_PLATFORM_NAVIGATION_CACHE.set(world, worldCache);
-    }
-    const cached = worldCache.get(profileKey);
-    if (cached) {
-        return cached;
-    }
-
-    const platformSupports = movingPlatformNavigationSupports(state);
-    if (!platformSupports.length) {
-        const staticBundle = { supports: staticSupports, edgeMap: staticEdgeMap };
-        worldCache.set(profileKey, staticBundle);
-        return staticBundle;
-    }
-
-    const supports = [...staticSupports, ...platformSupports];
-    const generated = buildEnemyNavigationEdges(supports, { ...options, world });
-    const extraEdges = new Map(supports.map((support) => [support.id, []]));
-    const supportById = new Map(supports.map((support) => [support.id, support]));
-    for (const [fromId, edges] of generated) {
-        const from = supportById.get(fromId);
-        for (const edge of edges || []) {
-            const to = supportById.get(edge.to);
-            const involvesPlatform = Boolean(from?.movingPlatformId || to?.movingPlatformId);
-            if (!involvesPlatform) continue;
-            if (from?.movingPlatformId && to?.movingPlatformId) continue;
-            // Boarding and disembarking are deliberate ground-level transfers.
-            // Hunters never guess ballistic jumps toward a platform that may move.
-            if (edge.type === "step") {
-                extraEdges.get(fromId).push({ ...edge, movingPlatformTransfer: true });
-            }
-        }
-    }
-
-    const pairs = new Map();
-    for (const support of platformSupports) {
-        const pair = pairs.get(support.platformPairId) || {};
-        pair[support.platformEndpoint] = support;
-        pairs.set(support.platformPairId, pair);
-    }
-    for (const pair of pairs.values()) {
-        if (!pair.start || !pair.end) continue;
-        const platform = (world.movingPlatforms || []).find((item) => item.id === pair.start.movingPlatformId);
-        if (!platform) continue;
-        const startCenterX = (pair.start.xMin + pair.start.xMax) * 0.5;
-        const endCenterX = (pair.end.xMin + pair.end.xMax) * 0.5;
-        const startY = (pair.start.y1 + pair.start.y2) * 0.5;
-        const endY = (pair.end.y1 + pair.end.y2) * 0.5;
-        const travelDistance = Math.hypot(endCenterX - startCenterX, endY - startY);
-        const pauseCost = (Math.max(0, platform.movement.startPause) + Math.max(0, platform.movement.endPause)) * options.runSpeed;
-        const cost = travelDistance + pauseCost;
-        extraEdges.get(pair.start.id).push({
-            id: `ride:${platform.id}:start:end`,
-            type: "ride",
-            from: pair.start.id,
-            to: pair.end.id,
-            launchX: startCenterX,
-            launchY: startY,
-            landingX: endCenterX,
-            landingY: endY,
-            direction: endCenterX < startCenterX ? -1 : 1,
-            cost,
-            platformId: platform.id,
-            collisionId: pair.start.collisionId,
-            fromEndpoint: "start",
-            toEndpoint: "end",
-            blockerIds: []
-        });
-        extraEdges.get(pair.end.id).push({
-            id: `ride:${platform.id}:end:start`,
-            type: "ride",
-            from: pair.end.id,
-            to: pair.start.id,
-            launchX: endCenterX,
-            launchY: endY,
-            landingX: startCenterX,
-            landingY: startY,
-            direction: startCenterX < endCenterX ? -1 : 1,
-            cost,
-            platformId: platform.id,
-            collisionId: pair.end.collisionId,
-            fromEndpoint: "end",
-            toEndpoint: "start",
-            blockerIds: []
-        });
-    }
-    const edgeMap = new Map();
-    for (const support of supports) {
-        const staticEdges = staticEdgeMap.get(support.id);
-        edgeMap.set(support.id, staticEdges ? [...staticEdges, ...(extraEdges.get(support.id) || [])] : [...(extraEdges.get(support.id) || [])]);
-    }
-    const bundle = { supports, edgeMap };
-    worldCache.set(profileKey, bundle);
-    return bundle;
-}
-
-function movingPlatformSupportAvailable(state, support) {
-    if (!support?.movingPlatformId) return true;
-    const platform = (state.world?.movingPlatforms || []).find((item) => item.id === support.movingPlatformId);
-    return Boolean(platform?.collisionAttached && movingPlatformAtEndpoint(state, platform, support.platformEndpoint));
-}
-
-function translatedRiderNavigationSupport(state, enemy, supports) {
-    const platform = movingPlatformForCollisionId(state, enemy.supportId);
-    if (!platform) return null;
-    const routeEdge = enemy.route?.[enemy.routeIndex];
-    const preferredId = routeEdge?.type === "ride" && routeEdge.platformId === platform.id
-        ? routeEdge.from
-        : enemy.currentSupportId;
-    const fixed = navigationSupportById(supports, preferredId) || supports.find((support) => (
-        support.movingPlatformId === platform.id && support.collisionId === enemy.supportId && support.platformEndpoint === "start"
-    ));
-    if (!fixed) return null;
-    const visual = movingPlatformVisual(state, platform);
-    if (!visual) return null;
-    const endpointX = fixed.platformEndpoint === "end" ? platform.endX : platform.startX;
-    const endpointY = fixed.platformEndpoint === "end" ? platform.endY : platform.startY;
-    const transform = currentTransformOf(visual);
-    const dx = (Number(transform.x) || 0) - endpointX;
-    const dy = (Number(transform.y) || 0) - endpointY;
-    const support = {
-        ...fixed,
-        x1: fixed.x1 + dx,
-        y1: fixed.y1 + dy,
-        x2: fixed.x2 + dx,
-        y2: fixed.y2 + dy,
-        xMin: fixed.xMin + dx,
-        xMax: fixed.xMax + dx
-    };
-    return { support, x: enemy.currentTransform.x, y: enemy.currentTransform.y, delta: 0, score: -1 };
-}
-
 function staticEnemyNavigationBundle(state, options) {
     const world = state.world;
     const solids = world?.solids || [];
@@ -6591,10 +7292,7 @@ function staticEnemyNavigationBundle(state, options) {
 
 function characterEnemyNavigationContext(state, enemy) {
     const options = characterEnemyNavigationOptions(enemy, state);
-    const { staticSupports, staticEdgeMap, bakedGraph } = staticEnemyNavigationBundle(state, options);
-    const movingBundle = movingPlatformNavigationBundle(state, options, staticSupports, staticEdgeMap);
-    const supports = movingBundle.supports;
-    const rawEdgeMap = movingBundle.edgeMap;
+    const { staticSupports: supports, staticEdgeMap: rawEdgeMap, bakedGraph } = staticEnemyNavigationBundle(state, options);
     let edgeMap = rawEdgeMap;
     if ((state.world?.navigationBlockers?.length || 0) > 0 || (bakedGraph?.dynamicCostRules?.length || 0) > 0) {
         edgeMap = new Map();
@@ -6616,18 +7314,21 @@ function characterEnemyNavigationContext(state, enemy) {
             CHARACTER_ENEMY_TRAVERSAL_EDGE_CACHE.set(rawEdgeMap, { supports, edgeMap });
         }
     }
-    const riderCurrent = translatedRiderNavigationSupport(state, enemy, supports);
-    const availableSupports = (state.world?.movingPlatforms?.length || 0) > 0
-        ? supports.filter((support) => movingPlatformSupportAvailable(state, support))
-        : supports;
-    const current = riderCurrent || findEnemyNavigationSupport(availableSupports, enemy.currentTransform.x, enemy.currentTransform.y, {
-        maxRise: Math.max(8, Number(enemy.maxStepHeight) || 0),
-        maxDrop: Math.max(12, Number(enemy.maxDropDistance) || 0),
-        width: enemy.width,
-        sampleHalfWidthFactor: enemy.currentSupportId ? 0.48 : 0.22,
-        preferredSupportId: enemy.currentSupportId
-    });
-    if (current) {
+    const ridingMovingPlatform = Boolean(
+        enemy.supportId && movingPlatformForCollisionId(state, enemy.supportId)
+    );
+    const current = ridingMovingPlatform
+        ? null
+        : findEnemyNavigationSupport(supports, enemy.currentTransform.x, enemy.currentTransform.y, {
+            maxRise: Math.max(8, Number(enemy.maxStepHeight) || 0),
+            maxDrop: Math.max(12, Number(enemy.maxDropDistance) || 0),
+            width: enemy.width,
+            sampleHalfWidthFactor: enemy.currentSupportId ? 0.48 : 0.22,
+            preferredSupportId: enemy.currentSupportId
+        });
+    if (ridingMovingPlatform) {
+        enemy.currentSupportId = null;
+    } else if (current) {
         enemy.currentSupportId = current.support.id;
         if (!enemy.homeSupportId) {
             enemy.homeSupportId = current.support.id;
@@ -6640,7 +7341,10 @@ function characterEnemyNavigationContext(state, enemy) {
 }
 
 function characterEnemyPlayerSupport(state, enemy, supports) {
-    return findEnemyNavigationSupport(supports.filter((support) => movingPlatformSupportAvailable(state, support)), state.player.currentTransform.x, state.player.currentTransform.y, {
+    if (state.player.onGround && state.player.supportId && movingPlatformForCollisionId(state, state.player.supportId)) {
+        return null;
+    }
+    return findEnemyNavigationSupport(supports, state.player.currentTransform.x, state.player.currentTransform.y, {
         maxRise: Math.max(40, Number(enemy.jumpHeight) || 0) + 80,
         maxDrop: Math.max(160, Number(enemy.maxFallDistance) || 0) + 160,
         width: state.player.width
@@ -6676,7 +7380,10 @@ function characterEnemyRouteSearch(state, enemy, supports, startSupportId, edgeM
 
 function characterEnemyReadyToAttackFromCurrentPosition(state, enemy) {
     if (enemy.attackMode !== "projectile") {
-        return characterEnemyCanReachPlayer(state, enemy);
+        return characterEnemyCanStartMeleeAttackFromPoint(state, enemy, {
+            x: enemy.currentTransform.x,
+            y: enemy.currentTransform.y
+        });
     }
     if (!characterEnemyCanUseProjectile(state, enemy)) {
         return false;
@@ -6786,15 +7493,7 @@ function characterEnemyCanAttackFromPoint(state, enemy, point) {
         // and terrain clearance.
         return characterEnemyProjectilePathClearFromPoint(state, enemy, point);
     }
-    const enemyCenterY = point.y - enemy.height * 0.55;
-    const playerCenterY = state.player.currentTransform.y - state.player.height * 0.5;
-    if (Math.abs(playerCenterY - enemyCenterY) > Math.max(1, Number(enemy.attackVerticalRange) || 1)) {
-        return false;
-    }
-    if (horizontalDistance > Math.max(1, Number(enemy.attackRange) || 1)) {
-        return false;
-    }
-    return !characterEnemyAttackBlockedFromPoint(state, enemy, point.x, point.y);
+    return characterEnemyCanStartMeleeAttackFromPoint(state, enemy, point);
 }
 
 function characterEnemyAttackCandidateXs(enemy, support, playerX, preferredRange) {
@@ -6808,8 +7507,12 @@ function characterEnemyAttackCandidateXs(enemy, support, playerX, preferredRange
         return [(support.xMin + support.xMax) * 0.5];
     }
 
-    const attackRange = Math.max(1, Number(enemy.attackRange) || 1);
-    const minimumRange = Math.max(0, Number(enemy.preferredAttackMinRange) || 0);
+    const attackRange = characterEnemyHasLungeAttack(enemy)
+        ? Math.max(1, Number(enemy.lungeRangeMax) || 1)
+        : Math.max(1, Number(enemy.attackRange) || 1);
+    const minimumRange = enemy.attackMode === "projectile"
+        ? Math.max(0, Number(enemy.preferredAttackMinRange) || 0)
+        : 0;
     const windowMin = enemy.attackMode === "projectile"
         ? supportMin
         : Math.max(supportMin, playerX - attackRange);
@@ -6855,7 +7558,9 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
     const player = state.player;
     const preferredRange = enemy.attackMode === "projectile"
         ? Math.max(0, Number(enemy.preferredAttackRange) || Number(enemy.attackRange) * 0.72)
-        : Math.max(10, Math.min(Number(enemy.attackRange) * 0.72, Number(enemy.attackRange) - 4));
+        : (characterEnemyHasLungeAttack(enemy)
+            ? Math.max(characterEnemyMeleeHitRange(enemy), Math.max(1, Number(enemy.lungeRangeMax) || 1) * 0.92)
+            : Math.max(10, Math.min(Number(enemy.attackRange) * 0.72, Number(enemy.attackRange) - 4)));
     const edgeMap = navigation.edgeMap || buildEnemyNavigationEdges(navigation.supports, {
         ...characterEnemyNavigationOptions(enemy, state),
         world: state.world
@@ -7071,7 +7776,7 @@ function endCharacterEnemyPanic(enemy) {
     enemy.engaged = false;
     enemy.awarenessTimer = 0;
     enemy.attackTimer = 0;
-    enemy.attackLungeRemaining = 0;
+    clearCharacterEnemyAttackLunge(enemy);
     enemy.attackHitApplied = false;
     enemy.nextAttackHandoffIndex = 0;
     enemy.combatState = ENEMY_COMBAT_STATE.ALIVE;
@@ -7129,7 +7834,7 @@ function updateCharacterEnemyPanic(state, enemy, dt) {
             const panicFacing = Math.cos(Number(enemy.panicAttackAngle) || 0) < 0 ? -1 : 1;
             startCharacterEnemyAttack(state, enemy);
             enemy.facing = panicFacing;
-            enemy.attackLungeRemaining = 0;
+            clearCharacterEnemyAttackLunge(enemy);
         } else {
             chooseCharacterEnemyPanicMove(state, enemy);
         }
@@ -7794,52 +8499,11 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
             enemy.groundVelocityX = 0;
             return false;
         }
-        if (edge.type === "ride") {
-            const platform = (state.world?.movingPlatforms || []).find((item) => item.id === edge.platformId);
-            if (!platform || !platform.collisionAttached || !movingPlatformOwnsCollisionId(platform, enemy.supportId)) {
-                return false;
-            }
-            enemy.ridingPlatformId = platform.id;
-            enemy.groundVelocityX = 0;
-            enemy.movementPhase = "ride_platform";
-            const nextEdge = enemy.route?.[enemy.routeIndex + 1];
-            const visual = movingPlatformVisual(state, platform);
-            let positionedForExit = false;
-            if (visual && nextEdge?.from === edge.to && Number.isFinite(Number(nextEdge.launchX))) {
-                const destinationX = edge.toEndpoint === "end" ? platform.endX : platform.startX;
-                const localExitX = Number(nextEdge.launchX) - destinationX;
-                const movingExitX = (Number(currentTransformOf(visual).x) || 0) + localExitX;
-                const moved = moveCharacterEnemyToward(state, enemy, movingExitX, speed, dt, 0);
-                positionedForExit = moved > 0;
-            }
-            setCharacterEnemyAnimation(enemy, positionedForExit ? "walk" : "idle");
-            if (!movingPlatformAtEndpoint(state, platform, edge.toEndpoint)) {
-                return true;
-            }
-            enemy.currentSupportId = edge.to;
-            enemy.routeIndex += 1;
-            enemy.routeTraversalPhase = null;
-            enemy.routeTraversalEdgeIndex = -1;
-            return true;
-        }
         if (edge.type === "jump" && Number.isFinite(Number(edge.runUpX)) && Math.abs(Number(edge.vx) || 0) > 0.001) {
             return followCharacterEnemyJumpRunUp(state, enemy, edge, speed, dt);
         }
         const launchSupport = navigationSupportById(navigation.supports, edge.from);
         const landingSupport = navigationSupportById(navigation.supports, edge.to);
-        const platformSupport = launchSupport?.movingPlatformId ? launchSupport : landingSupport?.movingPlatformId ? landingSupport : null;
-        if (platformSupport) {
-            const platform = (state.world?.movingPlatforms || []).find((item) => item.id === platformSupport.movingPlatformId);
-            const requiredEndpoint = launchSupport?.movingPlatformId
-                ? launchSupport.platformEndpoint
-                : landingSupport.platformEndpoint;
-            if (!platform || !platform.collisionAttached || !movingPlatformAtEndpoint(state, platform, requiredEndpoint)) {
-                enemy.groundVelocityX = 0;
-                enemy.movementPhase = "wait_for_platform";
-                setCharacterEnemyAnimation(enemy, "idle");
-                return true;
-            }
-        }
         const distanceToLaunch = Math.abs(enemy.currentTransform.x - edge.launchX);
         if (distanceToLaunch > Math.max(2, speed * dt * 1.25)) {
             const moved = moveCharacterEnemyToward(state, enemy, edge.launchX, speed, dt, 0);
@@ -7859,20 +8523,15 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
             enemy.currentTransform.x = edge.landingX;
             enemy.currentTransform.y = edge.landingY;
             enemy.currentSupportId = edge.to;
-            if (landingSupport?.movingPlatformId) {
-                enemy.supportId = landingSupport.collisionId;
-                enemy.ridingPlatformId = landingSupport.movingPlatformId;
-            } else {
-                const physicalSupport = findCharacterEnemyGroundSupport(
-                    state,
-                    enemy.currentTransform.x,
-                    enemy.currentTransform.y,
-                    Math.max(4, enemy.maxStepHeight),
-                    Math.max(4, enemy.maxDropDistance),
-                    enemy.width
-                );
-                setCharacterEnemyGroundSupportIdentity(state, enemy, physicalSupport);
-            }
+            const physicalSupport = findCharacterEnemyGroundSupport(
+                state,
+                enemy.currentTransform.x,
+                enemy.currentTransform.y,
+                Math.max(4, enemy.maxStepHeight),
+                Math.max(4, enemy.maxDropDistance),
+                enemy.width
+            );
+            setCharacterEnemyGroundSupportIdentity(state, enemy, physicalSupport);
             enemy.routeIndex += 1;
             enemy.routeTraversalPhase = null;
             enemy.routeTraversalEdgeIndex = -1;
@@ -7949,8 +8608,7 @@ function characterEnemyHunterWatchdogActive(enemy) {
         enemy.combatState === ENEMY_COMBAT_STATE.DEAD || enemy.deathPendingLanding === true) {
         return false;
     }
-    if (enemy.movementPhase === "glare" || enemy.movementPhase === "wait_for_platform" ||
-        enemy.movementPhase === "ride_platform" || enemy.movementPhase === "position_for_attack" ||
+    if (enemy.movementPhase === "glare" || enemy.movementPhase === "position_for_attack" ||
         enemy.movementPhase === "last_seen_hold") {
         return false;
     }
@@ -7970,8 +8628,7 @@ function characterEnemyHunterWatchdogPaused(enemy) {
         enemy.combatState === ENEMY_COMBAT_STATE.DEAD || enemy.deathPendingLanding === true) {
         return true;
     }
-    return enemy.movementPhase === "glare" || enemy.movementPhase === "wait_for_platform" ||
-        enemy.movementPhase === "ride_platform" || enemy.movementPhase === "position_for_attack" ||
+    return enemy.movementPhase === "glare" || enemy.movementPhase === "position_for_attack" ||
         enemy.movementPhase === "last_seen_hold";
 }
 
@@ -8906,13 +9563,15 @@ function updateDeadFlyingCharacterEnemy(state, enemy, dt) {
     enemy.airborne = true;
     setCharacterEnemyAnimation(enemy, "fly");
 
-    const distance = Math.hypot(
-        enemy.currentTransform.x - finiteNumberOr(enemy.deathFlightStartX, enemy.spawnX),
-        enemy.currentTransform.y - finiteNumberOr(enemy.deathFlightStartY, enemy.spawnY)
-    );
-    const flyOffComplete = distance >= Math.max(1, Number(enemy.deathFlyOffDistance) || 720);
-    enemy.currentTransform.alpha = flyOffComplete ? 0 : 1;
-    if (flyOffComplete) {
+    const flyOffDistance = Math.max(1, Number(enemy.deathFlyOffDistance) || 720);
+    const flightSpeed = Math.max(1, Number(enemy.deathFlightSpeed) || 520);
+    const fadeDuration = Math.max(0, finiteNumberOr(enemy.corpseFadeDuration, state.tuning.enemyCorpseFadeSeconds));
+    const fadeStartElapsed = flyOffDistance / flightSpeed;
+    const fadeElapsed = Math.max(0, enemy.deathElapsed - fadeStartElapsed);
+    enemy.currentTransform.alpha = fadeElapsed <= 0
+        ? 1
+        : (fadeDuration <= 0 ? 0 : clamp(1 - fadeElapsed / fadeDuration, 0, 1));
+    if (enemy.currentTransform.alpha <= 0) {
         enemy.velocityX = 0;
         enemy.velocityY = 0;
         enemy.simulationDormant = true;
@@ -8927,7 +9586,7 @@ function beginCharacterEnemyDeath(state, enemy) {
     enemy.state = "death";
     enemy.movementPhase = "dead";
     enemy.attackTimer = 0;
-    enemy.attackLungeRemaining = 0;
+    clearCharacterEnemyAttackLunge(enemy);
     enemy.attackHitApplied = false;
     enemy.hurtTimer = 0;
     enemy.velocityX = 0;
@@ -8946,7 +9605,7 @@ function deferCharacterEnemyDeathUntilLanding(enemy) {
     enemy.deathPendingLanding = true;
     enemy.combatState = ENEMY_COMBAT_STATE.DEATH_PENDING_LANDING;
     enemy.attackTimer = 0;
-    enemy.attackLungeRemaining = 0;
+    clearCharacterEnemyAttackLunge(enemy);
     enemy.attackHitApplied = false;
     enemy.hurtTimer = 0;
     enemy.deathTimer = 0;
@@ -9016,7 +9675,7 @@ function updateCharacterEnemies(state, dt) {
             enemy.health = 0;
             enemy.combatState = ENEMY_COMBAT_STATE.DEATH_PENDING_LANDING;
             enemy.attackTimer = 0;
-            enemy.attackLungeRemaining = 0;
+            clearCharacterEnemyAttackLunge(enemy);
             enemy.attackHitApplied = false;
             enemy.hurtTimer = 0;
             enemy.deathElapsed = 0;
@@ -9043,7 +9702,7 @@ function updateCharacterEnemies(state, dt) {
             enemy.combatState = ENEMY_COMBAT_STATE.DEAD;
             enemy.movementPhase = "dead";
             enemy.attackTimer = 0;
-            enemy.attackLungeRemaining = 0;
+            clearCharacterEnemyAttackLunge(enemy);
             enemy.attackHitApplied = false;
             enemy.deathTimer = Math.max(0, (Number(enemy.deathTimer) || 0) - dt);
             if (enemy.locomotion === "flying") {
@@ -9065,7 +9724,7 @@ function updateCharacterEnemies(state, dt) {
             enemy.awarenessTimer = 0;
             enemy.attackTimer = 0;
             enemy.attackCooldownTimer = 0;
-            enemy.attackLungeRemaining = 0;
+            clearCharacterEnemyAttackLunge(enemy);
             enemy.attackHitApplied = false;
             enemy.hurtTimer = 0;
             setCharacterEnemyAnimation(enemy, enemy.health > 0 ? "idle" : "death");
@@ -9184,7 +9843,7 @@ function updateCharacterEnemies(state, dt) {
                 continue;
             }
 
-            if (enemy.attackCooldownTimer <= 0 && characterEnemyCanReachPlayer(state, enemy)) {
+            if (enemy.attackCooldownTimer <= 0 && characterEnemyReadyToAttackFromCurrentPosition(state, enemy)) {
                 startCharacterEnemyAttack(state, enemy);
                 syncCharacterEnemyTarget(state, enemy);
                 continue;
@@ -9437,6 +10096,235 @@ function updatePlayerDeath(state, dt) {
     return true;
 }
 
+function activeCutsceneGotoCharacterId(state) {
+    const script = state.story?.cutscene;
+    const command = script?.commands?.[script.commandIndex];
+    return command?.type === "GOTO" ? command.characterId : null;
+}
+
+function detachActiveCutsceneGotoCharacter(state) {
+    const characterId = activeCutsceneGotoCharacterId(state);
+    if (!characterId) return;
+    const character = cutsceneCharacter(state, characterId);
+    if (character) detachCutsceneCharacterFromMovingPlatform(character);
+}
+
+function cutsceneEnemyHasAnimationOverride(state, enemy) {
+    const overrides = state.story?.cutscene?.animationOverrides || {};
+    return Object.keys(overrides).some((characterId) =>
+        characterId !== "wizard" && (enemy?.id === characterId || enemy?.entityId === characterId)
+    );
+}
+
+function updateCutscenePlayerPassiveMotion(state, dt) {
+    const p = state.player;
+    if (!p) return;
+
+    const safeDt = Math.max(0, Number(dt) || 0);
+    // Drop-through is a brief physical grace period, not player intent. Time
+    // continues during story control so one-way floors become solid again on
+    // schedule instead of remaining pass-through for the whole cutscene.
+    p.dropThroughTimer = Math.max(0, (Number(p.dropThroughTimer) || 0) - safeDt);
+    if (activeCutsceneGotoCharacterId(state) === "wizard") return;
+
+    if (state.equipment?.rocket?.attachedBoosting) {
+        // Defensive mirror of startCutsceneScript(): held backpack boost must
+        // never become free thrust merely because normal input handling is paused.
+        stopAttachedBoost(state, "cutscene");
+    }
+
+    const waterBefore = refreshPlayerWaterState(state);
+    const flightActive = flightPowerUpActive(state) && !waterBefore.inWater;
+    const rocket = state.equipment?.rocket;
+    if (!flightActive && rocket?.state === "flight") {
+        rocket.state = "mountedReady";
+        rocket.attachedBoostTime = 0;
+        rocket.boostAccelerationNow = 0;
+        rocket.boostVisualPowerNow = 0;
+        rocket.attachedSmokeTimer = 0;
+    }
+    const wasOnGround = Boolean(p.onGround);
+    if (wasOnGround && !waterBefore.inWater && !flightActive) {
+        p.airborneTime = 0;
+        return;
+    }
+
+    p.groundStride = null;
+    p.wasOnGround = wasOnGround;
+    p.ax = 0;
+
+    const movementSpeedScale = playerMovementSpeedScale(state);
+    if (waterBefore.inWater) {
+        p.vx = applyWaterDrag(
+            p.vx,
+            waterBefore.submersion,
+            state.tuning.waterHorizontalLinearDrag,
+            state.tuning.waterHorizontalQuadraticDrag,
+            safeDt
+        );
+    } else if (flightActive) {
+        p.vx = approach(p.vx, 0, state.tuning.groundFriction * movementSpeedScale * safeDt);
+    } else {
+        p.vx *= Math.max(0, 1 - Math.max(0, Number(state.tuning?.airDrag) || 0) * safeDt);
+    }
+
+    const passiveSpeedLimit = Math.max(1, Number(state.tuning.maxRunSpeed) || DEFAULT_TUNING.maxRunSpeed)
+        * movementSpeedScale
+        * (waterBefore.inWater
+            ? Math.max(0.05, Number(state.tuning.waterHorizontalSpeedScale) || 0.45)
+            : (flightActive ? FLIGHT_MOVEMENT_SPEED_MULTIPLIER : 1));
+    p.vx = clamp(p.vx, -passiveSpeedLimit, passiveSpeedLimit);
+    moveAndCollideX(state, p.vx * safeDt);
+
+    if (waterBefore.inWater) {
+        integratePlayerWaterMotion(state, createInputFrame(), safeDt, wasOnGround, waterBefore);
+    } else {
+        // This shared path preserves ordinary jump/fall integration and applies
+        // the Flight power-up governor identically to normal gameplay.
+        integratePlayerVerticalMotion(state, createInputFrame(), safeDt, wasOnGround, false);
+    }
+    if (resolvePlayerPenetrations(state, wasOnGround)) return;
+
+    const waterAfter = refreshPlayerWaterState(state);
+    if (waterAfter.inWater && state.equipment?.rocket?.attachedBoosting) {
+        stopAttachedBoost(state, "water");
+    }
+    if (!p.onGround) p.airborneTime = Math.max(0, Number(p.airborneTime) || 0) + safeDt;
+    else p.airborneTime = 0;
+}
+
+function updateCutsceneEnemyPassiveMotion(state, dt) {
+    const activeGotoCharacterId = activeCutsceneGotoCharacterId(state);
+    for (const enemy of state.enemies || []) {
+        if (!enemy || enemy.simulationDormant === true) continue;
+        enemy.hitFlashTimer = Math.max(0, (Number(enemy.hitFlashTimer) || 0) - dt);
+        enemy.healthBarTimer = Math.max(0, (Number(enemy.healthBarTimer) || 0) - dt);
+
+        if (enemy.kind !== "characterEnemy") {
+            if (enemy.health <= 0) {
+                enemy.combatState = ENEMY_COMBAT_STATE.DEAD;
+                enemy.state = "destroyed";
+            } else if (enemy.state === "hurt" && enemy.hitFlashTimer <= 0) {
+                enemy.combatState = ENEMY_COMBAT_STATE.ALIVE;
+                enemy.state = "idle";
+            }
+            continue;
+        }
+
+        // Script participants are protected from damage, and an active GOTO owns
+        // its actor completely. Other enemies keep only passive physics/presentation.
+        const gotoOwnsEnemy = activeGotoCharacterId && (enemy.id === activeGotoCharacterId || enemy.entityId === activeGotoCharacterId);
+        if (gotoOwnsEnemy) continue;
+
+        if (enemy.deathPendingLanding === true) {
+            enemy.health = 0;
+            enemy.combatState = ENEMY_COMBAT_STATE.DEATH_PENDING_LANDING;
+            enemy.attackTimer = 0;
+            clearCharacterEnemyAttackLunge(enemy);
+            enemy.attackHitApplied = false;
+            enemy.hurtTimer = 0;
+            enemy.deathElapsed = 0;
+            enemy.currentTransform.alpha = 1;
+            enemy.animationClock.current = Math.max(0, Number(enemy.animationClock.current) || 0) + dt;
+            if (enemy.airborne === true) {
+                const navigation = characterEnemyNavigationContext(state, enemy);
+                updateCharacterEnemyAirTraversal(state, enemy, dt, navigation.supports);
+            }
+            if (enemy.airborne === true) {
+                enemy.combatState = ENEMY_COMBAT_STATE.DEATH_PENDING_LANDING;
+                syncCharacterEnemyTarget(state, enemy);
+                continue;
+            }
+            beginCharacterEnemyDeath(state, enemy);
+            syncCharacterEnemyTarget(state, enemy);
+            continue;
+        }
+
+        if (enemy.health <= 0 || enemy.combatState === ENEMY_COMBAT_STATE.DEAD) {
+            enemy.health = 0;
+            enemy.combatState = ENEMY_COMBAT_STATE.DEAD;
+            enemy.movementPhase = "dead";
+            enemy.attackTimer = 0;
+            clearCharacterEnemyAttackLunge(enemy);
+            enemy.attackHitApplied = false;
+            enemy.deathTimer = Math.max(0, (Number(enemy.deathTimer) || 0) - dt);
+            enemy.animationClock.current = Math.max(0, Number(enemy.animationClock.current) || 0) + dt;
+            if (enemy.locomotion === "flying") {
+                updateDeadFlyingCharacterEnemy(state, enemy, dt);
+            } else {
+                updateDeadEnemyPresentation(state, enemy, dt);
+                setCharacterEnemyAnimation(enemy, "death");
+                syncCharacterEnemyTarget(state, enemy);
+            }
+            continue;
+        }
+
+        const hadHurtPresentation = (Number(enemy.hurtTimer) || 0) > 0 || enemy.combatState === ENEMY_COMBAT_STATE.HURT;
+        const hasAnimationOverride = cutsceneEnemyHasAnimationOverride(state, enemy);
+        if (hadHurtPresentation) {
+            enemy.hurtTimer = Math.max(0, (Number(enemy.hurtTimer) || 0) - dt);
+        }
+
+        // Flying locomotion is autonomous flight behavior, so living flyers stay
+        // paused with AI. Ground actors are carried by moving platforms; an already-
+        // airborne jump/fall keeps its ballistic motion through the cutscene.
+        if (enemy.locomotion !== "flying" && enemy.airborne === true) {
+            if (!hasAnimationOverride) {
+                enemy.animationClock.current = Math.max(0, Number(enemy.animationClock.current) || 0) + dt;
+            }
+            const navigation = characterEnemyNavigationContext(state, enemy);
+            updateCharacterEnemyAirTraversal(state, enemy, dt, navigation.supports);
+        } else if (hadHurtPresentation && !hasAnimationOverride) {
+            enemy.animationClock.current = Math.max(0, Number(enemy.animationClock.current) || 0) + dt;
+        }
+
+        if (hadHurtPresentation) {
+            if (enemy.hurtTimer > 0) {
+                enemy.combatState = ENEMY_COMBAT_STATE.HURT;
+                enemy.movementPhase = "hurt";
+                if (!hasAnimationOverride) setCharacterEnemyAnimation(enemy, "hurt");
+            } else {
+                enemy.combatState = ENEMY_COMBAT_STATE.ALIVE;
+                enemy.movementPhase = enemy.airborne === true ? "air" : "idle";
+                if (!hasAnimationOverride) setCharacterEnemyAnimation(enemy, enemy.airborne === true ? "walk" : "idle");
+            }
+        }
+        syncCharacterEnemyTarget(state, enemy);
+    }
+}
+
+function updateCutsceneWorldSimulation(state, dt) {
+    // AI decisions and spawners stay frozen, but passive world motion continues.
+    // GOTO takes ownership before platform carry; everyone else may ride naturally.
+    detachActiveCutsceneGotoCharacter(state);
+    updateSignalReceivers(state, dt);
+    updateMovingPlatforms(state, dt);
+    updateCutscenePlayerPassiveMotion(state, dt);
+    updateCutsceneEnemyPassiveMotion(state, dt);
+    updateProjectiles(state, dt);
+    updateWorldEffects(state, dt);
+    updateFuelRecharge(state, dt);
+    updateHealth(state, dt);
+    updateHat(state);
+}
+
+function updatePortalExitWorldSimulation(state, dt) {
+    // The exit animation owns only the wizard. Everything else continues as a
+    // normal gameplay frame so enemies and already-airborne projectiles do not
+    // freeze while the door opens/closes.
+    updateSignalReceivers(state, dt);
+    updateMovingPlatforms(state, dt);
+    updateAutomaticEnemySpawning(state, dt);
+    updateEnemySpawners(state, dt);
+    updateCharacterEnemies(state, dt);
+    pruneFinishedAutomaticEnemies(state);
+    updateProjectiles(state, dt);
+    updateWorldEffects(state, dt);
+    updateFuelRecharge(state, dt);
+    updateHealth(state, dt);
+    updateHat(state);
+}
+
 export function stepSimulation(state, inputFrame = createInputFrame(), dt = state.clock.fixedDt || FIXED_DT) {
     snapshotSimulationPresentation(state);
     const input = sanitizeInput(inputFrame);
@@ -9465,7 +10353,10 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     if (updatePlayerDeath(state, dt)) {
         return state;
     }
-    if (applyPlayerCaveBoundary(state)) {
+
+    if (state.story?.cutscene?.active) {
+        updateCutsceneWorldSimulation(state, dt);
+        updateCutsceneScript(state, input, dt);
         return state;
     }
 
@@ -9478,9 +10369,17 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         return;
     }
     if (updatePortalExit(state, dt)) {
-        return;
+        updatePortalExitWorldSimulation(state, dt);
+        return state;
+    }
+    if (updateCutsceneScript(state, input, dt)) {
+        updateCutsceneWorldSimulation(state, dt);
+        return state;
     }
     if (applyPlayerWorldBoundsKill(state)) {
+        return state;
+    }
+    if (applyPlayerCaveBoundary(state)) {
         return state;
     }
 
@@ -9937,6 +10836,50 @@ function sortRocketTargets(state, targets, originX, originY, facing, options = {
         .map((entry) => entry.target);
 }
 
+function sortRocketTargetsByHeading(state, targets, originX, originY, headingX, headingY) {
+    const headingLength = Math.hypot(Number(headingX) || 0, Number(headingY) || 0);
+    const heading = headingLength > 0.000001
+        ? { x: headingX / headingLength, y: headingY / headingLength }
+        : { x: 1, y: 0 };
+    const origin = { x: originX, y: originY };
+    return targets
+        .map((target) => {
+            const dx = Number(target.x) - originX;
+            const dy = Number(target.y) - originY;
+            const distanceSquared = dx * dx + dy * dy;
+            const distance = Math.sqrt(Math.max(0.000001, distanceSquared));
+            const alignment = (dx * heading.x + dy * heading.y) / distance;
+            return {
+                target,
+                hasLineOfSight: rocketTargetHasLineOfSight(state, origin, target),
+                alignment,
+                distanceSquared
+            };
+        })
+        .filter((entry) => entry.alignment >= -0.000001)
+        .sort((left, right) => {
+            if (left.hasLineOfSight !== right.hasLineOfSight) return left.hasLineOfSight ? -1 : 1;
+            const alignmentDifference = right.alignment - left.alignment;
+            if (Math.abs(alignmentDifference) > 0.0000001) return alignmentDifference;
+            const distanceDifference = left.distanceSquared - right.distanceSquared;
+            if (Math.abs(distanceDifference) > 0.0001) return distanceDifference;
+            return String(left.target.id).localeCompare(String(right.target.id));
+        })
+        .map((entry) => entry.target);
+}
+
+function rotateVelocityToward(projectile, desired, speed, maxTurnRadians) {
+    const currentAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 0);
+    const desiredAngle = Math.atan2(Number(desired.y) || 0, Number(desired.x) || 0);
+    let delta = desiredAngle - currentAngle;
+    while (delta > Math.PI) delta -= Math.PI * 2;
+    while (delta < -Math.PI) delta += Math.PI * 2;
+    const turn = clamp(delta, -Math.max(0, maxTurnRadians), Math.max(0, maxTurnRadians));
+    const nextAngle = currentAngle + turn;
+    projectile.vx = Math.cos(nextAngle) * speed;
+    projectile.vy = Math.sin(nextAngle) * speed;
+}
+
 function homingTargetSearchRange(state) {
     return Math.max(1, Number(state.tuning?.rocketTargetSearchDistance) || 1500);
 }
@@ -9978,6 +10921,12 @@ function orderedHomingTargets(state, originX, originY, facing) {
     return sortRocketTargets(state, activeTargets, originX, originY, facing);
 }
 
+function orderedHeadingHomingTargets(state, originX, originY, headingX, headingY) {
+    const activeTargets = (state.targets || []).filter((target) => homingTargetWithinRange(state, target, originX, originY));
+    if (!activeTargets.length) return [];
+    return sortRocketTargetsByHeading(state, activeTargets, originX, originY, headingX, headingY);
+}
+
 function activeRocketProfile(state) {
     return activeWrenchPowerUpEffect(state)?.definition?.rocket || {
         projectileCount: 1,
@@ -9994,6 +10943,8 @@ function activeRocketProfile(state) {
         initialAngleJitterDegrees: 0,
         homingMeanderIntervalSeconds: 0,
         homingMeanderTurnDegrees: 0,
+        homingTurnDegreesPerWorldUnit: 0,
+        homingPreferForwardAlignment: false,
         separateTargets: false,
         aimAtNearestForwardTarget: false,
         areaDamageRadiusWizardHeights: 0,
@@ -10028,10 +10979,12 @@ function launchHomingRocket(state) {
         y: (Number(p.currentTransform.y) || 0) - (Number(p.height) || 0) * 0.72
     };
     const launchFacing = p.facing < 0 ? -1 : 1;
-    const targets = orderedHomingTargets(state, launchOrigin.x, launchOrigin.y, launchFacing);
     const defaultDirection = rocketProfile.launchMode === "forward"
         ? { x: p.facing < 0 ? -1 : 1, y: 0 }
         : { x: 0, y: -1 };
+    const targets = rocketProfile.homingPreferForwardAlignment
+        ? orderedHeadingHomingTargets(state, launchOrigin.x, launchOrigin.y, defaultDirection.x, defaultDirection.y)
+        : orderedHomingTargets(state, launchOrigin.x, launchOrigin.y, launchFacing);
     const aimedTarget = rocketProfile.aimAtNearestForwardTarget
         ? orderedForwardTargets(state, launchOrigin.x, launchOrigin.y, launchFacing)[0] || null
         : null;
@@ -10072,6 +11025,7 @@ function launchHomingRocket(state) {
     const initialAngleJitterDegrees = Math.max(0, Number(rocketProfile.initialAngleJitterDegrees) || 0);
     const homingMeanderIntervalSeconds = Math.max(0, Number(rocketProfile.homingMeanderIntervalSeconds) || 0);
     const homingMeanderTurnDegrees = Math.max(0, Number(rocketProfile.homingMeanderTurnDegrees) || 0);
+    const homingTurnDegreesPerWorldUnit = Math.max(0, Number(rocketProfile.homingTurnDegreesPerWorldUnit) || 0);
     const volleyAngleJitterDegrees = deterministicRocketLaunchAngleJitterDegrees(
         state,
         volleyId,
@@ -10127,6 +11081,8 @@ function launchHomingRocket(state) {
             volleyLaunchAngleJitterDegrees: volleyAngleJitterDegrees,
             homingMeanderIntervalSeconds,
             homingMeanderTurnDegrees,
+            homingTurnDegreesPerWorldUnit,
+            homingPreferForwardAlignment: Boolean(rocketProfile.homingPreferForwardAlignment),
             homingMeanderTimer: meanderInitialTimer,
             homingMeanderStep: 0,
             homingMeanderLastTurn: 0,
@@ -10383,6 +11339,16 @@ function updateProjectiles(state, dt) {
                 const originX = Number(projectile.currentTransform.x) || 0;
                 const originY = Number(projectile.currentTransform.y) || 0;
                 let target = findTargetById(state, projectile.targetId, originX, originY);
+                if (target && projectile.homingPreferForwardAlignment) {
+                    const targetDx = Number(target.x) - originX;
+                    const targetDy = Number(target.y) - originY;
+                    const headingDot = targetDx * (Number(projectile.vx) || 0) + targetDy * (Number(projectile.vy) || 0);
+                    if (headingDot < -0.000001) {
+                        target = null;
+                        projectile.targetId = null;
+                        projectile.homingTargetSearchTimer = 0;
+                    }
+                }
                 if (!target && projectile.targetId) {
                     projectile.targetId = null;
                     projectile.homingTargetSearchTimer = 0;
@@ -10393,7 +11359,9 @@ function updateProjectiles(state, dt) {
                     projectile.homingTargetSearchTimer = Math.max(0, (Number(projectile.homingTargetSearchTimer) || 0) - dt);
                     if (!target && projectile.homingTargetSearchTimer <= 0 && !homingTargetSearchPerformed) {
                         homingTargetSearchPerformed = true;
-                        target = findHomingTarget(state, originX, originY, projectile.facing < 0 ? -1 : 1);
+                        target = projectile.homingPreferForwardAlignment
+                            ? findHeadingHomingTarget(state, originX, originY, projectile.vx, projectile.vy)
+                            : findHomingTarget(state, originX, originY, projectile.facing < 0 ? -1 : 1);
                         projectile.homingTargetSearchTimer = HOMING_TARGET_SEARCH_INTERVAL_SECONDS;
                     }
                     if (target) {
@@ -10401,19 +11369,26 @@ function updateProjectiles(state, dt) {
                         applyRocketHomingMeander(state, projectile, dt);
                         const desired = normalizeVector({ x: target.x - projectile.currentTransform.x, y: target.y - projectile.currentTransform.y });
                         const speed = Math.max(1, Number(projectile.projectileSpeed) || t.rocketProjectileSpeed);
-                        const desiredVx = desired.x * speed;
-                        const desiredVy = desired.y * speed;
-                        const normalHomingStrength = Number(projectile.homingStrength) || t.rocketProjectileHomingStrength;
-                        const initialHomingStrength = Number(projectile.initialHomingStrength) || t.rocketProjectileInitialHomingStrength || normalHomingStrength;
-                        const homingStrength = projectile.upLaunchTimer > 0
-                            ? Math.max(normalHomingStrength, initialHomingStrength)
-                            : normalHomingStrength;
-                        const blend = clamp(homingStrength * dt, 0, 1);
-                        projectile.vx += (desiredVx - projectile.vx) * blend;
-                        projectile.vy += (desiredVy - projectile.vy) * blend;
-                        const nextSpeed = Math.hypot(projectile.vx, projectile.vy) || 1;
-                        projectile.vx = projectile.vx / nextSpeed * speed;
-                        projectile.vy = projectile.vy / nextSpeed * speed;
+                        const homingTurnDegreesPerWorldUnit = Math.max(0, Number(projectile.homingTurnDegreesPerWorldUnit) || 0);
+                        if (homingTurnDegreesPerWorldUnit > 0) {
+                            const travelSpeed = Math.hypot(Number(projectile.vx) || 0, Number(projectile.vy) || 0);
+                            const maxTurnRadians = homingTurnDegreesPerWorldUnit * travelSpeed * dt * Math.PI / 180;
+                            rotateVelocityToward(projectile, desired, speed, maxTurnRadians);
+                        } else {
+                            const desiredVx = desired.x * speed;
+                            const desiredVy = desired.y * speed;
+                            const normalHomingStrength = Number(projectile.homingStrength) || t.rocketProjectileHomingStrength;
+                            const initialHomingStrength = Number(projectile.initialHomingStrength) || t.rocketProjectileInitialHomingStrength || normalHomingStrength;
+                            const homingStrength = projectile.upLaunchTimer > 0
+                                ? Math.max(normalHomingStrength, initialHomingStrength)
+                                : normalHomingStrength;
+                            const blend = clamp(homingStrength * dt, 0, 1);
+                            projectile.vx += (desiredVx - projectile.vx) * blend;
+                            projectile.vy += (desiredVy - projectile.vy) * blend;
+                            const nextSpeed = Math.hypot(projectile.vx, projectile.vy) || 1;
+                            projectile.vx = projectile.vx / nextSpeed * speed;
+                            projectile.vy = projectile.vy / nextSpeed * speed;
+                        }
                     }
                 }
             }
@@ -11078,6 +12053,10 @@ function findHomingTarget(state, originX, originY, facing) {
     return orderedHomingTargets(state, originX, originY, facing)[0] || null;
 }
 
+function findHeadingHomingTarget(state, originX, originY, headingX, headingY) {
+    return orderedHeadingHomingTargets(state, originX, originY, headingX, headingY)[0] || null;
+}
+
 function findTargetById(state, id, originX, originY) {
     if (!id) {
         return null;
@@ -11372,6 +12351,15 @@ function findProjectileEnemyImpact(state, projectile, previousX, previousY) {
 
 function applyProjectileDamageToEnemy(state, projectile, enemy) {
     const before = Math.max(0, Number(enemy.health) || 0);
+    if (cutsceneEnemyProtected(state, enemy)) {
+        return {
+            damage: 0,
+            health: before,
+            defeated: false,
+            deferredUntilLanding: false,
+            blocked: true
+        };
+    }
     const requestedDamage = Math.max(0, Number(projectile.damage ?? state.tuning.rocketProjectileDamage) || 0);
     const damage = Math.min(before, requestedDamage);
     enemy.maxHealth = Math.max(before, Number(enemy.maxHealth) || before);
@@ -11412,7 +12400,7 @@ function applyProjectileDamageToEnemy(state, projectile, enemy) {
         enemy.state = "hurt";
         if (isCharacterEnemyState(enemy)) {
             enemy.attackTimer = 0;
-            enemy.attackLungeRemaining = 0;
+            clearCharacterEnemyAttackLunge(enemy);
             enemy.attackHitApplied = false;
             enemy.attackCooldownTimer = Math.max(Number(enemy.attackCooldownTimer) || 0, Number(enemy.attackCooldown) || 0);
             enemy.hurtTimer = Math.max(FIXED_DT, Number(enemy.hurtDuration) || state.tuning.enemyDefaultHurtSeconds || 0.48);
@@ -11792,6 +12780,42 @@ function findWorldSegmentById(state, id) {
     return state.world.segments.find((segment) => segment?.id === id) || null;
 }
 
+function playerSupportIsContinuation(state, preferredSupportId, candidateSegment, preferredSupportSegment = null) {
+    const preferredId = String(preferredSupportId || "");
+    if (!preferredId || !candidateSegment?.id) {
+        return false;
+    }
+    if (supportFamilyId(candidateSegment.id) === supportFamilyId(preferredId)) {
+        return true;
+    }
+    const held = preferredSupportSegment || findWorldSegmentById(state, preferredId);
+    if (held?.kind !== "walkable" || candidateSegment.kind !== "walkable") {
+        return false;
+    }
+    if (!playerSegmentIsStandable(held) || !playerSegmentIsStandable(candidateSegment)) {
+        return false;
+    }
+    const heldDx = Number(held.x2) - Number(held.x1);
+    const heldDy = Number(held.y2) - Number(held.y1);
+    const candidateDx = Number(candidateSegment.x2) - Number(candidateSegment.x1);
+    const candidateDy = Number(candidateSegment.y2) - Number(candidateSegment.y1);
+    const heldLength = Math.hypot(heldDx, heldDy);
+    const candidateLength = Math.hypot(candidateDx, candidateDy);
+    if (heldLength <= 0.001 || candidateLength <= 0.001) {
+        return false;
+    }
+    const tangentDot = Math.abs((heldDx * candidateDx + heldDy * candidateDy) / (heldLength * candidateLength));
+    if (tangentDot < PLAYER_WALKABLE_SEAM_MIN_TANGENT_DOT) {
+        return false;
+    }
+    return segmentSegmentDistance(
+        { x: Number(held.x1), y: Number(held.y1) },
+        { x: Number(held.x2), y: Number(held.y2) },
+        { x: Number(candidateSegment.x1), y: Number(candidateSegment.y1) },
+        { x: Number(candidateSegment.x2), y: Number(candidateSegment.y2) }
+    ) <= PLAYER_WALKABLE_SEAM_MAX_DISTANCE;
+}
+
 function supportPreferenceScore(detail, options = {}) {
     // Support choice is geometric: the uppermost valid support at the actor's
     // foot position wins. The previous support is only a sub-pixel tie-breaker
@@ -11896,6 +12920,7 @@ function findActorSweptGroundSupport(state, actor, previousX, previousY, nextX, 
         maxY: previousY + drop + horizontalTravel + skin
     };
     let best = null;
+    const preferredSupportSegment = findWorldSegmentById(state, options.preferredSupportId);
 
     for (const segment of collisionSegmentCandidates(state, actor, queryBounds)) {
         if (collisionIdIgnored(segment.id, options) || !isSolidSegmentKind(segment.kind) || Math.abs(segment.x2 - segment.x1) < 0.001) {
@@ -11942,7 +12967,7 @@ function findActorSweptGroundSupport(state, actor, previousX, previousY, nextX, 
                 { x: segment.x1, y: segment.y1 },
                 { x: segment.x2, y: segment.y2 }
             );
-            const currentSupportContinuation = options.preferredSupportId && supportFamilyId(segment.id) === supportFamilyId(options.preferredSupportId);
+            const currentSupportContinuation = playerSupportIsContinuation(state, options.preferredSupportId, segment, preferredSupportSegment);
             const wasAlreadyOnLine = Math.abs(previousDelta) <= skin;
             if (!hit && !currentSupportContinuation && !wasAlreadyOnLine) {
                 continue;
@@ -12103,6 +13128,7 @@ function findActorGroundSupportAtX(state, actor, x, referenceY, maxStepUp, maxDr
         maxY: referenceY + drop + skin
     };
     let best = null;
+    const preferredSupportSegment = findWorldSegmentById(state, options.preferredSupportId);
     const consider = (surfaceY, detail, sampleIndex) => {
         if (!Number.isFinite(surfaceY)) {
             return;
@@ -12134,11 +13160,9 @@ function findActorGroundSupportAtX(state, actor, x, referenceY, maxStepUp, maxDr
         if (!playerSegmentIsStandable(segment)) {
             continue;
         }
-        if (options.ignoreUncrossedWalkable && segment.kind === "walkable") {
-            const preferredId = String(options.preferredSupportId || "");
-            if (!preferredId || supportFamilyId(segment.id) !== supportFamilyId(preferredId)) {
-                continue;
-            }
+        if (options.ignoreUncrossedWalkable && segment.kind === "walkable"
+            && !playerSupportIsContinuation(state, options.preferredSupportId, segment, preferredSupportSegment)) {
+            continue;
         }
         for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
             const surfaceY = segmentYAtX(segment, samples[sampleIndex]);
@@ -14445,6 +15469,9 @@ function updateEnemyContactDamage(state) {
         if (enemy.strategy === "passive") continue;
         if ((Number(enemy.health) || 0) <= 0) continue;
         if (enemy.combatState === ENEMY_COMBAT_STATE.DEAD || enemy.state === "destroyed") continue;
+        // A committed melee lunge resolves damage through its authored melee
+        // handoff. Do not stack the separate body-contact damage channel on top.
+        if (enemy.attackLungeActive === true && enemy.attackMode !== "projectile") continue;
         if (!rectsOverlap(playerRect, enemyContactBodyRect(enemy))) continue;
 
         const contactDamage = Math.max(0, finiteNumberOr(
@@ -14734,17 +15761,18 @@ export function damagePlayer(state, amount = 34, sourceId = "debug", options = {
     const damageScale = options.bypassDifficulty === true ? 1 : difficultyDamageScale(state.settings);
     const requestedDamage = baseDamage * damageScale;
     const before = clamp(Number(health.amount) || 0, 0, health.max);
+    const storyInvulnerable = playerStorySequenceInvulnerable(state);
     const shielded = playerShieldBlocksDamage(state, options.bypassInvulnerability);
     const invulnerabilityTimerKey = String(options.invulnerabilityTimerKey || "invulnerabilityTimer");
     const damageInvulnerable = options.bypassInvulnerability !== true && (Number(health[invulnerabilityTimerKey]) || 0) > 0;
-    const blocked = shielded || damageInvulnerable;
+    const blocked = storyInvulnerable || shielded || damageInvulnerable;
     if (requestedDamage <= 0 || before <= 0 || blocked) {
         return {
             damage: 0,
             health: before,
             defeated: before <= 0,
             blocked,
-            blockedBy: shielded ? "shield" : (damageInvulnerable ? invulnerabilityTimerKey : null)
+            blockedBy: storyInvulnerable ? "storySequence" : (shielded ? "shield" : (damageInvulnerable ? invulnerabilityTimerKey : null))
         };
     }
 
@@ -14769,6 +15797,7 @@ export function damagePlayer(state, amount = 34, sourceId = "debug", options = {
     if (Number.isFinite(Number(options.knockbackY))) {
         state.player.vy = Number(options.knockbackY);
         state.player.onGround = false;
+        state.player.supportId = null;
         state.player.groundStride = null;
     }
 
@@ -14795,6 +15824,7 @@ export function damagePlayer(state, amount = 34, sourceId = "debug", options = {
         blocked: false
     };
 }
+
 
 export function teleportPlayer(state, x, y, reason = "developmentTeleport") {
     const targetX = Number(x);

@@ -209,10 +209,15 @@ def validate_project(project_root: Path, revision: int) -> None:
 
     bootstrap = (project_root / "src/browser/game-bootstrap.js").read_text(encoding="utf-8")
     editor = (project_root / "level-editor.html").read_text(encoding="utf-8")
-    if not re.search(rf'const GAME_REVISION = "{revision}";', bootstrap):
-        raise ValueError(f"game bootstrap revision label is not {revision}")
-    if f"Level Editor <small>rev {revision}</small>" not in editor:
-        raise ValueError(f"Level Editor revision label is not {revision}")
+    root_revision_path = project_root.parent / "BUILD_REVISION.txt"
+    if root_revision_path.is_file():
+        root_revision = root_revision_path.read_text(encoding="utf-8").strip()
+        if root_revision != str(revision):
+            raise ValueError(f"requested revision {revision} does not match root BUILD_REVISION.txt ({root_revision})")
+    if "const GAME_REVISION = await applyBuildRevisionToDocument();" not in bootstrap:
+        raise ValueError("game bootstrap must derive its revision from root BUILD_REVISION.txt")
+    if "<small data-build-revision>rev</small>" not in editor:
+        raise ValueError("Level Editor revision label must be populated from root BUILD_REVISION.txt")
 
     for documentation_name in ("PLAN.md", "ARCHITECTURE.md", "IMPLEMENTATION_CHECKLIST.md"):
         documentation = (project_root / documentation_name).read_text(encoding="utf-8")

@@ -155,6 +155,12 @@
             "y": 363,
             "w": 482,
             "h": 188
+        },
+        "forrest_ground_blend_1": {
+            "x": 775,
+            "y": 597,
+            "w": 307,
+            "h": 162
         }
     },
     "objects": {
@@ -1280,6 +1286,31 @@
                 "biome.forest",
                 "layer.background"
             ],
+            "notes": "",
+            "nodes": [],
+            "lines": []
+        },
+        "forrest_ground_blend_1": {
+            "id": "forrest_ground_blend_1",
+            "frame": "forrest_ground_blend_1",
+            "type": "decor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [],
             "notes": "",
             "nodes": [],
             "lines": []

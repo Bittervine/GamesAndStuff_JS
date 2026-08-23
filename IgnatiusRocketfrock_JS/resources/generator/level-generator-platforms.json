@@ -1,7 +1,7 @@
 {
-  "version": 4,
-  "catalogId": "themed-platform-generation-v4",
-  "description": "Platform-generation geometry and recipe roles. Theme and capability attributes use the minimal shared symbolic tag catalog.",
+  "version": 5,
+  "catalogId": "themed-platform-generation-v5",
+  "description": "Explicit platform catalog for automatic level generation. Established cave recipes retain their proven Atlas 004 run-and-gun floor, while Domed Grounded uses dedicated cave-ground bands from Atlas 035 through 039 with gradual transitions.",
   "assets": [
     {
       "atlasId": "at_atlas_001",
@@ -925,6 +925,631 @@
         "layer.terrain",
         "capability.platform",
         "capability.doorSupport"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_035",
+      "assetId": "cave_ground_035_01",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 35,
+      "weight": 8,
+      "nativeWidth": 1450,
+      "nativeHeight": 177,
+      "surfaceYRatio": 0.2570621468926554,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.060689655172413794,
+      "walkableRightInsetRatio": 0.07310344827586207,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_035",
+      "assetId": "cave_ground_035_02",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 35,
+      "weight": 8,
+      "nativeWidth": 1456,
+      "nativeHeight": 154,
+      "surfaceYRatio": 0.20454545454545456,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.046703296703296704,
+      "walkableRightInsetRatio": 0.05563186813186813,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_035",
+      "assetId": "cave_ground_035_03",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 35,
+      "weight": 8,
+      "nativeWidth": 1466,
+      "nativeHeight": 168,
+      "surfaceYRatio": 0.22916666666666666,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.061391541609822645,
+      "walkableRightInsetRatio": 0.08526603001364257,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_035",
+      "assetId": "cave_ground_035_04",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 35,
+      "weight": 8,
+      "nativeWidth": 1453,
+      "nativeHeight": 149,
+      "surfaceYRatio": 0.24161073825503357,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.0440467997247075,
+      "walkableRightInsetRatio": 0.08465244322092223,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_035",
+      "assetId": "cave_ground_035_05",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 35,
+      "weight": 8,
+      "nativeWidth": 1456,
+      "nativeHeight": 156,
+      "surfaceYRatio": 0.23397435897435898,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.06387362637362637,
+      "walkableRightInsetRatio": 0.06456043956043957,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_036",
+      "assetId": "cave_ground_036_01",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 36,
+      "weight": 8,
+      "nativeWidth": 1469,
+      "nativeHeight": 157,
+      "surfaceYRatio": 0.2484076433121019,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.0878148400272294,
+      "walkableRightInsetRatio": 0.10142954390742001,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_036",
+      "assetId": "cave_ground_036_02",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 36,
+      "weight": 8,
+      "nativeWidth": 1464,
+      "nativeHeight": 159,
+      "surfaceYRatio": 0.23270440251572327,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.05259562841530055,
+      "walkableRightInsetRatio": 0.07923497267759563,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_036",
+      "assetId": "cave_ground_036_03",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 36,
+      "weight": 8,
+      "nativeWidth": 1472,
+      "nativeHeight": 154,
+      "surfaceYRatio": 0.21753246753246752,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.07404891304347826,
+      "walkableRightInsetRatio": 0.07676630434782608,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_036",
+      "assetId": "cave_ground_036_04",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 36,
+      "weight": 8,
+      "nativeWidth": 1470,
+      "nativeHeight": 150,
+      "surfaceYRatio": 0.22,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.09931972789115646,
+      "walkableRightInsetRatio": 0.09047619047619047,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_036",
+      "assetId": "cave_ground_036_05",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 36,
+      "weight": 8,
+      "nativeWidth": 1473,
+      "nativeHeight": 169,
+      "surfaceYRatio": 0.23076923076923078,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.08486082824168364,
+      "walkableRightInsetRatio": 0.11337406653088934,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_037",
+      "assetId": "cave_ground_037_01",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 37,
+      "weight": 8,
+      "nativeWidth": 1361,
+      "nativeHeight": 180,
+      "surfaceYRatio": 0.25277777777777777,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.09478324761204997,
+      "walkableRightInsetRatio": 0.08376193975018369,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_037",
+      "assetId": "cave_ground_037_02",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 37,
+      "weight": 8,
+      "nativeWidth": 1369,
+      "nativeHeight": 175,
+      "surfaceYRatio": 0.2542857142857143,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.07596785975164354,
+      "walkableRightInsetRatio": 0.08035062089116143,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_037",
+      "assetId": "cave_ground_037_03",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 37,
+      "weight": 8,
+      "nativeWidth": 1369,
+      "nativeHeight": 175,
+      "surfaceYRatio": 0.26571428571428574,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.08035062089116143,
+      "walkableRightInsetRatio": 0.10080350620891161,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_037",
+      "assetId": "cave_ground_037_04",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 37,
+      "weight": 8,
+      "nativeWidth": 1368,
+      "nativeHeight": 165,
+      "surfaceYRatio": 0.24242424242424243,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.10453216374269006,
+      "walkableRightInsetRatio": 0.0891812865497076,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_037",
+      "assetId": "cave_ground_037_05",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 37,
+      "weight": 8,
+      "nativeWidth": 1366,
+      "nativeHeight": 133,
+      "surfaceYRatio": 0.23684210526315788,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.08272327964860908,
+      "walkableRightInsetRatio": 0.08345534407027819,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_038",
+      "assetId": "cave_ground_038_01",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 38,
+      "weight": 8,
+      "nativeWidth": 1360,
+      "nativeHeight": 179,
+      "surfaceYRatio": 0.2569832402234637,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.10588235294117647,
+      "walkableRightInsetRatio": 0.1161764705882353,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_038",
+      "assetId": "cave_ground_038_02",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 38,
+      "weight": 8,
+      "nativeWidth": 1370,
+      "nativeHeight": 174,
+      "surfaceYRatio": 0.27873563218390807,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.11021897810218978,
+      "walkableRightInsetRatio": 0.11532846715328467,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_038",
+      "assetId": "cave_ground_038_03",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 38,
+      "weight": 8,
+      "nativeWidth": 1373,
+      "nativeHeight": 169,
+      "surfaceYRatio": 0.22781065088757396,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.10779315367807721,
+      "walkableRightInsetRatio": 0.10269482884195193,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_038",
+      "assetId": "cave_ground_038_04",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 38,
+      "weight": 8,
+      "nativeWidth": 1374,
+      "nativeHeight": 173,
+      "surfaceYRatio": 0.25722543352601157,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.11135371179039301,
+      "walkableRightInsetRatio": 0.10407569141193596,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_038",
+      "assetId": "cave_ground_038_05",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 38,
+      "weight": 8,
+      "nativeWidth": 1373,
+      "nativeHeight": 167,
+      "surfaceYRatio": 0.2994011976047904,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.10487982520029134,
+      "walkableRightInsetRatio": 0.11944646758922069,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_039",
+      "assetId": "cave_ground_039_01",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 39,
+      "weight": 8,
+      "nativeWidth": 1468,
+      "nativeHeight": 172,
+      "surfaceYRatio": 0.25872093023255816,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.11376021798365123,
+      "walkableRightInsetRatio": 0.11716621253405994,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_039",
+      "assetId": "cave_ground_039_02",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 39,
+      "weight": 8,
+      "nativeWidth": 1473,
+      "nativeHeight": 167,
+      "surfaceYRatio": 0.2634730538922156,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.10319076714188731,
+      "walkableRightInsetRatio": 0.10726408689748812,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_039",
+      "assetId": "cave_ground_039_03",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 39,
+      "weight": 8,
+      "nativeWidth": 1475,
+      "nativeHeight": 169,
+      "surfaceYRatio": 0.2692307692307692,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.10983050847457627,
+      "walkableRightInsetRatio": 0.1016949152542373,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_039",
+      "assetId": "cave_ground_039_04",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 39,
+      "weight": 8,
+      "nativeWidth": 1471,
+      "nativeHeight": 173,
+      "surfaceYRatio": 0.2745664739884393,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.08429639700883752,
+      "walkableRightInsetRatio": 0.08633582596872875,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
+      ]
+    },
+    {
+      "atlasId": "at_atlas_039",
+      "assetId": "cave_ground_039_05",
+      "roles": [
+        "groundedRunAndGunGround",
+        "groundedDoorSupport"
+      ],
+      "groundBand": 39,
+      "weight": 8,
+      "nativeWidth": 1469,
+      "nativeHeight": 170,
+      "surfaceYRatio": 0.29705882352941176,
+      "scaleMin": 1.0,
+      "scaleMax": 1.08,
+      "mirror": true,
+      "walkableLeftInsetRatio": 0.10347174948944861,
+      "walkableRightInsetRatio": 0.08100748808713411,
+      "collisionMode": "blockable",
+      "generationTags": [
+        "biome.cave",
+        "layer.terrain",
+        "capability.platform",
+        "capability.runAndGunGround"
       ]
     }
   ]

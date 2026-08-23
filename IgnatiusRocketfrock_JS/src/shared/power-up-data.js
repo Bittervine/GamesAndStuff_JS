@@ -21,6 +21,7 @@ export const POWER_UP_GROUP_IDS = Object.freeze({
 export const NON_HOMING_ROCKET_SPEED_FACTOR = 2;
 export const HOMING_TRIPLE_MEANDER_INTERVAL_SECONDS = 0.16;
 export const HOMING_TRIPLE_MEANDER_TURN_DEGREES = 7;
+export const CYAN_DART_HOMING_TURN_DEGREES_PER_WORLD_UNIT = 0.035;
 export const OVERDRIVE_PASSIVE_FUEL_RECOVERY_DRAIN_FACTOR = 0.9;
 export const MAGIC_RING_DURATION_SECONDS = 30;
 export const MAGIC_RING_PANIC_SECONDS = 10;
@@ -72,6 +73,8 @@ const DEFAULT_ROCKET_PROFILE = Object.freeze({
     initialAngleJitterDegrees: 0,
     homingMeanderIntervalSeconds: 0,
     homingMeanderTurnDegrees: 0,
+    homingTurnDegreesPerWorldUnit: 0,
+    homingPreferForwardAlignment: false,
     separateTargets: false,
     aimAtNearestForwardTarget: false,
     areaDamageRadiusWizardHeights: 0,
@@ -163,7 +166,7 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
         version: 1,
         id: POWER_UP_EFFECT_IDS.FLIGHT,
         label: "Flight",
-        durationSeconds: 60,
+        durationSeconds: 30,
         permanent: false,
         stacking: POWER_UP_STACKING_RULES.REFRESH,
         clearOnDeath: true,
@@ -202,8 +205,10 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
             launchFuelCostMultiplier: 0.5,
             damageMultiplier: 1,
             speedMultiplier: NON_HOMING_ROCKET_SPEED_FACTOR,
-            homing: false,
+            homing: true,
             launchMode: "forward",
+            homingTurnDegreesPerWorldUnit: CYAN_DART_HOMING_TURN_DEGREES_PER_WORLD_UNIT,
+            homingPreferForwardAlignment: true,
             piercesEnemies: false
         }
     }),
@@ -404,6 +409,13 @@ export function normalizePowerUpEffectDefinition(rawDefinition, fallbackId = "")
                 rocketSource.homingMeanderTurnDegrees,
                 finiteNumber(builtinRocket.homingMeanderTurnDegrees, 0)
             )),
+            homingTurnDegreesPerWorldUnit: Math.max(0, finiteNumber(
+                rocketSource.homingTurnDegreesPerWorldUnit,
+                finiteNumber(builtinRocket.homingTurnDegreesPerWorldUnit, 0)
+            )),
+            homingPreferForwardAlignment: Boolean(
+                rocketSource.homingPreferForwardAlignment ?? builtinRocket.homingPreferForwardAlignment ?? false
+            ),
             separateTargets: Boolean(rocketSource.separateTargets ?? builtinRocket.separateTargets ?? false),
             aimAtNearestForwardTarget: Boolean(
                 rocketSource.aimAtNearestForwardTarget ?? builtinRocket.aimAtNearestForwardTarget ?? false

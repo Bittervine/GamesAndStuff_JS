@@ -2088,8 +2088,11 @@ def make_neutral_catalog_entry(
             "awarenessRange": 0,
             "awarenessHoldDuration": 0,
 
-            "attackLungeDistance": 0,
-            "attackLungeSpeed": 0,
+            "meleeHitRange": 0,
+            "lungeTargetDist": 0,
+            "lungeRangeMin": 0,
+            "lungeRangeMax": 0,
+            "lungeSpeed": 0,
 
             "strategy": "simple_patrol",
 

@@ -88,7 +88,7 @@
     "autoSpawnEnemies": {
         "enabled": false,
         "probabilityPercent": 10,
-        "enemyPool": "1-999"
+        "enemyPool": "1-900"
     },
     "caveWindow": {
         "version": 1,
@@ -162,7 +162,6 @@
             "layer": "terrain",
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "",
             "order": 0
         },
         {
@@ -180,7 +179,6 @@
             "layer": "terrain",
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 1
         },
         {
@@ -206,7 +204,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": -36
         },
         {
@@ -232,7 +229,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": 0
         },
         {
@@ -250,7 +246,6 @@
             "layer": "terrain",
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 5
         },
         {
@@ -276,7 +271,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": -2
         },
         {
@@ -295,7 +289,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 8
         },
         {
@@ -314,7 +307,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 9
         },
         {
@@ -333,7 +325,6 @@
             "onTop": true,
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "",
             "order": 20
         },
         {
@@ -352,7 +343,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 15
         },
         {
@@ -371,7 +361,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 16
         },
         {
@@ -390,7 +379,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 17
         },
         {
@@ -416,7 +404,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": -2
         },
         {
@@ -442,7 +429,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": 0
         },
         {
@@ -469,7 +455,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": 15
         },
         {
@@ -496,7 +481,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 16
         },
         {
@@ -523,7 +507,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 17
         },
         {
@@ -542,7 +525,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 271
         },
         {
@@ -561,7 +543,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 270
         },
         {
@@ -580,7 +561,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 270
         },
         {
@@ -599,7 +579,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 271
         },
         {
@@ -618,7 +597,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 261
         },
         {
@@ -637,7 +615,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 260
         },
         {
@@ -663,7 +640,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": -4
         },
         {
@@ -689,7 +665,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": -3
         },
         {
@@ -715,7 +690,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": -5
         },
         {
@@ -741,7 +715,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": -7
         },
         {
@@ -767,7 +740,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": -8
         },
         {
@@ -793,7 +765,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": -10
         },
         {
@@ -819,7 +790,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": -9
         },
         {
@@ -845,7 +815,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": -11
         },
         {
@@ -871,7 +840,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": -12
         },
         {
@@ -897,7 +865,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": -13
         },
         {
@@ -923,7 +890,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": -14
         },
         {
@@ -949,7 +915,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": -15
         },
         {
@@ -975,7 +940,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": -17
         },
         {
@@ -1001,7 +965,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "",
             "order": -18
         },
         {
@@ -1020,7 +983,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 279
         },
         {
@@ -1039,7 +1001,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 282
         },
         {
@@ -1058,7 +1019,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 282
         },
         {
@@ -1078,7 +1038,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 286
         },
         {
@@ -1097,7 +1056,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 287
         },
         {
@@ -1116,7 +1074,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 288
         },
         {
@@ -1135,7 +1092,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 289
         },
         {
@@ -1154,7 +1110,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 290
         },
         {
@@ -1173,7 +1128,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 291
         },
         {
@@ -1192,7 +1146,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 292
         },
         {
@@ -1211,7 +1164,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 293
         },
         {
@@ -1230,7 +1182,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 294
         },
         {
@@ -1249,7 +1200,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 295
         },
         {
@@ -1268,7 +1218,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 296
         },
         {
@@ -1287,7 +1236,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 297
         },
         {
@@ -1306,7 +1254,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 298
         },
         {
@@ -1325,7 +1272,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 299
         },
         {
@@ -1344,7 +1290,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "",
             "order": 298
         },
         {
@@ -1363,7 +1308,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "",
             "order": 299
         },
         {
@@ -1382,7 +1326,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "",
             "order": 300
         },
         {
@@ -1401,7 +1344,6 @@
             "onTop": true,
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "",
             "order": 301
         },
         {
@@ -1420,7 +1362,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 301
         },
         {
@@ -1439,7 +1380,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 302
         },
         {
@@ -1458,7 +1398,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 303
         },
         {
@@ -1477,7 +1416,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 304
         },
         {
@@ -1496,7 +1434,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 305
         },
         {
@@ -1515,7 +1452,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 306
         },
         {
@@ -1534,7 +1470,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 307
         },
         {
@@ -1553,7 +1488,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 308
         },
         {
@@ -1573,7 +1507,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 309
         },
         {
@@ -1593,7 +1526,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 310
         },
         {
@@ -1612,7 +1544,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 311
         },
         {
@@ -1631,7 +1562,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 312
         },
         {
@@ -1650,7 +1580,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 297
         },
         {
@@ -1669,7 +1598,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 298
         },
         {
@@ -1688,7 +1616,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 299
         },
         {
@@ -1707,7 +1634,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 300
         },
         {
@@ -1726,7 +1652,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 301
         },
         {
@@ -1745,7 +1670,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 302
         },
         {
@@ -1764,7 +1688,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 303
         },
         {
@@ -1783,7 +1706,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 305
         },
         {
@@ -1802,7 +1724,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 306
         },
         {
@@ -1821,7 +1742,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 305
         },
         {
@@ -1840,7 +1760,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 305
         },
         {
@@ -1859,7 +1778,6 @@
             "onTop": true,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 305
         },
         {
@@ -1878,7 +1796,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 83
         },
         {
@@ -1897,7 +1814,6 @@
             "blendOverlaps": false,
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 83
         },
         {
@@ -1924,7 +1840,6 @@
                 "supportId": "",
                 "routeNodeId": ""
             },
-            "notes": "Inert manually placed Foreground artwork.",
             "order": 299
         },
         {
@@ -1942,7 +1857,6 @@
             "layer": "decorBack",
             "collisionFromManifest": false,
             "editorLocked": false,
-            "notes": "",
             "order": 85
         },
         {
@@ -1960,7 +1874,6 @@
             "layer": "terrain",
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "Editor-visible, gameplay-invisible vertical collision barrier.",
             "order": 86
         },
         {
@@ -1968,7 +1881,7 @@
             "kind": "atlasAsset",
             "atlasId": "at_atlas_028",
             "assetId": "ignatius_title",
-            "x": 11408,
+            "x": 11232,
             "y": -16,
             "w": 900,
             "h": 404,
@@ -1979,24 +1892,22 @@
             "blendOverlaps": false,
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "",
-            "order": 87,
             "movement": {
                 "version": 1,
                 "pattern": "shuttle",
                 "activation": "signal",
                 "signalChannel": "A",
-                "endOffsetX": -2000,
+                "endOffsetX": -1824,
                 "endOffsetY": 0,
                 "speed": 1600,
                 "initialDelay": 0,
                 "triggerDelay": 0,
                 "startPause": 0.75,
-                "endPause": 3600,
+                "endPause": 9999,
                 "fadeDuration": 0.2,
                 "hiddenDuration": 1.25
             },
-            "onTop": true
+            "order": 87
         }
     ],
     "entities": [
@@ -2039,8 +1950,7 @@
             "thoughtAssetId": "thought_bubble_large",
             "letterTitle": "A Letter from Your Humble Editor",
             "letterText": "Dear Ignatius,\n\nI heard of your difficulties getting your book published.\n\nMaybe the world isn't ready for your ideas on \"Turbulent fuel/oxidizer intermix\".\n\nBut have you considered writing something else?  \n\nI am looking for someone to write a travelbook - there is lots of money in those!\n\nEasy and pleasant work too - just travel somewhere nice and take notes.\n\nI hear the caverns to the east might be a real tourist magnet.\n\nSincerely,\nWilfred of Bittervine, Esq\nEditor",
-            "thoughtText": "A travelbook?\n\nWell, at least I will get SOMETHING published.\n\nBesides a trip seem nice. I could do with a vacation.",
-            "notes": "An editor-letter mailbox. Each placed mailbox owns its own trigger distance, letter, thought, and timing metadata, so a level can contain several tutorial letters."
+            "thoughtText": "A travelbook?\n\nWell, at least I will get SOMETHING published.\n\nBesides a trip seem nice. I could do with a vacation."
         },
         {
             "id": "mailbox_002",
@@ -2081,8 +1991,7 @@
             "thoughtAssetId": "thought_bubble_large",
             "letterTitle": "A Letter from Your Humble Editor",
             "letterText": "Careful, my last researcher fell down here.\n\nHe was a cocky guy and claimed to be able to jump large distances by pushing off a second time mid-air.\n\nBut thats insane! \n\nOne would have to be some kind of wizard to try that - or at least have a jetpack.\n\n/Wilfred of Bittervine, Esq",
-            "thoughtText": "Drats!  \n\nI was sick the day they taught us floating charms.\n\nHmmm....  \"Jetpack\" he said. \n\nAnd something about jumping mid air.",
-            "notes": "An editor-letter mailbox. Each placed mailbox owns its own trigger distance, letter, thought, and timing metadata, so a level can contain several tutorial letters."
+            "thoughtText": "Drats!  \n\nI was sick the day they taught us floating charms.\n\nHmmm....  \"Jetpack\" he said. \n\nAnd something about jumping mid air."
         },
         {
             "id": "enemy_900_001",
@@ -2091,7 +2000,6 @@
             "x": 3616,
             "y": 500,
             "targetRadius": 16,
-            "notes": "Rocket target and combat-training prop.",
             "facing": 1
         },
         {
@@ -2116,8 +2024,7 @@
             "verticalTolerance": 150,
             "thoughtAtlasId": "it_atlas_001",
             "thoughtAssetId": "thought_bubble_large",
-            "thoughtText": "My old training dummy!\n\nMaybe I should practice one last time on firing my rocket.\n\nWhat button was it now again?",
-            "notes": "Invisible one-shot region that pauses play and shows an Ignatius thought bubble when entered."
+            "thoughtText": "My old training dummy!\n\nMaybe I should practice one last time on firing my rocket.\n\nWhat button was it now again?"
         },
         {
             "id": "thoughtTrigger_001",
@@ -2141,8 +2048,7 @@
             "verticalTolerance": 150,
             "thoughtAtlasId": "it_atlas_001",
             "thoughtAssetId": "thought_bubble_large",
-            "thoughtText": "I see a little fella over there. \n\nI bet we'll be friends!",
-            "notes": "Invisible one-shot region that pauses play and shows an Ignatius thought bubble when entered."
+            "thoughtText": "I see a little fella over there. \n\nI bet we'll be friends!"
         },
         {
             "id": "enemy_011_002",
@@ -2200,8 +2106,7 @@
             "interaction": "levelPortal",
             "portalRole": "entrance",
             "groundSnapDistance": 72,
-            "floorAnchorYFactor": 1,
-            "notes": "Invisible immediate level start. Ignatius begins at this floor-anchored point with no doorway animation."
+            "floorAnchorYFactor": 1
         },
         {
             "id": "wizard_exit_point_001",
@@ -2224,8 +2129,7 @@
             "verticalTolerance": 112,
             "destinationLevel": "level_002",
             "groundSnapDistance": 72,
-            "floorAnchorYFactor": 1,
-            "notes": "Invisible immediate level exit. Reaching this point loads its destination without a doorway animation."
+            "floorAnchorYFactor": 1
         },
         {
             "id": "thoughtTrigger_002",
@@ -2249,8 +2153,7 @@
             "verticalTolerance": 150,
             "thoughtAtlasId": "it_atlas_001",
             "thoughtAssetId": "thought_bubble_large",
-            "thoughtText": "\"To the Caverns\"",
-            "notes": "Invisible one-shot region that pauses play and shows an Ignatius thought bubble when entered."
+            "thoughtText": "\"To the Caverns\""
         },
         {
             "id": "proximityText_001",
@@ -2282,8 +2185,7 @@
             "fadeInDuration": 1,
             "displayDuration": 2,
             "fadeOutDuration": 1,
-            "floorAnchorYFactor": 0.5,
-            "notes": "Bold world-space text that fades in once when Ignatius enters its independently positioned trigger radius."
+            "floorAnchorYFactor": 0.5
         },
         {
             "id": "proximityText_002",
@@ -2315,8 +2217,7 @@
             "fadeInDuration": 1,
             "displayDuration": 9999,
             "fadeOutDuration": 1,
-            "floorAnchorYFactor": 0.5,
-            "notes": "Bold world-space text that fades in once when Ignatius enters its independently positioned trigger radius."
+            "floorAnchorYFactor": 0.5
         },
         {
             "id": "proximityText_005",
@@ -2348,8 +2249,7 @@
             "fadeInDuration": 1,
             "displayDuration": 5,
             "fadeOutDuration": 1,
-            "floorAnchorYFactor": 0.5,
-            "notes": "Bold world-space text that fades in once when Ignatius enters its independently positioned trigger radius."
+            "floorAnchorYFactor": 0.5
         },
         {
             "id": "proximityText_006",
@@ -2382,7 +2282,6 @@
             "displayDuration": 5,
             "fadeOutDuration": 1,
             "floorAnchorYFactor": 0.5,
-            "notes": "Bold world-space text that fades in once when Ignatius enters its independently positioned trigger radius.",
             "manualizedFromGeneration": {
                 "generatorId": "automatic-level-generator-9",
                 "runId": "",
@@ -2422,8 +2321,7 @@
             "fadeInDuration": 1,
             "displayDuration": 5,
             "fadeOutDuration": 1,
-            "floorAnchorYFactor": 0.5,
-            "notes": "Bold world-space text that fades in once when Ignatius enters its independently positioned trigger radius."
+            "floorAnchorYFactor": 0.5
         },
         {
             "id": "proximityText_003",
@@ -2456,7 +2354,6 @@
             "displayDuration": 5,
             "fadeOutDuration": 1,
             "floorAnchorYFactor": 0.5,
-            "notes": "Bold world-space text that fades in once when Ignatius enters its independently positioned trigger radius.",
             "manualizedFromGeneration": {
                 "generatorId": "automatic-level-generator-9",
                 "runId": "",
@@ -2497,7 +2394,6 @@
             "displayDuration": 3,
             "fadeOutDuration": 1,
             "floorAnchorYFactor": 0.5,
-            "notes": "Bold world-space text that fades in once when Ignatius enters its independently positioned trigger radius.",
             "manualizedFromGeneration": {
                 "generatorId": "automatic-level-generator-9",
                 "runId": "",
@@ -2550,11 +2446,9 @@
                 "available": "Available"
             },
             "effectId": "flight",
-            "durationSeconds": 60,
             "respawnSeconds": 60,
             "radius": 22,
-            "worldScale": 2,
-            "notes": "Sixty-second rocket flight power-up."
+            "worldScale": 2
         },
         {
             "id": "wrenchPickup_001",
@@ -2580,8 +2474,7 @@
             "atlasId": "it_atlas_001",
             "glowFrame": "powerup_glow_white",
             "iconFrame": "powerup_icon_wrench",
-            "glowTint": "#ffff00",
-            "notes": "Grants the selected 20-second wrench rocket mode. If no wrench type is authored, it defaults to the cyan Dart wrench."
+            "glowTint": "#ffff00"
         },
         {
             "id": "wrenchPickup_002",
@@ -2607,8 +2500,7 @@
             "atlasId": "it_atlas_001",
             "glowFrame": "powerup_glow_white",
             "iconFrame": "powerup_icon_wrench",
-            "glowTint": "#0000ff",
-            "notes": "Grants the selected 20-second wrench rocket mode. If no wrench type is authored, it defaults to the cyan Dart wrench."
+            "glowTint": "#0000ff"
         },
         {
             "id": "proximityText_004",
@@ -2641,7 +2533,6 @@
             "displayDuration": 5,
             "fadeOutDuration": 1,
             "floorAnchorYFactor": 0.5,
-            "notes": "Bold world-space text that fades in once when Ignatius enters its independently positioned trigger radius.",
             "manualizedFromGeneration": {
                 "generatorId": "automatic-level-generator-9",
                 "runId": "",
@@ -2666,8 +2557,31 @@
             "channel": "A",
             "triggerDistance": 600,
             "oneShot": true,
-            "floorAnchorYFactor": 0.5,
-            "notes": "Invisible one-shot trigger that activates a named signal channel the first time Ignatius enters its radius."
+            "floorAnchorYFactor": 0.5
+        },
+        {
+            "id": "cutsceneTrigger_001",
+            "type": "cutsceneTrigger",
+            "catalogId": "it_entities_001",
+            "x": 28208,
+            "y": 480,
+            "w": 120,
+            "h": 160,
+            "state": "available",
+            "visualStates": {
+                "available": [],
+                "consumed": []
+            },
+            "stateLabels": {
+                "available": "Available",
+                "consumed": "Consumed"
+            },
+            "interaction": "scriptedCutscene",
+            "triggerDistance": 96,
+            "verticalTolerance": 150,
+            "speechAtlasId": "it_atlas_001",
+            "speechAssetId": "speech_bubble_large",
+            "script": "GOTO wizard 28540 500\nANIM wizard wink\nDELAY 2.4\nGOTO wizard 28770 500\n"
         }
     ],
     "navigationGraphs": {

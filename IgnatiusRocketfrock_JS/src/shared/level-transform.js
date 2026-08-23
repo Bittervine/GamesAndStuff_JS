@@ -20,6 +20,7 @@ export function duplicateLevelPlacement(placement, options = {}) {
         throw new TypeError("A placement object is required.");
     }
     const clone = JSON.parse(JSON.stringify(placement));
+    delete clone.notes;
     const newId = String(options.id || "").trim();
     if (!newId) {
         throw new TypeError("A unique identifier is required for the copied placement.");

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Ignatius Level Editor - BUILD 390</title>
+    <title>Ignatius Level Editor - BUILD</title>
     <style>
         @font-face {
             font-family: "Ignatius Inter";
@@ -797,6 +797,7 @@
             }
         }
     </style>
+    <script type="module">import { applyBuildRevisionToDocument } from "./src/shared/build-revision.js"; await applyBuildRevisionToDocument();</script>
 </head>
 <body>
 <main>
@@ -833,7 +834,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 390</small></h1>
+        <h1>Level Editor <small data-build-revision>rev</small></h1>
 
         <div class="box">
             <h2>Level</h2>
@@ -1015,7 +1016,7 @@
                 <label>Reward density<div class="generator-range"><input id="generator-reward-density" type="range" min="0" max="100" step="1"><output id="generator-reward-density-value">0</output></div></label>
             </div>
             <div class="inline"><input id="generator-allow-thoughts" type="checkbox"><span class="small">Allow generated location thoughts</span></div>
-            <label>Enemy pool<input id="generator-enemy-filter" value="1-999" placeholder="1-20,!10,!19"></label>
+            <label>Enemy pool<input id="generator-enemy-filter" value="1-900" placeholder="1-20,!10,!19"></label>
             <p id="generator-enemy-preview" class="small generator-enemies">Enemy catalog not loaded yet.</p>
             <p id="generator-recipe-summary" class="small">Recipes lock route, cavern shape, and length into a tested combination.</p>
             <button id="generator-generate" class="generator-primary" type="button">Generate cavern + encounters + rewards</button>
@@ -1059,8 +1060,8 @@
             <h2>Autospawner</h2>
             <div class="inline"><input id="auto-spawn-enemies-enabled" type="checkbox"><span class="small">Auto spawn enemies during play</span></div>
             <label>Spawn probability each second (%)<input id="auto-spawn-enemies-probability" type="number" min="0" max="100" step="1" value="10"></label>
-            <label>Enemy pool<input id="auto-spawn-enemies-pool" value="1-999" placeholder="1-20,!10,!19"></label>
-            <p id="auto-spawn-enemies-preview" class="small">All available enemies are eligible by default.</p>
+            <label>Enemy pool<input id="auto-spawn-enemies-pool" value="1-900" placeholder="1-20,!10,!19"></label>
+            <p id="auto-spawn-enemies-preview" class="small">Enemies 001-900 are eligible by default; higher IDs require explicit entry.</p>
         </div>
 
         <div class="box">
@@ -1148,6 +1149,7 @@
                 <h3>Moving platform</h3>
                 <label class="inline"><input id="inspect-moving-enabled" type="checkbox"> Enable movement</label>
                 <div id="moving-platform-fields" style="display:none">
+                    <label class="inline"><input id="inspect-moving-persistent" type="checkbox"> Persistent through respawn</label>
                     <div class="row">
                         <label>Pattern
                             <select id="inspect-moving-pattern">
@@ -1209,6 +1211,14 @@
                 </label>
                 <p class="small">Missing or invalid wrench type defaults to the cyan Dart wrench.</p>
             </div>
+            <div id="powerup-duration-row" style="display:none">
+                <h3>Power-up duration</h3>
+                <div class="row">
+                    <label class="inline"><input id="inspect-powerup-custom-duration" type="checkbox"> Custom duration</label>
+                    <label>Seconds<input id="inspect-powerup-duration" type="number" min="0.1" step="0.5"></label>
+                </div>
+                <p id="inspect-powerup-duration-hint" class="small">Unchecked uses the built-in effect duration.</p>
+            </div>
             <div id="signal-settings-row" style="display:none">
                 <h3>Signal emitter</h3>
                 <div class="row">
@@ -1244,6 +1254,18 @@
                 <label id="story-thought-text-label">Ignatius's thought
                     <textarea id="inspect-mailbox-thought" rows="7" placeholder="Ignatius's response after reading the letter"></textarea>
                 </label>
+            </div>
+            <div id="cutscene-script-settings-row" style="display:none">
+                <h3>Scripted cutscene</h3>
+                <label>Trigger distance<input id="inspect-cutscene-distance" type="number" min="8" step="1" value="96"></label>
+                <label>Script
+                    <textarea id="inspect-cutscene-script" rows="10" spellcheck="false" placeholder='GOTO wizard 800 420
+ANIM wizard idle
+SAY wizard "We should keep moving."
+THINK wizard "Something feels wrong."
+DELAY 1'></textarea>
+                </label>
+                <p class="small">Commands run from top to bottom and are modal: GOTO &lt;character&gt; &lt;x&gt; &lt;y&gt; [speed], ANIM &lt;character&gt; &lt;animation_name&gt;, SAY &lt;character&gt; &quot;text&quot;, THINK &lt;character&gt; &quot;text&quot;, DELAY &lt;seconds&gt;. GOTO moves directly in a straight line and intentionally ignores navigation/collision. ANIM switches immediately. A GOTO temporarily uses the character's walk/run animation, then restores the most recent ANIM override; another ANIM replaces that override, and it is cleared when the cutscene ends.</p>
             </div>
             <div id="proximity-text-settings-row" style="display:none">
                 <h3>Proximity text</h3>
@@ -1343,14 +1365,25 @@
                     <label>Damage<input id="inspect-enemy-attack-damage" type="number" min="0" step="1"></label>
                     <label>Attack reach<input id="inspect-enemy-attack-range" type="number" min="0" step="1"></label>
                 </div>
-                <label>Attack cooldown seconds<input id="inspect-enemy-attack-cooldown" type="number" min="0" step="0.05"></label>
+                <div class="row">
+                    <label title="Forward reach from the authored melee handoff point at the critical frame; zero uses the legacy handoff-centered radius.">Melee hit range<input id="inspect-enemy-melee-hit-range" type="number" min="0" step="1"></label>
+                    <label>Lunge target distance<input id="inspect-enemy-lunge-target-dist" type="number" min="0" step="1"></label>
+                </div>
+                <div class="row">
+                    <label>Lunge minimum range<input id="inspect-enemy-lunge-range-min" type="number" min="0" step="1"></label>
+                    <label title="Zero disables lunging. A positive maximum below the minimum range is invalid and also disables lunging.">Lunge maximum range<input id="inspect-enemy-lunge-range-max" type="number" min="0" step="1"></label>
+                </div>
+                <div class="row">
+                    <label>Lunge speed<input id="inspect-enemy-lunge-speed" type="number" min="0" step="25"></label>
+                    <label>Attack cooldown seconds<input id="inspect-enemy-attack-cooldown" type="number" min="0" step="0.05"></label>
+                </div>
             </div>
             <div id="enemy-spawner-settings-row" style="display:none">
                 <h3>Enemy spawner</h3>
                 <label>Spawn probability each second (%)<input id="inspect-enemy-spawner-probability" type="number" min="0" max="100" step="1" value="10"></label>
-                <label>Enemy pool<input id="inspect-enemy-spawner-pool" value="1-999" placeholder="1-20,!10,!19"></label>
+                <label>Enemy pool<input id="inspect-enemy-spawner-pool" value="1-900" placeholder="1-20,!10,!19"></label>
                 <label>Disable signal (optional)<input id="inspect-enemy-spawner-disable-signal" maxlength="64" placeholder="BOSS_DEFEATED"></label>
-                <p id="inspect-enemy-spawner-preview" class="small">All available enemies are eligible by default.</p>
+                <p id="inspect-enemy-spawner-preview" class="small">Enemies 001-900 are eligible by default; higher IDs require explicit entry.</p>
             </div>
             <div id="reactive-settings-row" style="display:none">
                 <h3>Reactive object</h3>
@@ -1364,7 +1397,6 @@
                     <label class="inline"><input id="inspect-reactive-blocks-projectiles" type="checkbox"> Blocks rockets</label>
                 </div>
             </div>
-            <label>Notes<input id="inspect-notes" maxlength="240" placeholder="Optional note"></label>
         </div>
 
         <div class="box">
@@ -1524,6 +1556,7 @@ import {
     powerUpEffectDefinition
 } from "./src/shared/power-up-data.js";
 import { normalizeEnemyScale, scaledEnemyDimensions, scaledEnemyRenderScale } from "./src/shared/enemy-scale-data.js";
+import { nextOverlappingHit } from "./src/tools/level-editor-selection.js";
 import {
     DEFAULT_AUTO_SPAWN_ENEMIES,
     DEFAULT_ENEMY_SPAWNER,
@@ -1780,13 +1813,16 @@ import {
     const canvas = document.getElementById("stage");
     const overlayCanvas = document.getElementById("stage-overlay");
     const wrap = document.getElementById("canvas-wrap");
+    // Both stacked editor surfaces must present through the ordinary browser
+    // compositor. The production renderer asks for the same synchronized stage
+    // context later, and the first getContext() call owns those attributes.
     const stageCtx = canvas.getContext("2d", {
         alpha: false,
-        desynchronized: true
+        desynchronized: false
     });
     const overlayCtx = overlayCanvas.getContext("2d", {
         alpha: true,
-        desynchronized: true
+        desynchronized: false
     });
     if (!stageCtx || !overlayCtx) {
         throw new Error("Could not create the Level Editor drawing contexts.");
@@ -1938,6 +1974,7 @@ import {
         movingSignalChannelLabel: document.getElementById("moving-signal-channel-label"),
         inspectMovingSignalChannel: document.getElementById("inspect-moving-signal-channel"),
         inspectMovingEnabled: document.getElementById("inspect-moving-enabled"),
+        inspectMovingPersistent: document.getElementById("inspect-moving-persistent"),
         inspectMovingPattern: document.getElementById("inspect-moving-pattern"),
         inspectMovingActivation: document.getElementById("inspect-moving-activation"),
         inspectMovingEndX: document.getElementById("inspect-moving-end-x"),
@@ -1975,6 +2012,9 @@ import {
         inspectMailboxTitle: document.getElementById("inspect-mailbox-title"),
         inspectMailboxLetter: document.getElementById("inspect-mailbox-letter"),
         inspectMailboxThought: document.getElementById("inspect-mailbox-thought"),
+        cutsceneScriptSettingsRow: document.getElementById("cutscene-script-settings-row"),
+        inspectCutsceneDistance: document.getElementById("inspect-cutscene-distance"),
+        inspectCutsceneScript: document.getElementById("inspect-cutscene-script"),
         proximityTextSettingsRow: document.getElementById("proximity-text-settings-row"),
         inspectProximityText: document.getElementById("inspect-proximity-text"),
         inspectProximityFontSize: document.getElementById("inspect-proximity-font-size"),
@@ -2025,6 +2065,11 @@ import {
         inspectEnemyRenderScale: document.getElementById("inspect-enemy-render-scale"),
         inspectEnemyAttackDamage: document.getElementById("inspect-enemy-attack-damage"),
         inspectEnemyAttackRange: document.getElementById("inspect-enemy-attack-range"),
+        inspectEnemyMeleeHitRange: document.getElementById("inspect-enemy-melee-hit-range"),
+        inspectEnemyLungeTargetDist: document.getElementById("inspect-enemy-lunge-target-dist"),
+        inspectEnemyLungeRangeMin: document.getElementById("inspect-enemy-lunge-range-min"),
+        inspectEnemyLungeRangeMax: document.getElementById("inspect-enemy-lunge-range-max"),
+        inspectEnemyLungeSpeed: document.getElementById("inspect-enemy-lunge-speed"),
         inspectEnemyAttackCooldown: document.getElementById("inspect-enemy-attack-cooldown"),
         reactiveSettingsRow: document.getElementById("reactive-settings-row"),
         inspectReactiveHealth: document.getElementById("inspect-reactive-health"),
@@ -2032,7 +2077,10 @@ import {
         inspectReactiveDamageMultiplier: document.getElementById("inspect-reactive-damage-multiplier"),
         inspectReactiveBlocksPlayer: document.getElementById("inspect-reactive-blocks-player"),
         inspectReactiveBlocksProjectiles: document.getElementById("inspect-reactive-blocks-projectiles"),
-        inspectNotes: document.getElementById("inspect-notes"),
+        powerUpDurationRow: document.getElementById("powerup-duration-row"),
+        inspectPowerUpCustomDuration: document.getElementById("inspect-powerup-custom-duration"),
+        inspectPowerUpDuration: document.getElementById("inspect-powerup-duration"),
+        inspectPowerUpDurationHint: document.getElementById("inspect-powerup-duration-hint"),
         assetSizeRow: document.getElementById("asset-size-row"),
         assetExtraRow: document.getElementById("asset-extra-row"),
         entityTypeRow: document.getElementById("entity-type-row"),
@@ -2130,6 +2178,8 @@ import {
         generatorRewardCatalog: normalizeRewardGenerationCatalog(null),
         generatorLoadedRunId: "",
         generatorHistory: { undo: [], redo: [] },
+        generatorOperationId: 0,
+        generatorOperationPending: false,
         editHistory: {
             undo: [],
             redo: [],
@@ -2380,6 +2430,14 @@ import {
             record.type === "thoughtTrigger" ||
             record.kind === "thoughtTrigger" ||
             record.interaction === "locationThought"
+        );
+    }
+
+    function isCutsceneTrigger(record) {
+        return Boolean(record) && (
+            record.type === "cutsceneTrigger" ||
+            record.kind === "cutsceneTrigger" ||
+            record.interaction === "scriptedCutscene"
         );
     }
 
@@ -3141,8 +3199,26 @@ import {
     }
 
     function caveDecorationCatalog(theme = null) {
-        const entries = [];
+        const entriesByKey = new Map();
         const foregroundQuery = theme?.assetPools?.foreground || null;
+        for (const entry of state.paletteThumbnailCatalog?.entries || []) {
+            if (entry?.kind !== "asset") continue;
+            const atlasId = String(entry?.source?.atlasId || "");
+            const assetId = String(entry?.source?.assetId || "");
+            const frame = entry?.frame;
+            const generationTags = Array.isArray(entry?.generationTags) ? entry.generationTags : [];
+            if (!atlasId || !assetId || !frame || !generationTags.length) continue;
+            if (foregroundQuery && !generationTagsMatchQuery(generationTags, foregroundQuery)) continue;
+            entriesByKey.set(`${atlasId}:${assetId}`, {
+                atlasId,
+                assetId,
+                frame,
+                tags: Array.isArray(entry?.tags) ? entry.tags : [],
+                defaultScale: Number(entry?.defaultScale) || 1
+            });
+        }
+        // Compatibility fallback for an absent or older palette cache. Loaded
+        // atlas manifests remain authoritative and may supplement cached metadata.
         for (const [atlasId, record] of state.atlases.entries()) {
             const manifest = record?.manifest || {};
             for (const [assetId, object] of Object.entries(manifest.objects || {})) {
@@ -3151,7 +3227,7 @@ import {
                 const generationTags = Array.isArray(object?.generationTags) ? object.generationTags : [];
                 if (!generationTags.length) continue;
                 if (foregroundQuery && !generationTagsMatchQuery(generationTags, foregroundQuery)) continue;
-                entries.push({
+                entriesByKey.set(`${atlasId}:${assetId}`, {
                     atlasId,
                     assetId,
                     frame,
@@ -3160,7 +3236,7 @@ import {
                 });
             }
         }
-        return buildCaveDecorationCatalog(entries);
+        return buildCaveDecorationCatalog([...entriesByKey.values()]);
     }
 
     function isGeneratedCaveForeground(record) {
@@ -3573,7 +3649,9 @@ import {
     }
 
     function setStatus(text, ok = true) {
-        els.status.innerHTML = `<span class="${ok ? "status-ok" : "status-warn"}">${escapeHtml(text)}</span>`;
+        const message = String(text ?? "");
+        els.status.innerHTML = `<span class="${ok ? "status-ok" : "status-warn"}">${escapeHtml(message)}</span>`;
+        els.status.title = message;
     }
 
     function escapeHtml(text) {
@@ -3868,7 +3946,6 @@ import {
                         w: Math.max(1, Number(placement.w) || 160),
                         h: Math.max(1, Number(placement.h) || 120),
                         layer: "mask",
-                        notes: placement.notes || "",
                         order: Number.isFinite(Number(placement.order)) ? Number(placement.order) : index
                     };
                 }
@@ -3914,7 +3991,6 @@ import {
                     caveCategory: placement.caveCategory || undefined,
                     alpha: Number.isFinite(Number(placement.alpha)) ? Number(placement.alpha) : undefined,
                     movement: inertCosmetic ? undefined : (normalizeMovingPlatform(placement.movement) || undefined),
-                    notes: placement.notes || "",
                     order: Number.isFinite(Number(placement.order)) ? Number(placement.order) : index
                 };
             });
@@ -3938,9 +4014,9 @@ import {
                     x: Number(entity.x) || 0,
                     y: Number(entity.y) || 0,
                     w: Math.max(1, Number(entity.w) || 42),
-                    h: Math.max(1, Number(entity.h) || 80),
-                    notes: entity.notes || ""
+                    h: Math.max(1, Number(entity.h) || 80)
                 };
+                delete normalizedEntity.notes;
                 if (entity.type === "targetDummy") {
                     normalizedEntity.enemyCatalogId = "enemy_900";
                     normalizedEntity.characterId = "ct_char_enemy_900";
@@ -3953,7 +4029,6 @@ import {
                     normalizedEntity.type = "characterEnemy";
                     if (entity.w === undefined) delete normalizedEntity.w;
                     if (entity.h === undefined) delete normalizedEntity.h;
-                    if (entity.notes === undefined) delete normalizedEntity.notes;
                 }
                 for (const visual of entityVisuals(normalizedEntity)) {
                     if (visual.atlasId) referencedAtlases.add(visual.atlasId);
@@ -4447,7 +4522,7 @@ import {
         const comparisonText = comparison
             ? ` A/B: ${navigationStepMethodLabel(comparison.selectedMethod)} ${comparison.selectedEdges} edges (${comparison.selectedStepEdges} step) vs ${navigationStepMethodLabel(comparison.alternateMethod)} ${comparison.alternateEdges} (${comparison.alternateStepEdges} step); ${comparison.selectedOnly} selected-only, ${comparison.alternateOnly} alternate-only.`
             : "";
-        els.navigationGraphStatus.textContent = `${profiles.length} baked mobility profile${profiles.length === 1 ? "" : "s"}, using ${navigationStepMethodLabel(method)} step transitions. Wizard is an editor-only preview profile; runtime hunters use an exact mobility-profile match and fall back to live graph construction otherwise.${comparisonText}`;
+        els.navigationGraphStatus.textContent = `${profiles.length} baked mobility profile${profiles.length === 1 ? "" : "s"}, using ${navigationStepMethodLabel(method)} step transitions. Moving-platform collision geometry is excluded from hunter pathfinding; moving lifts remain player traversal only. Wizard is an editor-only preview profile; runtime hunters use an exact mobility-profile match and fall back to live graph construction otherwise.${comparisonText}`;
     }
 
     function placedHunterNavigationProfiles(options = {}) {
@@ -4629,6 +4704,30 @@ import {
         return normalizeWrenchPowerUpEffectId(entity?.wrenchEffectId || entity?.effectId || DEFAULT_WRENCH_POWER_UP_EFFECT_ID);
     }
 
+    function timedPowerUpDefinitionForEntity(entity) {
+        if (!entity || typeof entity !== "object") return null;
+        const effectId = isWrenchPickupEntity(entity)
+            ? selectedWrenchEffectId(entity)
+            : String(entity.effectId || "").trim();
+        const definition = powerUpEffectDefinition(effectId);
+        return definition && definition.permanent !== true ? definition : null;
+    }
+
+    function applyPowerUpDurationOverrideFromInspector(entity) {
+        if (!entity || typeof entity !== "object") return;
+        const definition = timedPowerUpDefinitionForEntity(entity);
+        if (!definition) {
+            delete entity.durationSeconds;
+            return;
+        }
+        if (!els.inspectPowerUpCustomDuration.checked) {
+            delete entity.durationSeconds;
+            return;
+        }
+        const requested = Number(els.inspectPowerUpDuration.value);
+        entity.durationSeconds = Math.max(0.1, Number.isFinite(requested) ? requested : definition.durationSeconds);
+    }
+
     function applyWrenchEffectDefaults(entity, effectId = "") {
         if (!entity || typeof entity !== "object") return entity;
         const normalizedEffectId = normalizeWrenchPowerUpEffectId(effectId || entity.wrenchEffectId || entity.effectId);
@@ -4638,7 +4737,6 @@ import {
         delete entity.wrenchEffectId;
         delete entity.randomEffectIds;
         delete entity.randomRollCount;
-        entity.durationSeconds = Number(entity.durationSeconds) || definition?.durationSeconds || 20;
         entity.respawnSeconds = Number(entity.respawnSeconds) || 60;
         entity.radius = Number(entity.radius) || 30;
         entity.atlasId = entity.atlasId || "it_atlas_001";
@@ -4709,8 +4807,7 @@ import {
             state: defaultState,
             visualStates,
             stateLabels,
-            ...cloneData(definition.defaults || {}),
-            notes: definition.description || ""
+            ...cloneData(definition.defaults || {})
         };
     }
 
@@ -5807,8 +5904,7 @@ import {
             layer: normalizedLayer,
             blendOverlaps: false,
             collisionFromManifest: inertCosmetic ? false : hasRuntimeLines(object),
-            foregroundSaturation: foreground ? caveDecoration.saturation : undefined,
-            notes: utility ? (object.notes || "Invisible collision barrier.") : (foreground ? "Inert manually placed Foreground artwork." : (background ? "Inert cosmetic Background artwork." : ""))
+            foregroundSaturation: foreground ? caveDecoration.saturation : undefined
         };
     }
 
@@ -5834,8 +5930,7 @@ import {
             y: p.y - 60,
             w: 160,
             h: 120,
-            layer: "mask",
-            notes: "Editor/rendering mask. Restores the cave background over visuals drawn before this mask, but does not block later assets or gameplay."
+            layer: "mask"
         };
     }
 
@@ -5852,8 +5947,7 @@ import {
             x: p.x,
             y: p.y,
             w: type === "trigger" ? 180 : 42,
-            h: type === "trigger" ? 120 : 80,
-            notes: ""
+            h: type === "trigger" ? 120 : 80
         };
         if (type === "fuel" && !catalogDefinition(type)) {
             entity.amount = 40;
@@ -6082,11 +6176,12 @@ import {
         return { x: record.x, y: record.y, w: record.w, h: record.h };
     }
 
-    function hitTest(point) {
+    function hitTestStack(point) {
+        const hits = [];
         for (let i = state.level.entities.length - 1; i >= 0; i -= 1) {
             const entity = state.level.entities[i];
             if (!editorEntityVisible(entity)) continue;
-            if (pointInRect(point, objectRect(entity, "entity"))) return { id: entity.id, kind: "entity" };
+            if (pointInRect(point, objectRect(entity, "entity"))) hits.push({ id: entity.id, kind: "entity" });
         }
         const placements = sortedPlacements();
         for (let i = placements.length - 1; i >= 0; i -= 1) {
@@ -6097,9 +6192,13 @@ import {
             const hit = placement.kind === "cutoutMask"
                 ? pointInRect(point, objectRect(displayedPlacement, "asset"))
                 : pointInPlacement(point, displayedPlacement);
-            if (hit) return { id: placement.id, kind: placement.kind === "cutoutMask" ? "cutoutMask" : "asset" };
+            if (hit) hits.push({ id: placement.id, kind: placement.kind === "cutoutMask" ? "cutoutMask" : "asset" });
         }
-        return null;
+        return hits;
+    }
+
+    function hitTest(point) {
+        return hitTestStack(point)[0] || null;
     }
 
     function pointInRect(point, rect) {
@@ -6207,7 +6306,8 @@ import {
             };
             return;
         }
-        const hit = hitTest(point);
+        const hitStack = hitTestStack(point);
+        const hit = hitStack[0] || null;
         const selectedPerimeterHit = !hit && hitTestSelectedCavePerimeter(point);
         const selectedCameraLineHit = !hit && !selectedPerimeterHit && hitTestSelectedCameraLine(point);
         if (!hit && !selectedPerimeterHit && !selectedCameraLineHit) {
@@ -6216,9 +6316,22 @@ import {
             draw();
             return;
         }
+        let cycleOnClick = false;
+        let cycleStartSelectedId = "";
         if (hit) {
-            if (!selectionContains(hit.id)) selectOnly(hit.id);
-            else {
+            normalizeObjectSelection();
+            const singleObjectSelection = state.selectedIds.size === 1
+                && !state.cavePerimeterSelected
+                && !state.cameraLineSelected;
+            const selectedHitIndex = singleObjectSelection
+                ? hitStack.findIndex((candidate) => candidate.id === state.selectedId)
+                : -1;
+            if (selectedHitIndex >= 0) {
+                cycleStartSelectedId = state.selectedId;
+                cycleOnClick = hitStack.length > 1;
+            } else if (!selectionContains(hit.id)) {
+                selectOnly(hit.id);
+            } else {
                 state.selectedId = hit.id;
                 state.selectedIds.add(hit.id);
             }
@@ -6228,14 +6341,27 @@ import {
         const cameraPoints = state.cameraLineSelected ? cameraLineRecord().points : [];
         const locked = selected.find((item) => generatedRecordLocked(item.record));
         if (locked) {
+            if (cycleOnClick) {
+                state.drag = {
+                    kind: "selectionClick",
+                    hitStack,
+                    cycleStartSelectedId,
+                    startClientX: event.clientX,
+                    startClientY: event.clientY,
+                    moved: false,
+                    pointerId: event.pointerId
+                };
+            }
             syncInspector();
             draw();
-            setStatus(`${locked.record.id} is locked. Unlock the complete selection before moving.`, false);
+            setStatus(cycleOnClick
+                ? `${locked.record.id} is locked. Click without dragging to select the next overlapping object.`
+                : `${locked.record.id} is locked. Unlock the complete selection before moving.`, false);
             return;
         }
         const movableCount = selected.length + (cavePoints.length ? 1 : 0) + (cameraPoints.length ? 1 : 0);
         const singleGuideLabel = cavePoints.length ? "Move cave perimeter" : cameraPoints.length ? "Move camera line" : "Move object";
-        beginEditHistory(movableCount > 1 ? "Move selection" : singleGuideLabel);
+        const historyLabel = movableCount > 1 ? "Move selection" : singleGuideLabel;
         const originals = new Map(selected.map((item) => [item.record.id, {
             x: Number(item.record.x) || 0,
             y: Number(item.record.y) || 0
@@ -6255,6 +6381,14 @@ import {
             ids: selected.map((item) => item.record.id),
             primaryId: state.selectedId,
             start: point,
+            startClientX: event.clientX,
+            startClientY: event.clientY,
+            moved: false,
+            historyStarted: false,
+            historyLabel,
+            cycleOnClick,
+            cycleStartSelectedId,
+            hitStack,
             originals,
             caveOriginals,
             cameraLineOriginals,
@@ -6262,10 +6396,6 @@ import {
             moveCameraLine: cameraLineOriginals.length > 0,
             pointerId: event.pointerId
         };
-        // Rebuild the runtime base once without the moving records. Their
-        // live artwork and guides then stay on the transparent overlay until
-        // the drag ends, avoiding a complete world conversion per pointer move.
-        markEditorRuntimeWorldDirty();
         syncInspector();
         draw();
     }
@@ -6283,6 +6413,12 @@ import {
         if (state.drag.kind === "selectionBox") {
             state.drag.current = point;
             draw({ reuseScene: true });
+            return;
+        }
+        if (state.drag.kind === "selectionClick") {
+            const clientDx = event.clientX - state.drag.startClientX;
+            const clientDy = event.clientY - state.drag.startClientY;
+            if (Math.hypot(clientDx, clientDy) >= 4) state.drag.moved = true;
             return;
         }
         if (state.drag.kind === "cavePoint") {
@@ -6333,6 +6469,19 @@ import {
             return;
         }
         if (state.drag.kind === "move") {
+            if (!state.drag.moved) {
+                const clientDx = event.clientX - state.drag.startClientX;
+                const clientDy = event.clientY - state.drag.startClientY;
+                if (Math.hypot(clientDx, clientDy) < 4) return;
+                state.drag.moved = true;
+                if (!state.drag.historyStarted) {
+                    beginEditHistory(state.drag.historyLabel || "Move object");
+                    state.drag.historyStarted = true;
+                    // Rebuild the runtime base once without the moving records. Their
+                    // live artwork and guides then stay on the transparent overlay.
+                    markEditorRuntimeWorldDirty();
+                }
+            }
             const dx = point.x - state.drag.start.x;
             const dy = point.y - state.drag.start.y;
             const primaryOriginal = state.drag.originals.get(state.drag.primaryId)
@@ -6373,6 +6522,20 @@ import {
         }
     }
 
+    function completeOverlappingSelectionClick(completedDrag) {
+        if (!completedDrag?.cycleOnClick) return false;
+        const nextHit = nextOverlappingHit(completedDrag.hitStack, completedDrag.cycleStartSelectedId);
+        if (!nextHit) return false;
+        selectOnly(nextHit.id);
+        syncInspector();
+        renderPlacementList();
+        draw();
+        const stack = completedDrag.hitStack || [];
+        const index = Math.max(0, stack.findIndex((hit) => hit.id === nextHit.id));
+        setStatus(`Selected ${nextHit.id} (${index + 1}/${stack.length} under cursor). Click again to select the next overlapping object.`);
+        return true;
+    }
+
     function completeSelectionBox(completedDrag) {
         const selectionRect = normalizedDragRect(completedDrag.start, completedDrag.current || completedDrag.start);
         const ids = objectIdsInsideSelectionRect(selectionRect);
@@ -6404,6 +6567,10 @@ import {
         state.drag = null;
         canvas.classList.remove("panning");
         if (completedDrag.kind === "move") {
+            if (!completedDrag.moved) {
+                if (!completeOverlappingSelectionClick(completedDrag)) draw();
+                return;
+            }
             for (const id of completedDrag.ids || []) {
                 const moved = entityById(id);
                 if (isWizardDoor(moved)) snapWizardDoorToNearbyGround(moved, { announce: true });
@@ -6412,6 +6579,8 @@ import {
             if (completedDrag.moveCavePerimeter) refreshCaveWindowUi();
             if (completedDrag.moveCameraLine) refreshCameraLineUi();
             persistUi();
+        } else if (completedDrag.kind === "selectionClick") {
+            if (completedDrag.moved || !completeOverlappingSelectionClick(completedDrag)) draw();
         } else if (completedDrag.kind === "selectionBox") {
             completeSelectionBox(completedDrag);
         } else if (completedDrag.kind === "proximityTextTrigger") {
@@ -6452,6 +6621,7 @@ import {
     function recordIsTransientlyMoving(record) {
         return Boolean(
             state.drag?.kind === "move" &&
+            state.drag.moved === true &&
             record?.id &&
             Array.isArray(state.drag.ids) &&
             state.drag.ids.includes(record.id)
@@ -6477,7 +6647,7 @@ import {
     }
 
     function drawTransientMovingRecords(viewportBounds) {
-        if (state.drag?.kind !== "move") return;
+        if (state.drag?.kind !== "move" || state.drag.moved !== true) return;
         for (const id of state.drag.ids || []) {
             const placement = placementById(id);
             if (placement) {
@@ -6571,7 +6741,12 @@ import {
     }
 
     function editorRuntimeLevelSource() {
-        const movingIds = state.drag?.kind === "move" ? new Set(state.drag.ids || []) : null;
+        // A pointer-down selection is not a move yet. Keeping the record in the
+        // runtime snapshot until the drag threshold is crossed prevents a queued
+        // dirty-frame rebuild from accidentally omitting a clicked asset forever.
+        const movingIds = state.drag?.kind === "move" && state.drag.moved === true
+            ? new Set(state.drag.ids || [])
+            : null;
         const placements = (state.level.placements || []).filter((placement) => {
             if (movingIds?.has(placement?.id)) return false;
             return editorPlacementVisible(placement) && generatedCavePlacementVisible(placement);
@@ -7591,19 +7766,23 @@ import {
         const project = characterProjectForEntity(resolvedEnemy);
         if (!project) return false;
         const sampled = sampleRuntimeCharacterPose(project, resolvedEnemy.animationSlot || "idle", 0);
-        const enemyScale = normalizeEnemyScale(resolvedEnemy.scale, 1);
+        const enemyRenderScale = scaledEnemyRenderScale(resolvedEnemy, 0.8);
         const transforms = animationPoseToRuntimeTransforms(
             sampled.pose,
             project.rig,
             state.camera.zoom,
-            scaledEnemyRenderScale(resolvedEnemy, 0.8)
+            enemyRenderScale
         );
         const commands = buildRuntimeCharacterDrawCommands(project, transforms);
         const facing = Number(resolvedEnemy.facing) < 0 ? -1 : 1;
         const artworkOrigin = characterArtworkOrigin({
             ...resolvedEnemy,
-            renderOffsetX: finiteEditorNumber(resolvedEnemy.renderOffsetX, 0) * enemyScale,
-            renderOffsetY: finiteEditorNumber(resolvedEnemy.renderOffsetY, 0) * enemyScale
+            currentTransform: {
+                x: finiteEditorNumber(resolvedEnemy.x, 0),
+                y: finiteEditorNumber(resolvedEnemy.y, 0),
+                scaleX: enemyRenderScale,
+                scaleY: enemyRenderScale
+            }
         });
         const origin = worldToScreen(artworkOrigin.x, artworkOrigin.y);
         ctx.save();
@@ -8214,6 +8393,7 @@ import {
             const authoredMovement = normalizeMovingPlatform(rec.movement);
             const movingDraft = authoredMovement || createDefaultMovingPlatform();
             els.inspectMovingEnabled.checked = Boolean(authoredMovement);
+            els.inspectMovingPersistent.checked = movingDraft.persistent === true;
             els.inspectMovingPattern.value = movingDraft.pattern;
             els.inspectMovingActivation.value = movingDraft.activation;
             els.inspectMovingSignalChannel.value = movingDraft.signalChannel;
@@ -8247,6 +8427,8 @@ import {
             els.inspectMailboxTitle.value = rec.letterTitle || "A Letter from Your Humble Editor";
             els.inspectMailboxLetter.value = rec.letterText || "";
             els.inspectMailboxThought.value = formatMailboxThoughtText(rec);
+            els.inspectCutsceneDistance.value = String(Math.max(8, finiteEditorNumber(rec.triggerDistance, 96)));
+            els.inspectCutsceneScript.value = String(rec.script || 'SAY wizard "This is a scripted cutscene."');
             els.inspectProximityText.value = String(rec.text || "Lorem ipsum");
             els.inspectProximityFontSize.value = String(Math.max(8, finiteEditorNumber(rec.fontSize, 100)));
             els.inspectProximityFontFamily.value = normalizeProximityTextFontFamily(rec.fontFamily);
@@ -8295,6 +8477,11 @@ import {
             els.inspectEnemyRenderScale.value = normalizeEnemyScale(resolvedEnemy.scale, 1);
             els.inspectEnemyAttackDamage.value = Math.max(0, finiteEditorNumber(resolvedEnemy.damage, finiteEditorNumber(resolvedEnemy.attackDamage, finiteEditorNumber(resolvedEnemy.projectileDamage, 24))));
             els.inspectEnemyAttackRange.value = Math.max(0, finiteEditorNumber(resolvedEnemy.attackRange, 66));
+            els.inspectEnemyMeleeHitRange.value = Math.max(0, finiteEditorNumber(resolvedEnemy.meleeHitRange, 0));
+            els.inspectEnemyLungeTargetDist.value = Math.max(0, finiteEditorNumber(resolvedEnemy.lungeTargetDist, 0));
+            els.inspectEnemyLungeRangeMin.value = Math.max(0, finiteEditorNumber(resolvedEnemy.lungeRangeMin, 0));
+            els.inspectEnemyLungeRangeMax.value = Math.max(0, finiteEditorNumber(resolvedEnemy.lungeRangeMax, 0));
+            els.inspectEnemyLungeSpeed.value = Math.max(0, finiteEditorNumber(resolvedEnemy.lungeSpeed, 0));
             els.inspectEnemyAttackCooldown.value = Math.max(0, finiteEditorNumber(resolvedEnemy.attackCooldown, finiteEditorNumber(resolvedEnemy.projectileCooldown, 0.12)));
             els.inspectEnemyIsBoss.checked = rec.isBoss === true;
             els.inspectEnemyBossName.value = String(rec.bossName || "Boss");
@@ -8309,11 +8496,11 @@ import {
             els.inspectReactiveBlocksProjectiles.checked = rec.blocksProjectiles !== false;
             populateWrenchEffectInspector();
             els.inspectWrenchEffect.value = selectedWrenchEffectId(rec);
-            els.inspectNotes.value = rec.notes || "";
         }
         const isMailboxStory = selected.kind === "entity" && (rec.type === "mailbox" || rec.interaction === "editorLetter");
         const isLocationThought = selected.kind === "entity" && isLocationThoughtTrigger(rec);
         const isStoryEntity = isMailboxStory || isLocationThought;
+        const isCutscene = selected.kind === "entity" && isCutsceneTrigger(rec);
         const isProximityText = selected.kind === "entity" && isProximityTextEntity(rec);
         const isTreasure = selected.kind === "entity" && isTreasureChest(rec);
         const isDoor = selected.kind === "entity" && isWizardPortal(rec);
@@ -8330,6 +8517,7 @@ import {
         els.gateSettingsRow.style.display = isSignalReceiver ? "block" : "none";
         els.keyholeSettingsRow.style.display = isKeyhole ? "block" : "none";
         els.mailboxStoryRow.style.display = isStoryEntity ? "block" : "none";
+        els.cutsceneScriptSettingsRow.style.display = isCutscene ? "block" : "none";
         els.proximityTextSettingsRow.style.display = isProximityText ? "block" : "none";
         els.storyInspectorHeading.textContent = isLocationThought ? "Location thought trigger" : "Mailbox story";
         els.storyLetterDurationLabel.style.display = isLocationThought ? "none" : "grid";
@@ -8344,6 +8532,16 @@ import {
         els.enemySpawnerSettingsRow.style.display = isSpawner ? "block" : "none";
         els.reactiveSettingsRow.style.display = isReactive ? "block" : "none";
         els.wrenchSettingsRow.style.display = isWrench ? "block" : "none";
+        const timedPowerUpDefinition = selected.kind === "entity" ? timedPowerUpDefinitionForEntity(rec) : null;
+        els.powerUpDurationRow.style.display = timedPowerUpDefinition ? "block" : "none";
+        if (timedPowerUpDefinition) {
+            const authoredDuration = Number(rec.durationSeconds);
+            const hasCustomDuration = Number.isFinite(authoredDuration) && authoredDuration > 0;
+            els.inspectPowerUpCustomDuration.checked = hasCustomDuration;
+            els.inspectPowerUpDuration.disabled = !hasCustomDuration;
+            els.inspectPowerUpDuration.value = String(hasCustomDuration ? authoredDuration : timedPowerUpDefinition.durationSeconds);
+            els.inspectPowerUpDurationHint.textContent = `Unchecked uses the built-in ${timedPowerUpDefinition.label} duration (${timedPowerUpDefinition.durationSeconds} s).`;
+        }
         els.assetSizeRow.style.display = (selected.kind === "asset" || selected.kind === "cutoutMask" || (selected.kind === "entity" && !isProximityText)) ? "grid" : "none";
         els.assetExtraRow.style.display = selected.kind === "asset" ? "grid" : "none";
         const movingPlatformAvailable = selected.kind === "asset"
@@ -8404,7 +8602,6 @@ import {
             const degrees = Number(els.inspectAngle.value);
             if (Number.isFinite(degrees)) rec.rotation = degrees * Math.PI / 180;
         }
-        rec.notes = els.inspectNotes.value;
         invalidateEditorPlacementCaches({
             caveForeground: selected.kind === "asset" && rec.layer === CAVE_FOREGROUND_LAYER
         });
@@ -8477,7 +8674,6 @@ import {
             rec.w = Number(els.inspectW.value) || rec.w || 1;
             rec.h = Number(els.inspectH.value) || rec.h || 1;
         }
-        rec.notes = els.inspectNotes.value;
         if (selected.kind === "asset") {
             rec.layer = els.inspectLayer.value;
             rec.rotation = (Number(els.inspectAngle.value) || 0) * Math.PI / 180;
@@ -8493,6 +8689,7 @@ import {
                     pattern: els.inspectMovingPattern.value,
                     activation: els.inspectMovingActivation.value,
                     signalChannel: normalizeSignalChannel(els.inspectMovingSignalChannel.value),
+                    persistent: els.inspectMovingPersistent.checked,
                     endOffsetX: Number(els.inspectMovingEndX.value),
                     endOffsetY: Number(els.inspectMovingEndY.value),
                     speed: Number(els.inspectMovingSpeed.value),
@@ -8571,6 +8768,7 @@ import {
             if (isWrenchPickupEntity(rec)) {
                 applyWrenchEffectDefaults(rec, els.inspectWrenchEffect.value);
             }
+            applyPowerUpDurationOverrideFromInspector(rec);
             if (isSignalEmitterEntity(rec)) {
                 const proximitySignal = rec.type === "proximitySignalTrigger";
                 rec.channel = normalizeSignalChannel(els.inspectSignalChannel.value);
@@ -8605,6 +8803,25 @@ import {
                 rec.signalReceiver = true;
                 rec.collisionFromManifest = false;
             }
+            const editingCutscene = rec.type === "cutsceneTrigger" || (changedControlId !== "inspect-entity-type" && isCutsceneTrigger(rec));
+            if (changedControlId === "inspect-entity-type" && rec.type !== "cutsceneTrigger" && rec.interaction === "scriptedCutscene") {
+                delete rec.interaction;
+            }
+            if (editingCutscene) {
+                rec.type = "cutsceneTrigger";
+                rec.interaction = "scriptedCutscene";
+                rec.state = rec.state === "consumed" ? "consumed" : "available";
+                rec.triggerDistance = Math.max(8, Number(els.inspectCutsceneDistance.value) || 96);
+                rec.verticalTolerance = Math.max(24, Number(rec.verticalTolerance) || Math.max(24, Number(rec.h) || 160));
+                rec.script = els.inspectCutsceneScript.value;
+                rec.speechAtlasId = rec.speechAtlasId || "it_atlas_001";
+                rec.speechAssetId = rec.speechAssetId || "speech_bubble_large";
+                rec.thoughtAtlasId = rec.thoughtAtlasId || "it_atlas_001";
+                rec.thoughtAssetId = rec.thoughtAssetId || "thought_bubble_large";
+                rec.visualStates = rec.visualStates || { available: [], consumed: [] };
+                rec.stateLabels = rec.stateLabels || { available: "Available", consumed: "Consumed" };
+            }
+
             const editingLocationThought = rec.type === "thoughtTrigger" || (changedControlId !== "inspect-entity-type" && isLocationThoughtTrigger(rec));
             if (changedControlId === "inspect-entity-type" && rec.type !== "thoughtTrigger" && rec.interaction === "locationThought") {
                 delete rec.interaction;
@@ -8728,6 +8945,11 @@ import {
                 setCharacterEnemyOverride(rec, "scale", normalizeEnemyScale(els.inspectEnemyRenderScale.value, 1), 1);
                 setCharacterEnemyOverride(rec, "damage", Math.max(0, Number(els.inspectEnemyAttackDamage.value) || 0), 24);
                 setCharacterEnemyOverride(rec, "attackRange", Math.max(1, Number(els.inspectEnemyAttackRange.value) || 66), 66);
+                setCharacterEnemyOverride(rec, "meleeHitRange", Math.max(0, Number(els.inspectEnemyMeleeHitRange.value) || 0), 0);
+                setCharacterEnemyOverride(rec, "lungeTargetDist", Math.max(0, Number(els.inspectEnemyLungeTargetDist.value) || 0), 0);
+                setCharacterEnemyOverride(rec, "lungeRangeMin", Math.max(0, Number(els.inspectEnemyLungeRangeMin.value) || 0), 0);
+                setCharacterEnemyOverride(rec, "lungeRangeMax", Math.max(0, Number(els.inspectEnemyLungeRangeMax.value) || 0), 0);
+                setCharacterEnemyOverride(rec, "lungeSpeed", Math.max(0, Number(els.inspectEnemyLungeSpeed.value) || 0), 0);
                 setCharacterEnemyOverride(rec, "attackCooldown", Math.max(0, Number(els.inspectEnemyAttackCooldown.value) || 0), 0.12);
                 delete rec.attackDamage;
                 delete rec.projectileDamage;
@@ -8824,6 +9046,28 @@ import {
         return state.generatorRecipes.get(els.generatorRecipe.value) || state.generatorRecipes.values().next().value || normalizeGeneratorRecipe(null);
     }
 
+    function generatorRecipeSupportsTheme(recipe, theme = currentGeneratorTheme()) {
+        const themeIds = Array.isArray(recipe?.themeIds) ? recipe.themeIds : [];
+        return !themeIds.length || themeIds.includes(theme.themeId);
+    }
+
+    function refreshGeneratorRecipeOptionsForTheme(preferredRecipeId = els.generatorRecipe.value) {
+        const theme = currentGeneratorTheme();
+        const compatibleRecipes = [...state.generatorRecipes.values()].filter((recipe) => generatorRecipeSupportsTheme(recipe, theme));
+        els.generatorRecipe.innerHTML = "";
+        for (const recipe of compatibleRecipes) {
+            const option = document.createElement("option");
+            option.value = recipe.recipeId;
+            option.textContent = recipe.label;
+            option.title = recipe.description;
+            els.generatorRecipe.appendChild(option);
+        }
+        const preferred = compatibleRecipes.find((recipe) => recipe.recipeId === preferredRecipeId);
+        const selected = preferred || compatibleRecipes[0] || null;
+        if (selected) els.generatorRecipe.value = selected.recipeId;
+        return selected?.recipeId || "";
+    }
+
     function currentGeneratorColorModifier() {
         return state.generatorColorModifiers.get(els.generatorColorModifier.value)
             || state.generatorColorModifiers.values().next().value
@@ -8859,9 +9103,14 @@ import {
         const theme = state.generatorThemes.get(themeId) || currentGeneratorTheme();
         if (!theme) return;
         const seed = els.generatorSeed.value;
+        const previousRecipeId = els.generatorRecipe.value;
         els.generatorTheme.value = theme.themeId;
+        const selectedRecipeId = refreshGeneratorRecipeOptionsForTheme(previousRecipeId);
         if (state.generatorColorModifiers.has(theme.defaultColorModifierId)) {
             els.generatorColorModifier.value = theme.defaultColorModifierId;
+        }
+        if (selectedRecipeId && selectedRecipeId !== previousRecipeId) {
+            applyGeneratorRecipeDefaults(selectedRecipeId, { preserveSeed: true, preserveEnemyPool: true });
         }
         if (preserveSeed) els.generatorSeed.value = seed;
         refreshGeneratorRecipeSummary();
@@ -8884,16 +9133,8 @@ import {
             const fallback = normalizeGeneratorRecipe(null);
             state.generatorRecipes.set(fallback.recipeId, fallback);
         }
-        els.generatorRecipe.innerHTML = "";
-        for (const recipe of state.generatorRecipes.values()) {
-            const option = document.createElement("option");
-            option.value = recipe.recipeId;
-            option.textContent = recipe.label;
-            option.title = recipe.description;
-            els.generatorRecipe.appendChild(option);
-        }
-        els.generatorRecipe.value = state.generatorRecipes.keys().next().value;
-        applyGeneratorRecipeDefaults(els.generatorRecipe.value, { preserveSeed: true, preserveEnemyPool: true });
+        const selectedRecipeId = refreshGeneratorRecipeOptionsForTheme();
+        if (selectedRecipeId) applyGeneratorRecipeDefaults(selectedRecipeId, { preserveSeed: true, preserveEnemyPool: true });
         return state.generatorRecipes.size;
     }
 
@@ -9072,7 +9313,8 @@ import {
             return;
         }
         if (state.generatorThemes.has(generation.themeId)) els.generatorTheme.value = generation.themeId;
-        if (state.generatorRecipes.has(generation.recipeId)) els.generatorRecipe.value = generation.recipeId;
+        refreshGeneratorRecipeOptionsForTheme(generation.recipeId);
+        if (state.generatorRecipes.has(generation.recipeId) && generatorRecipeSupportsTheme(state.generatorRecipes.get(generation.recipeId))) els.generatorRecipe.value = generation.recipeId;
         if (state.generatorColorModifiers.has(generation.colorModifierId)) els.generatorColorModifier.value = generation.colorModifierId;
         els.generatorSeed.value = generation.seed;
         setGeneratorSettingsControls(generation.settings);
@@ -9183,9 +9425,10 @@ import {
         } else {
             els.generatorOwnershipStatus.textContent = "Select a generated placement or entity to manage its editor ownership.";
         }
-        els.generatorLockSelected.disabled = !generated || locked;
-        els.generatorUnlockSelected.disabled = !generated || !locked;
-        els.generatorManualizeSelected.disabled = !generated;
+        const operationPending = state.generatorOperationPending;
+        els.generatorLockSelected.disabled = operationPending || !generated || locked;
+        els.generatorUnlockSelected.disabled = operationPending || !generated || !locked;
+        els.generatorManualizeSelected.disabled = operationPending || !generated;
     }
 
     function captureAutomaticGenerationState() {
@@ -9327,7 +9570,7 @@ import {
     function canonicalGeneratorValue(value) {
         const omitted = new Set([
             "generatedBy", "generationRunId", "generatorId", "editorLocked", "manualizedFromGeneration",
-            "notes", "order", "runId", "version", "qualityScore", "warnings", "errors"
+            "order", "runId", "version", "qualityScore", "warnings", "errors"
         ]);
         const visit = (entry) => {
             if (Array.isArray(entry)) return entry.map(visit);
@@ -9569,8 +9812,33 @@ import {
         }
     }
 
-    function generateAutomaticRoutePreview() {
+    function beginAutomaticGeneratorOperation() {
+        const operationId = state.generatorOperationId + 1;
+        state.generatorOperationId = operationId;
+        state.generatorOperationPending = true;
+        refreshAutomaticGeneratorUi();
+        return operationId;
+    }
+
+    function automaticGeneratorOperationIsCurrent(operationId) {
+        return Boolean(operationId)
+            && state.generatorOperationPending
+            && operationId === state.generatorOperationId;
+    }
+
+    function finishAutomaticGeneratorOperation(operationId) {
+        if (!automaticGeneratorOperationIsCurrent(operationId)) return;
+        state.generatorOperationPending = false;
+        refreshAutomaticGeneratorUi();
+    }
+
+    async function generateAutomaticRoutePreview() {
+        let operationId = 0;
         try {
+            if (state.generatorOperationPending) {
+                setStatus("Automatic generation is already loading the assets for another draft.", false);
+                return;
+            }
             const existing = state.level.generation || state.level.placements.some(automaticGeneratedRecord) || state.level.entities.some(automaticGeneratedRecord);
             if (existing && !window.confirm("Replace the existing automatically generated cavern/content? Manually authored objects will be preserved.")) return;
             const manualLayoutCount = state.level.placements.filter((record) => !automaticGeneratedRecord(record)).length
@@ -9584,21 +9852,13 @@ import {
             const settings = readGeneratorSettingsControls();
             const enemySelection = parseEnemySelection(settings.allowedEnemies, [...state.enemyCatalog.keys()]);
             if (!enemySelection.valid) throw new Error(enemySelection.errors.join(" "));
-            const before = captureAutomaticGenerationState();
-            const previousShell = state.level.generation?.replacedLevelShell
-                ? cloneData(state.level.generation.replacedLevelShell)
-                : {
-                    world: cloneData(state.level.world),
-                    caveWindow: cloneData(state.level.caveWindow),
-                    atlasRefs: (state.level.atlasRefs || []).map(cloneData),
-                    navigationGraphs: cloneData(state.level.navigationGraphs || { version: 2, profiles: [] })
-                };
+            const decorationCatalog = caveDecorationCatalog(profile);
             const draft = generateAutomaticLevelDraft({
                 theme,
                 recipe,
                 colorModifier,
                 assetCatalog: state.generatorAssetCatalog,
-                decorationCatalog: caveDecorationCatalog(profile),
+                decorationCatalog,
                 requirePopulatedPerimeter: profile.decoration.populatePerimeter,
                 enemyGenerationCatalog: state.generatorEnemyCatalog,
                 rewardGenerationCatalog: state.generatorRewardCatalog,
@@ -9609,6 +9869,34 @@ import {
                 availableEnemyIds: [...state.enemyCatalog.keys()],
                 destinationLevel: defaultNextLevelId(state.level.levelId)
             });
+            // Generation metadata comes from the compact palette cache, while
+            // drawing still needs the referenced full atlas images. Load those
+            // before replacing any existing generated scene so a failed asset
+            // load leaves the current level untouched. The editor stays usable
+            // while the load is pending, so reject the draft if that level was
+            // edited or replaced before the assets became ready.
+            operationId = beginAutomaticGeneratorOperation();
+            const levelAtRequest = state.level;
+            const levelTextAtRequest = JSON.stringify(state.level);
+            setStatus("Generated a valid draft; loading its referenced atlas artwork before committing it...");
+            await Promise.all((draft.requiredAtlasIds || []).map((atlasId) => ensureAtlasLoaded(atlasId)));
+            if (!automaticGeneratorOperationIsCurrent(operationId)) return;
+            if (state.level !== levelAtRequest || JSON.stringify(state.level) !== levelTextAtRequest) {
+                throw new Error("The level changed while generated atlas artwork was loading. The stale draft was discarded; run Generate again when you are ready to commit it.");
+            }
+
+            // Capture undo state immediately before the commit. This prevents an
+            // asynchronous asset load from creating a transaction whose 'before'
+            // snapshot predates unrelated editor changes.
+            const before = captureAutomaticGenerationState();
+            const previousShell = state.level.generation?.replacedLevelShell
+                ? cloneData(state.level.generation.replacedLevelShell)
+                : {
+                    world: cloneData(state.level.world),
+                    caveWindow: cloneData(state.level.caveWindow),
+                    atlasRefs: (state.level.atlasRefs || []).map(cloneData),
+                    navigationGraphs: cloneData(state.level.navigationGraphs || { version: 2, profiles: [] })
+                };
             removeAutomaticGeneratedRecords();
             draft.generation.replacedLevelShell = previousShell;
             state.level.generation = draft.generation;
@@ -9640,9 +9928,12 @@ import {
             const roomCount = draft.generation.cavern?.rooms?.length || 0;
             setStatus(`Generated playable ${draft.generation.themeId} / ${draft.generation.recipeId} ${macroPattern} cavern ${draft.generation.runId} from seed “${draft.generation.seed}”: ${platformCount} platforms through ${roomCount} macro room${roomCount === 1 ? "" : "s"}, ${perimeterCount} cave-wall foreground pieces, ${encounterCount} encounter${encounterCount === 1 ? "" : "s"} with ${enemyCount} enem${enemyCount === 1 ? "y" : "ies"}, ${rewardCount} reward${rewardCount === 1 ? "" : "s"} including ${chestCount} upper-perch chest${chestCount === 1 ? "" : "s"}, and 2 grounded doors.${graphSummary}`);
         } catch (error) {
+            if (operationId && !automaticGeneratorOperationIsCurrent(operationId)) return;
             els.generatorValidation.className = "small generator-validation error";
             els.generatorValidation.textContent = error.message || String(error);
             setStatus(`Could not generate playable cavern, encounters, and rewards: ${error.message || error}`, false);
+        } finally {
+            finishAutomaticGeneratorOperation(operationId);
         }
     }
 
@@ -9716,8 +10007,21 @@ import {
             els.generatorClear.disabled = false;
             els.generatorRegenerate.disabled = false;
         }
-        els.generatorUndo.disabled = state.generatorHistory.undo.length === 0;
-        els.generatorRedo.disabled = state.generatorHistory.redo.length === 0;
+        const operationPending = state.generatorOperationPending;
+        for (const control of [
+            els.generatorTheme, els.generatorColorModifier, els.generatorRecipe, els.generatorSeed,
+            els.generatorRandomizeSeed, els.generatorVerticality, els.generatorWinding,
+            els.generatorDifficulty, els.generatorSafety, els.generatorEnemyDensity,
+            els.generatorRewardDensity, els.generatorAllowThoughts, els.generatorEnemyFilter
+        ]) {
+            if (control) control.disabled = operationPending;
+        }
+        els.generatorGenerate.disabled = operationPending;
+        els.generatorRegenerateStage.disabled = operationPending;
+        els.generatorRegenerate.disabled = operationPending || !generation;
+        els.generatorClear.disabled = operationPending || !generation;
+        els.generatorUndo.disabled = operationPending || state.generatorHistory.undo.length === 0;
+        els.generatorRedo.disabled = operationPending || state.generatorHistory.redo.length === 0;
         refreshGeneratorRangeOutputs();
         refreshGeneratorEnemyPreview();
         refreshGeneratorOwnershipUi();
@@ -10770,7 +11074,7 @@ import {
     });
     els.inspectEnemySpawnerPool.addEventListener("input", refreshSelectedEnemySpawnerPreview);
     els.inspectEnemySpawnerPool.addEventListener("change", refreshSelectedEnemySpawnerPreview);
-    els.generatorGenerate.addEventListener("click", generateAutomaticRoutePreview);
+    els.generatorGenerate.addEventListener("click", () => void generateAutomaticRoutePreview());
     els.generatorRegenerate.addEventListener("click", regenerateAutomaticGeneratorStage);
     els.generatorLockSelected.addEventListener("click", () => setSelectedGeneratedLock(true));
     els.generatorUnlockSelected.addEventListener("click", () => setSelectedGeneratedLock(false));
@@ -10823,13 +11127,22 @@ import {
         els.inspectCollision.disabled = inertCosmetic;
         els.movingPlatformRow.style.display = inertCosmetic ? "none" : "block";
     });
+    els.inspectPowerUpCustomDuration.addEventListener("change", () => {
+        const selected = selectedRecord();
+        const definition = selected?.kind === "entity" ? timedPowerUpDefinitionForEntity(selected.record) : null;
+        els.inspectPowerUpDuration.disabled = !els.inspectPowerUpCustomDuration.checked;
+        if (definition && (!els.inspectPowerUpCustomDuration.checked || !(Number(els.inspectPowerUpDuration.value) > 0))) {
+            els.inspectPowerUpDuration.value = String(definition.durationSeconds);
+        }
+    });
     const liveInspectorVisualIds = new Set([
         "inspect-x",
         "inspect-y",
         "inspect-w",
         "inspect-h",
         "inspect-angle",
-        "inspect-notes",
+        "inspect-cutscene-distance",
+        "inspect-cutscene-script",
         "inspect-proximity-text",
         "inspect-proximity-font-size",
         "inspect-proximity-font-family",

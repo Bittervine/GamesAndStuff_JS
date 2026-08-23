@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 10,
-        "note": "Revision 224 keeps the proximity-triggered world-space TEXT entity and standardizes it on bundled Inter/Caveat typography with Ignatius-purple defaults."
+        "version": 11,
+        "note": "Revision 224 keeps the proximity-triggered world-space TEXT entity and standardizes it on bundled Inter/Caveat typography with Ignatius-purple defaults. Revision 393 adds the proximity-triggered scripted cutscene entity with a line-oriented GOTO/ANIM/SAY/DELAY command textbox."
     },
     "catalogId": "it_entities_001",
     "atlasRefs": [
@@ -24,7 +24,7 @@
             },
             "defaults": {
                 "probabilityPercent": 10,
-                "enemyPool": "1-999",
+                "enemyPool": "1-900",
                 "collisionFromManifest": false
             },
             "states": {
@@ -97,6 +97,37 @@
                 "thoughtAtlasId": "it_atlas_001",
                 "thoughtAssetId": "thought_bubble_large",
                 "thoughtText": "This seems worth remembering."
+            },
+            "states": {
+                "available": {
+                    "label": "Available",
+                    "visuals": []
+                },
+                "consumed": {
+                    "label": "Consumed",
+                    "visuals": []
+                }
+            }
+        },
+        "cutsceneTrigger": {
+            "type": "cutsceneTrigger",
+            "label": "Scripted cutscene trigger",
+            "icon": "\ud83c\udfac",
+            "description": "Invisible one-shot proximity trigger that takes control of scripted characters and runs a modal GOTO/ANIM/SAY/THINK/DELAY sequence while background enemy AI is suspended and passive world motion continues.",
+            "defaultState": "available",
+            "defaultSize": {
+                "w": 120,
+                "h": 160
+            },
+            "defaults": {
+                "interaction": "scriptedCutscene",
+                "triggerDistance": 96,
+                "verticalTolerance": 150,
+                "speechAtlasId": "it_atlas_001",
+                "speechAssetId": "speech_bubble_large",
+                "thoughtAtlasId": "it_atlas_001",
+                "thoughtAssetId": "thought_bubble_large",
+                "script": "SAY wizard \"This is a scripted cutscene.\""
             },
             "states": {
                 "available": {
@@ -700,7 +731,7 @@
             "type": "fuel",
             "label": "Rocket fuel",
             "icon": "\u26fd",
-            "description": "Sixty-second rocket flight power-up.",
+            "description": "Thirty-second rocket flight power-up.",
             "defaultState": "available",
             "defaultSize": {
                 "w": 32.4,
@@ -708,7 +739,6 @@
             },
             "defaults": {
                 "effectId": "flight",
-                "durationSeconds": 60,
                 "respawnSeconds": 60,
                 "radius": 13.2,
                 "worldScale": 1.2
@@ -1025,7 +1055,6 @@
             },
             "defaults": {
                 "effectId": "overdrive",
-                "durationSeconds": 20,
                 "respawnSeconds": 60,
                 "radius": 30,
                 "atlasId": "it_atlas_001",
@@ -1056,7 +1085,6 @@
             },
             "defaults": {
                 "effectId": "shield",
-                "durationSeconds": 10,
                 "respawnSeconds": 60,
                 "radius": 30,
                 "atlasId": "it_atlas_001",
@@ -1087,7 +1115,6 @@
             },
             "defaults": {
                 "effectId": "wrenchCyan",
-                "durationSeconds": 20,
                 "respawnSeconds": 60,
                 "radius": 30,
                 "atlasId": "it_atlas_001",

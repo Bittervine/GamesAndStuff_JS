@@ -73,7 +73,7 @@
     "autoSpawnEnemies": {
         "enabled": false,
         "probabilityPercent": 0,
-        "enemyPool": "1-999"
+        "enemyPool": "1-900"
     },
     "caveWindow": {
         "version": 1,
@@ -153,7 +153,6 @@
             "layer": "terrain",
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "Gameplay-invisible authoring floor. Replace or reshape it while building the level.",
             "order": 0
         }
     ],
@@ -207,7 +206,6 @@
             "openDuration": 0.38,
             "clearDuration": 0.28,
             "closeDuration": 0.42,
-            "notes": "Campaign entry door for this authoring scaffold.",
             "walkDirection": 1,
             "emergeDistance": 190,
             "groundSnapDistance": 72,
@@ -264,7 +262,6 @@
             "openDuration": 0.38,
             "clearDuration": 0.28,
             "closeDuration": 0.42,
-            "notes": "Campaign exit door leading to level_015.",
             "walkDirection": 1,
             "groundSnapDistance": 72,
             "mirrorX": true,

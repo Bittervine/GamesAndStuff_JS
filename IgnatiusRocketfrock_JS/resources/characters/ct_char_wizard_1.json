@@ -16,6 +16,11 @@
         "death": null,
         "hover": null,
         "dangle": "ct_anim_wizard_dangle_1.json",
+        "look": "ct_anim_wizard_look_1.json",
+        "wink": "ct_anim_wizard_wink_1.json",
+        "away": "ct_anim_wizard_away_1.json",
+        "yes": "ct_anim_wizard_yes_1.json",
+        "no": "ct_anim_wizard_no_1.json",
         "rocketLaunch": null
     },
     "supplementalAtlases": [

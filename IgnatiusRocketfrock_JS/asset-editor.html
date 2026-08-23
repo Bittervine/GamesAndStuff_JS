@@ -1660,7 +1660,13 @@ import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceInde
     }
 
     function saveLocal() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(manifest));
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(manifest));
+            return true;
+        } catch (error) {
+            console.warn("Asset Tool browser storage is unavailable.", error);
+            return false;
+        }
     }
 
     function persistAndRedraw() {
@@ -2153,22 +2159,28 @@ import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceInde
 
     document.getElementById("save-local").addEventListener("click", () => {
         applyAtlasFields();
-        saveLocal();
-        alert("Atlas data saved in this browser.");
+        alert(saveLocal()
+            ? "Atlas data saved in this browser."
+            : "Atlas data could not be saved in this browser. Check storage permissions or available storage space.");
     });
 
     document.getElementById("load-local").addEventListener("click", () => {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (!saved) {
-            alert("No browser save found.");
-            return;
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (!saved) {
+                alert("No browser save found.");
+                return;
+            }
+            manifest = JSON.parse(saved);
+            ensureObjects();
+            selectedObjectId = Object.keys(manifest.objects)[0] || Object.keys(manifest.frames)[0] || null;
+            selectedNodeId = null;
+            selectedLineId = null;
+            syncAll();
+        } catch (error) {
+            console.warn("Asset Tool browser save could not be loaded.", error);
+            alert("The browser-saved atlas data could not be loaded.");
         }
-        manifest = JSON.parse(saved);
-        ensureObjects();
-        selectedObjectId = Object.keys(manifest.objects)[0] || Object.keys(manifest.frames)[0] || null;
-        selectedNodeId = null;
-        selectedLineId = null;
-        syncAll();
     });
 
     document.getElementById("refresh-json").addEventListener("click", () => refreshJson());

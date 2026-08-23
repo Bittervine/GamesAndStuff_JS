@@ -97,7 +97,7 @@ export function inputFrameFromSnapshot(snapshot = {}) {
     return input;
 }
 
-export function createGameplayRecording({ revision = "", levelId = "", initialState = null, settings = null, source = "manual" } = {}) {
+export function createGameplayRecording({ revision = "", levelId = "", initialState = null, settings = null, source = "manual", retainFrames = true } = {}) {
     const nowIso = new Date().toISOString();
     return {
         schema: GAMEPLAY_RECORDING_SCHEMA,
@@ -116,7 +116,7 @@ export function createGameplayRecording({ revision = "", levelId = "", initialSt
             settings: settings || initialState?.settings || null
         },
         initialState,
-        frames: [],
+        frames: retainFrames ? [] : null,
         summary: {
             frames: 0,
             durationSec: 0,
@@ -127,12 +127,14 @@ export function createGameplayRecording({ revision = "", levelId = "", initialSt
     };
 }
 
-export function appendGameplayRecordingFrame(recording, frame) {
-    if (!recording || recording.schema !== GAMEPLAY_RECORDING_SCHEMA || !Array.isArray(recording.frames)) {
-        return false;
+export function createGameplayRecordingFrame(recording, frame) {
+    if (!recording || recording.schema !== GAMEPLAY_RECORDING_SCHEMA) {
+        return null;
     }
+    recording.summary = recording.summary || {};
+    const frameCount = Math.max(0, Math.floor(Number(recording.summary.frames) || 0));
     const normalized = {
-        index: Math.max(0, Math.floor(Number(frame?.index) || recording.frames.length)),
+        index: Math.max(0, Math.floor(Number(frame?.index) || frameCount)),
         recordingTimeSec: roundNumber(frame?.recordingTimeSec, 6),
         gameTimeSec: roundNumber(frame?.gameTimeSec, 6),
         tick: Math.max(0, Math.floor(Number(frame?.tick) || 0)),
@@ -147,11 +149,28 @@ export function appendGameplayRecordingFrame(recording, frame) {
         input: snapshotGameplayInput(frame?.input || {}),
         debug: frame?.debug || null
     };
-    recording.frames.push(normalized);
-    recording.summary.frames = recording.frames.length;
+    return normalized;
+}
+
+export function commitGameplayRecordingFrame(recording, normalized) {
+    if (!recording || !normalized) return false;
+    recording.summary = recording.summary || {};
+    recording.summary.frames = Math.max(0, Math.floor(Number(recording.summary.frames) || 0)) + 1;
     recording.summary.durationSec = normalized.recordingTimeSec;
     recording.summary.finalGameTimeSec = normalized.gameTimeSec;
     recording.summary.finalTick = normalized.tick;
+    return true;
+}
+
+export function appendGameplayRecordingFrame(recording, frame) {
+    if (!recording || recording.schema !== GAMEPLAY_RECORDING_SCHEMA || !Array.isArray(recording.frames)) {
+        return false;
+    }
+    const normalized = createGameplayRecordingFrame(recording, frame);
+    if (!normalized) return false;
+    recording.frames.push(normalized);
+    commitGameplayRecordingFrame(recording, normalized);
+    recording.summary.frames = recording.frames.length;
     return true;
 }
 
@@ -159,11 +178,13 @@ export function finalizeGameplayRecording(recording, { reason = "manual" } = {})
     if (!recording || recording.schema !== GAMEPLAY_RECORDING_SCHEMA) return recording;
     recording.stoppedAtIso = new Date().toISOString();
     recording.summary = recording.summary || {};
-    recording.summary.frames = Array.isArray(recording.frames) ? recording.frames.length : 0;
-    const last = recording.frames?.[recording.frames.length - 1] || null;
-    recording.summary.durationSec = roundNumber(last?.recordingTimeSec || 0, 6);
-    recording.summary.finalGameTimeSec = roundNumber(last?.gameTimeSec ?? recording.initial?.gameTimeSec ?? 0, 6);
-    recording.summary.finalTick = Math.max(0, Math.floor(Number(last?.tick ?? recording.initial?.tick) || 0));
+    const retainedFrames = Array.isArray(recording.frames) ? recording.frames : null;
+    if (retainedFrames) recording.summary.frames = retainedFrames.length;
+    else recording.summary.frames = Math.max(0, Math.floor(Number(recording.summary.frames) || 0));
+    const last = retainedFrames?.[retainedFrames.length - 1] || null;
+    recording.summary.durationSec = roundNumber(last?.recordingTimeSec ?? recording.summary.durationSec ?? 0, 6);
+    recording.summary.finalGameTimeSec = roundNumber(last?.gameTimeSec ?? recording.summary.finalGameTimeSec ?? recording.initial?.gameTimeSec ?? 0, 6);
+    recording.summary.finalTick = Math.max(0, Math.floor(Number(last?.tick ?? recording.summary.finalTick ?? recording.initial?.tick) || 0));
     recording.summary.stopReason = String(reason || "manual");
     return recording;
 }

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Ignatius Dev Tool - BUILD 390</title>
+    <title>Ignatius Dev Tool - BUILD</title>
     <style>
         :root { color-scheme: dark; --bg: #0d0b15; --panel2: #211a30; --border: #51406f; --text: #eee8ff; --muted: #b7abc9; --accent: #a481df; --ok: #88d8a0; --error: #ff8f9b; }
         * { box-sizing: border-box; }
@@ -15,7 +15,7 @@
         nav { display: flex; gap: 7px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
         button { font: inherit; color: var(--text); border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); padding: 8px 12px; cursor: pointer; white-space: nowrap; }
         button:hover { border-color: var(--accent); }
-        .tab.active { background: #34264d; border-color: var(--accent); }
+        .tab.active { background: #34274d; border-color: var(--accent); }
         .project { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
         #project-status { max-width: 330px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
         #project-status.connected { color: var(--ok); }
@@ -27,6 +27,7 @@
     </style>
     <script src="./src/tools/ignatius-project-host.js"></script>
     <script>window.ignatiusProjectHost = IgnatiusProjectHost.create();</script>
+    <script type="module">import { applyBuildRevisionToDocument } from "./src/shared/build-revision.js"; await applyBuildRevisionToDocument();</script>
 </head>
 <body>
 <header>
@@ -43,10 +44,10 @@
     </div>
 </header>
 <main>
-    <iframe class="active" data-tool="level" src="./level-editor.html" title="Level Editor"></iframe>
-    <iframe data-tool="asset" src="./asset-editor.html" title="Asset Tool"></iframe>
-    <iframe data-tool="character" src="./character-editor.html" title="Character Tool"></iframe>
-    <iframe data-tool="palette" src="./palette-builder.html" title="Palette Builder"></iframe>
+    <iframe class="active" data-tool="level" data-src="./level-editor.html" title="Level Editor"></iframe>
+    <iframe data-tool="asset" data-src="./asset-editor.html" title="Asset Tool"></iframe>
+    <iframe data-tool="character" data-src="./character-editor.html" title="Character Tool"></iframe>
+    <iframe data-tool="palette" data-src="./palette-builder.html" title="Palette Builder"></iframe>
 </main>
 <script>
 (() => {
@@ -78,7 +79,11 @@
     function selectTool(tool) {
         for (const tab of tabs) tab.classList.toggle("active", tab.dataset.tool === tool);
         for (const frame of frames) frame.classList.toggle("active", frame.dataset.tool === tool);
-        localStorage.setItem("ignatius-dev-tool-active-tab", tool);
+        try {
+            localStorage.setItem("ignatius-dev-tool-active-tab", tool);
+        } catch {
+            // Remembering a tab is optional; tool selection itself must keep working.
+        }
     }
 
     function renderProject(snapshot) {
@@ -87,17 +92,22 @@
         status.className = snapshot.connected ? "connected" : "";
         selectButton.hidden = false;
         selectButton.disabled = !snapshot.canChooseDirectory;
+        for (const tab of tabs) tab.disabled = !snapshot.connected;
     }
 
     let observedSelectionVersion = null;
+    let toolsLoaded = false;
     projectHost.subscribe((snapshot) => {
         renderProject(snapshot);
-        if (observedSelectionVersion === null) {
-            observedSelectionVersion = snapshot.selectionVersion;
+        const selectionChanged = observedSelectionVersion !== null && snapshot.selectionVersion !== observedSelectionVersion;
+        observedSelectionVersion = snapshot.selectionVersion;
+        if (!snapshot.connected) return;
+        if (!toolsLoaded) {
+            for (const frame of frames) frame.src = frame.dataset.src;
+            toolsLoaded = true;
             return;
         }
-        if (snapshot.selectionVersion !== observedSelectionVersion) {
-            observedSelectionVersion = snapshot.selectionVersion;
+        if (selectionChanged) {
             for (const frame of frames) frame.contentWindow?.location.reload();
         }
     });
@@ -122,7 +132,12 @@
     });
 
     const requested = new URLSearchParams(location.search).get("tool");
-    const remembered = localStorage.getItem("ignatius-dev-tool-active-tab");
+    let remembered = null;
+    try {
+        remembered = localStorage.getItem("ignatius-dev-tool-active-tab");
+    } catch {
+        // Remembered shell state is optional in restricted browser contexts.
+    }
     selectTool(tabs.some((tab) => tab.dataset.tool === requested) ? requested : tabs.some((tab) => tab.dataset.tool === remembered) ? remembered : "level");
 })();
 </script>

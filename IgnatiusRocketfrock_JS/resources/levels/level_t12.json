@@ -62,7 +62,6 @@
             "layer": "terrain",
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "",
             "order": 1
         },
         {
@@ -80,7 +79,6 @@
             "layer": "terrain",
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "",
             "order": 5
         },
         {
@@ -98,7 +96,6 @@
             "layer": "terrain",
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "",
             "order": 63
         },
         {
@@ -116,7 +113,6 @@
             "layer": "terrain",
             "collisionFromManifest": true,
             "editorLocked": false,
-            "notes": "",
             "order": 64
         }
     ],

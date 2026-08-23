@@ -1,7 +1,7 @@
 {
   "meta": {
     "version": 1,
-    "note": "Interactive and story-item atlas. Cyan frame rectangles identify each reusable visual. Stateful gameplay is described by items/it_entities_001.json; atlas collision is supplied only for props that are sensible as solid scenery. Revision 227 normalizes the open treasure-chest frames so the loot and empty variants swap without visual jumping. Revision 357 registers the lever states from matching case features in the edited artwork so toggling keeps the switch body stationary."
+    "note": "Interactive and story-item atlas. Cyan frame rectangles identify each reusable visual. Stateful gameplay is described by items/it_entities_001.json; atlas collision is supplied only for props that are sensible as solid scenery. Revision 227 normalizes the open treasure-chest frames so the loot and empty variants swap without visual jumping. Revision 357 registers the lever states from matching case features in the edited artwork so toggling keeps the switch body stationary. Revision 393 registers the authored speech bubble used by proximity cutscene SAY commands."
   },
   "atlasId": "it_atlas_001",
   "image": "it_atlas_001.png",
@@ -317,6 +317,12 @@
       "y": 1400,
       "w": 98,
       "h": 123
+    },
+    "speech_bubble_large": {
+      "x": 491,
+      "y": 1282,
+      "w": 397,
+      "h": 241
     }
   },
   "objects": {
@@ -2660,6 +2666,28 @@
         "grey"
       ],
       "notes": "Greyscale inactive presentation for the rune checkpoint. Runtime checkpoint activation switches to rune_marker.",
+      "nodes": [],
+      "lines": []
+    },
+    "speech_bubble_large": {
+      "id": "speech_bubble_large",
+      "frame": "speech_bubble_large",
+      "type": "ui",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "ui",
+        "speech",
+        "dialogue"
+      ],
+      "notes": "Speech bubble for scripted cutscene SAY commands. The lower-left tail may be mirrored horizontally to point toward the active speaker.",
       "nodes": [],
       "lines": []
     }

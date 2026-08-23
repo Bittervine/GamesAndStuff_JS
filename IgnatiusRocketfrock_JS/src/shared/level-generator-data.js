@@ -2,7 +2,11 @@ import {
     CAVE_PERIMETER_GENERATOR,
     generateCavePerimeterPlacements
 } from "./cave-window-decoration.js";
-import { normalizeLevelLayerVisuals } from "./level-layer-data.js";
+import { deriveCaveFullBlackKillBoundary } from "./cave-kill-boundary-data.js";
+import {
+    DEFAULT_FOREGROUND_PARALLAX,
+    normalizeLevelLayerVisuals
+} from "./level-layer-data.js";
 import { parseEnemySelection } from "./enemy-pool-data.js";
 import {
     WRENCH_POWER_UP_EFFECT_IDS,
@@ -10,7 +14,7 @@ import {
 } from "./power-up-data.js";
 export { parseEnemySelection } from "./enemy-pool-data.js";
 
-export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 40;
+export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 42;
 export const AUTOMATIC_LEVEL_GENERATOR_ID = "automatic-level-generator-9";
 
 const GENERATED_PLAYER_BODY_WIDTH = 34;
@@ -21,6 +25,14 @@ export const GENERATED_TREASURE_CHEST_SPACING_PX = 500;
 export const GENERATED_POWER_UP_SPACING_PX = 3000;
 export const GENERATED_MONSTER_SPACING_PX = 300;
 export const DOMED_CAVERN_UPWARD_EXPANSION_FACTOR = 1.5;
+
+function isWideUpperCavernGeneratorId(value) {
+    return value === "wide-upper-contour-cavern-v1" || value === "grounded-wide-upper-contour-cavern-v1";
+}
+
+function isGroundedCavernGeneratorId(value) {
+    return value === "grounded-wide-upper-contour-cavern-v1";
+}
 
 export const LEVEL_GENERATOR_STAGE_ORDER = Object.freeze([
     "route",
@@ -42,10 +54,12 @@ export const LEVEL_GENERATOR_REGISTRIES = Object.freeze({
     ]),
     cavern: Object.freeze([
         Object.freeze({ id: "wide-upper-contour-cavern-v1", label: "Domed" }),
+        Object.freeze({ id: "grounded-wide-upper-contour-cavern-v1", label: "Domed Grounded" }),
         Object.freeze({ id: "the-path74-contour-cavern-v4", label: "Standard" })
     ]),
     traversal: Object.freeze([
-        Object.freeze({ id: "layered-safety-network-traversal-v6", label: "Standard" })
+        Object.freeze({ id: "layered-safety-network-traversal-v6", label: "Standard" }),
+        Object.freeze({ id: "grounded-safety-network-traversal-v1", label: "Grounded" })
     ]),
     endpoints: Object.freeze([
         Object.freeze({ id: "grounded-chamber-endpoints-v2", label: "Standard" })
@@ -86,7 +100,7 @@ export const DEFAULT_GENERATOR_SETTINGS = Object.freeze({
     enemyDensity: 0.42,
     rewardDensity: 0.38,
     allowThoughts: false,
-    allowedEnemies: "1-999"
+    allowedEnemies: "1-900"
 });
 
 const DEFAULT_THEME = Object.freeze({
@@ -262,6 +276,7 @@ export function normalizeGeneratorRecipe(value) {
         recipeId: cleanId(source.recipeId || source.id || DEFAULT_GENERATOR_RECIPE.recipeId, DEFAULT_GENERATOR_RECIPE.recipeId),
         label: String(source.label || source.name || DEFAULT_GENERATOR_RECIPE.label),
         description: String(source.description || ""),
+        themeIds: normalizeStringArray(source.themeIds),
         defaults: normalizeGeneratorSettings(source.defaults || DEFAULT_GENERATOR_RECIPE.defaults),
         route: legacyTheme.route,
         cavern: legacyTheme.cavern,
@@ -329,7 +344,7 @@ export function normalizeGeneratorTheme(value) {
         },
         defaults,
         route: {
-            nodeSpacing: clampNumber(routeSource.nodeSpacing, 360, 900, DEFAULT_THEME.route.nodeSpacing),
+            nodeSpacing: clampNumber(routeSource.nodeSpacing, 360, 1800, DEFAULT_THEME.route.nodeSpacing),
             verticalStep: clampNumber(routeSource.verticalStep, 120, 320, DEFAULT_THEME.route.verticalStep),
             startX: finiteNumber(routeSource.startX, DEFAULT_THEME.route.startX),
             baselineY: finiteNumber(routeSource.baselineY, DEFAULT_THEME.route.baselineY),
@@ -421,7 +436,7 @@ export function normalizeGeneratorSettings(value, fallback = DEFAULT_GENERATOR_S
         enemyDensity: clamp01(source.enemyDensity ?? base.enemyDensity),
         rewardDensity: clamp01(source.rewardDensity ?? base.rewardDensity),
         allowThoughts: Boolean(source.allowThoughts ?? base.allowThoughts ?? DEFAULT_GENERATOR_SETTINGS.allowThoughts),
-        allowedEnemies: String(source.allowedEnemies ?? base.allowedEnemies ?? DEFAULT_GENERATOR_SETTINGS.allowedEnemies).trim() || "1-999"
+        allowedEnemies: String(source.allowedEnemies ?? base.allowedEnemies ?? DEFAULT_GENERATOR_SETTINGS.allowedEnemies).trim() || "1-900"
     };
 }
 
@@ -673,6 +688,9 @@ export function normalizeGenerationAssetCatalog(value) {
                 minimumDoorWidth: Math.max(0, finiteNumber(entry.minimumDoorWidth, 0)),
                 minimumVisibleDepth: Math.max(0, finiteNumber(entry.minimumVisibleDepth, 0)),
                 collisionMode: entry.collisionMode === "oneWay" ? "oneWay" : "blockable",
+                groundBand: entry.groundBand !== null && entry.groundBand !== undefined && entry.groundBand !== "" && Number.isFinite(Number(entry.groundBand))
+                    ? Math.round(Number(entry.groundBand))
+                    : null,
                 mirror: entry.mirror !== false
             }))
             .filter((entry) => entry.roles.length && entry.scaleMax >= entry.scaleMin)
@@ -979,8 +997,7 @@ function instantiateGeneratedCatalogEntity({ id, type, definition, x, y, runId, 
         generationSupportId: support.id,
         routeNodeId: routeNodeId || support.routeNodeId || undefined,
         generationContext: context,
-        generatorId: "basic-rewards-v1",
-        notes: `Generated ${definition.label} for ${context} on ${support.id}.`
+        generatorId: "basic-rewards-v1"
     };
 }
 
@@ -1063,7 +1080,6 @@ function buildBasicRewards({
         const definition = powerUpEffectDefinition(effectId);
         return definition ? {
             effectId,
-            durationSeconds: definition.durationSeconds,
             iconFrame: definition.hud.iconFrame,
             glowFrame: definition.hud.glowFrame,
             glowTint: definition.hud.glowTint
@@ -1718,10 +1734,55 @@ function buildGeneratedPerimeterDecoration({
         }
     });
     const strictRegions = protectedRegions.filter((region) => region.strict);
-    const placements = generatedPlacements.filter((placement) => {
+    let placements = generatedPlacements.filter((placement) => {
         const bounds = rotatedPlacementBounds(placement, foregroundScale);
         return !strictRegions.some((region) => boundsOverlapRect(bounds, region));
     });
+    if (isGroundedCavernGeneratorId(cavern.generatorId)) {
+        // Domed Grounded lets the cave mask and deep Atlas 035-039 floor artwork
+        // carry the silhouette. Keep only isolated primary stalagmites and
+        // stalactites; omit the dense wall row and the outward radial coverage
+        // stacks used by the traditional fully dressed cave perimeter.
+        placements = placements.filter((placement) => {
+            if (Number(placement.caveLayerIndex) !== 0) return false;
+            const category = String(placement.caveCategory || "");
+            const arcIndex = Math.abs(Math.round(Number(placement.caveArcIndex)));
+            if (!Number.isFinite(arcIndex)) return false;
+            if (category === "floor") return arcIndex % 61 === 0;
+            if (category === "ceiling") return (arcIndex + 11) % 73 === 0;
+            return false;
+        });
+        // Sparse grounded accents must never accumulate into a gameplay-obscuring
+        // foreground skirt. Keep the old global 10% validator strict and accept
+        // grounded accents only while each support remains below a 6% coverage
+        // budget. This especially protects the narrow seam-climbing ledges.
+        const supportRects = (traversal?.placements || []).map((supportPlacement) => {
+            const rect = {
+                minX: finiteNumber(supportPlacement.x, 0),
+                minY: finiteNumber(supportPlacement.y, 0),
+                maxX: finiteNumber(supportPlacement.x, 0) + Math.max(1, finiteNumber(supportPlacement.w, 1)),
+                maxY: finiteNumber(supportPlacement.y, 0) + Math.max(1, finiteNumber(supportPlacement.h, 1))
+            };
+            return {
+                id: supportPlacement.id || "",
+                rect,
+                area: Math.max(1, (rect.maxX - rect.minX) * (rect.maxY - rect.minY))
+            };
+        });
+        const accumulatedCoverageArea = new Map();
+        placements = placements.filter((placement) => {
+            const bounds = rotatedPlacementBounds(placement, foregroundScale);
+            const overlaps = supportRects.map((support) => ({
+                support,
+                area: rectangleIntersectionArea(support.rect, bounds)
+            })).filter((entry) => entry.area > 0.0001);
+            if (overlaps.some(({ support, area }) => ((accumulatedCoverageArea.get(support.id) || 0) + area) / support.area > 0.06)) return false;
+            for (const { support, area } of overlaps) {
+                accumulatedCoverageArea.set(support.id, (accumulatedCoverageArea.get(support.id) || 0) + area);
+            }
+            return true;
+        });
+    }
     return {
         version: 1,
         generatorId: implementations.decoration,
@@ -1769,7 +1830,13 @@ export function validateGeneratedCavernPresentation(value = {}) {
         maximumDoorFloorError: 0,
         macroRoomCount: Array.isArray(cavern.rooms) ? cavern.rooms.length : 0,
         largestRoomWidthScreens: 0,
-        largestRoomHeightScreens: 0
+        largestRoomHeightScreens: 0,
+        groundedFloorSupportCount: 0,
+        minimumGroundedFloorBoundaryOffset: Infinity,
+        maximumGroundedFloorBoundaryOffset: -Infinity,
+        minimumGroundedConnectorFloorClearance: Infinity,
+        minimumGroundedEndpointFullBlackClearance: Infinity,
+        minimumGroundedEndpointPlayerBoundaryClearance: Infinity
     };
 
     if (theme.decoration.populatePerimeter && requirePerimeter) {
@@ -1803,8 +1870,18 @@ export function validateGeneratedCavernPresentation(value = {}) {
         if (coverage > 0.1 + 1e-6) errors.push(`Foreground covers ${Math.round(coverage * 1000) / 10}% of platform “${supportPlacement.id || "unnamed"}”.`);
     }
 
+    const groundedCavern = isGroundedCavernGeneratorId(cavern.generatorId);
+    const groundedFloorBands = groundedCavern ? buildGroundedFloorBands(traversal) : [];
     const stampBySupportId = new Map((cavern.stamps || []).map((stamp) => [stamp.sourceSupportId, stamp]));
     for (const support of traversal.supports || []) {
+        const groundedFloorSupport = groundedCavern
+            && ["runAndGunGround", "doorSupport"].includes(support.role)
+            && Number.isFinite(support.groundBand);
+        const groundedCloseFloorOneWay = groundedCavern
+            && support.collisionMode === "oneWay"
+            && (support.groundedVerticalConnector || support.upperAccessPlatform);
+        const groundedFloorClearanceExempt = groundedFloorSupport || (groundedCavern && support.role === "doorSupport");
+        if (groundedFloorSupport) metrics.groundedFloorSupportCount += 1;
         const placement = supportPlacements.find((candidate) => candidate.id === support.placementId);
         const stamp = stampBySupportId.get(support.id);
         if (stamp) metrics.minimumPlatformWallClearance = Math.min(metrics.minimumPlatformWallClearance, stamp.rx - support.width * 0.5);
@@ -1820,11 +1897,33 @@ export function validateGeneratedCavernPresentation(value = {}) {
                 ? finiteNumber(placement.y, support.surfaceY) + finiteNumber(placement.h, support.height)
                 : support.surfaceY + support.height * (1 - support.surfaceYRatio);
             metrics.minimumPlatformCeilingClearance = Math.min(metrics.minimumPlatformCeilingClearance, support.surfaceY - vertical.top);
-            metrics.minimumPlatformFloorClearance = Math.min(metrics.minimumPlatformFloorClearance, vertical.bottom - platformBottom);
+            if (groundedFloorSupport) {
+                // A grounded vertical transition deliberately cuts an opening through
+                // the otherwise-flat lower contour. Only require exact floor anchoring
+                // at samples that are still covered by this support's grounded band.
+                const floorBand = groundedFloorBandAtX(groundedFloorBands, x);
+                if (floorBand?.supportId === support.id) {
+                    const boundaryOffset = vertical.bottom - support.surfaceY;
+                    metrics.minimumGroundedFloorBoundaryOffset = Math.min(metrics.minimumGroundedFloorBoundaryOffset, boundaryOffset);
+                    metrics.maximumGroundedFloorBoundaryOffset = Math.max(metrics.maximumGroundedFloorBoundaryOffset, boundaryOffset);
+                }
+            } else if (groundedCloseFloorOneWay) {
+                const groundedOneWayClearance = vertical.bottom - platformBottom;
+                if (groundedOneWayClearance < metrics.minimumGroundedConnectorFloorClearance) {
+                    metrics.minimumGroundedConnectorFloorClearance = groundedOneWayClearance;
+                    metrics.minimumGroundedConnectorFloorClearanceSupportId = support.id;
+                }
+            } else if (!groundedFloorClearanceExempt) {
+                const floorClearance = vertical.bottom - platformBottom;
+                if (floorClearance < metrics.minimumPlatformFloorClearance) {
+                    metrics.minimumPlatformFloorClearance = floorClearance;
+                    metrics.minimumPlatformFloorClearanceSupportId = support.id;
+                }
+            }
         }
     }
 
-    const wideUpperCavern = cavern.generatorId === "wide-upper-contour-cavern-v1";
+    const wideUpperCavern = isWideUpperCavernGeneratorId(cavern.generatorId);
     const serpentineCave = cavern.macroPatternId === "serpentine-cave";
     const tolerance = 42;
     const requiredPlatformWallClearance = serpentineCave
@@ -1842,8 +1941,51 @@ export function validateGeneratedCavernPresentation(value = {}) {
     if (metrics.minimumPlatformCeilingClearance < requiredPlatformCeilingClearance) {
         errors.push(`A traversal platform has only ${roundCoordinate(metrics.minimumPlatformCeilingClearance)} units of ceiling clearance.`);
     }
-    if (metrics.minimumPlatformFloorClearance < requiredPlatformFloorClearance) {
-        errors.push(`A traversal platform has only ${roundCoordinate(metrics.minimumPlatformFloorClearance)} units of floor clearance.`);
+    if (Number.isFinite(metrics.minimumPlatformFloorClearance) && metrics.minimumPlatformFloorClearance < requiredPlatformFloorClearance) {
+        errors.push(`Traversal platform “${metrics.minimumPlatformFloorClearanceSupportId || "unknown"}” has only ${roundCoordinate(metrics.minimumPlatformFloorClearance)} units of floor clearance.`);
+    }
+    if (groundedCavern) {
+        if (!metrics.groundedFloorSupportCount) errors.push("Domed Grounded generated no dedicated ground-floor supports.");
+        if (finiteNumber(cavern?.contour?.groundedFloorBandCount, 0) < 1) errors.push("Domed Grounded did not anchor the lower perimeter to its generated floor platforms.");
+        if (Number.isFinite(metrics.minimumGroundedFloorBoundaryOffset)
+            && (Math.abs(metrics.minimumGroundedFloorBoundaryOffset) > 1 || Math.abs(metrics.maximumGroundedFloorBoundaryOffset) > 1)) {
+            errors.push(`Domed Grounded lower perimeter must sit on the ground surface (observed ${roundCoordinate(metrics.minimumGroundedFloorBoundaryOffset)}..${roundCoordinate(metrics.maximumGroundedFloorBoundaryOffset)} units).`);
+        }
+        if (Number.isFinite(metrics.minimumGroundedConnectorFloorClearance)
+            && metrics.minimumGroundedConnectorFloorClearance < -1) {
+            errors.push(`Domed Grounded one-way ledge “${metrics.minimumGroundedConnectorFloorClearanceSupportId || "unknown"}” extends ${roundCoordinate(-metrics.minimumGroundedConnectorFloorClearance)} units below the visible cavern floor.`);
+        }
+        const groundedSideSupports = (traversal.supports || []).filter((support) => !support.moving
+            && ["runAndGunGround", "doorSupport"].includes(support.role)
+            && Number.isFinite(support.groundBand));
+        const playerBoundary = deriveCaveFullBlackKillBoundary(cavern.caveWindow);
+        if (groundedSideSupports.length && playerBoundary.enabled) {
+            const terrainLeft = Math.min(...groundedSideSupports.map((support) => support.centerX - support.width * 0.5));
+            const terrainRight = Math.max(...groundedSideSupports.map((support) => support.centerX + support.width * 0.5));
+            const generatedWorldBounds = deriveGeneratedWorld(cavern, traversal, theme).bounds;
+            const parallaxAnchorX = generatedWorldBounds.x + generatedWorldBounds.w * 0.5;
+            const parallaxDelta = Math.max(0, DEFAULT_FOREGROUND_PARALLAX - 1);
+            const leftOffset = (terrainLeft - parallaxAnchorX) * parallaxDelta;
+            const rightOffset = (terrainRight - parallaxAnchorX) * parallaxDelta;
+            const fullBlackLeft = Math.min(...playerBoundary.fullBlackPoints.map((point) => point.x)) - leftOffset;
+            const fullBlackRight = Math.max(...playerBoundary.fullBlackPoints.map((point) => point.x)) - rightOffset;
+            const playerBoundaryLeft = Math.min(...playerBoundary.points.map((point) => point.x)) - leftOffset;
+            const playerBoundaryRight = Math.max(...playerBoundary.points.map((point) => point.x)) - rightOffset;
+            metrics.minimumGroundedEndpointFullBlackClearance = Math.min(
+                terrainLeft - fullBlackLeft,
+                fullBlackRight - terrainRight
+            );
+            metrics.minimumGroundedEndpointPlayerBoundaryClearance = Math.min(
+                terrainLeft - playerBoundaryLeft,
+                playerBoundaryRight - terrainRight
+            );
+            if (metrics.minimumGroundedEndpointFullBlackClearance < -1) {
+                errors.push(`Domed Grounded endpoint terrain extends ${roundCoordinate(-metrics.minimumGroundedEndpointFullBlackClearance)} units beyond the parallax-adjusted full-black cave boundary.`);
+            }
+            if (metrics.minimumGroundedEndpointPlayerBoundaryClearance < -1) {
+                errors.push(`Domed Grounded endpoint terrain extends ${roundCoordinate(-metrics.minimumGroundedEndpointPlayerBoundaryClearance)} units beyond the parallax-adjusted player boundary.`);
+            }
+        }
     }
 
     const bounds = cavern.bounds || {};
@@ -1875,7 +2017,7 @@ export function validateGeneratedCavernPresentation(value = {}) {
     if (!metrics.macroRoomCount) errors.push("The room-and-tunnel cavern contains no macro room.");
     if (metrics.largestRoomWidthScreens <= 1 && metrics.largestRoomHeightScreens <= 1) errors.push("The room-and-tunnel cavern never opens beyond a single screen.");
 
-    for (const key of ["minimumPlatformCeilingClearance", "minimumPlatformFloorClearance", "minimumPlatformWallClearance", "minimumEndpointSideClearance"]) {
+    for (const key of ["minimumPlatformCeilingClearance", "minimumPlatformFloorClearance", "minimumPlatformWallClearance", "minimumEndpointSideClearance", "minimumGroundedFloorBoundaryOffset", "maximumGroundedFloorBoundaryOffset", "minimumGroundedConnectorFloorClearance", "minimumGroundedEndpointFullBlackClearance", "minimumGroundedEndpointPlayerBoundaryClearance"]) {
         if (!Number.isFinite(metrics[key])) metrics[key] = 0;
     }
     metrics.maximumSupportForegroundCoverage = Math.round(metrics.maximumSupportForegroundCoverage * 10000) / 10000;
@@ -1887,8 +2029,8 @@ export function generateAutomaticLevelDraft(options = {}) {
         ? resolveGeneratorThemeRecipe(options.theme, options.recipe, options.colorModifier)
         : normalizeGeneratorTheme(options.theme);
     const implementations = normalizeGeneratorImplementations(options.implementations || theme.implementations);
-    if (!["the-path74-contour-cavern-v4", "wide-upper-contour-cavern-v1"].includes(implementations.cavern)) throw new Error(`Unsupported cavern builder “${implementations.cavern}”.`);
-    if (implementations.traversal !== "layered-safety-network-traversal-v6") throw new Error(`Unsupported traversal builder “${implementations.traversal}”.`);
+    if (!["the-path74-contour-cavern-v4", "wide-upper-contour-cavern-v1", "grounded-wide-upper-contour-cavern-v1"].includes(implementations.cavern)) throw new Error(`Unsupported cavern builder “${implementations.cavern}”.`);
+    if (!["layered-safety-network-traversal-v6", "grounded-safety-network-traversal-v1"].includes(implementations.traversal)) throw new Error(`Unsupported traversal builder “${implementations.traversal}”.`);
     if (implementations.endpoints !== "grounded-chamber-endpoints-v2") throw new Error(`Unsupported endpoint placer “${implementations.endpoints}”.`);
     if (!["difficulty-budgeted-encounters-v1", "not-generated-yet"].includes(implementations.encounters)) throw new Error(`Unsupported encounter populator “${implementations.encounters}”.`);
     if (!["basic-rewards-v1", "not-generated-yet"].includes(implementations.rewards)) throw new Error(`Unsupported reward populator “${implementations.rewards}”.`);
@@ -1903,7 +2045,11 @@ export function generateAutomaticLevelDraft(options = {}) {
         "doorSupport",
         "movingPlatform",
         "recoveryPlatform",
-        ...(implementations.route === "mostly-horizontal-route-v1" ? ["runAndGunGround"] : [])
+        ...(implementations.route === "mostly-horizontal-route-v1"
+            ? (implementations.traversal === "grounded-safety-network-traversal-v1"
+                ? ["groundedRunAndGunGround", "groundedDoorSupport"]
+                : ["runAndGunGround"])
+            : [])
     ]) {
         if (!assetCatalog.assets.some((entry) => (entry.availableRoles || entry.roles).includes(requiredRole))) {
             throw new Error(`The generation platform catalog has no “${requiredRole}” asset.`);
@@ -2562,8 +2708,7 @@ function baseGeneratedEnemyEntity({ id, encounterId, support, enemyId, metadata,
         generationRole: metadata.placementClass,
         generationEncounterId: encounterId,
         generationSupportId: support.id,
-        generationDifficultyCost: metadata.difficultyCost,
-        notes: `Generated ${definition.label} encounter on ${support.id}. ${metadata.notes || definition.description}`.trim()
+        generationDifficultyCost: metadata.difficultyCost
     };
 }
 
@@ -3549,6 +3694,7 @@ export function validatePlayableEmptyCavern(value = {}) {
     if (!Number.isFinite(metrics.minimumTransitionGap)) metrics.minimumTransitionGap = 0;
 
         const mostlyHorizontalRoute = route?.generatorId === "mostly-horizontal-route-v1" || route?.macro?.patternId === "mostly-horizontal";
+        const groundedMostlyHorizontalRoute = mostlyHorizontalRoute && traversal?.generatorId === "grounded-safety-network-traversal-v1";
         const caveVerticalRoute = ["rising-cave-route-v1", "serpentine-cave-route-v1"].includes(route?.generatorId)
             || ["rising-cave", "serpentine-cave"].includes(route?.macro?.patternId);
         const serpentineCaveRoute = route?.generatorId === "serpentine-cave-route-v1" || route?.macro?.patternId === "serpentine-cave";
@@ -3593,7 +3739,20 @@ export function validatePlayableEmptyCavern(value = {}) {
                     const movingTransfers = edgeTransitions.filter((transition) => transition.movingPlatformTransfer);
                     if (movingTransfers.length !== 2) errors.push(`Vertical route edge “${edge.id}” must expose start and end moving-platform transfers.`);
                 };
-                if (caveVerticalTraversal) {
+                if (groundedMostlyHorizontalRoute) {
+                    const connectorSupports = staticSupports.filter((support) => support.groundedVerticalConnector);
+                    if (movingSupports.length) errors.push(`Domed Grounded vertical edge “${edge.id}” contains an unexpected moving platform.`);
+                    if (connectorSupports.length !== staticSupports.length || connectorSupports.length < 2) {
+                        errors.push(`Domed Grounded vertical edge “${edge.id}” must use only its thin grounded climbing ledges.`);
+                    }
+                    if (connectorSupports.some((support) => support.role !== "landingPlatform" || support.collisionMode !== "oneWay")) {
+                        errors.push(`Domed Grounded vertical edge “${edge.id}” contains a grounded climbing ledge with the wrong collision style.`);
+                    }
+                    if (edgeTransitions.length !== connectorSupports.length + 1
+                        || edgeTransitions.some((transition) => transition.spacingStyle !== "groundedVerticalConnector" || !transition.verticalPlatformClimb)) {
+                        errors.push(`Domed Grounded vertical edge “${edge.id}” does not expose a complete one-way climbing sequence.`);
+                    }
+                } else if (caveVerticalTraversal) {
                     const recordedStyle = String(traversal?.verticalTraversalStyles?.[edge.id] || "");
                     const verticalTraversalStyle = recordedStyle || (movingSupports.length && staticSupports.length ? "mix" : movingSupports.length ? "elevator" : "platforms");
                     const serpentineStructuredSupports = staticSupports.every((support) => (
@@ -3776,7 +3935,7 @@ export function validatePlayableEmptyCavern(value = {}) {
                 }
             }
             if (!recoveryLanes.length && settings.safety >= 0.5) warnings.push("The layered traversal produced no staggered recovery floor.");
-            if (!serpentineCaveRoute && metrics.recoveryRequiredGapCount !== metrics.horizontalJumpGapCount) errors.push("Not every upper-route jump gap has a dedicated recovery platform below it.");
+            if (!serpentineCaveRoute && !groundedMostlyHorizontalRoute && metrics.recoveryRequiredGapCount !== metrics.horizontalJumpGapCount) errors.push("Not every upper-route jump gap has a dedicated recovery platform below it.");
             if (metrics.layeredNetworkLaneCount !== recoveryLanes.length) errors.push("A recovery lane was not materialized as a complete upper/lower safety network.");
             if (metrics.recoveryBacktrackReachableCount !== metrics.layeredNetworkLaneCount) errors.push("One or more lower recovery routes cannot return the player to the upper route.");
             if (metrics.protectedLowerGapCount !== metrics.recoveryLaneGapCount) errors.push("One or more lower-route gaps lack tertiary recovery.");
@@ -3785,7 +3944,7 @@ export function validatePlayableEmptyCavern(value = {}) {
         
         if (!Number.isFinite(metrics.minimumHorizontalJumpGap)) metrics.minimumHorizontalJumpGap = 0;
         if (!Number.isFinite(metrics.minimumOrganicHeightDelta)) metrics.minimumOrganicHeightDelta = 0;
-        if (!caveVerticalRoute && metrics.staticVerticalIntermediateCount > 0) errors.push("ThePath74 vertical traversal still contains static staircase supports.");
+        if (!caveVerticalRoute && !groundedMostlyHorizontalRoute && metrics.staticVerticalIntermediateCount > 0) errors.push("ThePath74 vertical traversal still contains static staircase supports.");
         if (metrics.horizontalJumpGapCount > 0 && metrics.maximumHorizontalRouteOffset < 72) warnings.push("Horizontal platform sequences remained unusually close to the abstract route height.");
         if (metrics.organicSameHeightAdjacentCount > 0) errors.push("The organic upper route still contains a same-height platform row.");
         if (!caveVerticalRoute && metrics.mainStaticPlatformCount >= 3 && metrics.longPlatformShare < 0.4) errors.push("The Standard traversal did not use long platforms for enough of the main route.");
@@ -3836,7 +3995,14 @@ export function validatePlayableEmptyCavern(value = {}) {
             if (overlap <= 24) continue;
             const surfaceSeparation = Math.abs(first.surfaceY - second.surfaceY);
             const movingPair = Boolean(first.moving || second.moving);
-            if (!movingPair && surfaceSeparation > 1) {
+            const groundedBoardingPair = groundedMostlyHorizontalRoute && (
+                first.groundedBoardingSupportId === second.id || second.groundedBoardingSupportId === first.id
+            );
+            const groundedConnectorPair = groundedMostlyHorizontalRoute
+                && connectedPair
+                && first.groundedVerticalConnector
+                && second.groundedVerticalConnector;
+            if (!movingPair && !groundedBoardingPair && !groundedConnectorPair && surfaceSeparation > 1) {
                 metrics.minimumVerticalPlatformSeparation = Math.min(
                     metrics.minimumVerticalPlatformSeparation,
                     surfaceSeparation
@@ -3927,7 +4093,7 @@ export function validatePlayableEmptyCavern(value = {}) {
             continue;
         }
         const asset = catalogByAsset.get(`${support.atlasId}:${support.assetId}`);
-        if (!asset?.roles.includes("doorSupport")) errors.push(`Endpoint support “${support.id}” is not catalogued as doorSupport.`);
+        if (!asset?.roles.some((role) => role === "doorSupport" || role === "groundedDoorSupport")) errors.push(`Endpoint support “${support.id}” is not catalogued as a door support.`);
         const requiredWidth = Math.max(560, asset?.minimumDoorWidth || 0, theme.endpoints.calmDistance * 1.8);
         if ((support.walkableWidth || support.width) < requiredWidth) errors.push(`Endpoint support “${support.id}” is too narrow across its authored walkable top for a safe door chamber.`);
         if (support.height < Math.max(110, asset?.minimumVisibleDepth || 0)) errors.push(`Endpoint support “${support.id}” is visually too thin beneath its door.`);
@@ -3948,8 +4114,11 @@ export function validatePlayableEmptyCavern(value = {}) {
         errors.push("Generated world bounds do not contain the complete cave envelope.");
     }
     for (const support of supports) {
-        if (!pointInsideGeneratedCavern(cavern, support.centerX, support.surfaceY - 4)) {
-            errors.push(`Support “${support.id}” lies outside the generated cave opening.`);
+        const supportTestY = support.surfaceY - 4;
+        const supportVerticalRange = cavernVerticalRangeAt(cavern, support.centerX, supportTestY);
+        if (!supportVerticalRange || supportTestY < supportVerticalRange.top - 0.001 || supportTestY > supportVerticalRange.bottom + 0.001) {
+            const rangeDetail = supportVerticalRange ? ` (opening ${roundCoordinate(supportVerticalRange.top)}..${roundCoordinate(supportVerticalRange.bottom)}, support y ${roundCoordinate(supportTestY)})` : "";
+            errors.push(`Support “${support.id}” lies outside the generated cave opening${rangeDetail}.`);
         }
         if (support.moving && support.movementAxis === "vertical") {
             const placement = placementById.get(support.placementId);
@@ -3993,6 +4162,13 @@ function buildStandardTraversal({
     const mandatoryEdgeChains = new Map();
     let order = 1000;
     const useRunAndGunRoute = implementations.route === "mostly-horizontal-route-v1";
+    const useGroundedRunAndGunRoute = useRunAndGunRoute && implementations.traversal === "grounded-safety-network-traversal-v1";
+    const assetRoleForSupportRole = (role) => {
+        if (!useGroundedRunAndGunRoute) return role;
+        if (role === "runAndGunGround") return "groundedRunAndGunGround";
+        if (role === "doorSupport") return "groundedDoorSupport";
+        return role;
+    };
     const useScreenScaledCaveRoute = ["rising-cave-route-v1", "serpentine-cave-route-v1"].includes(implementations.route)
         || ["rising-cave", "serpentine-cave"].includes(route?.macro?.patternId);
     const useSerpentineCaveRoute = implementations.route === "serpentine-cave-route-v1" || route?.macro?.patternId === "serpentine-cave";
@@ -4029,19 +4205,24 @@ function buildStandardTraversal({
     let movingVerticalEdgeCount = 0;
 
     const addSupport = (spec) => {
+        const assetRole = spec.assetRole || assetRoleForSupportRole(spec.role);
+        const selectionConstraints = {
+            ...(spec.requiredCollisionMode ? { collisionMode: spec.requiredCollisionMode } : {}),
+            ...(Number.isFinite(spec.groundBand) ? { groundBand: spec.groundBand } : {})
+        };
         let selection = spec.selection || selectGenerationAsset(
             assetCatalog,
-            spec.role,
+            assetRole,
             spec.targetWidth,
             rng,
             spec.role === "doorSupport",
             spec.maximumWidth,
-            spec.requiredCollisionMode ? { collisionMode: spec.requiredCollisionMode } : null
+            Object.keys(selectionConstraints).length ? selectionConstraints : null
         );
         if (!selection) throw new Error(`No generation asset can satisfy role “${spec.role}”.`);
         if (spec.role === "doorSupport" && spec.endpointRole === "entrance") {
             entranceDoorSupportSelection = selection;
-        } else if (spec.role === "doorSupport" && spec.endpointRole === "exit" && entranceDoorSupportSelection) {
+        } else if (!useGroundedRunAndGunRoute && spec.role === "doorSupport" && spec.endpointRole === "exit" && entranceDoorSupportSelection) {
             selection = entranceDoorSupportSelection;
         }
         const id = spec.id;
@@ -4076,6 +4257,7 @@ function buildStandardTraversal({
             assetId: selection.asset.assetId,
             surfaceYRatio: selection.asset.surfaceYRatio,
             collisionMode: selection.asset.collisionMode,
+            groundBand: Number.isFinite(selection.asset.groundBand) ? selection.asset.groundBand : null,
             mirrorX,
             placementId: `${id}_placement`
         };
@@ -4101,7 +4283,6 @@ function buildStandardTraversal({
             routeNodeId: spec.routeNodeId || undefined,
             routeEdgeId: spec.routeEdgeId || undefined,
             generatorId: implementations.traversal,
-            notes: `Generated ${spec.role} support for ${spec.routeNodeId || spec.routeEdgeId || "route"}.`,
             order: order++
         });
         return support;
@@ -4145,6 +4326,21 @@ function buildStandardTraversal({
         return node.kind === "chamber" || node.kind === "recovery" ? "routeFloor" : "landingPlatform";
     };
 
+    const groundedBandByNodeId = new Map();
+    if (useGroundedRunAndGunRoute) {
+        const orderedGroundNodes = nodes
+            .filter((node) => node.mandatory)
+            .sort((a, b) => finiteNumber(a.progress, 0) - finiteNumber(b.progress, 0));
+        let band = rng.pick([35, 36, 37, 38, 39]);
+        let direction = rng.chance(0.5) ? 1 : -1;
+        for (const node of orderedGroundNodes) {
+            groundedBandByNodeId.set(node.id, band);
+            if (band <= 35) direction = 1;
+            else if (band >= 39) direction = -1;
+            band += direction;
+        }
+    }
+
     const supportTargetWidthForNode = (node, role) => {
         if (role === "doorSupport") return theme.traversal.endpointWidth;
         if (useRunAndGunRoute) {
@@ -4172,6 +4368,7 @@ function buildStandardTraversal({
             routeNodeId: node.id,
             endpointRole: role === "doorSupport" ? node.kind : undefined,
             mirrorX: role === "doorSupport" ? node.kind === "exit" : undefined,
+            groundBand: groundedBandByNodeId.get(node.id),
             requiredCollisionMode: useRunAndGunRoute && role === "runAndGunGround"
                 ? "blockable"
                 : useSerpentineCaveRoute && role !== "doorSupport"
@@ -4673,13 +4870,24 @@ function buildStandardTraversal({
 
         const intermediate = [];
         let previousEdgeX = startEdgeX;
+        const runAndGunAssetRole = assetRoleForSupportRole("runAndGunGround");
+        const startGroundBand = Number.isFinite(startSupport.groundBand) ? startSupport.groundBand : endSupport.groundBand;
+        const endGroundBand = Number.isFinite(endSupport.groundBand) ? endSupport.groundBand : startSupport.groundBand;
         for (let index = 0; index < 14; index += 1) {
             const remaining = direction * (endEdgeX - previousEdgeX);
             if (remaining <= -18) break;
             const requestedWidth = clamp(remaining + overlap * 1.4, 300, 1180);
             const maximumWidth = Math.max(340, Math.min(1500, remaining + overlap + 520));
-            let selection = selectGenerationAsset(assetCatalog, "runAndGunGround", requestedWidth, rng, false, maximumWidth, { collisionMode: "blockable" });
-            if (!selection) selection = selectGenerationAsset(assetCatalog, "runAndGunGround", 1040, rng, false, Infinity, { collisionMode: "blockable" });
+            const groundBandProgress = clamp(direction * (previousEdgeX - startEdgeX) / Math.max(1, span), 0, 1);
+            const desiredGroundBand = useGroundedRunAndGunRoute && Number.isFinite(startGroundBand)
+                ? Math.round(lerp(startGroundBand, Number.isFinite(endGroundBand) ? endGroundBand : startGroundBand, groundBandProgress))
+                : null;
+            const groundConstraints = {
+                collisionMode: "blockable",
+                ...(Number.isFinite(desiredGroundBand) ? { groundBand: desiredGroundBand } : {})
+            };
+            let selection = selectGenerationAsset(assetCatalog, runAndGunAssetRole, requestedWidth, rng, false, maximumWidth, groundConstraints);
+            if (!selection) selection = selectGenerationAsset(assetCatalog, runAndGunAssetRole, 1040, rng, false, Infinity, groundConstraints);
             if (!selection) break;
             const estimatedProgress = clamp((direction * (previousEdgeX - startEdgeX) + selection.width * 0.5) / Math.max(1, span), 0.08, 0.94);
             const baselineY = lerp(startSupport.surfaceY, endSupport.surfaceY, estimatedProgress);
@@ -4766,6 +4974,133 @@ function buildStandardTraversal({
             edgeTransitions.push(transition);
         }
         edgeSupportIds.set(edge.id, intermediate.map((support) => support.id));
+        transitions.push(...edgeTransitions);
+        mandatoryEdgeChains.set(edge.id, chain);
+        return chain;
+    };
+
+
+    const buildGroundedVerticalEdge = (edge) => {
+        const startSupport = nodeSupport.get(edge.from);
+        const endSupport = nodeSupport.get(edge.to);
+        if (!startSupport || !endSupport) throw new Error(`Grounded vertical edge “${edge.id}” is missing a landing support.`);
+        const startVisual = generatedSupportVisualRect(startSupport);
+        const endVisual = generatedSupportVisualRect(endSupport);
+        const leftSupport = startVisual.right <= endVisual.left ? startSupport : endVisual.right <= startVisual.left ? endSupport : null;
+        const rightSupport = leftSupport === startSupport ? endSupport : leftSupport === endSupport ? startSupport : null;
+        if (!leftSupport || !rightSupport) {
+            throw new Error(`Grounded vertical edge “${edge.id}” needs a clear horizontal seam between its native-scale floor landings.`);
+        }
+        const leftVisual = generatedSupportVisualRect(leftSupport);
+        const rightVisual = generatedSupportVisualRect(rightSupport);
+        const gapLeft = leftVisual.right;
+        const gapRight = rightVisual.left;
+        const visualGap = gapRight - gapLeft;
+        if (visualGap < 180) throw new Error(`Grounded vertical edge “${edge.id}” has only ${roundCoordinate(visualGap)} units for its climbing seam.`);
+
+        const boardTargetWidth = clamp(visualGap + 44, 320, 430);
+        const boardSelection = selectGenerationAsset(
+            assetCatalog,
+            "landingPlatform",
+            boardTargetWidth,
+            rng,
+            false,
+            Math.max(boardTargetWidth + 30, 470),
+            { collisionMode: "oneWay" }
+        );
+        const stepTargetWidth = clamp(visualGap - 28, 220, 300);
+        const stepSelection = selectGenerationAsset(
+            assetCatalog,
+            "landingPlatform",
+            stepTargetWidth,
+            rng,
+            false,
+            Math.max(228, visualGap - 8),
+            { collisionMode: "oneWay" }
+        );
+        if (!boardSelection || !stepSelection) throw new Error(`Grounded vertical edge “${edge.id}” cannot find thin one-way cave ledges for its climbing seam.`);
+
+        const makeBoard = (floorSupport, side, suffix) => {
+            const boardWidth = boardSelection.width;
+            const floorVisual = generatedSupportVisualRect(floorSupport);
+            const floorInset = side > 0
+                ? floorVisual.right - floorSupport.walkableRightX
+                : floorSupport.walkableLeftX - floorVisual.left;
+            const boardInset = boardWidth * (side > 0
+                ? boardSelection.asset.walkableLeftInsetRatio
+                : boardSelection.asset.walkableRightInsetRatio);
+            const minimumOwnOverlap = Math.max(
+                boardWidth - visualGap + 10,
+                floorInset + boardInset - (theme.traversal.mandatoryGap - 10),
+                0
+            );
+            const ownOverlap = clamp(minimumOwnOverlap, 0, boardWidth * 0.42);
+            const centerX = side > 0
+                ? floorVisual.right - ownOverlap + boardWidth * 0.5
+                : floorVisual.left + ownOverlap - boardWidth * 0.5;
+            const boardBottomDepth = boardSelection.height * (1 - boardSelection.asset.surfaceYRatio);
+            const floorTopDepth = floorSupport.height * floorSupport.surfaceYRatio;
+            const hop = clamp(boardBottomDepth + floorTopDepth + 10, 82, theme.traversal.mandatoryRise - 4);
+            const support = addSupport({
+                id: `support_${edge.id}_grounded_board_${suffix}`,
+                role: "landingPlatform",
+                targetWidth: boardSelection.width,
+                selection: boardSelection,
+                centerX,
+                surfaceY: floorSupport.surfaceY - hop,
+                mandatory: true,
+                routeEdgeId: edge.id
+            });
+            support.groundedVerticalConnector = true;
+            support.verticalClimbPlatform = true;
+            support.platformSpacingStyle = "groundedVerticalConnector";
+            support.groundedBoardingSupportId = floorSupport.id;
+            const placement = placements.find((candidate) => candidate.id === support.placementId);
+            if (placement) placement.generationRole = "groundedVerticalConnector";
+            return support;
+        };
+
+        const startSide = leftSupport === startSupport ? 1 : -1;
+        const endSide = leftSupport === endSupport ? 1 : -1;
+        const startBoard = makeBoard(startSupport, startSide, "start");
+        const endBoard = makeBoard(endSupport, endSide, "end");
+        const boardDeltaY = endBoard.surfaceY - startBoard.surfaceY;
+        const internalTransitionCount = Math.max(1, Math.ceil(Math.abs(boardDeltaY) / Math.max(1, theme.traversal.mandatoryRise - 4)));
+        const intermediate = [];
+        for (let index = 1; index < internalTransitionCount; index += 1) {
+            const progress = index / internalTransitionCount;
+            const support = addSupport({
+                id: `support_${edge.id}_grounded_step_${String(index).padStart(2, "0")}`,
+                role: "landingPlatform",
+                targetWidth: stepSelection.width,
+                selection: stepSelection,
+                centerX: (gapLeft + gapRight) * 0.5,
+                surfaceY: lerp(startBoard.surfaceY, endBoard.surfaceY, progress),
+                mandatory: true,
+                routeEdgeId: edge.id
+            });
+            support.groundedVerticalConnector = true;
+            support.verticalClimbPlatform = true;
+            support.platformSpacingStyle = "groundedVerticalConnector";
+            const placement = placements.find((candidate) => candidate.id === support.placementId);
+            if (placement) placement.generationRole = "groundedVerticalConnector";
+            intermediate.push(support);
+        }
+        const chain = [startSupport, startBoard, ...intermediate, endBoard, endSupport];
+        const edgeTransitions = [];
+        for (let index = 1; index < chain.length; index += 1) {
+            const transition = classifyTraversalTransition(chain[index - 1], chain[index], edge, theme);
+            transition.routeEdgeDirection = edge.intendedDirection;
+            transition.spacingStyle = "groundedVerticalConnector";
+            transition.verticalPlatformClimb = true;
+            transition.verticalTraversalStyle = "groundedPlatforms";
+            if (!transition.valid) {
+                throw new Error(`Grounded vertical edge “${edge.id}” cannot traverse ${chain[index - 1].id} -> ${chain[index].id} (gap ${transition.gap}, rise ${transition.rise}, drop ${transition.drop}).`);
+            }
+            edgeTransitions.push(transition);
+        }
+        const connectorSupports = [startBoard, ...intermediate, endBoard];
+        edgeSupportIds.set(edge.id, connectorSupports.map((support) => support.id));
         transitions.push(...edgeTransitions);
         mandatoryEdgeChains.set(edge.id, chain);
         return chain;
@@ -5437,6 +5772,7 @@ function buildStandardTraversal({
 
     const processEdge = (edge) => {
         if (edge.intendedDirection === "climb" || edge.intendedDirection === "descend") {
+            if (useGroundedRunAndGunRoute) return buildGroundedVerticalEdge(edge);
             if (useScreenScaledCaveRoute) {
                 const verticalTraversalStyle = verticalTraversalStyles.get(edge.id) || "elevator";
                 const verticalTraversalPattern = verticalTraversalPatterns.get(edge.id) || "switchback";
@@ -5559,7 +5895,7 @@ function buildStandardTraversal({
 
     const secondaryPlatforms = [];
     const upperAccessPlatforms = [];
-    const wideUpperCavern = implementations.cavern === "wide-upper-contour-cavern-v1";
+    const wideUpperCavern = isWideUpperCavernGeneratorId(implementations.cavern);
 
     const placementRectForSelection = (selection, centerX, surfaceY) => ({
         left: centerX - selection.width * 0.5,
@@ -6091,7 +6427,7 @@ function buildStandardTraversal({
     };
 
 
-    if (!useSerpentineCaveRoute) {
+    if (!useSerpentineCaveRoute && !useGroundedRunAndGunRoute) {
         const horizontalEdgeCandidates = edges.filter((edge) => edge.mandatory !== false
             && (edge.intendedDirection === "left" || edge.intendedDirection === "right"))
             .map((edge) => ({ edge, chain: mandatoryEdgeChains.get(edge.id) || [] }))
@@ -6494,9 +6830,13 @@ function selectGenerationAsset(catalog, role, targetWidth, rng, doorSupport = fa
     const requiredCollisionMode = constraints?.collisionMode === "oneWay" || constraints?.collisionMode === "blockable"
         ? constraints.collisionMode
         : null;
+    const requiredGroundBand = constraints?.groundBand !== null && constraints?.groundBand !== undefined && constraints?.groundBand !== "" && Number.isFinite(Number(constraints.groundBand))
+        ? Math.round(Number(constraints.groundBand))
+        : null;
     const candidates = catalog.assets
         .filter((asset) => (asset.availableRoles || asset.roles).includes(role))
         .filter((asset) => !requiredCollisionMode || asset.collisionMode === requiredCollisionMode)
+        .filter((asset) => !Number.isFinite(requiredGroundBand) || asset.groundBand === requiredGroundBand)
         .map((asset) => {
             const minimumRequestedWidth = 64;
             const requested = Math.max(minimumRequestedWidth, Number(targetWidth) || asset.nativeWidth);
@@ -6569,8 +6909,7 @@ function buildSafeEndpoints({ route, traversal, theme, implementations, rng, run
             generationStage: "endpoints",
             generationRole: `${role}Door`,
             routeNodeId: role === "entrance" ? route.startNodeId : route.exitNodeId,
-            generatorId: implementations.endpoints,
-            notes: `Generated safe ${role} door on a catalogued doorSupport platform.`
+            generatorId: implementations.endpoints
         };
         if (role === "entrance") {
             entity.mirrorX = false;
@@ -6752,6 +7091,25 @@ function traceCavernOccupancyContour(stamps, theme, options = {}) {
         }
     }
 
+    const groundedFloorBands = Array.isArray(options.groundedFloorBands) ? options.groundedFloorBands : [];
+    if (groundedFloorBands.length) {
+        for (let column = 0; column < columns; column += 1) {
+            const centerX = originX + (column + 0.5) * cellSize;
+            const coveringBands = groundedFloorBands.filter((band) => centerX >= band.minX && centerX <= band.maxX);
+            if (!coveringBands.length) continue;
+            const bottomY = Math.max(...coveringBands.map((band) => band.bottomY));
+            const fillTop = bottomY - cellSize * 2.4;
+            for (let row = 0; row < rows; row += 1) {
+                const centerY = originY + (row + 0.5) * cellSize;
+                if (centerY > bottomY + cellSize * 0.22) {
+                    occupied.delete(key(column, row));
+                } else if (centerY >= fillTop) {
+                    occupied.add(key(column, row));
+                }
+            }
+        }
+    }
+
     if (!occupied.size) throw new Error("Contour cavern occupancy mask is empty.");
 
     const remaining = new Set(occupied);
@@ -6821,7 +7179,10 @@ function traceCavernOccupancyContour(stamps, theme, options = {}) {
     let gridLoop = loops[0];
     if (polygonSignedAreaSimple(gridLoop) < 0) gridLoop = [...gridLoop].reverse();
     const worldLoop = gridLoop.map((point) => ({ x: originX + point.x * cellSize, y: originY + point.y * cellSize }));
-    const simplified = simplifyClosedContour(worldLoop, cellSize * 1.24);
+    const anchoredWorldLoop = groundedFloorBands.length
+        ? snapGroundedContourToFloorBands(worldLoop, groundedFloorBands, cellSize)
+        : worldLoop;
+    const simplified = simplifyClosedContour(anchoredWorldLoop, cellSize * 1.24);
     return {
         points: simplified.map((point) => ({ x: roundCoordinate(point.x), y: roundCoordinate(point.y) })),
         metadata: {
@@ -6831,7 +7192,8 @@ function traceCavernOccupancyContour(stamps, theme, options = {}) {
             occupiedCellCount: primary.size,
             componentCount: components.length,
             rawPointCount: worldLoop.length,
-            simplifiedPointCount: simplified.length
+            simplifiedPointCount: simplified.length,
+            groundedFloorBandCount: groundedFloorBands.length
         }
     };
 }
@@ -6907,11 +7269,123 @@ function buildSerpentineProtectedBands(route, traversal) {
     return bands;
 }
 
+function buildGroundedFloorBands(traversal) {
+    const supports = traversal?.supports || [];
+    const groundSupports = supports
+        .filter((support) => !support.moving
+            && ["runAndGunGround", "doorSupport"].includes(support.role)
+            && Number.isFinite(support.groundBand))
+        .sort((left, right) => left.centerX - right.centerX);
+    const verticalOpeningByEdge = new Map();
+    for (const support of supports.filter((candidate) => candidate.groundedVerticalConnector && candidate.routeEdgeId)) {
+        const rect = generatedSupportVisualRect(support, 24, 0);
+        const current = verticalOpeningByEdge.get(support.routeEdgeId);
+        if (!current) verticalOpeningByEdge.set(support.routeEdgeId, { minX: rect.left, maxX: rect.right });
+        else {
+            current.minX = Math.min(current.minX, rect.left);
+            current.maxX = Math.max(current.maxX, rect.right);
+        }
+    }
+    const verticalOpenings = [...verticalOpeningByEdge.values()];
+    const subtractOpenings = (minX, maxX) => {
+        let intervals = [{ minX, maxX }];
+        for (const opening of verticalOpenings) {
+            const next = [];
+            for (const interval of intervals) {
+                if (opening.maxX <= interval.minX || opening.minX >= interval.maxX) {
+                    next.push(interval);
+                    continue;
+                }
+                if (opening.minX > interval.minX + 32) next.push({ minX: interval.minX, maxX: Math.min(interval.maxX, opening.minX) });
+                if (opening.maxX < interval.maxX - 32) next.push({ minX: Math.max(interval.minX, opening.maxX), maxX: interval.maxX });
+            }
+            intervals = next;
+            if (!intervals.length) break;
+        }
+        return intervals.filter((interval) => interval.maxX > interval.minX + 32);
+    };
+    return groundSupports.flatMap((support, index) => {
+        const previous = groundSupports[index - 1] || null;
+        const next = groundSupports[index + 1] || null;
+        const visualMinX = support.centerX - support.width * 0.5;
+        const visualMaxX = support.centerX + support.width * 0.5;
+        // Native-scale grounded assets deliberately overlap. Partition that overlap
+        // at the midpoint between support centres so each flat cave-floor segment
+        // follows exactly one authored walkable surface instead of taking the lower
+        // of two overlapping sprites. Vertical climbing seams are cut out again so
+        // the cavern can open below the floor line around their one-way ledges.
+        const minX = previous
+            ? Math.max(visualMinX, (previous.centerX + support.centerX) * 0.5)
+            : visualMinX;
+        const maxX = next
+            ? Math.min(visualMaxX, (support.centerX + next.centerX) * 0.5)
+            : visualMaxX;
+        return subtractOpenings(minX, maxX).map((interval, segmentIndex) => ({
+            supportId: support.id,
+            segmentIndex,
+            minX: roundCoordinate(interval.minX),
+            maxX: roundCoordinate(interval.maxX),
+            surfaceY: roundCoordinate(support.surfaceY),
+            bottomY: roundCoordinate(support.surfaceY)
+        }));
+    });
+}
+
+function groundedEndpointParallaxExpansionX(traversal) {
+    const groundSupports = (traversal?.supports || []).filter((support) => !support.moving
+        && ["runAndGunGround", "doorSupport"].includes(support.role)
+        && Number.isFinite(support.groundBand));
+    if (!groundSupports.length) return 0;
+    const left = Math.min(...groundSupports.map((support) => support.centerX - support.width * 0.5));
+    const right = Math.max(...groundSupports.map((support) => support.centerX + support.width * 0.5));
+    const halfSpan = Math.max(0, right - left) * 0.5;
+    return roundCoordinate(halfSpan * Math.max(0, DEFAULT_FOREGROUND_PARALLAX - 1));
+}
+
+function groundedFloorBandAtX(bands, x) {
+    return (bands || []).find((band) => x >= band.minX - 0.001 && x <= band.maxX + 0.001) || null;
+}
+
+function snapGroundedContourToFloorBands(points, bands, cellSize) {
+    if (!Array.isArray(points) || !Array.isArray(bands) || !bands.length) return points || [];
+    const tolerance = Math.max(24, finiteNumber(cellSize, 96) * 1.35);
+    const boundaryXs = [...new Set(bands.flatMap((band) => [roundCoordinate(band.minX), roundCoordinate(band.maxX)]))]
+        .sort((a, b) => a - b);
+    const expanded = [];
+    for (let index = 0; index < points.length; index += 1) {
+        const a = points[index];
+        const b = points[(index + 1) % points.length];
+        expanded.push({ ...a });
+        const dx = finiteNumber(b?.x, 0) - finiteNumber(a?.x, 0);
+        if (Math.abs(dx) < 0.001) continue;
+        const crossings = [];
+        for (const boundaryX of boundaryXs) {
+            const t = (boundaryX - a.x) / dx;
+            if (t <= 0.0001 || t >= 0.9999) continue;
+            crossings.push({
+                t,
+                x: boundaryX,
+                y: lerp(a.y, b.y, t)
+            });
+        }
+        crossings.sort((left, right) => left.t - right.t);
+        expanded.push(...crossings.map(({ x, y }) => ({ x, y })));
+    }
+    return expanded.map((point) => {
+        const band = groundedFloorBandAtX(bands, finiteNumber(point?.x, NaN));
+        if (!band || !Number.isFinite(Number(point?.y))) return { ...point, groundedFloor: false };
+        if (Number(point.y) < band.surfaceY - tolerance) return { ...point, groundedFloor: false };
+        return { ...point, y: band.surfaceY, groundedFloor: true };
+    });
+}
+
 function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, runId, generatorId }) {
     const risingCaveCavern = route?.macro?.patternId === "rising-cave";
     const serpentineCaveCavern = route?.macro?.patternId === "serpentine-cave";
     const routeFollowingCavern = risingCaveCavern || serpentineCaveCavern;
-    const wideUpperCavern = generatorId === "wide-upper-contour-cavern-v1" && !routeFollowingCavern;
+    const wideUpperCavern = isWideUpperCavernGeneratorId(generatorId) && !routeFollowingCavern;
+    const groundedWideCavern = isGroundedCavernGeneratorId(generatorId) && !routeFollowingCavern;
+    const endpointParallaxExpansionX = groundedWideCavern ? groundedEndpointParallaxExpansionX(traversal) : 0;
     const nodeById = new Map((route?.nodes || []).map((node) => [node.id, node]));
     const endpointSupportIds = new Set([traversal.startSupportId, traversal.exitSupportId]);
     const rooms = [];
@@ -6942,6 +7416,14 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
             rx = Math.min(theme.cavern.roomRadiusXMax * 1.35, rx * (endpoint ? 1.18 : room ? 1.34 : 1.24));
             ry *= endpoint ? 0.78 : room ? 0.68 : 0.72;
         }
+        if (groundedWideCavern && endpoint) {
+            // Foreground parallax greater than 1 pulls the cave mask inward at
+            // both horizontal ends of a long level. Expand only the endpoint
+            // chambers by the maximum generated-floor parallax travel so the
+            // authored opening, full-black outset and gameplay boundary still
+            // remain outside the first and last ground pieces in gameplay.
+            rx += endpointParallaxExpansionX;
+        }
         if (serpentineCaveCavern) {
             const mood = String(node?.serpentineWidthMood || (endpoint ? "openTunnel" : "tightTunnel"));
             const moodScale = mood === "smallChamber" ? 1.02 : mood === "openTunnel" ? 0.88 : 0.72;
@@ -6963,11 +7445,13 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
             : serpentineCaveCavern
                 ? support.surfaceY - serpentineCeilingClearance
                 : support.surfaceY - theme.cavern.platformCeilingClearance;
-        const desiredBottom = wideUpperCavern
-            ? support.surfaceY + platformDepth + Math.max(240, theme.cavern.platformFloorClearance * 0.92)
-            : serpentineCaveCavern
-                ? support.surfaceY + platformDepth + serpentineFloorClearance
-                : support.surfaceY + platformDepth + theme.cavern.platformFloorClearance;
+        const desiredBottom = groundedWideCavern && Number.isFinite(support.groundBand)
+            ? support.surfaceY
+            : wideUpperCavern
+                ? support.surfaceY + platformDepth + Math.max(240, theme.cavern.platformFloorClearance * 0.92)
+                : serpentineCaveCavern
+                    ? support.surfaceY + platformDepth + serpentineFloorClearance
+                    : support.surfaceY + platformDepth + theme.cavern.platformFloorClearance;
         const minimumHalfHeight = (desiredBottom - desiredTop) * 0.5;
         const supportHalfWidth = support.width * 0.5;
         const supportEdgeRatio = clamp(supportHalfWidth / Math.max(1, rx), 0, 0.92);
@@ -6998,6 +7482,35 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
         });
         return stamp;
     });
+    if (groundedWideCavern) {
+        const connectorGroups = new Map();
+        for (const support of (traversal.supports || []).filter((candidate) => candidate.groundedVerticalConnector && candidate.routeEdgeId)) {
+            if (!connectorGroups.has(support.routeEdgeId)) connectorGroups.set(support.routeEdgeId, []);
+            connectorGroups.get(support.routeEdgeId).push(support);
+        }
+        for (const [routeEdgeId, group] of connectorGroups) {
+            const rects = group.map((support) => generatedSupportVisualRect(support));
+            const minX = Math.min(...rects.map((rect) => rect.left));
+            const maxX = Math.max(...rects.map((rect) => rect.right));
+            const minSurfaceY = Math.min(...group.map((support) => support.surfaceY));
+            const maxBottomY = Math.max(...group.map((support) => support.surfaceY + support.height * (1 - support.surfaceYRatio)));
+            const desiredTop = minSurfaceY - theme.cavern.platformCeilingClearance;
+            const desiredBottom = maxBottomY + theme.cavern.platformFloorClearance + 70;
+            const halfWidth = (maxX - minX) * 0.5;
+            const rx = Math.max(halfWidth + theme.cavern.platformWallClearanceX + 80, 430);
+            const ry = Math.max((desiredBottom - desiredTop) * 0.5 + 90, 430);
+            stamps.push({
+                id: `cavern_stamp_${routeEdgeId}_grounded_vertical_opening`,
+                x: (minX + maxX) * 0.5,
+                y: (desiredTop + desiredBottom) * 0.5,
+                rx,
+                ry,
+                routeEdgeId,
+                kind: "groundedVerticalOpening"
+            });
+        }
+    }
+
     const placementBySupportId = new Map((traversal.placements || []).map((placement) => [placement.id, placement]));
     for (const support of traversal.supports || []) {
         if (!support.moving || support.movementAxis !== "vertical") continue;
@@ -7144,17 +7657,21 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
 
     if (!stamps.length) throw new Error("Room-and-tunnel cavern builder received no traversal supports.");
 
+    const groundedFloorBands = groundedWideCavern ? buildGroundedFloorBands(traversal) : [];
     const contourOptions = serpentineCaveCavern
         ? { expansionScale: 0.34, protectedBands: buildSerpentineProtectedBands(route, traversal) }
-        : undefined;
+        : groundedWideCavern
+            ? { groundedFloorBands }
+            : undefined;
     const contourResult = traceCavernOccupancyContour(stamps, theme, contourOptions);
-    const rawPoints = contourResult.points;
-    const pointMode = "smooth";
+    const rawPoints = groundedWideCavern
+        ? snapGroundedContourToFloorBands(contourResult.points, groundedFloorBands, contourResult?.metadata?.cellSize)
+        : contourResult.points;
     const points = rawPoints.map((point, index) => ({
         id: `generated_cave_${String(index + 1).padStart(3, "0")}`,
         x: point.x,
         y: point.y,
-        mode: pointMode
+        mode: groundedWideCavern && point.groundedFloor ? "corner" : "smooth"
     }));
     const xs = points.map((point) => point.x);
     const ys = points.map((point) => point.y);
@@ -7166,7 +7683,7 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
     };
     const endpointEntities = endpoints?.entities || [];
     return {
-        version: generatorId === "wide-upper-contour-cavern-v1" ? 6 : 4,
+        version: isWideUpperCavernGeneratorId(generatorId) ? (groundedWideCavern ? 7 : 6) : 4,
         generatorId,
         runId,
         macroPatternId: route?.macro?.patternId || "",
@@ -7241,7 +7758,10 @@ export function validateRouteGraph(graph, context = {}) {
         macroPatternId: String(graph?.macro?.patternId || ""),
         macroRoomCount: Array.isArray(graph?.macro?.rooms) ? graph.macro.rooms.length : 0,
         largestRoomWidthScreens: 0,
-        largestRoomHeightScreens: 0
+        largestRoomHeightScreens: 0,
+        groundedFloorSupportCount: 0,
+        minimumGroundedFloorBoundaryOffset: Infinity,
+        maximumGroundedFloorBoundaryOffset: -Infinity
     };
     if (nodes.length < 2) errors.push("The route needs at least an entrance and exit node.");
     const byId = new Map();
@@ -7412,8 +7932,12 @@ export function validateRouteGraph(graph, context = {}) {
     if (foldedRoute && settings.length !== "compact" && settings.winding >= 0.2 && metrics.backtrackEdges === 0) {
         errors.push("The folded route contains no mandatory leftward phase.");
     }
-    const maximumAspectRatio = mostlyHorizontalRoute
-        ? (settings.length === "compact" ? 40 : 100)
+    const groundedMostlyHorizontalRoute = mostlyHorizontalRoute
+        && theme.implementations?.traversal === "grounded-safety-network-traversal-v1";
+    const maximumAspectRatio = groundedMostlyHorizontalRoute
+        ? (settings.length === "compact" ? 72 : 160)
+        : mostlyHorizontalRoute
+            ? (settings.length === "compact" ? 40 : 100)
         : risingCaveRoute
             ? 6
         : thePath74Route
@@ -8270,7 +8794,10 @@ function buildThePath74RouteCandidate({ theme, settings, rng, attempt }) {
 
 function buildMostlyHorizontalRouteCandidate({ theme, settings, rng, attempt }) {
     const gridPlan = buildMostlyHorizontalGridPlan({ settings, rng });
-    const cellSizeX = clamp(theme.route.nodeSpacing * 0.5, 420, 500);
+    const groundedRoute = theme.implementations?.traversal === "grounded-safety-network-traversal-v1";
+    const cellSizeX = groundedRoute
+        ? clamp(theme.route.nodeSpacing, 1150, 1380)
+        : clamp(theme.route.nodeSpacing * 0.5, 420, 900);
     const cellSizeY = clamp(theme.route.verticalStep, GENERATED_MINIMUM_VERTICAL_PLATFORM_SEPARATION, 220);
     const rooms = chooseThePath74Rooms(gridPlan.path, rng).map((room) => ({
         ...room,

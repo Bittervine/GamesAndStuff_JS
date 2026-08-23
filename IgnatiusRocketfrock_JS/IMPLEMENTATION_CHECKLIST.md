@@ -5119,3 +5119,23 @@ Manual profiling workflow: open the game, run `window.__rocketfrockDev.profiler.
 - [x] Keep the common `pathing_lo` / `pathing_hi` steering formulas unchanged and add browser/native regression coverage for the strong Caster obstacle case.
 - [x] Re-run the synchronized `level_t11` Fireball Goblin trace and affected browser/native suites.
 - [x] Advance visible browser/editor/tool/native revision labels to 377.
+
+Revision 440 makes root `BUILD_REVISION.txt` the single authored source of the product revision; native CMake builds and browser/runtime staging derive their revision from that file instead of synchronized hardcoded literals.
+
+## Revision 449 optimized test gates
+
+- [x] Default Linux builds to optimized Release while retaining explicit `--debug` support.
+- [x] Exercise the complete native character-resource loading pipeline with one representative projectile enemy instead of decoding most of the catalog.
+- [x] Retain catalog-wide character resource/schema coverage in lightweight browser tests and keep the full WAV integrity audit.
+- [x] Reduce ordinary generator matrices to two deterministic seeds per supported configuration without removing assertions.
+- [x] Preserve the former broad generator matrices behind `npm run test:stress` for explicit exploratory runs.
+- [x] Make profiling-only RSS sampling tolerate restricted Node hosts.
+- [x] Pass the 234-test browser profile, 12-shard release gate, optimized native suite, and full navigation bake audit.
+
+## Revision 450 test-gate coverage corrections
+
+- [x] Restore the complete theme x length x route x cavern compatibility cross-product to the ordinary release gate.
+- [x] Keep larger deterministic seed matrices behind `npm run test:stress`.
+- [x] Report `max RSS` through `process.resourceUsage()` when current RSS is unavailable, or `RSS unavailable` when neither source works.
+- [x] Add a synthetic native parent-constraint draw regression using one in-memory texture and no extra character project load.
+- [x] Verify the browser release/stress gates, optimized native suite, and navigation audit before packaging revision 450.

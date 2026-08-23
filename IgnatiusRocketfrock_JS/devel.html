@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="favicon.ico" sizes="any">
-    <title>Ignatius Development Portal - BUILD 390</title>
+    <title>Ignatius Development Portal - BUILD</title>
     <style>
         :root {
             color-scheme: dark;
@@ -47,12 +47,13 @@
         .path { margin-top: 12px; color: var(--cyan); font: 12px/1.3 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
         footer { margin-top: 32px; color: var(--muted); font-size: 13px; }
     </style>
+    <script type="module">import { applyBuildRevisionToDocument } from "./src/shared/build-revision.js"; await applyBuildRevisionToDocument();</script>
 </head>
 <body>
 <main>
     <header>
         <h1>Ignatius Development Portal</h1>
-        <p>One launchpad for the game, editors, builders, diagnostics, and documentation. <span class="build">Revision 390</span></p>
+        <p>One launchpad for the game, editors, builders, diagnostics, and documentation. <span class="build" data-build-revision data-build-revision-prefix="Revision ">Revision</span></p>
     </header>
 
     <section>

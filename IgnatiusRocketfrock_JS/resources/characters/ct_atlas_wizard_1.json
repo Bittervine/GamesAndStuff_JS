@@ -59,6 +59,24 @@
             "y": 563,
             "w": 196,
             "h": 509
+        },
+        "head_look": {
+            "x": 1446,
+            "y": 34,
+            "w": 293,
+            "h": 310
+        },
+        "head_wink": {
+            "x": 1448,
+            "y": 344,
+            "w": 293,
+            "h": 310
+        },
+        "head_away": {
+            "x": 1453,
+            "y": 667,
+            "w": 297,
+            "h": 334
         }
     },
     "objects": {
@@ -160,6 +178,39 @@
                 "wizard",
                 "projectile",
                 "rocket"
+            ]
+        },
+        "head_look": {
+            "id": "head_look",
+            "frame": "head_look",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "wizard",
+                "bodyPart"
+            ]
+        },
+        "head_wink": {
+            "id": "head_wink",
+            "frame": "head_wink",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "wizard",
+                "bodyPart"
+            ]
+        },
+        "head_away": {
+            "id": "head_away",
+            "frame": "head_away",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "wizard",
+                "bodyPart"
             ]
         }
     }

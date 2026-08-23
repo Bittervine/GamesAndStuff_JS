@@ -66,8 +66,8 @@
             "alpha": 1
         },
         "hat": {
-            "x": 7.153667492721757,
-            "y": -275.60456833060164,
+            "x": 11.29111899779416,
+            "y": -275.5651856838094,
             "rotation": -0.011,
             "scale": 1.33,
             "alpha": 1
@@ -325,24 +325,24 @@
             "x": [
                 {
                     "time": 0,
-                    "value": 7.153667492721757,
+                    "value": 11.29111899779416,
                     "easing": "linear"
                 },
                 {
                     "time": 1.2,
-                    "value": 6.616716903465585,
+                    "value": 10.754292839137166,
                     "easing": "linear"
                 }
             ],
             "y": [
                 {
                     "time": 0,
-                    "value": -275.60456833060164,
+                    "value": -275.5651856838094,
                     "easing": "linear"
                 },
                 {
                     "time": 1.2,
-                    "value": -277.1347099814373,
+                    "value": -277.1118774115933,
                     "easing": "linear"
                 }
             ],
@@ -393,6 +393,96 @@
                 {
                     "time": 1.2,
                     "value": 0.057,
+                    "easing": "easeInOut"
+                }
+            ]
+        },
+        "head_look": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": -433.2850022911929,
+                    "easing": "step"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -303.15001768126734,
+                    "easing": "step"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "step"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "step"
+                }
+            ]
+        },
+        "head_wink": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": -431.0510586270828,
+                    "easing": "step"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -171.80048824349242,
+                    "easing": "step"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "step"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "step"
+                }
+            ]
+        },
+        "head_away": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": -430.206408604345,
+                    "easing": "easeInOut"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -51.52370112310149,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "easeInOut"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 0,
                     "easing": "easeInOut"
                 }
             ]

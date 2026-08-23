@@ -434,10 +434,7 @@ export function generateCavePerimeterPlacements({
                     caveProtectionShift: protectionShift,
                     caveOcclusionAccent: accent,
                     decorationGenerator: CAVE_PERIMETER_GENERATOR,
-                    ...ownershipFields,
-                    notes: layerIndex === 0
-                        ? `Automatically generated inert cave-${category} foreground decoration.`
-                        : `Automatically generated inert cave-${category} outer coverage layer ${layerIndex}.`
+                    ...ownershipFields
                 }
             });
         }

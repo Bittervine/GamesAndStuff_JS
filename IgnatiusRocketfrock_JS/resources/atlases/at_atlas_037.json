@@ -7,34 +7,40 @@
     "image": "at_atlas_037.png",
     "frames": {
         "cave_ground_037_01": {
-            "x": 3,
+            "x": 0,
             "y": 0,
-            "w": 1361,
-            "h": 180
+            "w": 1439,
+            "h": 165
         },
         "cave_ground_037_02": {
             "x": 0,
-            "y": 228,
-            "w": 1369,
-            "h": 175
+            "y": 197,
+            "w": 1439,
+            "h": 165
         },
         "cave_ground_037_03": {
             "x": 0,
-            "y": 456,
-            "w": 1369,
-            "h": 175
+            "y": 394,
+            "w": 1439,
+            "h": 165
         },
         "cave_ground_037_04": {
-            "x": 1,
-            "y": 675,
-            "w": 1368,
+            "x": 0,
+            "y": 591,
+            "w": 1439,
             "h": 165
         },
         "cave_ground_037_05": {
             "x": 0,
-            "y": 882,
-            "w": 1366,
-            "h": 133
+            "y": 788,
+            "w": 1439,
+            "h": 165
+        },
+        "cave_ground_037_blend_1": {
+            "x": 422,
+            "y": 394,
+            "w": 439,
+            "h": 165
         }
     },
     "objects": {
@@ -66,33 +72,33 @@
             "nodes": [
                 {
                     "id": "n1",
-                    "x": 129,
-                    "y": 45
+                    "x": 40,
+                    "y": 44
                 },
                 {
                     "id": "n2",
-                    "x": 1247,
-                    "y": 46
+                    "x": 1399,
+                    "y": 44
                 },
                 {
                     "id": "n3",
-                    "x": 1351,
-                    "y": 61
+                    "x": 1429,
+                    "y": 56
                 },
                 {
                     "id": "n4",
-                    "x": 1335,
-                    "y": 168
+                    "x": 1412,
+                    "y": 154
                 },
                 {
                     "id": "n5",
-                    "x": 26,
-                    "y": 168
+                    "x": 27,
+                    "y": 154
                 },
                 {
                     "id": "n6",
                     "x": 10,
-                    "y": 61
+                    "y": 56
                 }
             ],
             "lines": [
@@ -141,8 +147,10 @@
             ],
             "generationTags": [
                 "biome.cave",
-                "layer.terrain",
-                "capability.platform"
+                "capability.doorSupport",
+                "capability.platform",
+                "capability.runAndGunGround",
+                "layer.terrain"
             ]
         },
         "cave_ground_037_02": {
@@ -173,33 +181,33 @@
             "nodes": [
                 {
                     "id": "n1",
-                    "x": 104,
-                    "y": 41
+                    "x": 40,
+                    "y": 44
                 },
                 {
                     "id": "n2",
-                    "x": 1259,
-                    "y": 48
+                    "x": 1399,
+                    "y": 44
                 },
                 {
                     "id": "n3",
-                    "x": 1360,
-                    "y": 73
+                    "x": 1429,
+                    "y": 69
                 },
                 {
                     "id": "n4",
-                    "x": 1343,
-                    "y": 163
+                    "x": 1412,
+                    "y": 154
                 },
                 {
                     "id": "n5",
-                    "x": 26,
-                    "y": 163
+                    "x": 27,
+                    "y": 154
                 },
                 {
                     "id": "n6",
                     "x": 10,
-                    "y": 60
+                    "y": 57
                 }
             ],
             "lines": [
@@ -248,8 +256,10 @@
             ],
             "generationTags": [
                 "biome.cave",
-                "layer.terrain",
-                "capability.platform"
+                "capability.doorSupport",
+                "capability.platform",
+                "capability.runAndGunGround",
+                "layer.terrain"
             ]
         },
         "cave_ground_037_03": {
@@ -280,242 +290,28 @@
             "nodes": [
                 {
                     "id": "n1",
-                    "x": 110,
-                    "y": 43
+                    "x": 40,
+                    "y": 44
                 },
                 {
                     "id": "n2",
-                    "x": 1231,
-                    "y": 50
+                    "x": 1399,
+                    "y": 44
                 },
                 {
                     "id": "n3",
-                    "x": 1353,
-                    "y": 65
-                },
-                {
-                    "id": "n4",
-                    "x": 1343,
-                    "y": 163
-                },
-                {
-                    "id": "n5",
-                    "x": 26,
-                    "y": 163
-                },
-                {
-                    "id": "n6",
-                    "x": 13,
-                    "y": 55
-                }
-            ],
-            "lines": [
-                {
-                    "id": "blockable_1",
-                    "kind": "blockable",
-                    "from": "n1",
-                    "to": "n2",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_2",
-                    "kind": "blockable",
-                    "from": "n2",
-                    "to": "n3",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_3",
-                    "kind": "blockable",
-                    "from": "n3",
-                    "to": "n4",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_4",
-                    "kind": "blockable",
-                    "from": "n4",
-                    "to": "n5",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_5",
-                    "kind": "blockable",
-                    "from": "n5",
-                    "to": "n6",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_6",
-                    "kind": "blockable",
-                    "from": "n6",
-                    "to": "n1",
-                    "tags": []
-                }
-            ],
-            "generationTags": [
-                "biome.cave",
-                "layer.terrain",
-                "capability.platform"
-            ]
-        },
-        "cave_ground_037_04": {
-            "id": "cave_ground_037_04",
-            "frame": "cave_ground_037_04",
-            "type": "floor",
-            "layer": "terrain",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "destroy": {
-                "hp": 1,
-                "explosionRadius": 64,
-                "fadeToBlackSeconds": 0.18,
-                "removeAfterSeconds": 0.22
-            },
-            "tags": [
-                "cave_ground",
-                "cave_ground_037",
-                "mossy"
-            ],
-            "notes": "Cave floor asset. Perimeter is blockable; the top surface uses a centered blockable line for traversal setup.",
-            "nodes": [
-                {
-                    "id": "n1",
-                    "x": 143,
-                    "y": 41
-                },
-                {
-                    "id": "n2",
-                    "x": 1246,
-                    "y": 39
-                },
-                {
-                    "id": "n3",
-                    "x": 1358,
+                    "x": 1429,
                     "y": 61
                 },
                 {
                     "id": "n4",
-                    "x": 1342,
-                    "y": 153
+                    "x": 1412,
+                    "y": 154
                 },
                 {
                     "id": "n5",
-                    "x": 26,
-                    "y": 153
-                },
-                {
-                    "id": "n6",
-                    "x": 11,
-                    "y": 66
-                }
-            ],
-            "lines": [
-                {
-                    "id": "blockable_1",
-                    "kind": "blockable",
-                    "from": "n1",
-                    "to": "n2",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_2",
-                    "kind": "blockable",
-                    "from": "n2",
-                    "to": "n3",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_3",
-                    "kind": "blockable",
-                    "from": "n3",
-                    "to": "n4",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_4",
-                    "kind": "blockable",
-                    "from": "n4",
-                    "to": "n5",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_5",
-                    "kind": "blockable",
-                    "from": "n5",
-                    "to": "n6",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_6",
-                    "kind": "blockable",
-                    "from": "n6",
-                    "to": "n1",
-                    "tags": []
-                }
-            ],
-            "generationTags": [
-                "biome.cave",
-                "layer.terrain",
-                "capability.platform"
-            ]
-        },
-        "cave_ground_037_05": {
-            "id": "cave_ground_037_05",
-            "frame": "cave_ground_037_05",
-            "type": "floor",
-            "layer": "terrain",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "destroy": {
-                "hp": 1,
-                "explosionRadius": 64,
-                "fadeToBlackSeconds": 0.18,
-                "removeAfterSeconds": 0.22
-            },
-            "tags": [
-                "cave_ground",
-                "cave_ground_037",
-                "mossy"
-            ],
-            "notes": "Cave floor asset. Perimeter is blockable; the top surface uses a centered blockable line for traversal setup.",
-            "nodes": [
-                {
-                    "id": "n1",
-                    "x": 113,
-                    "y": 34
-                },
-                {
-                    "id": "n2",
-                    "x": 1252,
-                    "y": 29
-                },
-                {
-                    "id": "n3",
-                    "x": 1359,
-                    "y": 53
-                },
-                {
-                    "id": "n4",
-                    "x": 1340,
-                    "y": 121
-                },
-                {
-                    "id": "n5",
-                    "x": 26,
-                    "y": 121
+                    "x": 27,
+                    "y": 154
                 },
                 {
                     "id": "n6",
@@ -569,9 +365,254 @@
             ],
             "generationTags": [
                 "biome.cave",
-                "layer.terrain",
-                "capability.platform"
+                "capability.doorSupport",
+                "capability.platform",
+                "capability.runAndGunGround",
+                "layer.terrain"
             ]
+        },
+        "cave_ground_037_04": {
+            "id": "cave_ground_037_04",
+            "frame": "cave_ground_037_04",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave_ground",
+                "cave_ground_037",
+                "mossy"
+            ],
+            "notes": "Cave floor asset. Perimeter is blockable; the top surface uses a centered blockable line for traversal setup.",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 40,
+                    "y": 44
+                },
+                {
+                    "id": "n2",
+                    "x": 1399,
+                    "y": 44
+                },
+                {
+                    "id": "n3",
+                    "x": 1429,
+                    "y": 61
+                },
+                {
+                    "id": "n4",
+                    "x": 1412,
+                    "y": 153
+                },
+                {
+                    "id": "n5",
+                    "x": 27,
+                    "y": 153
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 66
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "capability.doorSupport",
+                "capability.platform",
+                "capability.runAndGunGround",
+                "layer.terrain"
+            ]
+        },
+        "cave_ground_037_05": {
+            "id": "cave_ground_037_05",
+            "frame": "cave_ground_037_05",
+            "type": "floor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave_ground",
+                "cave_ground_037",
+                "mossy"
+            ],
+            "notes": "Cave floor asset. Perimeter is blockable; the top surface uses a centered blockable line for traversal setup.",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 40,
+                    "y": 44
+                },
+                {
+                    "id": "n2",
+                    "x": 1399,
+                    "y": 44
+                },
+                {
+                    "id": "n3",
+                    "x": 1429,
+                    "y": 66
+                },
+                {
+                    "id": "n4",
+                    "x": 1412,
+                    "y": 150
+                },
+                {
+                    "id": "n5",
+                    "x": 27,
+                    "y": 150
+                },
+                {
+                    "id": "n6",
+                    "x": 10,
+                    "y": 65
+                }
+            ],
+            "lines": [
+                {
+                    "id": "blockable_1",
+                    "kind": "blockable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_2",
+                    "kind": "blockable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_3",
+                    "kind": "blockable",
+                    "from": "n3",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_4",
+                    "kind": "blockable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_5",
+                    "kind": "blockable",
+                    "from": "n5",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_6",
+                    "kind": "blockable",
+                    "from": "n6",
+                    "to": "n1",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "capability.doorSupport",
+                "capability.platform",
+                "capability.runAndGunGround",
+                "layer.terrain"
+            ]
+        },
+        "cave_ground_037_blend_1": {
+            "id": "cave_ground_037_blend_1",
+            "frame": "cave_ground_037_blend_1",
+            "type": "decor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [],
+            "generationTags": [],
+            "notes": "",
+            "nodes": [],
+            "lines": []
         }
     }
 }

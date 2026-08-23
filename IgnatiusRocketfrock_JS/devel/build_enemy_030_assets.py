@@ -599,59 +599,6 @@ def build_animation(slot: str) -> dict:
     return data
 
 
-def update_enemy_catalog() -> None:
-    catalog = json.loads(ENEMIES_JSON.read_text(encoding='utf-8'))
-    catalog['meta']['version'] = int(catalog['meta'].get('version', 0)) + 1
-    catalog['meta']['revision'] = 372
-    catalog['meta']['note'] = 'Revision 372 fallback Human Raider catalog entry with the enlarged modular-human defaults.'
-    catalog['enemies']['enemy_030'] = {
-        'label': 'Human Raider',
-        'icon': '⚔',
-        'characterId': 'ct_char_enemy_030',
-        'defaultSize': {'w': 67.5, 'h': 177},
-        'defaults': {
-            'facing': -1,
-            'patrolDistance': 250,
-            'walkSpeed': 58,
-            'idleDuration': 1.0,
-            'turnPause': 0.46,
-            'groundSnapDistance': 96,
-            'maxStepHeight': 26,
-            'maxDropDistance': 34,
-            'renderScale': 1.23,
-            'health': 95,
-            'animationSlot': 'idle',
-            'targetAnchor': {'x': 0.54, 'y': 0.38},
-            'showTargetMarker': False,
-            'attackDamage': 26,
-            'attackRange': 72,
-            'attackVerticalRange': 108,
-            'attackDuration': 0.46,
-            'attackHitTime': 0.35,
-            'attackCooldown': 0.14,
-            'attackKnockbackX': 340,
-            'attackKnockbackY': -255,
-            'awarenessRange': 820,
-            'awarenessHoldDuration': 1.2,
-            'attackLungeDistance': 22,
-            'attackLungeSpeed': 190,
-            'strategy': 'hunter',
-            'runSpeed': 152,
-            'jumpHeight': 196,
-            'unreachableGlareDuration': 5,
-            'awarenessViewHalfAngle': 60,
-            'renderOffsetX': 0,
-            'renderOffsetY': 51,
-            'locomotion': 'ground',
-            'jumpGravity': 1250,
-            'maxFallDistance': 600,
-            'routeRepathInterval': 0.34,
-            'homeRetryInterval': 4,
-        },
-        'description': 'A first assembled modular human melee enemy based on the shared body/head atlas parts.',
-    }
-    ENEMIES_JSON.write_text(json.dumps(catalog, indent=2) + '\n', encoding='utf-8')
-
 
 def main() -> None:
     atlas = load_atlas_rgba(ATLAS_PNG)
