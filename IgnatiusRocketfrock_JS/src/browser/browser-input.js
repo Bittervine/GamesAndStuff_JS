@@ -1,19 +1,17 @@
 import { createInputFrame } from "../core/simulation.js";
+import { DEFAULT_INPUT_BINDINGS, normalizeInputBindings } from "../shared/game-settings-data.js";
 
-const KEY_BINDINGS = {
-    moveLeft: ["ArrowLeft", "KeyA"],
-    moveRight: ["ArrowRight", "KeyD"],
-    jump: ["ArrowUp", "KeyW", "KeyZ"],
-    drop: ["ArrowDown", "KeyS"],
-    interact: ["ArrowDown", "KeyS", "Enter", "NumpadEnter"],
-    weapon: ["Space", "KeyX", "KeyK", "ControlLeft", "ControlRight"]
-};
+const GAMEPAD_BUTTON_NAMES = Object.freeze([
+    "south", "east", "west", "north", "leftShoulder", "rightShoulder", "leftTrigger", "rightTrigger",
+    "back", "start", "leftStick", "rightStick", "dpadUp", "dpadDown", "dpadLeft", "dpadRight", "home"
+]);
 
 const DEBUG_KEYS = new Set(["KeyP", "KeyO", "KeyR", "KeyH", "KeyV", "KeyC", "KeyE", "KeyL", "F1"]);
 
 const GAMEPLAY_DIGITAL_ACTIONS = Object.freeze([
     Object.freeze({ held: "jumpHeld", pressed: "jumpPressed", released: "jumpReleased" }),
     Object.freeze({ held: "boostHeld", pressed: "boostPressed", released: "boostReleased" }),
+    Object.freeze({ held: "lungeHeld", pressed: "lungePressed", released: "lungeReleased" }),
     Object.freeze({ held: "weaponHeld", pressed: "weaponPressed", released: "weaponReleased" }),
     Object.freeze({ held: "interactHeld", pressed: "interactPressed", released: "interactReleased" }),
     Object.freeze({ held: "dropHeld", pressed: "dropPressed", released: "dropReleased" })
@@ -33,22 +31,15 @@ const POINTER_IGNORED_SELECTOR = "a, button, input, textarea, select, label, [ro
 export const GAMEPAD_ACTIVITY_TIMEOUT_SECONDS = 3;
 
 export class RocketfrockInput {
-    constructor(target = window) {
+    constructor(target = window, inputBindings = DEFAULT_INPUT_BINDINGS) {
         this.target = target;
+        this.inputBindings = normalizeInputBindings(inputBindings);
+        this.pendingBindingPresses = [];
+        this.pendingPausePressed = false;
         this.keys = new Set();
         this.gamepad = createEmptyGamepadState();
         this.pendingGameplayEdges = createPendingGameplayEdges();
-        this.debugPressed = {
-            pause: false,
-            step: false,
-            reset: false,
-            hitboxes: false,
-            velocity: false,
-            collision: false,
-            exportState: false,
-            inputConsoleLog: false,
-            debugPanel: false
-        };
+        this.debugPressed = createDebugPressed();
         this.pointer = createPointerState();
         this.rightMouseButtonDown = false;
         this.eventLog = [];
@@ -102,15 +93,18 @@ export class RocketfrockInput {
         }
 
         if (!this.keys.has(event.code)) {
-            if (event.code === "KeyP") this.debugPressed.pause = true;
-            if (event.code === "KeyO") this.debugPressed.step = true;
-            if (event.code === "KeyR") this.debugPressed.reset = true;
-            if (event.code === "KeyH") this.debugPressed.hitboxes = true;
-            if (event.code === "KeyV") this.debugPressed.velocity = true;
-            if (event.code === "KeyC") this.debugPressed.collision = true;
-            if (event.code === "KeyE") this.debugPressed.exportState = true;
-            if (event.code === "KeyL") this.debugPressed.inputConsoleLog = true;
-            if (event.code === "F1") this.debugPressed.debugPanel = true;
+            this.queueBindingPress(`keyboard:${event.code}`);
+            if (!this.isGameplayKey(event.code)) {
+                if (event.code === "KeyP") this.debugPressed.pause = true;
+                if (event.code === "KeyO") this.debugPressed.step = true;
+                if (event.code === "KeyR") this.debugPressed.reset = true;
+                if (event.code === "KeyH") this.debugPressed.hitboxes = true;
+                if (event.code === "KeyV") this.debugPressed.velocity = true;
+                if (event.code === "KeyC") this.debugPressed.collision = true;
+                if (event.code === "KeyE") this.debugPressed.exportState = true;
+                if (event.code === "KeyL") this.debugPressed.inputConsoleLog = true;
+                if (event.code === "F1") this.debugPressed.debugPanel = true;
+            }
         }
 
         const before = this.digitalHeldState();
@@ -424,6 +418,9 @@ export class RocketfrockInput {
         this.rightMouseButtonDown = false;
         this.gamepad = createEmptyGamepadState();
         this.pendingGameplayEdges = createPendingGameplayEdges();
+        this.pendingBindingPresses = [];
+        this.pendingPausePressed = false;
+        this.debugPressed = createDebugPressed();
         this.lastInputDevice = "none";
         this.activeGamepadIndex = null;
         this.lastGamepadActivityAt = Number.NEGATIVE_INFINITY;
@@ -474,17 +471,68 @@ export class RocketfrockInput {
         return this.consoleLogging;
     }
 
+    setInputBindings(inputBindings) {
+        const before = this.digitalHeldState();
+        this.inputBindings = normalizeInputBindings(inputBindings);
+        this.latchDigitalTransitions(before, this.digitalHeldState());
+    }
+
+    getInputBindings() {
+        return normalizeInputBindings(this.inputBindings);
+    }
+
+    clearPendingBindingPresses() {
+        this.pendingBindingPresses = [];
+    }
+
+    takeBindingPress() {
+        return this.pendingBindingPresses.shift() || "";
+    }
+
+    queueBindingPress(binding) {
+        if (!binding || this.pendingBindingPresses.includes(binding)) return;
+        this.pendingBindingPresses.push(binding);
+        while (this.pendingBindingPresses.length > 24) this.pendingBindingPresses.shift();
+    }
+
     isGameplayKey(code) {
-        return Object.values(KEY_BINDINGS).some((bindings) => bindings.includes(code));
+        const token = `keyboard:${code}`;
+        return Object.values(this.inputBindings).some((bindings) => bindings.includes(token));
+    }
+
+    actionHeld(actionId, gamepad = this.gamepad) {
+        const bindings = this.inputBindings?.[actionId] || [];
+        return bindings.some((binding) => {
+            if (binding.startsWith("keyboard:")) return this.keys.has(binding.slice("keyboard:".length));
+            if (binding.startsWith("gamepad:")) return Boolean(gamepad?.heldBindings?.has?.(binding));
+            return false;
+        });
+    }
+
+    directionalHeld(gamepad = this.gamepad) {
+        const upLeft = this.actionHeld("upLeft", gamepad);
+        const upRight = this.actionHeld("upRight", gamepad);
+        const downLeft = this.actionHeld("downLeft", gamepad);
+        const downRight = this.actionHeld("downRight", gamepad);
+        return {
+            up: this.actionHeld("up", gamepad) || upLeft || upRight,
+            down: this.actionHeld("down", gamepad) || downLeft || downRight,
+            left: this.actionHeld("left", gamepad) || upLeft || downLeft,
+            right: this.actionHeld("right", gamepad) || upRight || downRight
+        };
     }
 
     digitalHeldState(gamepad = this.gamepad) {
+        const directions = this.directionalHeld(gamepad);
+        const dropHeld = directions.down || Boolean(gamepad?.analogDown) || this.pointer.dropHeld || this.pointer.dropPulse;
         return {
-            jumpHeld: anyKey(this.keys, KEY_BINDINGS.jump) || Boolean(gamepad?.jumpHeld) || this.pointer.jumpHeld,
+            jumpHeld: directions.up || Boolean(gamepad?.analogUp) || this.pointer.jumpHeld,
             boostHeld: false,
-            weaponHeld: anyKey(this.keys, KEY_BINDINGS.weapon) || Boolean(gamepad?.weaponHeld) || this.pointer.weaponPulse,
-            interactHeld: anyKey(this.keys, KEY_BINDINGS.interact) || Boolean(gamepad?.interactHeld),
-            dropHeld: anyKey(this.keys, KEY_BINDINGS.drop) || Boolean(gamepad?.dropHeld) || this.pointer.dropHeld || this.pointer.dropPulse
+            lungeHeld: this.actionHeld("lunge", gamepad),
+            weaponHeld: this.actionHeld("fire", gamepad) || this.pointer.weaponPulse,
+            interactHeld: dropHeld,
+            dropHeld,
+            pauseHeld: this.actionHeld("pause", gamepad)
         };
     }
 
@@ -499,6 +547,7 @@ export class RocketfrockInput {
                 this.pendingGameplayEdges[action.released] = true;
             }
         }
+        if (!before?.pauseHeld && after?.pauseHeld) this.pendingPausePressed = true;
     }
 
     consumeGameplayEdges(inputFrame = null) {
@@ -515,14 +564,16 @@ export class RocketfrockInput {
         this.expireDeferredPointerCancel();
         const sampleTime = inputNowSeconds();
         const beforeGamepad = this.digitalHeldState();
-        const gamepad = readGamepad(this.activeGamepadIndex);
+        const gamepad = readGamepad(this.activeGamepadIndex, this.gamepad);
         this.gamepad = gamepad;
         const heldState = this.digitalHeldState();
         this.latchDigitalTransitions(beforeGamepad, heldState);
-        const keyboardMoveAxis = (anyKey(this.keys, KEY_BINDINGS.moveRight) ? 1 : 0) - (anyKey(this.keys, KEY_BINDINGS.moveLeft) ? 1 : 0);
+        for (const binding of gamepad.freshBindings || []) this.queueBindingPress(binding);
+        const directions = this.directionalHeld(gamepad);
+        const keyboardMoveAxis = (directions.right ? 1 : 0) - (directions.left ? 1 : 0);
         const moveAxis = clamp(keyboardMoveAxis + gamepad.moveAxis + this.pointer.moveAxis, -1, 1);
         const pointerWeaponPulse = this.pointer.weaponPulse;
-        const keyboardActive = Object.values(KEY_BINDINGS).some((bindings) => anyKey(this.keys, bindings));
+        const keyboardActive = [...this.keys].some((code) => this.isGameplayKey(code));
         const pointerActive = Boolean(
             pointerWeaponPulse ||
             (this.pointer.active && (
@@ -549,8 +600,8 @@ export class RocketfrockInput {
             sampleTime - this.lastGamepadActivityAt <= GAMEPAD_ACTIVITY_TIMEOUT_SECONDS
         );
         const current = createInputFrame({
-            moveLeft: anyKey(this.keys, KEY_BINDINGS.moveLeft) || gamepad.moveLeft || moveAxis < -0.35,
-            moveRight: anyKey(this.keys, KEY_BINDINGS.moveRight) || gamepad.moveRight || moveAxis > 0.35,
+            moveLeft: directions.left || gamepad.moveAxis < -0.35 || moveAxis < -0.35,
+            moveRight: directions.right || gamepad.moveAxis > 0.35 || moveAxis > 0.35,
             moveAxis,
             ...heldState,
             aimVector: gamepad.aimVector || pointerAimVector(this.pointer) || { x: 1, y: 0 },
@@ -568,7 +619,9 @@ export class RocketfrockInput {
         this.pointer.weaponPulse = false;
         this.pointer.dropPulse = false;
         this.latchDigitalTransitions(beforePulseClear, this.digitalHeldState());
-        current.pausePressed = take(this.debugPressed, "pause");
+        current.pausePressed = this.pendingPausePressed;
+        this.pendingPausePressed = false;
+        current.debugPausePressed = take(this.debugPressed, "pause");
         current.stepPressed = take(this.debugPressed, "step");
         current.resetPressed = take(this.debugPressed, "reset");
         current.toggleHitboxesPressed = take(this.debugPressed, "hitboxes");
@@ -635,6 +688,20 @@ function pointerTypeFromEvent(event) {
     return "pointer";
 }
 
+function createDebugPressed() {
+    return {
+        pause: false,
+        step: false,
+        reset: false,
+        hitboxes: false,
+        velocity: false,
+        collision: false,
+        exportState: false,
+        inputConsoleLog: false,
+        debugPanel: false
+    };
+}
+
 function createPendingGameplayEdges() {
     const edges = {};
     for (const action of GAMEPLAY_DIGITAL_ACTIONS) {
@@ -667,10 +734,6 @@ function createPointerState() {
     };
 }
 
-function anyKey(keys, bindings) {
-    return bindings.some((code) => keys.has(code));
-}
-
 function take(object, key) {
     const value = Boolean(object[key]);
     object[key] = false;
@@ -681,23 +744,26 @@ function gamepadButtonHeld(button) {
     return Boolean(button?.pressed || Number(button?.value) > 0.25);
 }
 
+function gamepadBindingToken(index) {
+    const name = GAMEPAD_BUTTON_NAMES[index];
+    return `gamepad:${name || `button${index}`}`;
+}
+
 function createEmptyGamepadState() {
     return {
         connected: false,
         index: null,
         active: false,
-        moveLeft: false,
-        moveRight: false,
         moveAxis: 0,
-        jumpHeld: false,
-        weaponHeld: false,
-        interactHeld: false,
-        dropHeld: false,
+        analogUp: false,
+        analogDown: false,
+        heldBindings: new Set(),
+        freshBindings: [],
         aimVector: null
     };
 }
 
-function readGamepad(preferredIndex = null) {
+function readGamepad(preferredIndex = null, previousGamepad = null) {
     const empty = createEmptyGamepadState();
 
     if (typeof navigator === "undefined" || !navigator.getGamepads) {
@@ -716,38 +782,28 @@ function readGamepad(preferredIndex = null) {
         const lx = Number(pad.axes?.[0]) || 0;
         const ly = Number(pad.axes?.[1]) || 0;
         const moveAxis = Math.abs(lx) > 0.16 ? lx : 0;
-        const jumpHeld = Boolean(pad.buttons?.[0]?.pressed || pad.buttons?.[12]?.pressed || ly < -0.55);
-        const weaponHeld = Boolean(
-            gamepadButtonHeld(pad.buttons?.[1]) ||
-            gamepadButtonHeld(pad.buttons?.[6]) ||
-            gamepadButtonHeld(pad.buttons?.[7])
-        );
-        const dropHeld = Boolean(pad.buttons?.[13]?.pressed || ly > 0.55);
-        const interactHeld = Boolean(pad.buttons?.[2]?.pressed || dropHeld);
-        const moveLeft = lx < -0.35 || Boolean(pad.buttons?.[14]?.pressed);
-        const moveRight = lx > 0.35 || Boolean(pad.buttons?.[15]?.pressed);
+        const heldBindings = new Set();
+        for (let buttonIndex = 0; buttonIndex < (pad.buttons?.length || 0); buttonIndex += 1) {
+            if (gamepadButtonHeld(pad.buttons[buttonIndex])) heldBindings.add(gamepadBindingToken(buttonIndex));
+        }
+        const resolvedIndex = Number.isInteger(pad.index) ? pad.index : index;
+        const previousHeld = previousGamepad?.index === resolvedIndex ? previousGamepad.heldBindings : new Set();
+        const freshBindings = [...heldBindings].filter((binding) => !previousHeld.has(binding));
+        const analogUp = ly < -0.55;
+        const analogDown = ly > 0.55;
         const aimVector = Math.hypot(lx, ly) > 0.25 ? normalize({ x: lx, y: ly }) : null;
         const active = Boolean(
-            Math.abs(moveAxis) > 0 ||
-            jumpHeld ||
-            weaponHeld ||
-            interactHeld ||
-            dropHeld ||
-            moveLeft ||
-            moveRight ||
-            Math.hypot(lx, ly) > 0.25
+            Math.abs(moveAxis) > 0 || analogUp || analogDown || heldBindings.size > 0 || Math.hypot(lx, ly) > 0.25
         );
         return {
             connected: true,
-            index: Number.isInteger(pad.index) ? pad.index : index,
+            index: resolvedIndex,
             active,
-            moveLeft,
-            moveRight,
             moveAxis,
-            jumpHeld,
-            weaponHeld,
-            interactHeld,
-            dropHeld,
+            analogUp,
+            analogDown,
+            heldBindings,
+            freshBindings,
             aimVector
         };
     });

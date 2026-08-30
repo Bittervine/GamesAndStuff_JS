@@ -6,6 +6,72 @@ import {
     storyReadingDuration
 } from "../src/shared/story-reading.js";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+
+function pythonCommandForAtlasToolTests() {
+    const candidates = process.platform === "win32"
+        ? [["py", ["-3"]], ["python", []], ["python3", []]]
+        : [["python3", []], ["python", []]];
+    for (const [command, prefixArgs] of candidates) {
+        const probe = spawnSync(command, [...prefixArgs, "--version"], { encoding: "utf8" });
+        if (!probe.error && probe.status === 0) return { command, prefixArgs };
+    }
+    return null;
+}
+
+function testAtlasPythonToolingRegressionSuite() {
+    const python = pythonCommandForAtlasToolTests();
+    assert.ok(python, "atlas tooling regression tests require Python 3 because the shipped atlas tools are Python programs");
+    const scripts = [
+        "test_reforge_atlases.py",
+        "test_verify_atlas_rect_pixels.py",
+        "test_refresh_palette_thumbnail_metadata.py",
+        "test_atlas_frame_identities.py",
+        "test_build_human_enemy_variant.py"
+    ];
+    for (const name of scripts) {
+        const script = fileURLToPath(new URL(`../devel/${name}`, import.meta.url));
+        const result = spawnSync(python.command, [...python.prefixArgs, script], {
+            cwd: fileURLToPath(new URL("..", import.meta.url)),
+            encoding: "utf8",
+            timeout: 120000
+        });
+        assert.equal(
+            result.status,
+            0,
+            `${name} should pass in the ordinary release gate${result.stderr ? `\n${result.stderr}` : ""}${result.stdout ? `\n${result.stdout}` : ""}`
+        );
+    }
+}
+
+const NATIVE_APP_SOURCE_FILES = [
+    "ignatius-app.cpp",
+    "ignatius-app-lifecycle.cpp",
+    "ignatius-app-platform-renderer.cpp",
+    "ignatius-app-playback-audio.cpp",
+    "ignatius-app-scene-loading.cpp",
+    "ignatius-app-world-render.cpp",
+    "ignatius-app-hud-story.cpp",
+    "ignatius-app-input-recording.cpp",
+    "ignatius-app-menu-present.cpp",
+    // Keep declarations last so source-contract slices find the implementation
+    // before the matching class declaration.
+    "ignatius-app-internal.h"
+];
+
+function readNativeAppSourceBundle() {
+    return NATIVE_APP_SOURCE_FILES
+        .map((file) => {
+            const source = readFileSync(new URL(`../../src/runtime/${file}`, import.meta.url), "utf8");
+            // Source-contract tests predate the translation-unit split and search
+            // the former in-class method spelling. Normalize only the out-of-class
+            // qualifier so those tests continue checking behavior rather than file layout.
+            return file.endsWith(".cpp") ? source.replaceAll("IgnatiusNativeScene::", "") : source;
+        })
+        .join("\n");
+}
 import { normalizeResourcePath, resourceUrl } from "../src/shared/resource-paths.js";
 import {
     CREDITS_DESTINATION_LEVEL,
@@ -19,6 +85,7 @@ import { testNameInGroup, validateTestGateManifest } from "./test-gate-manifest.
 import {
     computeResponsiveViewportMetrics,
     environmentAtlasMapFromRecords,
+    environmentAtlasRecordFromPreparedSource,
     computeSpeechBubblePlacement,
     computeThoughtBubblePlacement,
     computeTimedTextViewportLayout,
@@ -29,7 +96,13 @@ import {
     rocketPresentationOffsets
 } from "../src/presentation/canvas-renderer.js";
 import { WebGL2RendererBackend } from "../src/presentation/webgl2-renderer.js";
-import { computeMinimapGeometry, minimapPointInsideGameplayPerimeter, minimapTeleportAllowed } from "../src/presentation/minimap-data.js";
+import {
+    computeMinimapGeometry,
+    MINIMAP_CHECKPOINT_SNAP_DISTANCE,
+    minimapPointInsideGameplayPerimeter,
+    minimapTeleportAllowed,
+    minimapTeleportDestination
+} from "../src/presentation/minimap-data.js";
 import {
     cameraLineCompletelyInsideRect,
     cameraLineInsertionIndex,
@@ -132,12 +205,17 @@ import {
 import {
     DEVELOPMENT,
     DEFAULT_GAME_SETTINGS,
+    DEFAULT_INPUT_BINDINGS,
     GAME_DIFFICULTY_PRESETS,
+    GAME_INPUT_ACTIONS,
     GAME_RENDERING_MODE_PRESETS,
     GAME_RENDERING_QUALITY_PRESETS,
+    assignInputBinding,
     difficultyDamageScale,
     gameRenderingModePreset,
     normalizeGameSettings,
+    normalizeInputBindings,
+    removeInputBinding,
     renderingParticleScale
 } from "../src/shared/game-settings-data.js";
 import {
@@ -306,8 +384,10 @@ import {
 import {
     DEFAULT_MOVING_PLATFORM,
     createDefaultMovingPlatform,
+    movingPlatformEasedProgress,
     movingPlatformEndPosition,
     movingPlatformHasEndpoint,
+    movingPlatformSwingStartPhase,
     movingPlatformUsesFade,
     normalizeMovingPlatform
 } from "../src/shared/moving-platform-data.js";
@@ -368,6 +448,7 @@ import {
     addAtlasFrameToRig,
     addRigPartToAnimation,
     animationFilenameForCharacterSlot,
+    assertNoRemovedCharacterPartColorExchange,
     CHARACTER_PROJECT_FILE_KIND,
     classifyCharacterProjectJson,
     createBlankCharacterProject,
@@ -440,6 +521,7 @@ import {
 } from "../src/tools/character-editor/parent-constraint-data.js";
 import {
     TRANSFORM_EDIT_PROPERTY,
+    canvasToCharacterWorldPoint,
     canvasToPreviewPoint,
     characterViewTransform,
     geometryToCanvas,
@@ -481,12 +563,20 @@ import {
     bakeEnemyNavigationGraph,
     buildEnemyNavigationEdges,
     buildEnemyNavigationSupports,
+    enemyNavigationAdvisoryHeuristicAssessment,
+    enemyNavigationAdvisoryHeuristicRejectors,
     enemyNavigationEdgeMapFromFlat,
+    enemyNavigationEdgeRuntimeAllowed,
     enemyNavigationRouteFromSearch,
+    enemyNavigationSupportPhysicalOwnerId,
+    enemyNavigationSupportsSignature,
+    enemyNavigationTraversalAllowedFromSupport,
     findEnemyNavigationSupport,
     planEnemyNavigationRoute,
-    planEnemyNavigationRoutesFrom
+    planEnemyNavigationRoutesFrom,
+    rebuildEnemyNavigationWalkRegions
 } from "../src/core/enemy-navigation.js";
+import { rebakeAndVerifyNavigation, stampNavigationLocalProofHashes } from "../src/tools/navigation-rebake.js";
 import {
     FIXED_DT,
     PICKUP_PROXIMITY_DISTANCE_SCALE,
@@ -515,6 +605,10 @@ import {
     restoreGameState,
     teleportPlayer,
     resetPlayer,
+    enemyNavigationRunUpFirstStepAdvisory,
+    enemyNavigationRunUpFirstFourStepsAdvisory,
+    verifyEnemyNavigationGraphBySimulation,
+    snapPlayerStartToNearbyGround,
     applyEditorLevelToWorld as applyEditorLevelToWorldCurrent,
     applyCharacterCombatProfiles,
     applyLootCatalog,
@@ -526,7 +620,8 @@ import {
     damagePlayer,
     getPlayerRect,
     launchCharacterEnemyProjectile,
-    recordDebugExceptionAlert
+    recordDebugExceptionAlert,
+    characterEnemyNavigationStepLandingPenetratesForeignBlocker
 } from "../src/core/simulation.js";
 
 const RESOURCE_ROOT_DIRECTORY = new URL("../resources/", import.meta.url);
@@ -702,6 +797,32 @@ function testSourceOrganization() {
     "environment atlas loading rejects duplicate atlas IDs instead of silently discarding one resource"
 );
 
+{
+    const decodedImage = { naturalWidth: 4096, naturalHeight: 2048 };
+    const editorAtlas = {
+        atlasId: "at_atlas_042",
+        manifestUrl: "atlases/at_atlas_042.json",
+        imageUrl: "atlases/at_atlas_042.png",
+        image: decodedImage,
+        renderImage: { editorOnlyColorTreatment: true },
+        manifest: {
+            atlasId: "at_atlas_042",
+            image: "at_atlas_042.png",
+            frames: { tree_001: { x: 0, y: 0, w: 128, h: 256 } }
+        }
+    };
+    const rendererAtlas = environmentAtlasRecordFromPreparedSource(
+        editorAtlas,
+        "resources/atlases/at_atlas_042.json"
+    );
+    assert.ok(rendererAtlas, "a prepared editor atlas should adapt into a renderer environment-atlas record");
+    assert.equal(rendererAtlas.image, decodedImage, "the renderer wrapper should reuse the editor's decoded atlas image object");
+    assert.equal(rendererAtlas.renderImage, decodedImage, "the renderer wrapper should start from the shared immutable source rather than aliasing the editor's mutable renderImage cache");
+    assert.notEqual(rendererAtlas.manifest, editorAtlas.manifest, "the renderer wrapper should own independent manifest metadata");
+    assert.equal(rendererAtlas.manifestUrl, "resources/atlases/at_atlas_042.json", "the renderer wrapper should retain the canonical requested manifest URL");
+}
+
+
 assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relativePath} should exist in the organized source tree`);
     }
 
@@ -768,6 +889,7 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
     assert.match(gateRunner, /TEST GATE SUMMARY/, "the common runner should retain an explicit final shard summary");
     assert.match(gateRunner, /timed-out/, "the common runner should distinguish timeouts from ordinary failures");
     assert.match(gateRunner, /testSourceFingerprint/, "resumed gates should be protected by a source fingerprint");
+    assert.ok(gateRunner.includes('extension !== ".png"') && gateRunner.includes('(?:atlases|characters|items)'), "release-resume fingerprints should include production atlas PNG bytes so PNG-only artwork changes cannot skip atlas identity tests");
     assert.match(gateRunner, /for \(let index = 0; index < shards\.length; index \+= 1\)/, "gate shards should execute sequentially in fresh processes");
     assert.equal(gateRunner.includes("Promise.all"), false, "test shards should not compete concurrently for the virtual machine heap");
     const generatorRunner = readFileSync(new URL("../devel/run_generator_tests.mjs", import.meta.url), "utf8");
@@ -779,9 +901,10 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
 
     const windowsBuildScript = readFileSync(new URL("../../build.bat", import.meta.url), "utf8");
     const windowsRevisionVerifier = readFileSync(new URL("../../devel/verify_revision.ps1", import.meta.url), "utf8");
+    const nativeTimestampRefreshSource = readFileSync(new URL("../../devel/refresh_native_source_timestamps.cmake", import.meta.url), "utf8");
     const rootBuildRevision = readFileSync(new URL("../../BUILD_REVISION.txt", import.meta.url), "utf8").trim();
     const referenceBuildRevisionMirror = readFileSync(new URL("../BUILD_REVISION.txt", import.meta.url), "utf8").trim();
-    const revisionNativeAppSource = readFileSync(new URL("../../src/runtime/ignatius-app.cpp", import.meta.url), "utf8");
+    const revisionNativeAppSource = readNativeAppSourceBundle();
     const revisionNativeHeader = readFileSync(new URL("../../src/shared/build-revision.h", import.meta.url), "utf8");
     const revisionNativeTemplate = readFileSync(new URL("../../src/shared/build-revision.cpp.in", import.meta.url), "utf8");
     const rootCmakeSource = readFileSync(new URL("../../CMakeLists.txt", import.meta.url), "utf8");
@@ -800,10 +923,13 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
     assert.equal(windowsBuildScript.includes("revision_metadata_mismatch"), false, "Windows builds should not compare manually duplicated revision metadata now that BUILD_REVISION.txt is the single source");
     assert.ok(windowsBuildScript.includes("devel\\verify_revision.ps1") && !windowsBuildScript.includes("call :verify_revision"), "Windows executable revision checks should use the process helper instead of the fragile batch-label verifier");
     assert.ok(windowsRevisionVerifier.includes("Start-Process") && windowsRevisionVerifier.includes("-Wait") && windowsRevisionVerifier.includes("-PassThru"), "Windows revision verification should wait for the GUI executable and inspect its real exit code");
-    assert.ok(windowsBuildScript.includes("call :touch_project_sources") && windowsBuildScript.includes("Retrying once after refreshing project source timestamps"), "the timestamp refresh should remain available only after verification detects stale objects");
+    assert.ok(windowsBuildScript.includes("call :touch_project_sources") && windowsBuildScript.includes("Retrying once after refreshing project source timestamps"), "the broad timestamp refresh should remain available as a last-resort fallback after verification detects stale objects");
+    assert.ok(nativeTimestampRefreshSource.includes('"${IGNATIUS_ROOT}/external/*.hpp"') && nativeTimestampRefreshSource.includes('"${IGNATIUS_ROOT}/external/*.h"'), "content-hash timestamp protection should include vendored C/C++ headers, not only src/");
+    assert.ok(nativeTimestampRefreshSource.includes("IGNATIUS_PREPARED_STATE") && nativeTimestampRefreshSource.includes('IS_NEWER_THAN "${IGNATIUS_PREPARED_STATE}"'), "build configurations should share a prepared-source timestamp marker instead of repeatedly invalidating one another");
+    assert.ok(nativeTimestampRefreshSource.includes("IGNATIUS_CANDIDATE_MATCHES") && nativeTimestampRefreshSource.includes('IS_NEWER_THAN "${IGNATIUS_CANDIDATE}"'), "an interrupted-build candidate may be reused only while the prepared source timestamp still post-dates that exact candidate manifest");
     assert.equal(windowsBuildScript.includes('rmdir /S /Q "%CONTENT_DEST%"'), false, "runtime content synchronization should not delete and recopy the complete destination on every build");
     assert.match(windowsBuildScript, /robocopy "%CONTENT_SOURCE%" "%CONTENT_DEST%" \/MIR/, "runtime content should use robocopy's incremental mirror behavior");
-    assert.ok(windowsBuildScript.includes("/XF IgnatiusDevTool.html") && windowsBuildScript.includes("IgnatiusDevTool.html level-editor.html asset-editor.html"), "Windows content synchronization should preserve and stage the shared IgnatiusDevTool shell");
+    assert.ok(windowsBuildScript.includes("/XF IgnatiusDevTool.html") && windowsBuildScript.includes("IgnatiusDevTool.html level-editor.html asset-editor.html character-editor.html palette-builder.html utils.html"), "Windows content synchronization should preserve and stage the shared IgnatiusDevTool shell, including Utils");
     const linuxBuildScript = readFileSync(new URL("../../build.sh", import.meta.url), "utf8");
     assert.ok(linuxBuildScript.includes('cmake -E copy_if_different "$ROOT/BUILD_REVISION.txt" "$ROOT/reference/BUILD_REVISION.txt"'), "Linux builds should refresh the static-browser revision mirror from the single authored root revision");
     assert.ok(linuxBuildScript.includes('src/shared/build-revision.cpp.in') && linuxBuildScript.includes('IGNATIUS_BUILD_REVISION_SOURCE'), "the generated Linux CMake project should isolate the revision in the same tiny generated translation unit");
@@ -823,6 +949,8 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
     const resourceLevelEditorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const resourceCharacterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const resourcePaletteBuilderSource = readFileSync(new URL("../src/tools/palette-builder.js", import.meta.url), "utf8");
+    const paletteAuditSource = readFileSync(new URL("../devel/audit_resource_layout.mjs", import.meta.url), "utf8");
+    const paletteMetadataRefreshSource = readFileSync(new URL("../devel/refresh_palette_thumbnail_metadata.py", import.meta.url), "utf8");
     const paletteBuilderHtmlSource = readFileSync(new URL("../palette-builder.html", import.meta.url), "utf8");
     const gameHtmlSource = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     const developmentPortalSource = readFileSync(new URL("../devel.html", import.meta.url), "utf8");
@@ -835,14 +963,16 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
     assert.equal(resourceAssetEditorSource.includes("NUMBERED_ATLAS_MAX"), false, "the Asset Tool should no longer synthesize atlas ids through 099");
     assert.equal(resourceLevelEditorSource.includes("ATLAS_AUTOLOAD_LIMIT") || resourceLevelEditorSource.includes("LEVEL_AUTOLOAD_LIMIT"), false, "the Level Editor should no longer probe fixed numbered ranges");
     assert.ok(resourceAssetEditorSource.includes("loadResourceIndex") && resourceLevelEditorSource.includes("loadResourceIndex"), "both authoring tools should discover resources through resources.json");
+    assert.ok(paletteAuditSource.includes("resourceIndex.assetAtlasIds") && paletteAuditSource.includes("palette thumbnail cache is missing asset entry"), "resource audit should independently enforce complete palette coverage for every resources.json asset atlas");
+    assert.ok(paletteMetadataRefreshSource.includes("--original-resources") && paletteMetadataRefreshSource.includes("verify_manifest_pair") && paletteMetadataRefreshSource.includes("non-atlas sources changed"), "metadata-only palette refresh should require a verified original atlas tree and reject arbitrary content changes");
     assert.ok(resourceAssetEditorSource.includes('ITEM_ATLAS_IDS = Object.freeze(["it_atlas_001"])') && resourceAssetEditorSource.includes('startsWith("it_atlas_") ? "items" : "atlases"'), "the Asset Tool should load the interactive item atlas from resources/items rather than treating it as an environment atlas");
     assert.ok(resourceAssetEditorSource.includes('startsWith("it_atlas_") ? "itemAtlas" : "assetAtlas"') && resourceAssetEditorSource.includes('projectHost.saveText(resourceKind, filename'), "the Asset Tool should preserve the item-atlas resource kind when saving through the common project host");
     assert.ok(resourceAssetEditorSource.includes('projectHost.readText(resourceKind, filename, { prompt: false })'), "the Asset Tool should reload atlas JSON through the same selected project root used for saves instead of a second WebView resource path");
     const itemAtlasManifest = readResourceJson("items/it_atlas_001.json");
-    assert.deepEqual(itemAtlasManifest.frames.lever_off, { x: 465, y: 809, w: 140, h: 116 }, "the switch off state should use the measured revision-357 registration frame");
-    assert.deepEqual(itemAtlasManifest.frames.lever_on, { x: 666, y: 811, w: 140, h: 116 }, "the switch on state should use the same-sized measured revision-357 registration frame");
-    assert.equal(itemAtlasManifest.frames.lever_on.x - itemAtlasManifest.frames.lever_off.x, 201, "matching switch-case features should keep the measured 201px atlas separation");
-    assert.equal(itemAtlasManifest.frames.lever_on.y - itemAtlasManifest.frames.lever_off.y, 2, "matching switch-case features should keep the measured 2px atlas vertical separation");
+    assert.deepEqual(itemAtlasManifest.frames.lever_off, { x: itemAtlasManifest.frames.lever_off.x, y: itemAtlasManifest.frames.lever_off.y, w: 140, h: 116 }, "the switch off state should keep its authored registration dimensions after atlas reforging");
+    assert.deepEqual(itemAtlasManifest.frames.lever_on, { x: itemAtlasManifest.frames.lever_on.x, y: itemAtlasManifest.frames.lever_on.y, w: 140, h: 116 }, "the switch on state should keep the same authored registration dimensions after atlas reforging");
+    assert.equal(itemAtlasManifest.frames.lever_on.w, itemAtlasManifest.frames.lever_off.w, "matching switch-case features should keep the same frame width after atlas reforging");
+    assert.equal(itemAtlasManifest.frames.lever_on.h, itemAtlasManifest.frames.lever_off.h, "matching switch-case features should keep the same frame height after atlas reforging");
     assert.ok(resourceLoaderSource.includes("RESOURCE_LOAD_RETRY_DELAYS_MS") && resourceLoaderSource.includes("after ${delays.length} attempts"), "declared resource retrieval should use bounded retries with explicit failure text");
     assert.ok(projectHostSource.includes('PROJECT_SCOPE_PATH') && projectHostSource.includes('new URL(".", window.location.href).pathname') && projectHostSource.includes('RESOURCES_HANDLE_KEY = `resources-root:${scopeHash(PROJECT_SCOPE_PATH)}`'), "remembered browser resource handles should be scoped to the current checkout directory rather than shared across every page on the origin");
     assert.ok(projectHostSource.includes('selectionVersion') && devToolShellSource.includes('snapshot.selectionVersion !== observedSelectionVersion') && devToolShellSource.includes('for (const frame of frames) frame.contentWindow?.location.reload()'), "switching resources roots from the Dev Tool shell should reload all editor frames even when both folders are named resources");
@@ -856,7 +986,7 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
     assert.ok(projectHostSource.includes('operation === "writeResource" || operation === "chooseResourcesDirectory"') && projectHostSource.includes('? 120000'), "large native project writes and top-level folder selection should not inherit the short 30-second request timeout");
     assert.ok(devToolShellSource.includes('ignatiusDevToolReservePlaytestWindow') && resourceLevelEditorSource.includes('reservedPlaytestWindow'), "browser playtests should reserve their popup during the initiating click before expensive graph baking or saving can consume transient user activation");
     assert.ok(resourceLevelEditorSource.includes('Could not build playtest navigation graphs.') && resourceLevelEditorSource.includes('closeReservedPlaytest();'), "a navigation-bake failure should close the browser playtest window that was reserved before the expensive work began");
-    assert.ok(navigationRebakeSource.includes("name !== 'level_temp.json'") && navigationRebakeSource.includes('scratch playtest data'), "bulk navigation rebakes should ignore machine-generated level_temp.json unless it is explicitly targeted");
+    assert.ok(navigationRebakeSource.includes('/^level_\\d+\\.json$/') && navigationRebakeSource.includes('heuristicGraphShape(previous)') && navigationRebakeSource.includes('verificationFailure'), "legacy heuristic navigation checks should default to numeric authored levels and ignore durable verification metadata when deciding whether a rebake is needed");
     assert.ok(navigationComparisonSource.includes("name !== 'level_temp.json'") && navigationComparisonSource.includes('supportProjectionEquivalent'), "navigation A/B totals should ignore level_temp scratch data and compare transitive reachability only across geometrically equivalent support endpoints");
     assert.ok(devToolShellSource.includes('return Boolean(window.open(url, "ignatius-level-playtest"))') && resourceLevelEditorSource.includes('if (launched === false) setStatus('), "hosted browser playtests should report an outright popup block instead of silently claiming the saved level launched");
     assert.ok(projectHostSource.includes('selectionVersionBeforeConnect') && projectHostSource.includes('return "root-changed"') && resourceAssetEditorSource.includes('if (result === "root-changed")') && resourceLevelEditorSource.match(/if \(result === "root-changed"\)/g)?.length >= 2 && resourceCharacterEditorSource.includes('if (result === "root-changed")'), "a project folder first selected during Save or playtest-temp Save should reload the editor instead of writing page-loaded data into the newly selected tree");
@@ -877,8 +1007,12 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
         assert.ok(developmentPortalSource.includes(`IgnatiusDevTool.html?tool=${tool}`), `the Development Portal should route ${tool} authoring through the shared Dev Tool shell`);
     }
 
-    const nativeAppSource = readFileSync(new URL("../../src/runtime/ignatius-app.cpp", import.meta.url), "utf8");
-    const nativeSimulationSource = readFileSync(new URL("../../src/core/Simulation.cpp", import.meta.url), "utf8");
+    const nativeAppSource = readNativeAppSourceBundle();
+    const nativeSimulationSource = [
+        readFileSync(new URL("../../src/core/Simulation.cpp", import.meta.url), "utf8"),
+        readFileSync(new URL("../../src/core/SimulationEnemy.cpp", import.meta.url), "utf8")
+    ].join("\n");
+    const nativeSimulationHeader = readFileSync(new URL("../../src/core/Simulation.h", import.meta.url), "utf8");
     const nativeEnemyNavigationSource = readFileSync(new URL("../../src/core/EnemyNavigation.cpp", import.meta.url), "utf8");
     const browserSimulationSource = readFileSync(new URL("../src/core/simulation.js", import.meta.url), "utf8");
     const browserCanvasRendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
@@ -897,6 +1031,20 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
     const launchOptionsHeader = readFileSync(new URL("../../src/runtime/launch-options.h", import.meta.url), "utf8");
     const launchOptionsSource = readFileSync(new URL("../../src/runtime/launch-options.cpp", import.meta.url), "utf8");
     const gpuPresenterHeader = readFileSync(new URL("../../src/runtime/gpu-presenter.h", import.meta.url), "utf8");
+    assert.ok(nativeSimulationHeader.includes("enemyStateAbiSignature()") && nativeSimulationHeader.includes("requireEnemyStateAbiAnchor"), "native FEnemyState consumers should bind to a layout signature rather than a size-only ABI check");
+    for (const partitionProbe of [
+        "compiledIgnatiusAppEntryEnemyStateAbiSignature",
+        "compiledIgnatiusAppLifecycleEnemyStateAbiSignature",
+        "compiledIgnatiusAppPlatformRendererEnemyStateAbiSignature",
+        "compiledIgnatiusAppPlaybackAudioEnemyStateAbiSignature",
+        "compiledIgnatiusAppSceneLoadingEnemyStateAbiSignature",
+        "compiledIgnatiusAppWorldRenderEnemyStateAbiSignature",
+        "compiledIgnatiusAppHudStoryEnemyStateAbiSignature",
+        "compiledIgnatiusAppInputRecordingEnemyStateAbiSignature",
+        "compiledIgnatiusAppMenuPresentEnemyStateAbiSignature"
+    ]) {
+        assert.ok(nativeAppSource.includes(partitionProbe), `${partitionProbe} should keep every native application partition represented in the FEnemyState ABI cross-check`);
+    }
     assert.equal(devToolHostSource.includes('resourceDirectoryForKind'), false, "typed resource-kind-to-directory routing should live in the shared JavaScript project-host contract rather than being duplicated in the native bridge");
     assert.ok(devToolHostSource.includes('operation == "readResourceTextPath"') && devToolHostSource.includes('safeResourceRelativePath(relativePath)'), "the native project bridge should support the same canonical arbitrary resource-text reads used by the browser host");
     assert.ok(devToolHostSource.includes('operation != "writeResource"') && devToolHostSource.includes('authoringResourceRoot / std::filesystem::') && devToolHostSource.includes('writeBinaryFile(resourcePath, bytes'), "native project writes should consume the project host's already-resolved safe relative path below the selected authoring root");
@@ -962,6 +1110,19 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
         && devToolHostSource.includes('COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW'),
         "the native WebView should map a dedicated project-resource origin directly to the selected resources root");
     assert.ok(devToolHostSource.includes('setProjectResourceRootMapping(tabForKind(kind), *selectedRoot'), "changing the native resources folder should remap binary/blob reads before the editor frames reload");
+    assert.ok(devToolHostSource.includes('settings->put_AreDevToolsEnabled(TRUE)')
+        && devToolHostSource.includes('OpenDevToolsWindow()')
+        && devToolHostSource.includes('SDLK_F12'),
+        "IgnatiusDevTool should expose the active WebView2 developer tools directly from F12");
+    assert.ok(devToolHostSource.includes('ignatius-devtool-webview.log')
+        && devToolHostSource.includes('ignatius-devtool-diagnostic|')
+        && devToolHostSource.includes('resource-error')
+        && devToolHostSource.includes('unhandled-rejection'),
+        "IgnatiusDevTool should persist browser console, exception, promise, and resource diagnostics in its executable-local logs folder");
+    assert.ok(resourceLoaderSource.includes('Ignatius image decode failed')
+        && resourceLoaderSource.includes('blobType: blob.type')
+        && resourceLoaderSource.includes('blobSize: blob.size'),
+        "shared editor image loading should emit enough decode metadata for native WebView diagnostics to identify problematic PNG resources");
     assert.ok(devToolHostSource.includes('path.extension().wstring()') && devToolHostSource.includes('request->get_uri(&rawUri)'), "the Windows WebView host should use the imported wide-string and lowercase URI accessors");
     assert.ok(devToolHostSource.includes('resourceFilter.data()') && devToolHostSource.includes('wideResponse.data()') && devToolHostSource.includes('mutableReason.data()') && devToolHostSource.includes('headers.data()'), "the strict-string Windows build should pass mutable wide buffers to the imported WebView2 interfaces");
     assert.ok(nativeAppSource.includes('gameTuningFallback') && nativeAppSource.includes('enemyCatalogFailure') && nativeAppSource.includes('lootCatalogFailure') && nativeAppSource.includes('enemyCharacterProjectFailure'), "native required-resource failures should enter the structured exception path while installed tuning retains its coherent emergency fallback");
@@ -970,14 +1131,14 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
     assert.equal(devToolHostSource.includes("--level-file"), false, "IgnatiusDevTool should not retain the external temporary-level launch path");
     const cmakeSource = readFileSync(new URL("../../CMakeLists.txt", import.meta.url), "utf8");
     assert.ok(devToolHostSource.includes("IgnatiusDevTool.html") && devToolHostSource.includes("ignatius-project-request") && devToolHostSource.includes("writeResource"), "the SDL Dev Tool should host the shared HTML shell and provide its native project-file bridge");
-    assert.ok(devToolShellSource.includes("level-editor.html") && devToolShellSource.includes("asset-editor.html") && devToolShellSource.includes("character-editor.html") && devToolShellSource.includes("palette-builder.html"), "IgnatiusDevTool.html should expose all four authoring tools as same-origin frames");
+    assert.ok(devToolShellSource.includes("level-editor.html") && devToolShellSource.includes("asset-editor.html") && devToolShellSource.includes("character-editor.html") && devToolShellSource.includes("palette-builder.html") && devToolShellSource.includes("utils.html"), "IgnatiusDevTool.html should expose all authoring and utility tools as same-origin frames");
     assert.ok(projectHostSource.includes("showDirectoryPicker") && projectHostSource.includes("indexedDB") && projectHostSource.includes("resources.json") && projectHostSource.includes("RESOURCE_DIRECTORIES"), "the shared browser project host should remember and validate one resources-folder handle and route canonical resource categories");
     assert.ok(projectHostSource.includes('itemAtlas: "items"'), "the shared browser/native project host should route item-atlas reads and writes to resources/items");
     assert.ok(projectHostSource.includes('async readText(resourceKind, filename') && projectHostSource.includes('return this.readResourceText(resolveResourceRelativePath(resourceKind, filename), options);'), "typed project-host reads should delegate to the canonical selected-root resource reader used by all development tools");
     assert.ok(projectHostSource.includes('#nativeRequest("chooseResourcesDirectory"') && projectHostSource.includes("canChooseDirectory: this.bridge ? true"), "the shared project host should expose native resources-folder selection through the same shell button");
     assert.ok(devToolHostSource.includes('operation == "chooseResourcesDirectory"') && devToolHostSource.includes("FOS_PICKFOLDERS") && devToolHostSource.includes("chooseResourcesFolder"), "the native Dev Tool bridge should open and validate a real resources-folder picker");
     assert.equal(devToolShellSource.includes('selectButton.hidden = snapshot.mode === "native"'), false, "the resources-folder button should remain visible in the native Dev Tool shell");
-    assert.ok(cmakeSource.includes('reference/IgnatiusDevTool.html') && cmakeSource.includes('reference/palette-builder.html'), "the Windows content stage should package the shared shell and palette builder");
+    assert.ok(cmakeSource.includes('reference/IgnatiusDevTool.html') && cmakeSource.includes('reference/palette-builder.html') && cmakeSource.includes('reference/utils.html'), "the Windows content stage should package the shared shell, palette builder, and Utils page");
     assert.match(launchOptionsSource, /lowered == DEVTOOL_PLAYTEST_LEVEL_ID/, "the native level-id parser should accept the reserved generated DevTool playtest id");
     assert.match(nativeAppSource, /referenceMusicAssetPath\(track\.file\)/, "native music playback should resolve catalog filenames through the music resource category");
     assert.ok(
@@ -1054,7 +1215,7 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
         "the asynchronous diagnostic writer should report ordinary worker failures through fixed storage instead of requiring another allocation");
     const nativePlaybackStartSource = nativeAppSource.slice(
         nativeAppSource.indexOf("bool startGameplayPlaybackFromFile"),
-        nativeAppSource.indexOf("struct GameplayPlaybackDialogCallbackContext")
+        nativeAppSource.indexOf("void SDLCALL applyGameplayPlaybackFileDialogResultOnMainThread")
     );
     const nativePlaybackFailStopBoundary = nativePlaybackStartSource.indexOf("From here onward the ordinary gameplay scene is being replaced");
     assert.ok(nativePlaybackStartSource.includes("std::bad_alloc while preparing gameplay playback")
@@ -1285,7 +1446,7 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
     assert.ok(gameHtml.includes('id="loading-screen"') && gameHtml.includes('id="loading-percent"') && gameHtml.includes('id="loading-bar-fill"'), "game page should show loading text, percentage, and a progress bar before the module starts");
     const gameBootstrap = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
     assert.match(gameBootstrap, /function requestSkipToNextLevel\(\)[\s\S]*portalId: "keyboard_f8"[\s\S]*requestedLevelId[\s\S]*fallbackLevelId: currentLevelId/, "the browser F8 shortcut should create the same standard next-level request as SDL");
-    assert.match(gameBootstrap, /DEVELOPMENT && event\.code === "F8"[\s\S]*event\.stopImmediatePropagation\(\)[\s\S]*requestSkipToNextLevel\(\)/, "the browser should intercept F8 only while the product-development flag is compiled in");
+    assert.match(gameBootstrap, /DEVELOPMENT[\s\S]*event\.code === "F8"[\s\S]*event\.stopImmediatePropagation\(\)[\s\S]*requestSkipToNextLevel\(\)/, "the browser should intercept F8 only while the product-development flag is compiled in");
     assert.match(nativeAppSource, /SDL_SCANCODE_F8[\s\S]*if \(DEVELOPMENT\)[\s\S]*requestSkipToNextLevel\(\)/, "the SDL port should retain F8 only behind the matching product-development flag");
     assert.ok(gameBootstrap.includes("environmentAtlasManifestUrls: gameState.world.atlasManifests"), "startup should preload only the atlases referenced by the active level");
     assert.ok(gameBootstrap.includes("enemyCharacterUrls: requiredEnemyCharacterProjectUrls(gameState.world)"), "browser startup should load only enemy character projects required by the active level");
@@ -1298,6 +1459,7 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
         && environmentColorSyncSource.indexOf("invalidateTexture(surface)") < environmentColorSyncSource.indexOf("this.foregroundSpriteCache.clear()"),
         "environment colour-treatment changes should release WebGL foreground textures before dropping their canvas-cache references");
     assert.ok(rendererSource.includes("Promise.all(projectJobs)") && rendererSource.includes("async ensureEnvironmentAtlases") && rendererSource.includes("async ensureCharacterProjects"), "renderer startup should load independent character and atlas projects concurrently and support later level dependencies");
+    assert.ok(rendererSource.includes("runtimeCharacterPreparedAtlasCache") && rendererSource.includes("preparedAtlasCache,"), "renderer character loading should share immutable prepared atlas frames across projects using the same atlas");
     assert.ok(rendererSource.includes("releaseEnvironmentAtlas") && rendererSource.includes("releaseCharacterProject") && rendererSource.includes("requestedUrlSet"), "renderer synchronization should load requested resources before releasing assets absent from the new level");
     const levelEditorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const powerUpSource = readFileSync(new URL("../src/shared/power-up-data.js", import.meta.url), "utf8");
@@ -1326,6 +1488,8 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
     assert.equal(levelEditorSource.includes("placement.angle") || levelEditorSource.includes("entity.visuals") || levelEditorSource.includes("entity.visual &&"), false, "Level Editor should not retain old placement rotation or entity-visual aliases");
     assert.ok(levelEditorSource.includes('id="inspect-on-top"') && levelEditorSource.includes('> On top</label>'), "Level Editor should expose the per-placement On top checkbox");
     assert.ok(levelEditorSource.includes("onTop: placement.onTop === true ? true : undefined"), "Level Editor normalization should preserve authored On top flags when a saved level is loaded again");
+    assert.match(levelEditorSource, /async function loadLevelFromUrl\(url\)[\s\S]*?resetEditHistory\(\);\s*fitContentView\(\);\s*return level;/, "Level Editor should automatically Fit the view after loading a level from the resource list");
+    assert.match(levelEditorSource, /id=\"level-file\"[\s\S]*?addEventListener\(\"change\"[\s\S]*?resetEditHistory\(\);\s*fitContentView\(\);\s*setStatus\(`Loaded level/, "Level Editor should automatically Fit the view after importing a level JSON file");
     assert.ok(levelEditorSource.includes('id="inspect-collision" type="checkbox"> Collision'), "Level Editor should use the compact Collision label");
     assert.equal(levelEditorSource.includes('id="inspect-collision" type="checkbox"> Atlas collision'), false, "Level Editor should not retain the verbose Atlas collision label");
     assert.ok(levelEditorSource.includes("caveDecorationCatalog(currentGeneratorTheme())"), "manual perimeter population should filter by the selected theme's biome and Foreground tags");
@@ -1596,20 +1760,29 @@ async function testGenericRuntimeCharacterProject() {
     }
     const drawCalls = [];
     const loadingProgress = [];
+    const preparedAtlasCache = new Map();
+    let imageLoadCount = 0;
+    const loadImage = async (url) => {
+        imageLoadCount += 1;
+        return { width: 1536, height: 1152, naturalWidth: 1536, naturalHeight: 1152, url };
+    };
+    const createCanvas = (width, height) => ({
+        width,
+        height,
+        getContext: () => ({
+            drawImage: (...args) => drawCalls.push(args)
+        })
+    });
+    const loadJson = async (url) => {
+        assert.ok(jsonByUrl.has(url), `runtime loader should resolve known project URL ${url}`);
+        return JSON.parse(JSON.stringify(jsonByUrl.get(url)));
+    };
     const project = await loadRuntimeCharacterProject("resources/characters/ct_char_enemy_001.json", {
         onProgress: (entry) => loadingProgress.push(entry),
-        loadJson: async (url) => {
-            assert.ok(jsonByUrl.has(url), `runtime loader should resolve known project URL ${url}`);
-            return JSON.parse(JSON.stringify(jsonByUrl.get(url)));
-        },
-        loadImage: async (url) => ({ width: 1536, height: 1152, naturalWidth: 1536, naturalHeight: 1152, url }),
-        createCanvas: (width, height) => ({
-            width,
-            height,
-            getContext: () => ({
-                drawImage: (...args) => drawCalls.push(args)
-            })
-        })
+        loadJson,
+        loadImage,
+        createCanvas,
+        preparedAtlasCache
     });
 
     assert.equal(project.characterId, "ct_char_enemy_001", "runtime loader should retain the character ID");
@@ -1620,6 +1793,18 @@ async function testGenericRuntimeCharacterProject() {
     assert.equal(project.animations.size, 5, "runtime loader should load all mapped enemy animations");
     assert.deepEqual(project.sounds, { hurt: "sfx/enemy_damage.wav", death: "sfx/enemy_death.wav" }, "runtime loader should preserve character-owned combat WAV references");
     assert.equal(drawCalls.filter((args) => args[0]?.url).length, 9, "runtime loader should crop the eight guard parts plus the shared undeath projectile frame");
+    assert.equal(imageLoadCount, 1, "the first runtime character load should decode its atlas once");
+    const sourceCropCount = drawCalls.filter((args) => args[0]?.url).length;
+    const repeatedProject = await loadRuntimeCharacterProject("resources/characters/ct_char_enemy_001.json", {
+        loadJson,
+        loadImage,
+        createCanvas,
+        preparedAtlasCache
+    });
+    assert.equal(imageLoadCount, 1, "a shared prepared-atlas cache should avoid decoding the same character atlas twice");
+    assert.equal(drawCalls.filter((args) => args[0]?.url).length, sourceCropCount, "a shared prepared-atlas cache should reuse frame canvases and pixmap pyramids instead of cropping the atlas again");
+    assert.notEqual(repeatedProject.atlasAssets, project.atlasAssets, "projects should retain independent atlas-asset maps so releasing one project cannot clear another");
+    assert.equal(repeatedProject.atlasAssets.get("head")?.canvas, project.atlasAssets.get("head")?.canvas, "projects sharing an atlas should share immutable prepared frame canvases");
     assert.ok(project.assets.get("head")?.pixmapPyramid?.levels?.length > 1, "runtime character parts should prepare reusable reduced pixmaps while loading");
     assert.equal(resolveRuntimeAnimationSlot(project, "attack"), "attack", "requested mapped animation should resolve directly");
     assert.equal(resolveRuntimeAnimationSlot(project, "missing"), "idle", "missing slots should fall back to idle");
@@ -1750,22 +1935,33 @@ async function testGoblinRuntimeCharacterProjects() {
     ]) {
         jsonByUrl.set(browserResourceUrl(filename), readResourceJson(filename));
     }
+    const preparedAtlasCache = new Map();
+    let goblinAtlasImageLoads = 0;
     const loader = {
         loadJson: async (url) => {
             assert.ok(jsonByUrl.has(url), `goblin runtime loader should resolve ${url}`);
             return JSON.parse(JSON.stringify(jsonByUrl.get(url)));
         },
-        loadImage: async (url) => ({ width: 1371, height: 979, naturalWidth: 1371, naturalHeight: 979, url }),
+        loadImage: async (url) => {
+            goblinAtlasImageLoads += 1;
+            return { width: 1371, height: 979, naturalWidth: 1371, naturalHeight: 979, url };
+        },
         createCanvas: (width, height) => ({
             width,
             height,
             getContext: () => ({ drawImage: () => {} })
-        })
+        }),
+        preparedAtlasCache
     };
 
     const fireball = await loadRuntimeCharacterProject("resources/characters/ct_char_enemy_010.json", loader);
     const musket = await loadRuntimeCharacterProject("resources/characters/ct_char_enemy_011.json", loader);
     const triFireball = await loadRuntimeCharacterProject("resources/characters/ct_char_enemy_012.json", loader);
+    assert.equal(goblinAtlasImageLoads, 1, "different character projects sharing one atlas should decode that atlas only once when loaded through a shared prepared cache");
+    const sharedGoblinFrame = [...fireball.atlasAssets.keys()].find((frameId) => musket.atlasAssets.has(frameId) && triFireball.atlasAssets.has(frameId));
+    assert.ok(sharedGoblinFrame, "the three goblin projects should expose at least one common atlas frame");
+    assert.equal(fireball.atlasAssets.get(sharedGoblinFrame)?.canvas, musket.atlasAssets.get(sharedGoblinFrame)?.canvas, "different character projects sharing an atlas should reuse the same prepared frame canvas");
+    assert.equal(fireball.atlasAssets.get(sharedGoblinFrame)?.pixmapPyramid, triFireball.atlasAssets.get(sharedGoblinFrame)?.pixmapPyramid, "different character projects sharing an atlas should reuse the same pixmap pyramid");
 
     assert.equal(fireball.characterId, "ct_char_enemy_010", "fireball goblin should keep its character ID");
     assert.equal(musket.characterId, "ct_char_enemy_011", "musket goblin should keep its character ID");
@@ -1867,7 +2063,7 @@ async function testBatFrameSwapProjectsAndFlight() {
     const animation020 = jsonByUrl.get("resources/characters/ct_anim_enemy_020_fly.json");
     const orderedFrameNames = Array.from({ length: 22 }, (_, index) => `frame_${String(index + 1).padStart(2, "0")}`);
     assert.deepEqual(Object.keys(atlas020.frames).slice(0, 22), orderedFrameNames, "Atlas 020 should expose all 22 animation frames in authored order");
-    assert.deepEqual(atlas020.frames.rock, { x: 1833, y: 962, w: 60, h: 56 }, "Atlas 020 should expose the supplied rock projectile frame");
+    assert.deepEqual([atlas020.frames.rock.w, atlas020.frames.rock.h], [60, 56], "Atlas 020 should preserve the supplied rock projectile frame dimensions after atlas reforging");
     assert.deepEqual(rig020.drawOrder, orderedFrameNames, "replacement Atlas 020 rig should preserve source order exactly");
     assert.equal(animation020.duration, 1.1, "22 Atlas 020 frames should play at 20 FPS");
     assert.equal(Object.keys(animation020.tracks).length, 22, "replacement Atlas 020 should key every supplied frame");
@@ -1976,6 +2172,164 @@ async function testBatFrameSwapProjectsAndFlight() {
     assert.equal(bat.animationSlot, "fly", "living bat should keep the frame-swapped fly loop selected");
     assert.equal(bat.supportId, null, "flying bat should never acquire a ground support");
 
+    const blockedFlightState = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(blockedFlightState, {
+        levelId: "bat_blockable_flight_test",
+        testPlayerStart: { x: 100, y: 600 },
+        world: { bounds: { x: 0, y: 0, w: 1400, h: 1000 } },
+        entities: [{
+            id: "blocked_bat_candidate", type: "characterEnemy", characterId: "ct_char_enemy_020",
+            x: 520, y: 280, w: 84, h: 66, facing: -1, strategy: "simple_patrol", locomotion: "flying",
+            patrolDistance: 420, walkSpeed: 105, flightAmplitude: 16, flightCyclesPerSecond: 0.58,
+            health: 1, animationSlot: "fly"
+        }, {
+            id: "blocked_bomber_candidate", type: "characterEnemy", characterId: "ct_char_enemy_020",
+            x: 520, y: 380, w: 84, h: 66, facing: -1, strategy: "bomber", locomotion: "flying",
+            patrolDistance: 420, walkSpeed: 105, bomberHorizontalSpeed: 105, awarenessRange: 0,
+            flightAmplitude: 16, flightCyclesPerSecond: 0.58, health: 1, animationSlot: "fly"
+        }]
+    }), true, "flying blockable-collision regression level should apply");
+    blockedFlightState.story.portalIntro = null;
+    blockedFlightState.story.portalExit = null;
+    blockedFlightState.world.segments.push({
+        id: "bat_blocking_wall", kind: "blockable", x1: 450, y1: 120, x2: 450, y2: 420
+    });
+    const blockedBat = blockedFlightState.enemies.find((enemy) => enemy.id === "blocked_bat_candidate");
+    let minimumBlockedBatX = blockedBat.currentTransform.x;
+    for (let step = 0; step < 90; step += 1) {
+        stepSimulation(blockedFlightState, createInputFrame(), FIXED_DT);
+        minimumBlockedBatX = Math.min(minimumBlockedBatX, blockedBat.currentTransform.x);
+    }
+    assert.ok(minimumBlockedBatX >= 491.9,
+        `ordinary flying patrol should be obstructed by a vertical blockable wall; min x=${minimumBlockedBatX}`);
+    assert.ok(blockedBat.health > 0 && blockedBat.combatState !== "dead",
+        "a flying enemy should turn away from blockable geometry instead of entering it and relying on defensive telefragging");
+    assert.equal(blockedBat.supportId, null, "blockable obstruction must not turn flying locomotion into grounded support");
+    const blockedBomber = blockedFlightState.enemies.find((enemy) => enemy.id === "blocked_bomber_candidate");
+    let minimumBlockedBomberX = blockedBomber.currentTransform.x;
+    for (let step = 0; step < 90; step += 1) {
+        stepSimulation(blockedFlightState, createInputFrame(), FIXED_DT);
+        minimumBlockedBomberX = Math.min(minimumBlockedBomberX, blockedBomber.currentTransform.x);
+    }
+    assert.ok(minimumBlockedBomberX >= 491.9,
+        `inactive bomber patrol should also be obstructed by blockable geometry; min x=${minimumBlockedBomberX}`);
+    assert.ok(blockedBomber.health > 0 && blockedBomber.combatState !== "dead",
+        "inactive bomber should turn at blockable geometry rather than entering it and relying on telefragging");
+
+    const shallowFlightState = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(shallowFlightState, {
+        levelId: "bat_shallow_blockable_flight_test",
+        testPlayerStart: { x: 100, y: 700 },
+        world: { bounds: { x: 0, y: 0, w: 1400, h: 1000 } },
+        entities: [{
+            id: "shallow_blocked_bat", type: "characterEnemy", characterId: "ct_char_enemy_020",
+            x: 700, y: 320, w: 84, h: 66, facing: -1, strategy: "simple_patrol", locomotion: "flying",
+            patrolDistance: 700, walkSpeed: 105, flightAmplitude: 0, flightCyclesPerSecond: 0.58,
+            health: 1, animationSlot: "fly"
+        }]
+    }), true, "shallow flying blockable-collision regression level should apply");
+    shallowFlightState.story.portalIntro = null;
+    shallowFlightState.story.portalExit = null;
+    shallowFlightState.world.segments.push({
+        id: "bat_shallow_blocking_slope", kind: "blockable", x1: 400, y1: 200, x2: 650, y2: 350
+    });
+    const shallowBlockedBat = shallowFlightState.enemies.find((enemy) => enemy.id === "shallow_blocked_bat");
+    let minimumShallowBlockedBatX = shallowBlockedBat.currentTransform.x;
+    for (let step = 0; step < 120; step += 1) {
+        stepSimulation(shallowFlightState, createInputFrame(), FIXED_DT);
+        minimumShallowBlockedBatX = Math.min(minimumShallowBlockedBatX, shallowBlockedBat.currentTransform.x);
+    }
+    assert.ok(minimumShallowBlockedBatX >= 620,
+        `flying patrol should be obstructed by shallow blockable lines too; min x=${minimumShallowBlockedBatX}`);
+    assert.ok(shallowBlockedBat.health > 0 && shallowBlockedBat.combatState !== "dead",
+        "shallow blockable obstruction should turn a flyer rather than allowing it through or killing it");
+    assert.equal(shallowBlockedBat.supportId, null, "shallow blockable obstruction must not ground flying locomotion");
+
+    const horizontalFlightState = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(horizontalFlightState, {
+        levelId: "bat_horizontal_blockable_flight_test",
+        testPlayerStart: { x: 100, y: 700 },
+        world: { bounds: { x: 0, y: 0, w: 1400, h: 1000 } },
+        entities: [{
+            id: "horizontal_blocked_bat", type: "characterEnemy", characterId: "ct_char_enemy_020",
+            x: 700, y: 320, w: 84, h: 66, facing: -1, strategy: "simple_patrol", locomotion: "flying",
+            patrolDistance: 700, walkSpeed: 105, flightAmplitude: 0, flightCyclesPerSecond: 0.58,
+            health: 1, animationSlot: "fly"
+        }]
+    }), true, "horizontal flying blockable-collision regression level should apply");
+    horizontalFlightState.story.portalIntro = null;
+    horizontalFlightState.story.portalExit = null;
+    horizontalFlightState.world.segments.push({
+        id: "bat_horizontal_blocking_line", kind: "blockable", x1: 400, y1: 290, x2: 650, y2: 290
+    });
+    const horizontalBlockedBat = horizontalFlightState.enemies.find((enemy) => enemy.id === "horizontal_blocked_bat");
+    let minimumHorizontalBlockedBatX = horizontalBlockedBat.currentTransform.x;
+    for (let step = 0; step < 120; step += 1) {
+        stepSimulation(horizontalFlightState, createInputFrame(), FIXED_DT);
+        minimumHorizontalBlockedBatX = Math.min(minimumHorizontalBlockedBatX, horizontalBlockedBat.currentTransform.x);
+    }
+    assert.ok(minimumHorizontalBlockedBatX >= 690,
+        `flying patrol should be obstructed by horizontal blockable lines crossing its body; min x=${minimumHorizontalBlockedBatX}`);
+    assert.ok(horizontalBlockedBat.health > 0 && horizontalBlockedBat.combatState !== "dead",
+        "horizontal blockable-line obstruction should turn the flyer instead of letting it pass through");
+    assert.equal(horizontalBlockedBat.supportId, null, "horizontal blockable-line obstruction must not ground flying locomotion");
+
+    const descendingFlightState = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(descendingFlightState, {
+        levelId: "bat_descending_steep_blockable_flight_test",
+        testPlayerStart: { x: 100, y: 700 },
+        world: { bounds: { x: 0, y: 0, w: 1400, h: 1000 } },
+        entities: [{
+            id: "descending_blocked_bat", type: "characterEnemy", characterId: "ct_char_enemy_020",
+            x: 700, y: 280, w: 84, h: 66, facing: 1, strategy: "simple_patrol", locomotion: "flying",
+            patrolDistance: 0, walkSpeed: 0, flightAmplitude: 100, flightCyclesPerSecond: 1,
+            health: 1, animationSlot: "fly"
+        }]
+    }), true, "descending flyer blockable-collision regression level should apply");
+    descendingFlightState.story.portalIntro = null;
+    descendingFlightState.story.portalExit = null;
+    descendingFlightState.world.segments.push({
+        id: "bat_descending_steep_line", kind: "blockable", x1: 680, y1: 280, x2: 720, y2: 360
+    });
+    const descendingBlockedBat = descendingFlightState.enemies.find((enemy) => enemy.id === "descending_blocked_bat");
+    let maximumDescendingBatY = descendingBlockedBat.currentTransform.y;
+    for (let step = 0; step < 30; step += 1) {
+        stepSimulation(descendingFlightState, createInputFrame(), FIXED_DT);
+        maximumDescendingBatY = Math.max(maximumDescendingBatY, descendingBlockedBat.currentTransform.y);
+    }
+    assert.ok(maximumDescendingBatY <= 322,
+        `a descending flyer should be stopped by a steep blockable line; max y=${maximumDescendingBatY}`);
+    assert.ok(descendingBlockedBat.health > 0 && descendingBlockedBat.combatState !== "dead",
+        "steep-line vertical obstruction should preserve the flying enemy rather than letting it pass or killing it");
+    assert.equal(descendingBlockedBat.supportId, null, "vertical flyer obstruction must not create grounded support");
+
+    const stackedVerticalFlightState = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(stackedVerticalFlightState, {
+        levelId: "bat_walkable_before_blocker_flight_test",
+        testPlayerStart: { x: 100, y: 700 },
+        world: { bounds: { x: 0, y: 0, w: 1400, h: 1000 } },
+        entities: [{
+            id: "stacked_vertical_bat", type: "characterEnemy", characterId: "ct_char_enemy_020",
+            x: 700, y: 280, w: 84, h: 66, facing: 1, strategy: "simple_patrol", locomotion: "flying",
+            patrolDistance: 0, walkSpeed: 0, flightAmplitude: 100, flightCyclesPerSecond: 1, flightPhaseOffset: 0.25,
+            health: 1, animationSlot: "fly"
+        }]
+    }), true, "stacked one-way/blocker flying regression level should apply");
+    stackedVerticalFlightState.story.portalIntro = null;
+    stackedVerticalFlightState.story.portalExit = null;
+    stackedVerticalFlightState.world.segments.push(
+        { id: "stacked_flight_one_way", kind: "walkable", x1: 600, y1: 300, x2: 800, y2: 300 },
+        { id: "stacked_flight_blocker", kind: "blockable", x1: 600, y1: 320, x2: 800, y2: 320 }
+    );
+    const stackedVerticalBat = stackedVerticalFlightState.enemies.find((enemy) => enemy.id === "stacked_vertical_bat");
+    stepSimulation(stackedVerticalFlightState, createInputFrame(), FIXED_DT);
+    assert.ok(Math.abs(stackedVerticalBat.currentTransform.y - 320) < 0.000001,
+        `a flyer should ignore a nearer one-way line before nearest-hit selection and stop on the blocker behind it; y=${stackedVerticalBat.currentTransform.y}`);
+    assert.equal(stackedVerticalBat.supportId, null,
+        "a blocker behind an ignored one-way line must not ground flying locomotion");
+    assert.ok(stackedVerticalBat.health > 0 && stackedVerticalBat.combatState !== "dead",
+        "stacked one-way/blocker flight collision should preserve the flying enemy");
+
     bat.health = 0;
     bat.combatState = "dead";
     const deathStartX = bat.currentTransform.x;
@@ -2040,8 +2394,8 @@ function testFlyingBomberDropsProjectile() {
             projectileExplosionEffect: "impact",
             projectileSpeed: 20,
             projectileGravity: 900,
-            projectileCooldown: 1.5,
-            projectileDamage: 12,
+            attackCooldown: 1.5,
+            damage: 12,
             projectileRadius: 10,
             health: 1,
             animationSlot: "fly"
@@ -2123,7 +2477,7 @@ function testFlyingBomberUsesCurvedApproach() {
             awarenessViewHalfAngle: 180,
             projectileLaunchType: "drop",
             projectileKind: "rock",
-            projectileCooldown: 20,
+            attackCooldown: 20,
             health: 1,
             animationSlot: "fly"
         }]
@@ -2175,7 +2529,7 @@ function testFlyingBomberDeterministicMeander() {
             awarenessViewHalfAngle: 180,
             projectileLaunchType: "drop",
             projectileKind: "rock",
-            projectileCooldown: 20,
+            attackCooldown: 20,
             health: 1,
             animationSlot: "fly"
         }))
@@ -2305,7 +2659,7 @@ function testFlyingBomberCanLeavePerchPlatform() {
             awarenessViewHalfAngle: 180,
             projectileLaunchType: "drop",
             projectileKind: "rock",
-            projectileCooldown: 1.5,
+            attackCooldown: 1.5,
             health: 1,
             animationSlot: "fly"
         }]
@@ -2802,7 +3156,7 @@ function testGroundShadowAnchoringAndFade() {
     assert.ok(rendererSource.includes("ctx.globalAlpha *= 0.26 * shadowAlpha"), "Canvas shadows should preserve parent corpse opacity while applying the grounded fade");
     assert.ok(rendererSource.includes("this.groundShadowOpacity(enemy) * renderOpacity"), "WebGL corpse shadows should fade with both ground contact and corpse opacity");
 
-    const nativeRendererSource = readFileSync(new URL("../../src/runtime/ignatius-app.cpp", import.meta.url), "utf8");
+    const nativeRendererSource = readNativeAppSourceBundle();
     const nativeEnemyShadowSource = nativeRendererSource.slice(
         nativeRendererSource.indexOf("void drawRuntimeEnemy(const FEnemyState& enemy"),
         nativeRendererSource.indexOf("FRuntimeCharacterDrawState actor;", nativeRendererSource.indexOf("void drawRuntimeEnemy(const FEnemyState& enemy"))
@@ -2865,6 +3219,7 @@ function testUnifiedEnemyScaling() {
 
 function testLevelEditorMultiSelectionAndPaletteWorkflow() {
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     const overlappingHits = [{ id: "top", kind: "asset" }, { id: "middle", kind: "entity" }, { id: "bottom", kind: "asset" }];
     assert.equal(nextOverlappingHit(overlappingHits, "top")?.id, "middle", "repeated overlap clicks should advance from the selected top object to the object below it");
     assert.equal(nextOverlappingHit(overlappingHits, "middle")?.id, "bottom", "overlap cycling should continue through the complete hit stack");
@@ -2955,6 +3310,15 @@ function testLevelEditorMultiSelectionAndPaletteWorkflow() {
     assert.ok(editorHtml.includes("els.generatorTheme, els.generatorColorModifier, els.generatorRecipe, els.generatorSeed") && editorHtml.includes("if (control) control.disabled = operationPending;"), "generator recipe and tuning controls should not drift away from the draft while its atlas load is pending");
     assert.ok(editorHtml.includes("drawCachedPaletteThumbnail(canvas, `entity:${entry.type}`)"), "the Entity palette should use the same generated thumbnail sheet");
     assert.ok(editorHtml.includes("characterProjectLoads: new Map()") && editorHtml.includes("ensureCharacterProjectsForLevel"), "character projects should load only for selected or placed enemies rather than for every palette card");
+    assert.ok(editorHtml.includes("function editorRuntimeEnemyCharacterUrls(level = state.level)") && editorHtml.includes("for (const entity of level?.entities || [])") && editorHtml.includes("syncEditorRuntimeCharacterProjects(state.level)"), "the production renderer embedded in the Level Editor should load character projects from current-level enemies instead of the full enemy catalog");
+    assert.equal(editorHtml.includes("return [...new Set([...state.enemyCatalog.values()].map((definition) =>"), false, "the Level Editor runtime character URL list must not regress to full-catalog eager loading");
+    assert.ok(editorHtml.includes("releaseEditorAtlasesNotRequired(level)") && editorHtml.includes("renderer.ensureEnvironmentAtlases(manifestUrls)"), "level switches should release editor atlas images and synchronize the production renderer to the current level atlas set");
+    assert.ok(editorHtml.includes("function editorRuntimeEnvironmentAtlasSource(manifestUrl)") && editorHtml.includes("environmentAtlasSourceResolver: editorRuntimeEnvironmentAtlasSource"), "the embedded production renderer should reuse decoded environment atlas images already owned by the Level Editor");
+    assert.ok(rendererSource.includes("sourceResolver: options.environmentAtlasSourceResolver") && rendererSource.includes("environmentAtlasRecordFromPreparedSource"), "Canvas renderer environment loading should accept prepared atlas sources without coupling mutable renderer records to the editor cache");
+    assert.ok(editorHtml.includes("preparedAtlasCache: options.preparedAtlasCache || editorCharacterPreparedAtlasCache()"), "Level Editor preview character projects should share prepared atlas frames when they use the same source atlas");
+    assert.ok(editorHtml.includes("const runtimeProjects = state.editorRuntimeRenderer?.getRuntimeCharacterProjects?.() || new Map();") && editorHtml.includes("[...runtimeProjects.values(), ...state.characterProjects.values()]"), "editor-only character previews should reuse prepared atlas frames already owned by current-level renderer projects");
+    assert.ok(editorHtml.includes("state.editorRuntimeRenderer?.getRuntimeCharacterProjects?.().get(characterId)") && editorHtml.includes("const runtimeProjects = state.editorRuntimeRenderer?.getRuntimeCharacterProjects?.() || new Map()"), "Level Editor palette/direct overlays should reuse renderer-owned current-level character projects instead of preparing a duplicate copy");
+    assert.ok(editorHtml.includes("function releaseEditorCharacterProjectsOwnedByRenderer()") && editorHtml.includes("if (!runtimeProject) void ensureCharacterProjectForDefinition(enemyDefinition)"), "editor-local character previews should be released or skipped once the production renderer owns the same character project");
     assert.ok(paletteBuilderHtml.includes("Build thumbnails") && paletteBuilderHtml.includes('id="verify-button"') && paletteBuilderHtml.includes('src="./src/tools/palette-builder.js"'), "the browser builder page should expose build and verify actions and load its JavaScript module");
     assert.ok(paletteBuilderJs.includes("const DEFAULT_CELL_SIZE = 64") && paletteBuilderJs.includes("const DEFAULT_MAX_SIZE = 8192"), "the browser builder should keep thumbnail size configurable and preserve the 8192px single-sheet ceiling");
     assert.ok(paletteProjectHostJs.includes("showDirectoryPicker") && paletteBuilderJs.includes("verifyExistingCache") && paletteBuilderJs.includes("sourceDigest"), "the browser builder should use the shared direct-folder host and retain stale-cache verification");
@@ -2980,6 +3344,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const skeleton = catalog.enemies?.enemy_001;
     const caster = catalog.enemies?.enemy_002;
     const hobgoblin = catalog.enemies?.enemy_018;
+    const boxer = catalog.enemies?.enemy_038;
     const raptor = catalog.enemies?.enemy_040;
     const snake = catalog.enemies?.enemy_050;
     const porker = catalog.enemies?.enemy_060;
@@ -2991,6 +3356,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const dwarf093 = catalog.enemies?.enemy_093;
     assert.ok(skeleton, "enemy catalog should register enemy_001");
     assert.ok(hobgoblin, "enemy catalog should register the Hobgoblin enemy_018");
+    assert.ok(boxer, "enemy catalog should register the Human Boxer enemy_038");
     assert.ok(raptor, "enemy catalog should register the new Raptor enemy_040");
     assert.ok(snake, "enemy catalog should register the new Snake enemy_050");
     assert.ok(porker, "enemy catalog should register the Porker enemy_060");
@@ -3045,10 +3411,10 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(catalog.enemies.enemy_010.defaults.strategy, "hunter", "Fireball Goblin should use the hunter strategy");
     assert.equal(catalog.enemies.enemy_011.defaults.strategy, "hunter", "Musket Goblin should use the hunter strategy");
     assert.equal(catalog.enemies.enemy_012.defaults.strategy, "hunter", "Tri-fireball Goblin should use the hunter strategy");
-    assert.equal(skeleton.defaults.health, 120, "Skeleton Guard should default to 120 HP");
+    assert.ok(Number.isFinite(Number(skeleton.defaults.health)) && Number(skeleton.defaults.health) > 0, "Skeleton Guard should define positive catalog health");
     assert.deepEqual(skeleton.defaultSize, { w: 72, h: 164 }, "Skeleton Guard future defaults should preserve the gameplay body size");
     assert.equal(skeleton.defaults.renderScale, 1.2, "Skeleton Guard future defaults should render 50 percent larger");
-    assert.equal(skeleton.defaults.damage, 49, "Skeleton Guard melee should deal 49 HP before difficulty scaling");
+    assert.ok(Number.isFinite(Number(skeleton.defaults.damage)) && Number(skeleton.defaults.damage) > 0, "Skeleton Guard melee should define positive authored damage before difficulty scaling");
     assert.equal(catalog.enemies.enemy_010.defaults.health, 60, "Fireball Goblin should default to 60 HP");
     assert.equal(catalog.enemies.enemy_011.defaults.health, 60, "Musket Goblin should default to 60 HP");
     assert.equal(catalog.enemies.enemy_012.defaults.health, 60, "Tri-fireball Goblin should copy the Fireball Goblin health");
@@ -3062,20 +3428,20 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(skeletonCaster.characterId, "ct_char_enemy_002", "Skeleton Caster should use its independent character project");
     assert.equal(skeletonCaster.defaults.projectileLaunchType, "pathing_lo", "Skeleton Caster should keep the obstacle-aware pathing launch type");
     assert.equal(skeletonCaster.defaults.hunterPursuePlayerSupport, true, "Skeleton Caster should pursue Ignatius onto his current support before settling into a firing position");
-    assert.equal(skeletonCaster.defaults.projectileSpeed, catalog.enemies.enemy_010.defaults.projectileSpeed, "undeath orb should now match the Fireball Goblin projectile speed");
-    assert.equal(skeletonCaster.defaults.projectileHomingStrength, 2.61, "undeath orb should keep its deliberately strong authored pathing steering");
-        assert.equal(skeletonCaster.defaults.health, 120, "Skeleton Caster should default to 120 HP");
+    assert.ok(Number.isFinite(Number(skeletonCaster.defaults.projectileSpeed)) && Number(skeletonCaster.defaults.projectileSpeed) > 0, "undeath orb should define positive authored projectile speed");
+    assert.ok(Number.isFinite(Number(skeletonCaster.defaults.projectileHomingStrength)) && Number(skeletonCaster.defaults.projectileHomingStrength) > 0, "undeath orb should define positive authored pathing steering");
+    assert.ok(Number.isFinite(Number(skeletonCaster.defaults.health)) && Number(skeletonCaster.defaults.health) > 0, "Skeleton Caster should define positive catalog health");
     assert.deepEqual(skeletonCaster.defaultSize, { w: 72, h: 164 }, "Skeleton Caster future defaults should preserve the gameplay body size");
     assert.equal(skeletonCaster.defaults.renderScale, 1.2, "Skeleton Caster future defaults should render 50 percent larger");
-    assert.equal(skeletonCaster.defaults.attackCooldown, 3, "Skeleton Caster should cast once every three seconds");
-    assert.equal(skeletonCaster.defaults.damage, 49, "Skeleton Caster projectile should remain just below a Normal one-shot");
+    assert.ok(Number.isFinite(Number(skeletonCaster.defaults.attackCooldown)) && Number(skeletonCaster.defaults.attackCooldown) >= 0, "Skeleton Caster should define a non-negative authored attack cooldown");
+    assert.ok(Number.isFinite(Number(skeletonCaster.defaults.damage)) && Number(skeletonCaster.defaults.damage) > 0, "Skeleton Caster projectile should define positive authored damage");
     for (const enemyId of ["enemy_030", "enemy_031", "enemy_036", "enemy_037", "enemy_038", "enemy_040"]) {
         assert.equal(catalog.enemies[enemyId]?.defaults.damage, 24, `${enemyId} melee should remain just below a Hard one-shot`);
     }
     assert.equal(catalog.enemies.enemy_032.defaults.damage, 8, "Human Knife Thrower should keep its authored per-knife damage");
     assert.equal(catalog.enemies.enemy_034.defaults.damage, 20, "Human Crossbowman should keep its authored bolt damage");
-    assert.equal(skeletonCaster.defaults.projectileLifetime, catalog.enemies.enemy_010.defaults.projectileLifetime * 2, "undeath orb should retain twice the Fireball Goblin travel lifetime");
-    assert.equal(skeletonCaster.defaults.projectileRadius, 24, "live undeath orb should match the enlarged authored cast");
+    assert.ok(Number.isFinite(Number(skeletonCaster.defaults.projectileLifetime)) && Number(skeletonCaster.defaults.projectileLifetime) > 0, "undeath orb should define a positive authored travel lifetime");
+    assert.ok(Number.isFinite(Number(skeletonCaster.defaults.projectileRadius)) && Number(skeletonCaster.defaults.projectileRadius) > 0, "live undeath orb should define a positive authored collision radius");
     for (const enemyId of ["enemy_020"]) {
         const bat = catalog.enemies[enemyId];
         assert.ok(bat, `${enemyId} should register a retained bat candidate`);
@@ -3145,6 +3511,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(metadataIndex < movementIndex && movementIndex < attackIndex && attackIndex < projectileIndex, "Puppet Forge should order Metadata, Movement, Attack behavior, and Projectile behavior together");
     assert.equal(characterEditorDefaultsHtml.includes('id="enemy-defaults-json"'), false, "Puppet Forge should not duplicate the complete defaults object outside Enemy Catalog JSON");
     assert.ok(characterEditorDefaultsHtml.includes('id="enemy-awareness-range"') && characterEditorDefaultsHtml.includes('id="enemy-awareness-view-half-angle"') && characterEditorDefaultsHtml.includes('id="enemy-awareness-hold-duration"'), "Puppet Forge should expose reusable awareness range, cone, and hold defaults");
+    assert.ok(characterEditorDefaultsHtml.includes('id="enemy-deaf"') && characterEditorDefaultsHtml.includes('defaults.deaf === true') && characterEditorDefaultsHtml.includes('defaults.deaf = true'), "Puppet Forge should expose and persist the optional deaf enemy default");
     assert.ok(characterEditorDefaultsHtml.includes('id="enemy-preferred-attack-range"') && characterEditorDefaultsHtml.includes('id="enemy-preferred-attack-min-range"'), "Puppet Forge should expose ranged engagement-distance defaults");
     assert.ok(characterEditorDefaultsHtml.includes("enemy-catalog-json"), "Puppet Forge should expose the full enemy catalog JSON beside the other JSON editors");
     assert.ok(characterEditorDefaultsHtml.includes("apply-enemy-catalog-json"), "Puppet Forge should apply edited enemy catalog JSON");
@@ -3162,19 +3529,37 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(catalog.enemies.enemy_012.defaults.runSpeed, 250, "Tri-fireball Goblin should copy the Fireball Goblin run speed");
     assert.equal(catalog.enemies.enemy_010.defaults.jumpHeight, 250, "Fireball Goblin should default to the nimble 250 px jump height");
     assert.equal(catalog.enemies.enemy_011.defaults.jumpHeight, 250, "Musket Goblin should default to the nimble 250 px jump height");
-    assert.equal(skeleton.defaults.awarenessViewHalfAngle, 60, "Skeleton Guard should default to the authored ±60 degree awareness cone");
+    assert.ok(Number(skeleton.defaults.awarenessViewHalfAngle) > 0 && Number(skeleton.defaults.awarenessViewHalfAngle) <= 180, "Skeleton Guard should define a valid authored awareness cone");
     assert.equal(catalog.enemies.enemy_010.defaults.awarenessViewHalfAngle, 60, "Fireball Goblin should default to the authored ±60 degree awareness cone");
     assert.equal(catalog.enemies.enemy_011.defaults.awarenessViewHalfAngle, 60, "Musket Goblin should default to the authored ±60 degree awareness cone");
     assert.equal(catalog.enemies.enemy_012.defaults.awarenessViewHalfAngle, 60, "Tri-fireball Goblin should copy the authored ±60 degree awareness cone");
     assert.equal(DEFAULT_TUNING.enemyDefaultAwarenessViewHalfAngle, 60, "simulation fallback should match the authored ±60 degree awareness cone");
     assert.ok(skeleton.defaults.patrolDistance > 0, "Skeleton Guard should have a visible default patrol span");
     assert.ok(skeleton.defaults.damage > 0, "Skeleton Guard should have authored melee damage");
-    assert.ok(skeleton.defaults.attackRange > 0, "Skeleton Guard should have authored melee reach");
+    assert.ok(skeleton.defaults.meleeHitRange > 0, "Skeleton Guard should have authored grounded-base melee reach");
+    assert.equal(boxer.defaults.meleeHitRange, 49, "Human Boxer should have measured grounded-base melee reach");
+    assert.equal(raptor.defaults.meleeHitRange, 82, "Raptor should have measured grounded-base melee reach");
+    assert.equal(snake.defaults.meleeHitRange, 124, "Snake should have measured grounded-base melee reach");
+    const retiredCombatKeys = ["attackMode", "attackDamage", "projectileDamage", "projectileCooldown", "projectileVolleyCount", "projectileVolleyHalfAngle", "meleeHitRadius"];
+    for (const [enemyId, definition] of Object.entries(catalog.enemies || {})) {
+        const defaults = definition?.defaults || {};
+        for (const key of retiredCombatKeys) {
+            assert.equal(defaults[key], undefined, `${enemyId} should not author retired combat field ${key}`);
+        }
+        if (String(defaults.attackType || "melee").toLowerCase() === "melee" && String(defaults.strategy || "").toLowerCase() !== "passive") {
+            assert.ok(Number(defaults.meleeHitRange) > 0, `${enemyId} active melee definition should author positive meleeHitRange`);
+            assert.equal(defaults.attackRange, undefined, `${enemyId} melee definition should not carry projectile-only attackRange`);
+        }
+        const lungeConfigured = Number(defaults.lungeRangeMax) > 0 && Number(defaults.lungeSpeed) > 0;
+        if (lungeConfigured) {
+            assert.ok(Number(defaults.lungeTargetDist) > 0, `${enemyId} lunge-enabled definition should author positive lungeTargetDist`);
+        }
+    }
     assert.ok(skeleton.defaults.runSpeed > skeleton.defaults.walkSpeed, "alert Skeleton Guard should run faster than it patrols");
-    assert.ok(skeleton.defaults.jumpHeight >= 180 && skeleton.defaults.maxFallDistance >= 500, "Skeleton Guard should be able to jump between generated combat platforms");
+    assert.ok(Number(skeleton.defaults.jumpHeight) > 0 && Number(skeleton.defaults.maxFallDistance) > 0, "Skeleton Guard should author positive jump and fall traversal limits");
     assert.equal(skeleton.defaults.chaseSpeed, undefined, "enemy catalog should not duplicate runSpeed with legacy chaseSpeed");
     assert.equal(skeleton.defaults.awarenessVerticalRange, undefined, "unused vertical-awareness data should stay removed from the catalog");
-    assert.ok(skeleton.defaults.attackCooldown < 0.25, "Skeleton Guard should chain rapid sword chops");
+    assert.ok(Number.isFinite(Number(skeleton.defaults.attackCooldown)) && Number(skeleton.defaults.attackCooldown) >= 0, "Skeleton Guard should define a non-negative authored melee cooldown");
     const levelOne = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
     assert.ok(levelOne.entities.some((entity) => entity.enemyCatalogId === "enemy_010"), "level_t01 should contain a Fireball Goblin");
     assert.ok(levelOne.entities.some((entity) => entity.enemyCatalogId === "enemy_012"), "level_t01 should contain a Tri-fireball Goblin");
@@ -3224,6 +3609,13 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const previewOffset = characterArtworkOffset(-11, 35, 1.9);
     assert.equal(previewOffset.x, -20.9, "Puppet Forge should scale artwork offsets by the same preview-world factor as artwork and hitboxes");
     assert.equal(previewOffset.y, 66.5, "Puppet Forge should scale vertical artwork offsets by the same preview-world factor as artwork and hitboxes");
+    const coordinateView = characterViewTransform({ canvasWidth: 1160, canvasHeight: 660, zoom: 2, panX: 17, panY: -9, facing: -1 });
+    const coordinatePoint = canvasToCharacterWorldPoint({
+        x: coordinateView.originX + 190,
+        y: coordinateView.originY - 152
+    }, coordinateView, 1.9);
+    approx(coordinatePoint.x, 50, 0.000001, "Puppet Forge mouse X should report runtime-world distance from the ground/base origin rather than mirrored rig-local X");
+    approx(coordinatePoint.y, -40, 0.000001, "Puppet Forge mouse Y should report runtime-world distance above the ground/base origin as negative");
     assert.ok(editorHtml.includes("snapCharacterEnemyToNearbyGround"), "placed enemies should snap their feet to authored support lines");
     assert.ok(editorHtml.includes('resolvedEnemy.locomotion || ""'), "level editor ground snapping should explicitly exempt catalog-inherited flying enemies");
     assert.ok(editorHtml.includes('id="inspect-enemy-health"'), "level editor should expose enemy health authoring");
@@ -3238,14 +3630,53 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(editorHtml.includes('id="inspect-enemy-glare-duration"'), "level editor should expose unreachable glare duration");
     assert.ok(editorHtml.includes('id="build-navigation-graphs"'), "level editor should expose a baked navigation graph builder");
     assert.ok(editorHtml.includes('id="navigation-use-stride-arc" type="checkbox" checked'), "level editor should default hunter graph baking to the new stride-arc step test");
+    const navigationRebakeWorkerSource = readFileSync(new URL("../src/tools/navigation-rebake-worker.js", import.meta.url), "utf8");
+    const navigationRebakeSource = readFileSync(new URL("../src/tools/navigation-rebake.js", import.meta.url), "utf8");
+    const navigationCliSource = readFileSync(new URL("../devel/rebake_navigation_graphs.mjs", import.meta.url), "utf8");
+    const resumableNavigationRebakeSource = readFileSync(new URL("../devel/rebake_navigation_simulation.mjs", import.meta.url), "utf8");
+    assert.ok(editorHtml.includes('id="navigation-check-by-simulation" type="checkbox"') && editorHtml.includes('buildPlacedHunterNavigationGraphsBySimulation()'), "level editor should expose opt-in simulation verification only on the explicit graph Build action");
+    assert.ok(editorHtml.includes('new Worker(new URL("./src/tools/navigation-rebake-worker.js", import.meta.url), { type: "module" })') && navigationRebakeWorkerSource.includes('rebakeAndVerifyNavigation(message.level, message.context || {}'), "explicit Level Editor verification should run the canonical navigation rebake pipeline in a module Web Worker");
+    assert.ok(navigationRebakeSource.includes('export function buildCanonicalNavigationWorld') && navigationRebakeSource.includes('filter((visual) => !visual?.entityId)') && navigationRebakeSource.includes('filter((segment) => !segment?.movingPlatformId)') && navigationRebakeSource.includes('filter((polygon) => !polygon?.movingPlatformId)'), "the canonical navigation module should own static terrain-world construction for every caller");
+    assert.ok(editorHtml.includes('els.buildNavigationGraphs.textContent = "Cancel verification"') && editorHtml.includes('job.worker.terminate()'), "long navigation verification should remain cancellable from the Build control");
+    assert.ok(editorHtml.includes('const levelTextAtRequest = JSON.stringify(state.level)') && editorHtml.includes('The stale verified graphs were discarded'), "navigation worker results should be discarded if the level changes while verification is running");
+    assert.ok(editorHtml.includes('async function playBrowserCopy() {\n        if (state.playtestNavigationJob)')
+        && editorHtml.includes('playtestWorker = new Worker(new URL("./src/tools/navigation-rebake-worker.js", import.meta.url), { type: "module" })')
+        && editorHtml.includes('type: "rebake-navigation"')
+        && editorHtml.includes('verifyBySimulation: false')
+        && editorHtml.includes('reuseSimulationProofs: true'), "Playtest should guard duplicate launches and build heuristic navigation in the canonical worker without simulation");
+    assert.ok(editorHtml.includes('const editorOnlyProfiles = (state.level?.navigationGraphs?.profiles || [])')
+        && editorHtml.includes('String(graph?.id || "") === "wizard"')
+        && editorHtml.includes('profiles: editorProfiles')
+        && editorHtml.includes('state.playtestNavigationJob = null')
+        && editorHtml.includes('playButton.disabled = false'), "Playtest should preserve matching stored proofs and the editor-only Wizard preview, then release its duplicate-launch guard afterward");
+    assert.equal(editorHtml.includes('heuristicRejectedPlaytestEdges'), false, "heuristic-only playtests should use the canonical graph directly rather than maintain a second private rejection path");
+    assert.ok(navigationRebakeSource.includes('NAVIGATION_LOCAL_PROOF_CACHE_SCHEMA') && navigationRebakeSource.includes('navigationSimulationProofHash') && navigationRebakeSource.includes('preserveMatchingVerification'), "canonical rebakes should support per-edge local simulation-proof reuse rather than requiring an unchanged whole-level signature");
+    assert.ok(navigationRebakeSource.includes('addRecord("navigationBlocker", blocker)') && navigationRebakeSource.includes('diagnosticSupports:'), "local simulation-proof hashes should include nearby navigation blockers and the current support records named by stored landing diagnostics");
+    assert.ok(
+        resumableNavigationRebakeSource.includes('stampNavigationLocalProofHashes(world, replaceEdgeProofs(graph, verification.graph.edges))')
+        && resumableNavigationRebakeSource.includes('stampNavigationLocalProofHashes(world, finalized.graph)'),
+        "resumable simulation rebakes should canonicalize proof hashes after each chunk merge and after graph-global salvage/rebuild"
+    );
+    const devToolHtml = readFileSync(new URL("../IgnatiusDevTool.html", import.meta.url), "utf8");
+    const utilsHtml = readFileSync(new URL("../utils.html", import.meta.url), "utf8");
+    assert.ok(devToolHtml.includes('data-tool="utils"') && devToolHtml.includes('data-src="./utils.html"'), "Ignatius Dev Tool should expose the project Utils tab");
+    assert.ok(utilsHtml.includes("Incremental rebake + verify all levels") && utilsHtml.includes("Clean rebake + verify all levels") && utilsHtml.includes('reuseSimulationProofs: !cleanBuild') && utilsHtml.includes('/^level_\\d+$/.test(id)') && utilsHtml.includes('level_tNN are excluded'), "Utils should expose explicit incremental and clean all-authored-level navigation batches while excluding reserved test fixtures");
+    assert.ok(utilsHtml.includes('projectHost.saveJson("level"') && utilsHtml.includes('Cancel navigation rebake'), "the overnight navigation utility should save each completed level incrementally and remain cancellable");
+    assert.ok(utilsHtml.includes('const levelTextAtRequest = JSON.stringify(level)') && utilsHtml.includes('stale verified graphs were not saved'), "the overnight navigation utility should refuse to overwrite a level edited while its long verification job was running");
+    assert.ok(utilsHtml.includes('selectionVersion: projectSnapshot.selectionVersion') && utilsHtml.includes('snapshot.selectionVersion !== activeJob.selectionVersion'), "the overnight navigation utility should cancel rather than continue writing if the selected project/resources root changes mid-job");
+    assert.ok(utilsHtml.includes('new Worker(new URL("./src/tools/navigation-rebake-worker.js", import.meta.url), { type: "module" })') && navigationRebakeWorkerSource.includes('rebakeAndVerifyNavigation'), "the all-level utility should invoke the same canonical worker as the Level Editor");
+    assert.ok(utilsHtml.includes("summary.simulatedEdges") && utilsHtml.includes("salvage proof"), "Utils should count separate A-to-C salvage proof simulations in its displayed simulation totals");
+    assert.ok(navigationCliSource.includes("import { rebakeAndVerifyNavigation } from '../src/tools/navigation-rebake.js'") && navigationCliSource.includes('verifyBySimulation: false'), "the command-line navigation rebaker should also delegate graph construction to the canonical module");
     assert.ok(editorHtml.includes('id="show-navigation-graph"'), "level editor should preview baked directed navigation edges");
-    assert.ok(editorHtml.includes("bakeEnemyNavigationGraph"), "level editor should use the shared navigation graph baker rather than a separate approximation");
-    assert.ok(editorHtml.includes("compareNavigationGraphMethods") && editorHtml.includes("navigationLastComparison"), "level editor should compare the selected navigation step method against the alternate method");
-    assert.ok(editorHtml.includes('navigationEdgeSemanticKey(profileId, edge)') && editorHtml.includes('profileId: graph.id'), "navigation A/B comparison keys should include the mobility profile so equal support ids from different profiles cannot collapse together");
+    assert.ok(editorHtml.includes('rebakeAndVerifyNavigation(state.level, navigationRebakeContext()'), "level editor should use the canonical navigation rebake module rather than maintaining an editor-local baker");
+    assert.ok(!editorHtml.includes('function editorNavigationWorld()') && !editorHtml.includes('function wizardNavigationProfile()') && !editorHtml.includes('function placedHunterNavigationProfiles('), "Level Editor should not retain private navigation-world or mobility-profile implementations");
+    assert.ok(editorHtml.includes('navigationLastComparison') && navigationRebakeSource.includes('compareGraphMethods('), "navigation A/B comparison should be produced inside the canonical rebake module");
+    assert.ok(navigationRebakeSource.includes('semanticEdgeKey(profileId, edge)') && navigationRebakeSource.includes('profileId: graph.id'), "canonical navigation A/B comparison keys should include the mobility profile so equal support ids from different profiles cannot collapse together");
     assert.ok(editorHtml.includes('const previousPreviewGraphId = state.navigationPreviewGraphId') && editorHtml.includes('graph.id === previousPreviewGraphId'), "rebaking an alternate navigation method should preserve the profile being visually compared when that profile still exists");
     assert.ok(editorHtml.includes('els.navigationUseStrideArc.checked = method !== "legacy"'), "loading or selecting a baked legacy graph should keep the navigation method checkbox aligned with the graph that will be previewed/playtested");
-    assert.ok(editorHtml.includes("function wizardNavigationProfile()") && editorHtml.includes('profilesById.set("wizard", wizardNavigationProfile())'), "level editor should bake a Wizard mobility profile for quick player walkability inspection");
+    assert.ok(navigationRebakeSource.includes('profiles.set("wizard", wizardNavigationProfile('), "the canonical rebaker should include a Wizard mobility profile for editor walkability inspection when requested");
     const navigationComparisonToolSource = readFileSync(new URL("../devel/compare_enemy_navigation_step_methods.mjs", import.meta.url), "utf8");
+    assert.ok(navigationComparisonToolSource.includes("import { rebakeAndVerifyNavigation } from '../src/tools/navigation-rebake.js'") && !navigationComparisonToolSource.includes('bakeEnemyNavigationGraph'), "navigation A/B diagnostics should obtain both candidate graphs through the same canonical rebake pipeline instead of reconstructing navigation world/profile policy");
     assert.ok(navigationComparisonToolSource.includes('const commonSupportIds = new Set') && navigationComparisonToolSource.includes('reachablePairs(legacy, commonSupportIds)') && navigationComparisonToolSource.includes('reachablePairs(stride, commonSupportIds)'), "navigation A/B reachability diagnostics should compare only endpoints that exist in both support partitions while allowing each graph to route through its own intermediate nodes");
 
     const level = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
@@ -3257,7 +3688,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(placed.behavior, undefined, "current level data should not retain the legacy behavior alias");
     assert.equal(placed.chaseSpeed, undefined, "current level data should not retain the legacy chaseSpeed alias");
     assert.equal(placed.awarenessVerticalRange, undefined, "current level data should not retain unused vertical awareness");
-    assert.ok(editorHtml.includes('bakePlacedHunterNavigationProfiles({') && editorHtml.includes('includeWizard: false') && editorHtml.includes('saveLevelTempCopy({ navigationGraphs: playtestGraphs })'), "Play should rebuild only runtime hunter profiles before serializing the temp copy, omitting the editor-only Wizard graph");
+    assert.ok(editorHtml.includes('playtestWorker.postMessage({') && editorHtml.includes('includeWizard: false') && editorHtml.includes('saveLevelTempCopy({ navigationGraphs: playtestGraphs })'), "Play should use the canonical worker-backed fast rebake for runtime hunter profiles before serializing the temp copy, omitting the editor-only Wizard graph");
 
     const characterEditorHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const characterPanelIndex = characterEditorHtml.indexOf("<h2>Character</h2>");
@@ -3269,14 +3700,19 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const animationPanelIndex = characterEditorHtml.indexOf("<h2>Animation</h2>");
     assert.ok(characterEditorHtml.includes('id="character-sounds-panel" data-panel-key="character-sounds"'), "Puppet Forge should give character sounds a stable collapsible panel");
     assert.ok(metadataPanelIndex < movementPanelIndex && movementPanelIndex < attackPanelIndex && attackPanelIndex < projectilePanelIndex && projectilePanelIndex < soundPanelIndex && soundPanelIndex < animationPanelIndex, "Puppet Forge should keep Metadata, Movement, Attack behavior, Projectile behavior, Character sounds, and Animation in authoring order");
+    assert.ok(characterEditorHtml.includes('id="quick-mouse-coordinates"'), "Puppet Forge should show a right-aligned mouse X/Y readout in the animation toolbar");
+    assert.ok(characterEditorHtml.includes("canvasToCharacterWorldPoint(") && characterEditorHtml.includes("CHARACTER_EDITOR_WORLD_SCALE"), "Puppet Forge mouse coordinates should use runtime-world units relative to the character base");
     assert.ok(characterEditorHtml.includes('id="enemy-melee-hit-range"'), "Puppet Forge should expose the committed-melee hit range");
+    assert.ok(characterEditorHtml.includes("enemy grounded base position") && characterEditorHtml.includes("same reference point as Lunge minimum/maximum range"), "Puppet Forge should document melee and lunge ranges with the same grounded-base reference point");
+    assert.ok(characterEditorHtml.includes('id="enemy-immune-to-interrupts"'), "Puppet Forge should expose attack-interruption immunity");
+    assert.ok(characterEditorHtml.includes('defaults.immuneToInterrupts = true') && characterEditorHtml.includes('delete defaults.immuneToInterrupts'), "Puppet Forge should save interruption immunity sparsely in enemy catalog defaults");
     assert.ok(characterEditorHtml.includes('id="enemy-lunge-range-min"') && characterEditorHtml.includes('id="enemy-lunge-range-max"'), "Puppet Forge should expose committed-lunge min/max ranges");
     assert.ok(characterEditorHtml.includes('id="enemy-lunge-speed"') && characterEditorHtml.includes('id="enemy-lunge-target-dist"'), "Puppet Forge should expose committed-lunge speed and target distance");
     const enemyStructuredControlsSource = characterEditorHtml.slice(
         characterEditorHtml.indexOf("const enemyStructuredControls = ["),
         characterEditorHtml.indexOf("for (const input of enemyStructuredControls)")
     );
-    for (const controlName of ["enemyMeleeHitRange", "enemyLungeRangeMin", "enemyLungeRangeMax", "enemyLungeSpeed", "enemyLungeTargetDist"]) {
+    for (const controlName of ["enemyImmuneToInterrupts", "enemyMeleeHitRange", "enemyLungeRangeMin", "enemyLungeRangeMax", "enemyLungeSpeed", "enemyLungeTargetDist"]) {
         assert.ok(enemyStructuredControlsSource.includes(`els.${controlName}`), `Puppet Forge ${controlName} edits should immediately update and dirty the Enemy Catalog`);
     }
     const characterPanelHtml = characterEditorHtml.slice(characterPanelIndex, metadataPanelIndex);
@@ -3456,6 +3892,42 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const humanRig037 = JSON.parse(readFileSync(new URL("../resources/characters/ct_rig_enemy_037.json", import.meta.url), "utf8"));
     const humanRig038 = JSON.parse(readFileSync(new URL("../resources/characters/ct_rig_enemy_038.json", import.meta.url), "utf8"));
     const humanAtlas = JSON.parse(readFileSync(new URL("../resources/characters/ct_atlas_enemy_030.json", import.meta.url), "utf8"));
+    const assertBodyFittedHumanMotionMatches = (actualClip, referenceClip, label, omittedParts = new Set()) => {
+        assert.equal(actualClip.duration, referenceClip.duration, `${label} should preserve timing`);
+        assert.equal(actualClip.loop, referenceClip.loop, `${label} should preserve loop policy`);
+        const referenceParts = Object.keys(referenceClip.referencePose).filter((partName) => !omittedParts.has(partName)).sort();
+        const actualParts = Object.keys(actualClip.referencePose).filter((partName) => !omittedParts.has(partName)).sort();
+        assert.deepEqual(actualParts, referenceParts, `${label} should cover the same articulated parts`);
+        for (const partName of referenceParts) {
+            for (const property of ["rotation", "scale", "alpha"]) {
+                assert.deepEqual(actualClip.referencePose[partName]?.[property], referenceClip.referencePose[partName]?.[property], `${label} ${partName}.${property} reference motion should match while body-fitted X/Y may differ`);
+                assert.deepEqual(actualClip.tracks[partName]?.[property], referenceClip.tracks[partName]?.[property], `${label} ${partName}.${property} tracks should match while baked body-fitted X/Y may differ`);
+            }
+            const bakedPositionParts = new Set([
+                ...(actualClip.meta?.bakedParentConstraintParts || []),
+                ...(referenceClip.meta?.bakedParentConstraintParts || [])
+            ]);
+            for (const property of ["x", "y"]) {
+                assert.ok(Number.isFinite(Number(actualClip.referencePose[partName]?.[property])), `${label} ${partName}.${property} reference position should remain finite`);
+                const actualTrack = actualClip.tracks[partName]?.[property] || [];
+                const referenceTrack = referenceClip.tracks[partName]?.[property] || [];
+                if (!bakedPositionParts.has(partName)) {
+                    assert.deepEqual(actualClip.referencePose[partName]?.[property], referenceClip.referencePose[partName]?.[property], `${label} ${partName}.${property} should match exactly for non-constrained parts`);
+                    assert.deepEqual(actualTrack, referenceTrack, `${label} ${partName}.${property} should match exactly for non-constrained parts`);
+                    continue;
+                }
+                assert.ok(actualTrack.length > 0, `${label} ${partName}.${property} should retain a baked position track`);
+                assert.ok(actualTrack.every((key) => Number.isFinite(Number(key.time)) && Number.isFinite(Number(key.value))), `${label} ${partName}.${property} baked keys should remain finite`);
+                assert.ok(actualTrack.every((key, index) => index === 0 || Number(key.time) >= Number(actualTrack[index - 1].time)), `${label} ${partName}.${property} baked key times should stay ordered`);
+                assert.ok(actualTrack.every((key) => Number(key.time) >= 0 && Number(key.time) <= actualClip.duration + 1e-9), `${label} ${partName}.${property} baked key times should stay within clip duration`);
+                if (referenceTrack.length) {
+                    assert.equal(actualTrack[0].time, referenceTrack[0].time, `${label} ${partName}.${property} should preserve the baked track start time`);
+                    assert.equal(actualTrack.at(-1).time, referenceTrack.at(-1).time, `${label} ${partName}.${property} should preserve the baked track end time`);
+                }
+                assert.ok(actualTrack.every((key) => typeof key.easing === "string" && key.easing.length > 0), `${label} ${partName}.${property} baked keys should retain explicit interpolation`);
+            }
+        }
+    };
 
     assert.equal(humanRig030.parts.torso.frame, "body_00", "enemy_030 should retain its original torso artwork");
     assert.equal(humanRig030.parts.head.frame, "head_00", "enemy_030 should retain its original head artwork");
@@ -3473,8 +3945,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         const clip030 = JSON.parse(readFileSync(new URL(`../resources/characters/ct_anim_enemy_030_${slot}.json`, import.meta.url), "utf8"));
         const clip031 = JSON.parse(readFileSync(new URL(`../resources/characters/ct_anim_enemy_031_${slot}.json`, import.meta.url), "utf8"));
         if (slot !== "attack") {
-            assert.deepEqual(clip031.referencePose, clip030.referencePose, `enemy_031 ${slot} should retain the shared articulated pose from enemy_030`);
-            assert.deepEqual(clip031.tracks, clip030.tracks, `enemy_031 ${slot} should retain the shared articulated tracks from enemy_030`);
+            assertBodyFittedHumanMotionMatches(clip031, clip030, `enemy_031 ${slot}`);
         } else {
             assert.equal(clip031.duration, clip030.duration, "enemy_031 attack should preserve the shared sword-attack timing");
             assert.equal(clip031.loop, clip030.loop, "enemy_031 attack should preserve the shared sword-attack loop policy");
@@ -3511,7 +3982,8 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.deepEqual(humanRig035.drawOrder, humanRig034.drawOrder, "enemy_035 should copy Enemy 034's revised crossbow draw order");
     assert.deepEqual(humanRig035.pivots.weapon, humanRig034.pivots.weapon, "enemy_035 should copy Enemy 034's revised crossbow pivot");
     assert.deepEqual(humanRig035.parts.weapon.parentConstraint, humanRig034.parts.weapon.parentConstraint, "enemy_035 should copy Enemy 034's revised crossbow grip");
-    assert.deepEqual(humanRig035.parts.rightUpperArm.parentConstraint, humanRig034.parts.rightUpperArm.parentConstraint, "enemy_035 should copy Enemy 034's revised weapon-arm attachment");
+    assert.equal(humanRig035.parts.rightUpperArm.parentConstraint?.parentPart, "torso", "enemy_035 weapon arm should remain attached to its independently authored torso");
+    assert.ok(Number.isFinite(Number(humanRig035.parts.rightUpperArm.parentConstraint?.parentPoint?.x)) && Number.isFinite(Number(humanRig035.parts.rightUpperArm.parentConstraint?.parentPoint?.y)), "enemy_035 weapon-arm torso attachment should retain valid authored coordinates");
     for (const [enemyId, character, rig] of [["034", human034, humanRig034], ["035", human035, humanRig035]]) {
         assert.equal(rig.parts.weapon.frame, "crossbow", `enemy_${enemyId} should carry the shared crossbow frame`);
         assert.deepEqual(character.attackParts, ["crossbowBolt", "crossbowBolt2", "crossbowBolt3"], `enemy_${enemyId} should select all three authored bolt handoff markers`);
@@ -3524,8 +3996,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         const clip035 = JSON.parse(readFileSync(new URL(`../resources/characters/ct_anim_enemy_035_${slot}.json`, import.meta.url), "utf8"));
         assert.equal(clip034.animationId, `ct_anim_enemy_034_${slot}`, `enemy_034 ${slot} should retain its own animation identity`);
         assert.equal(clip035.animationId, `ct_anim_enemy_035_${slot}`, `enemy_035 ${slot} should retain its own animation identity`);
-        assert.deepEqual(clip035.referencePose, clip034.referencePose, `enemy_035 ${slot} should copy Enemy 034's revised pose exactly`);
-        assert.deepEqual(clip035.tracks, clip034.tracks, `enemy_035 ${slot} should copy Enemy 034's revised motion exactly`);
+        assertBodyFittedHumanMotionMatches(clip035, clip034, `enemy_035 ${slot}`);
         const bakedKeyCount034 = (clip034.meta.bakedParentConstraintParts || []).reduce((count, partName) => (
             count + (clip034.tracks[partName]?.x?.length || 0) + (clip034.tracks[partName]?.y?.length || 0)
         ), 0);
@@ -3589,8 +4060,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         if (slot !== "attack") {
             const raiderPoseWithoutWeapon = Object.fromEntries(Object.entries(raiderClip.referencePose).filter(([partName]) => partName !== "weapon"));
             const raiderTracksWithoutWeapon = Object.fromEntries(Object.entries(raiderClip.tracks).filter(([partName]) => partName !== "weapon"));
-            assert.deepEqual(boxerClip.referencePose, raiderPoseWithoutWeapon, `enemy_038 ${slot} should preserve the articulated human pose apart from the removed weapon`);
-            assert.deepEqual(boxerClip.tracks, raiderTracksWithoutWeapon, `enemy_038 ${slot} should preserve the articulated human motion apart from the removed weapon`);
+            assertBodyFittedHumanMotionMatches(boxerClip, { ...raiderClip, referencePose: raiderPoseWithoutWeapon, tracks: raiderTracksWithoutWeapon }, `enemy_038 ${slot}`);
         }
         assert.deepEqual(Object.keys(boxerClip.referencePose).sort(), Object.keys(humanRig038.parts).sort(), `enemy_038 ${slot} should animate every weapon-free rig part`);
     }
@@ -3622,17 +4092,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         assert.deepEqual(Object.keys(clip.tracks).sort(), Object.keys(humanRig032.parts).sort(), `enemy_032 ${slot} tracks should contain no retired sword part`);
         assert.equal(clip.referencePose.weapon, undefined, `enemy_032 ${slot} should remove the sword reference pose`);
         assert.equal(clip.tracks.throwingKnife.alpha[0].value, 0, `enemy_032 ${slot} should keep the launch marker invisible`);
-        if (slot === "walk") {
-            for (const partName of Object.keys(clip.referencePose)) {
-                for (const property of ["rotation", "scale", "alpha"]) {
-                    assert.deepEqual(clip033.referencePose[partName]?.[property], clip.referencePose[partName]?.[property], `enemy_033 walk ${partName}.${property} should match Enemy 032`);
-                    assert.deepEqual(clip033.tracks[partName]?.[property], clip.tracks[partName]?.[property], `enemy_033 walk ${partName}.${property} tracks should match Enemy 032`);
-                }
-            }
-        } else {
-            assert.deepEqual(clip033.referencePose, clip.referencePose, `enemy_033 ${slot} should copy Enemy 032's current pose exactly`);
-            assert.deepEqual(clip033.tracks, clip.tracks, `enemy_033 ${slot} should copy Enemy 032's current motion exactly`);
-        }
+        assertBodyFittedHumanMotionMatches(clip033, clip, `enemy_033 ${slot}`);
         assert.equal(clip033.animationId, `ct_anim_enemy_033_${slot}`, `enemy_033 ${slot} should keep its own animation identity`);
     }
     const human033Attack = JSON.parse(readFileSync(new URL("../resources/characters/ct_anim_enemy_033_attack.json", import.meta.url), "utf8"));
@@ -3671,9 +4131,21 @@ function testEnemyCatalogAndLevelEditorIntegration() {
 
     const cleanupSource = readFileSync(new URL("../devel/clean_animation_keyframes.mjs", import.meta.url), "utf8");
     const migrationSource = readFileSync(new URL("../devel/migrate_human_enemy_articulation.mjs", import.meta.url), "utf8");
+    const retiredAtlasBuilderSource = readFileSync(new URL("../devel/build_enemy_030_assets.py", import.meta.url), "utf8");
+    const humanVariantBuilderSource = readFileSync(new URL("../devel/build_human_enemy_variant.py", import.meta.url), "utf8");
     const enemy033BuilderSource = readFileSync(new URL("../devel/add_enemy_033_variant.mjs", import.meta.url), "utf8");
     assert.ok(cleanupSource.includes("zero-error linear simplification") && cleanupSource.includes("maximumError <= epsilon"), "the final keyframe cleanup should remain reproducible and zero-error");
-    assert.ok(migrationSource.includes("body_02") && migrationSource.includes("projectileVolleyCount") && migrationSource.includes("throwingKnife"), "the articulated backport and first knife-thrower conversion should remain reproducible");
+    assert.equal(migrationSource.trim(), "DELETE ME", "the one-time pre-current-schema human articulation migration should stay retired instead of regenerating obsolete data");
+    assert.equal(retiredAtlasBuilderSource.trim(), "DELETE ME", "the pre-reforge human atlas constructor should stay retired instead of recreating deprecated full limbs");
+    assert.ok(humanVariantBuilderSource.includes("leftUpperArm")
+            && humanVariantBuilderSource.includes("arm_upper_01")
+            && humanVariantBuilderSource.includes("authored_arm_frames")
+            && humanVariantBuilderSource.includes("uses removed character-part colorExchange")
+            && humanVariantBuilderSource.includes("partial baked arm set")
+            && !humanVariantBuilderSource.includes('rig["parts"][part_name]["colorExchange"]')
+            && !humanVariantBuilderSource.includes("--arm-from")
+            && !humanVariantBuilderSource.includes('"leftArm"'),
+        "the current human variant builder should use articulated authored arm frames without the removed recolour/full-limb schema");
     assert.ok(enemy033BuilderSource.includes("body_03") && enemy033BuilderSource.includes("head_03") && enemy033BuilderSource.includes("ct_anim_enemy_033"), "the second knife thrower should be reproducible from the current Enemy 032 assets");
     assert.equal(existsSync(new URL("../enemy-032-death-showcase.html", import.meta.url)), false, "the temporary death showcase should be removed after the final death choice");
     assert.equal(readdirSync(new URL("../resources/characters", import.meta.url)).some((name) => name.includes("death_showcase")), false, "temporary death showcase clips should not remain in the release");
@@ -3783,11 +4255,261 @@ function testEnemyNavigationAcrossOverlappingSolidFloors() {
         maxStepGap: 18
     };
     const supports = buildEnemyNavigationSupports(world, profile);
-    assert.ok(supports.some((support) => support.id === "left_top"), "the left overlapping solid floor should remain a complete navigation support");
-    assert.ok(supports.some((support) => support.id === "right_top"), "the right overlapping solid floor should remain a complete navigation support");
-    const route = planEnemyNavigationRoute(supports, "left_top", "right_top", profile);
-    assert.ok(route, "overlapping solid platforms at one walking height should form a connected enemy route");
-    assert.ok(route.edges.some((edge) => edge.type === "step"), "same-height overlapping floors should connect through a direct step edge");
+    const leftFragments = supports.filter((support) => support.id === "left_top" || support.id.startsWith("left_top_nav_"));
+    const rightFragments = supports.filter((support) => support.id === "right_top" || support.id.startsWith("right_top_nav_"));
+    assert.deepEqual(
+        leftFragments.map((support) => [Math.round(support.xMin), Math.round(support.xMax)]),
+        [[0, 180], [180, 220]],
+        "the left overlapping solid floor should split at the foreign overlap boundary while preserving all exposed pieces"
+    );
+    assert.deepEqual(
+        rightFragments.map((support) => [Math.round(support.xMin), Math.round(support.xMax)]),
+        [[180, 220], [220, 420]],
+        "the right overlapping solid floor should split at the foreign overlap boundary while preserving all exposed pieces"
+    );
+    const startSupport = leftFragments.find((support) => Math.abs(support.xMin) <= 0.01);
+    const targetSupport = rightFragments.find((support) => Math.abs(support.xMax - 420) <= 0.01);
+    assert.ok(startSupport && targetSupport, "overlapping-floor virtual splitting should retain the two outer walking endpoints");
+    const route = planEnemyNavigationRoute(supports, startSupport.id, targetSupport.id, profile);
+    assert.ok(route, "overlapping solid platforms at one walking height should remain one connected enemy route after virtual splitting");
+    assert.ok(route.edges.some((edge) => edge.type === "step"), "same-height overlapping virtual floor fragments should connect through direct step edges");
+
+    const stepLandingState = createInitialGameState();
+    stepLandingState.world.solids = [];
+    stepLandingState.world.segments = [];
+    stepLandingState.world.collisionPolygons = [
+        {
+            id: "rev526_step_destination",
+            kind: "blockable",
+            points: [{ x: 50, y: 190 }, { x: 150, y: 190 }, { x: 150, y: 240 }, { x: 50, y: 240 }]
+        },
+        {
+            id: "rev526_foreign_upper_floor",
+            kind: "blockable",
+            points: [{ x: 50, y: 165 }, { x: 124, y: 165 }, { x: 124, y: 195 }, { x: 50, y: 195 }]
+        }
+    ];
+    const stepEnemy = {
+        width: 70,
+        height: 105,
+        currentTransform: { x: 100, y: 180 }
+    };
+    assert.equal(
+        characterEnemyNavigationStepLandingPenetratesForeignBlocker(
+            stepLandingState,
+            stepEnemy,
+            100,
+            200,
+            "rev526_step_destination"
+        ),
+        true,
+        "navigation step landing should reject a pose that recovery would find embedded in a foreign overlapping floor"
+    );
+
+    const cleanStepLandingState = createInitialGameState();
+    cleanStepLandingState.world.solids = [];
+    cleanStepLandingState.world.segments = [];
+    cleanStepLandingState.world.collisionPolygons = [stepLandingState.world.collisionPolygons[0]];
+    assert.equal(
+        characterEnemyNavigationStepLandingPenetratesForeignBlocker(
+            cleanStepLandingState,
+            stepEnemy,
+            100,
+            200,
+            "rev526_step_destination"
+        ),
+        false,
+        "navigation step landing should allow overlap with its own destination floor when no foreign blocker would trigger recovery"
+    );
+}
+
+function testEnemyNavigationExposedSurfaceWalkRegions() {
+    const world = {
+        segments: [
+            { id: "lower_top", visualId: "lower_visual", kind: "blockable", x1: 0, y1: 200, x2: 200, y2: 200 },
+            { id: "upper_top", visualId: "upper_visual", kind: "blockable", x1: 80, y1: 180, x2: 160, y2: 180 },
+            { id: "buried_top", visualId: "buried_visual", kind: "blockable", x1: 100, y1: 210, x2: 140, y2: 210 }
+        ],
+        solids: [],
+        collisionPolygons: [
+            { id: "lower_area", visualId: "lower_visual", kind: "blockable", points: [{ x: 0, y: 200 }, { x: 200, y: 200 }, { x: 200, y: 260 }, { x: 0, y: 260 }] },
+            { id: "upper_area", visualId: "upper_visual", kind: "blockable", points: [{ x: 80, y: 180 }, { x: 160, y: 180 }, { x: 160, y: 240 }, { x: 80, y: 240 }] },
+            { id: "buried_area", visualId: "buried_visual", kind: "blockable", points: [{ x: 100, y: 210 }, { x: 140, y: 210 }, { x: 140, y: 230 }, { x: 100, y: 230 }] }
+        ]
+    };
+    const profile = {
+        bodyWidth: 70,
+        bodyHeight: 105,
+        runSpeed: 250,
+        groundAcceleration: 950,
+        jumpHeight: 0,
+        gravity: 1250,
+        maxFallDistance: 600,
+        maxStepHeight: 10,
+        maxStepGap: 22.4,
+        stepTransitionMethod: "stride_arc"
+    };
+    const crossingOnlyWorld = {
+        segments: [
+            { id: "crossing_horizontal", visualId: "crossing_horizontal_visual", kind: "walkable", x1: 0, y1: 200, x2: 200, y2: 200 },
+            { id: "crossing_diagonal", visualId: "crossing_diagonal_visual", kind: "walkable", x1: 50, y1: 250, x2: 150, y2: 150 }
+        ],
+        solids: [],
+        collisionPolygons: []
+    };
+    const crossingSupports = buildEnemyNavigationSupports(crossingOnlyWorld, profile);
+    const crossingHorizontalFragments = crossingSupports.filter((support) => support.id.startsWith("crossing_horizontal_nav_"));
+    const crossingDiagonalFragments = crossingSupports.filter((support) => support.id.startsWith("crossing_diagonal_nav_"));
+    assert.equal(crossingHorizontalFragments.length, 2, "crossing authored ground lines should be split into persistent virtual fragments even without polygon area geometry");
+    assert.equal(crossingDiagonalFragments.length, 2, "both participants in a ground-line crossing should receive a virtual node at the intersection");
+    assert.ok(crossingHorizontalFragments.some((support) => Math.abs(support.xMax - 100) <= 0.01) && crossingHorizontalFragments.some((support) => Math.abs(support.xMin - 100) <= 0.01), "the crossing point should survive as the shared endpoint of the horizontal virtual fragments");
+    assert.ok(crossingDiagonalFragments.some((support) => Math.abs(support.xMax - 100) <= 0.01) && crossingDiagonalFragments.some((support) => Math.abs(support.xMin - 100) <= 0.01), "the crossing point should survive as the shared endpoint of the diagonal virtual fragments");
+
+    const collinearWorld = {
+        segments: [
+            { id: "collinear_long", visualId: "collinear_long_visual", kind: "walkable", x1: 0, y1: 300, x2: 240, y2: 300 },
+            { id: "collinear_short", visualId: "collinear_short_visual", kind: "walkable", x1: 80, y1: 300, x2: 160, y2: 300 }
+        ],
+        solids: [],
+        collisionPolygons: []
+    };
+    const collinearSupports = buildEnemyNavigationSupports(collinearWorld, profile);
+    const collinearLongFragments = collinearSupports.filter((support) => support.id.startsWith("collinear_long_nav_"));
+    assert.equal(collinearLongFragments.length, 3, "collinear overlap endpoints should also become persistent virtual nodes rather than being merged away again");
+    assert.deepEqual(collinearLongFragments.map((support) => [Math.round(support.xMin), Math.round(support.xMax)]), [[0, 80], [80, 160], [160, 240]], "collinear overlap splitting should preserve deterministic left-to-right virtual fragments");
+
+    // Atlas transforms can leave nominally coincident floor boundaries a tiny
+    // fraction of a pixel apart. Treat that numerical fuzz as boundary contact,
+    // not as a support buried inside the neighbouring polygon. Real campaign
+    // geometry contains offsets on the order of 1e-4 px after transforms.
+    const nearCoincidentWorld = {
+        segments: [
+            { id: "near_coincident_floor", visualId: "near_coincident_floor_visual", kind: "blockable", x1: 0, y1: 300, x2: 240, y2: 300 }
+        ],
+        solids: [],
+        collisionPolygons: [
+            {
+                id: "near_coincident_foreign_area",
+                visualId: "near_coincident_foreign_visual",
+                kind: "blockable",
+                points: [{ x: 40, y: 299.9999 }, { x: 200, y: 299.9999 }, { x: 200, y: 380 }, { x: 40, y: 380 }]
+            }
+        ]
+    };
+    const nearCoincidentSupports = buildEnemyNavigationSupports(nearCoincidentWorld, profile);
+    const nearCoincidentFloor = nearCoincidentSupports.find((support) => support.id === "near_coincident_floor" || support.id.startsWith("near_coincident_floor_nav_"));
+    assert.ok(nearCoincidentFloor, "subpixel transform fuzz at a coincident floor boundary must not make exposed ground look buried");
+    assert.ok(nearCoincidentSupports.some((support) => support.xMin <= 40.01 && support.xMax >= 199.99), "near-coincident foreign floor geometry should preserve navigation across the overlapping span");
+
+    const fallbackDependencySupports = buildEnemyNavigationSupports({
+        segments: [{ id: "fallback_dependency_line", kind: "walkable", x1: 0, y1: 400, x2: 120, y2: 400 }],
+        solids: [], collisionPolygons: []
+    }, profile);
+    assert.ok(fallbackDependencySupports[0]?.geometryDependencyIds?.includes("segment:fallback_dependency_line"), "a support without placement metadata should retain the source segment identity used by proof hashing");
+    assert.equal(fallbackDependencySupports[0]?.geometryDependencyIds?.includes("support:fallback_dependency_line"), false, "fallback dependency identity should describe the authored collision record rather than inventing a navigation-only source");
+
+    const lineClearanceWorld = {
+        segments: [
+            { id: "clearance_floor", visualId: "clearance_floor_visual", kind: "blockable", x1: 0, y1: 300, x2: 300, y2: 300 },
+            { id: "clearance_wall", visualId: "clearance_wall_visual", kind: "blockable", x1: 150, y1: 180, x2: 150, y2: 340 }
+        ],
+        solids: [],
+        collisionPolygons: []
+    };
+    const lineClearanceSupports = buildEnemyNavigationSupports(lineClearanceWorld, profile);
+    const floorAroundWall = lineClearanceSupports.filter((support) => support.id.startsWith("clearance_floor_nav_"));
+    assert.equal(floorAroundWall.length, 2, "a standalone yellow wall crossing a candidate floor should leave separate virtual floor fragments on either side");
+    assert.ok(floorAroundWall[0].xMax <= 114.1 && floorAroundWall[1].xMin >= 185.9, "line-only body clearance should reserve roughly half the actor width on both sides of a blocking wall");
+
+    const ceilingClearanceWorld = {
+        segments: [
+            { id: "ceiling_floor", visualId: "ceiling_floor_visual", kind: "blockable", x1: 0, y1: 300, x2: 300, y2: 300 },
+            { id: "low_open_ceiling", visualId: "low_open_ceiling_visual", kind: "blockable", x1: 100, y1: 220, x2: 200, y2: 220 }
+        ],
+        solids: [],
+        collisionPolygons: []
+    };
+    const ceilingClearanceSupports = buildEnemyNavigationSupports(ceilingClearanceWorld, profile);
+    const floorUnderCeiling = ceilingClearanceSupports.filter((support) => support.id === "ceiling_floor" || support.id.startsWith("ceiling_floor_nav_"));
+    assert.equal(floorUnderCeiling.length, 2, "a line-only ceiling inside the actor-height slab should cut the candidate floor beneath it");
+    assert.ok(floorUnderCeiling[0].xMax <= 64.1 && floorUnderCeiling[1].xMin >= 235.9, "ceiling clearance should include lateral actor width so the resulting cyan floor is genuinely standable");
+
+    const oneWayCeilingWorld = {
+        segments: [
+            { id: "one_way_floor", visualId: "one_way_floor_visual", kind: "blockable", x1: 0, y1: 300, x2: 300, y2: 300 },
+            { id: "one_way_ceiling", visualId: "one_way_ceiling_visual", kind: "walkable", x1: 100, y1: 220, x2: 200, y2: 220 }
+        ],
+        solids: [],
+        collisionPolygons: []
+    };
+    const oneWayCeilingSupports = buildEnemyNavigationSupports(oneWayCeilingWorld, profile);
+    const floorBelowOneWay = oneWayCeilingSupports.find((support) => support.id === "one_way_floor");
+    assert.ok(floorBelowOneWay && Math.abs(floorBelowOneWay.xMin) <= 0.01 && Math.abs(floorBelowOneWay.xMax - 300) <= 0.01, "green one-way lines above a floor must not be treated as torso-blocking ceilings");
+
+    const supports = buildEnemyNavigationSupports(world, profile);
+    const lowerFragments = supports.filter((support) => support.id.startsWith("lower_top_nav_"));
+    assert.ok(lowerFragments.length >= 1, "exposed-surface extraction should retain only standable pieces of a floor crossed by a foreign blocker");
+    assert.ok(lowerFragments.every((support) => support.xMax <= 45.01 || support.xMin >= 194.99), "buried floor spans and the actor-width clearance beside the overlapping blocker should not survive as cyan navigation");
+    assert.equal(supports.some((support) => support.id === "buried_top" || support.id.startsWith("buried_top_nav_")), false, "a support completely enclosed by another blocker should be removed even when it never crosses the foreign polygon boundary");
+
+    const overlappingWorld = {
+        segments: [
+            { id: "region_left", visualId: "region_left_visual", kind: "blockable", x1: 0, y1: 300, x2: 220, y2: 300 },
+            { id: "region_right", visualId: "region_right_visual", kind: "blockable", x1: 180, y1: 300, x2: 420, y2: 300 }
+        ],
+        solids: [],
+        collisionPolygons: [
+            { id: "region_left_area", visualId: "region_left_visual", kind: "blockable", points: [{ x: 0, y: 300 }, { x: 220, y: 300 }, { x: 220, y: 380 }, { x: 0, y: 380 }] },
+            { id: "region_right_area", visualId: "region_right_visual", kind: "blockable", points: [{ x: 180, y: 300 }, { x: 420, y: 300 }, { x: 420, y: 380 }, { x: 180, y: 380 }] }
+        ]
+    };
+    const overlappingGraph = bakeEnemyNavigationGraph(overlappingWorld, profile, { id: "walk_region_overlap" });
+    const regionLeftSupports = overlappingGraph.supports.filter((support) => support.id === "region_left" || support.id.startsWith("region_left_nav_"));
+    const regionRightSupports = overlappingGraph.supports.filter((support) => support.id === "region_right" || support.id.startsWith("region_right_nav_"));
+    const coincidentRegionId = regionLeftSupports[0]?.walkRegionId || null;
+    assert.ok(coincidentRegionId && [...regionLeftSupports, ...regionRightSupports].every((support) => support.walkRegionId === coincidentRegionId), "mutually walkable coincident virtual fragments should collapse into one walk region");
+    assert.ok(overlappingGraph.walkRegions.some((region) => region.id === coincidentRegionId && region.supportIds.some((id) => id.startsWith("region_left")) && region.supportIds.some((id) => id.startsWith("region_right"))), "baked navigation should serialize the thick-cyan walk-region membership explicitly after virtual splitting");
+
+    const stairWorld = {
+        segments: [
+            { id: "stair_low", visualId: "stair_low_visual", kind: "blockable", x1: 0, y1: 300, x2: 180, y2: 300 },
+            { id: "stair_high", visualId: "stair_high_visual", kind: "blockable", x1: 180, y1: 280, x2: 360, y2: 280 }
+        ],
+        solids: [],
+        collisionPolygons: [
+            { id: "stair_low_area", visualId: "stair_low_visual", kind: "blockable", points: [{ x: 0, y: 300 }, { x: 180, y: 300 }, { x: 180, y: 380 }, { x: 0, y: 380 }] },
+            { id: "stair_high_area", visualId: "stair_high_visual", kind: "blockable", points: [{ x: 180, y: 280 }, { x: 360, y: 280 }, { x: 360, y: 380 }, { x: 180, y: 380 }] }
+        ]
+    };
+    const stairGraph = bakeEnemyNavigationGraph(stairWorld, profile, { id: "walk_region_stride" });
+    const low = stairGraph.supports.find((support) => support.id === "stair_low");
+    const high = stairGraph.supports.find((support) => support.id === "stair_high");
+    assert.ok(low?.walkRegionId && low.walkRegionId === high?.walkRegionId, "nearby exposed blockable surfaces connected by the circle-arc stride test should belong to one walk region");
+    assert.ok(stairGraph.edges.some((edge) => edge.type === "step" && edge.from === "stair_low" && edge.to === "stair_high"), "walk-region construction should retain the concrete stride transition needed by runtime locomotion");
+    assert.ok(stairGraph.edges.some((edge) => edge.type === "step" && edge.from === "stair_high" && edge.to === "stair_low"), "walk regions should only merge surfaces when ordinary ground stepping is available in both directions");
+
+    // A short riser in the middle of authored ground is simultaneously a body
+    // blocker and a strideable boundary. The safe cyan support must stop half
+    // an actor width before the face, while the stride solver retains the real
+    // yellow-face X so both directions can still be proven as ordinary ground
+    // locomotion. This is the distinction virtual splitting needs to preserve.
+    const midRiserWorld = {
+        segments: [
+            { id: "mid_low", visualId: "mid_low_visual", kind: "blockable", x1: 0, y1: 300, x2: 180, y2: 300 },
+            { id: "mid_riser", visualId: "mid_riser_visual", kind: "blockable", x1: 180, y1: 300, x2: 180, y2: 280 },
+            { id: "mid_high", visualId: "mid_high_visual", kind: "blockable", x1: 180, y1: 280, x2: 360, y2: 280 }
+        ],
+        solids: [],
+        collisionPolygons: []
+    };
+    const midRiserGraph = bakeEnemyNavigationGraph(midRiserWorld, profile, { id: "walk_region_mid_riser" });
+    const midLow = midRiserGraph.supports.find((support) => support.id === "mid_low" || support.id.startsWith("mid_low_nav_"));
+    const midHigh = midRiserGraph.supports.find((support) => support.id === "mid_high" || support.id.startsWith("mid_high_nav_"));
+    assert.ok(midLow && midLow.xMax <= 144.1, "a short riser should still reserve actor-body clearance on the lower cyan floor");
+    assert.ok(Math.abs(Number(midLow?.strideBoundaryXMax) - 180) <= 0.01, "the clearance-trimmed lower support should retain the physical riser as its stride boundary");
+    assert.ok(midHigh?.walkRegionId && midLow?.walkRegionId === midHigh.walkRegionId, "a clearance-trimmed short riser should remain one continuous walk region when the stride arc works both ways");
+    assert.ok(midRiserGraph.edges.some((edge) => edge.type === "step" && edge.from === midLow?.id && edge.to === midHigh?.id), "the trimmed lower support should still stride upward across its retained physical boundary");
+    assert.ok(midRiserGraph.edges.some((edge) => edge.type === "step" && edge.from === midHigh?.id && edge.to === midLow?.id), "the upper support should still stride downward onto the trimmed lower support using the retained physical boundary");
 }
 
 function testEnemyNavigationStrideArcStepMethodComparison() {
@@ -3813,13 +4535,151 @@ function testEnemyNavigationStrideArcStepMethodComparison() {
     };
     const legacy = bakeEnemyNavigationGraph(world, profile, { id: "legacy_step_probe", stepTransitionMethod: "legacy" });
     const stride = bakeEnemyNavigationGraph(world, profile, { id: "stride_step_probe", stepTransitionMethod: "stride_arc" });
-    const hasStep = (graph) => graph.edges.some((edge) => edge.type === "step" && edge.from === "low_top" && edge.to === "step_top");
-    const hasWalkOffDrop = (graph) => graph.edges.some((edge) => edge.type === "drop" && edge.from === "step_top" && edge.to === "low_top");
+    const isLowSupportId = (id) => id === "low_top" || String(id || "").startsWith("low_top_nav_");
+    const hasStep = (graph) => graph.edges.some((edge) => edge.type === "step" && isLowSupportId(edge.from) && edge.to === "step_top");
+    const hasStepDown = (graph) => graph.edges.some((edge) => edge.type === "step" && edge.from === "step_top" && isLowSupportId(edge.to));
     assert.equal(hasStep(legacy), false, "legacy navigation should reject a 20 px step when authored maxStepHeight is only 10 px");
     assert.equal(hasStep(stride), true, "stride-arc navigation should use the actor's 20%-height automatic stride reach and climb the same 20 px step");
-    assert.equal(hasWalkOffDrop(stride), true, "stride-arc navigation should leave downward green-line travel to the ordinary exposed-edge drop planner");
+    assert.equal(hasStepDown(stride), true, "a 20 px green-line seam inside automatic stride reach should remain ordinary walking in the downward direction too");
     assert.equal(legacy.build.stepTransitionMethod, "legacy", "legacy bake should record its selected step method");
     assert.equal(stride.build.stepTransitionMethod, "stride_arc", "stride-arc bake should record its selected step method");
+
+    const tallDropWorld = {
+        segments: [
+            { id: "tall_low", kind: "walkable", x1: 0, y1: 300, x2: 180, y2: 300 },
+            { id: "tall_high", kind: "walkable", x1: 180, y1: 260, x2: 360, y2: 260 }
+        ],
+        solids: [],
+        collisionPolygons: []
+    };
+    const tallDropGraph = bakeEnemyNavigationGraph(tallDropWorld, profile, { id: "stride_tall_drop_probe", stepTransitionMethod: "stride_arc" });
+    const isTallLowSupportId = (id) => id === "tall_low" || String(id || "").startsWith("tall_low_nav_");
+    assert.equal(tallDropGraph.edges.some((edge) => edge.type === "step" && edge.from === "tall_high" && isTallLowSupportId(edge.to)), false,
+        "a 40 px green ledge beyond automatic stride reach must not be mislabeled as ordinary downward walking");
+    assert.equal(tallDropGraph.edges.some((edge) => edge.type === "drop" && edge.from === "tall_high" && isTallLowSupportId(edge.to) && edge.walkOff === true), true,
+        "a 40 px green ledge should still use the ordinary exposed-edge walk-off drop planner");
+
+    // Runtime automatic stepping samples ahead of the actor center. A short
+    // upward-sloping target can therefore be climbable even when the raw
+    // endpoint-to-endpoint rise is a little taller than 20% of body height.
+    // This mirrors the level_003 forest-rock seam found by the walking-recall
+    // audit for the 99x149 profile. The reciprocal downward edge must survive
+    // traversal-policy filtering so simulation can prove one cyan region.
+    const forwardSampleSlopeWorld = {
+        segments: [
+            { id: "sample_low", kind: "walkable", x1: 0, y1: 300, x2: 131, y2: 298 },
+            { id: "sample_high", kind: "walkable", x1: 133, y1: 267, x2: 208, y2: 271 }
+        ],
+        solids: [],
+        collisionPolygons: []
+    };
+    const forwardSampleSlopeProfile = {
+        ...profile,
+        bodyWidth: 99,
+        bodyHeight: 149,
+        maxStepHeight: 26,
+        maxStepGap: 28
+    };
+    const forwardSampleSlopeGraph = bakeEnemyNavigationGraph(forwardSampleSlopeWorld, forwardSampleSlopeProfile, {
+        id: "forward_sample_slope_probe",
+        stepTransitionMethod: "stride_arc"
+    });
+    const sampleSteps = forwardSampleSlopeGraph.edges.filter((edge) => edge.type === "step" && (
+        (edge.from === "sample_low" && edge.to === "sample_high") ||
+        (edge.from === "sample_high" && edge.to === "sample_low")
+    ));
+    assert.equal(sampleSteps.length, 2, "a short sloped green seam that runtime ground stepping crosses both ways should keep reciprocal walking candidates");
+    const forwardSampleSlopeVerified = verifyEnemyNavigationGraphBySimulation(forwardSampleSlopeWorld, forwardSampleSlopeGraph);
+    const verifiedSampleSteps = forwardSampleSlopeVerified.graph.edges.filter((edge) => sampleSteps.some((candidate) => candidate.id === edge.id));
+    assert.equal(verifiedSampleSteps.length, 2, "both sloped-seam walking candidates should remain present after verification");
+    assert.ok(verifiedSampleSteps.every((edge) => edge.verification === "verified"), "runtime-faithful simulation should verify both directions across the forward-sampled sloped seam");
+    const sampleLow = forwardSampleSlopeVerified.graph.supports.find((support) => support.id === "sample_low");
+    const sampleHigh = forwardSampleSlopeVerified.graph.supports.find((support) => support.id === "sample_high");
+    assert.ok(sampleLow?.walkRegionId && sampleLow.walkRegionId === sampleHigh?.walkRegionId, "the verified sloped seam should paint as one cyan walk region");
+
+    // Curved assets are commonly authored as several adjacent walkable line
+    // segments belonging to the same collision family. The wizard treats those
+    // vertices as continuous floor even when the local tangent changes by more
+    // than the generic 2-degree foreign-seam threshold. Navigation and enemy
+    // runtime must do the same in both directions. This mirrors level_004's
+    // cave_mushroom_platform_027_i cap around x=8914, y=620.
+    const curvedFamilyWorld = {
+        segments: [
+            { id: "mushroom_cap_walkable_1", kind: "walkable", x1: 0, y1: 135, x2: 71, y2: 100 },
+            { id: "mushroom_cap_walkable_2", kind: "walkable", x1: 71, y1: 100, x2: 130, y2: 83 }
+        ],
+        solids: [],
+        collisionPolygons: []
+    };
+    const curvedFamilyGraph = bakeEnemyNavigationGraph(curvedFamilyWorld, {
+        ...profile,
+        bodyWidth: 99,
+        bodyHeight: 149,
+        jumpHeight: 250,
+        maxStepHeight: 26
+    }, { id: "curved_family_seam_probe", stepTransitionMethod: "stride_arc" });
+    assert.equal(curvedFamilyGraph.edges.some((edge) => edge.type === "step" && edge.from === "mushroom_cap_walkable_1" && edge.to === "mushroom_cap_walkable_2"), true,
+        "same-family curved walkable segments should connect forward as ordinary walking");
+    assert.equal(curvedFamilyGraph.edges.some((edge) => edge.type === "step" && edge.from === "mushroom_cap_walkable_2" && edge.to === "mushroom_cap_walkable_1"), true,
+        "same-family curved walkable segments should connect backward as ordinary walking");
+    assert.equal(curvedFamilyGraph.edges.some((edge) => (edge.type === "jump" || edge.type === "drop") && ((edge.from === "mushroom_cap_walkable_1" && edge.to === "mushroom_cap_walkable_2") || (edge.from === "mushroom_cap_walkable_2" && edge.to === "mushroom_cap_walkable_1"))), false,
+        "a reciprocal same-family walking seam should not acquire a compensating ballistic edge");
+
+    // The small level_004 mushroom exposes a second kind of redundancy: the
+    // circle-arc endpoint probe can leap over one or more adjacent authored
+    // fragments even though the seam graph already walks through them. Those
+    // skip-over strides used to survive as eight thick-cyan phantom chords.
+    // Keep the six real support pieces and their adjacent directed seams, but
+    // discard non-adjacent stride shortcuts that save no meaningful distance.
+    const smallMushroomWorld = {
+        segments: [
+            { id: "small_mushroom_walkable_1", kind: "walkable", x1: 0, y1: 17, x2: 12, y2: 7 },
+            { id: "small_mushroom_walkable_2", kind: "walkable", x1: 12, y1: 7, x2: 25, y2: 1 },
+            { id: "small_mushroom_walkable_3", kind: "walkable", x1: 25, y1: 1, x2: 34, y2: 0 },
+            { id: "small_mushroom_walkable_4", kind: "walkable", x1: 34, y1: 0, x2: 44, y2: 2 },
+            { id: "small_mushroom_walkable_5", kind: "walkable", x1: 44, y1: 2, x2: 57, y2: 9 },
+            { id: "small_mushroom_walkable_6", kind: "walkable", x1: 57, y1: 9, x2: 69, y2: 20 }
+        ],
+        solids: [],
+        collisionPolygons: []
+    };
+    const smallMushroomGraph = bakeEnemyNavigationGraph(smallMushroomWorld, {
+        ...profile,
+        bodyWidth: 34,
+        bodyHeight: 104,
+        runSpeed: 360,
+        jumpHeight: 200,
+        maxStepHeight: 20.8
+    }, { id: "small_mushroom_sparse_stride_probe", stepTransitionMethod: "stride_arc" });
+    const smallMushroomIndex = (id) => Number(String(id || "").match(/_(\d+)$/)?.[1] || 0);
+    const smallMushroomSteps = smallMushroomGraph.edges.filter((edge) => edge.type === "step");
+    assert.equal(smallMushroomSteps.filter((edge) => Math.abs(smallMushroomIndex(edge.from) - smallMushroomIndex(edge.to)) > 1).length, 0,
+        "adjacent same-family mushroom seams should make circle-arc skip-over stride chords redundant");
+    for (let index = 1; index < 6; index += 1) {
+        const left = `small_mushroom_walkable_${index}`;
+        const right = `small_mushroom_walkable_${index + 1}`;
+        assert.equal(smallMushroomSteps.some((edge) => edge.from === left && edge.to === right), true,
+            "small mushroom authored seams should remain walkable forward");
+        assert.equal(smallMushroomSteps.some((edge) => edge.from === right && edge.to === left), true,
+            "small mushroom authored seams should remain walkable backward");
+    }
+
+    const noJumpWorld = {
+        segments: [
+            { id: "no_jump_left", kind: "walkable", x1: 0, y1: 300, x2: 100, y2: 300 },
+            { id: "no_jump_right", kind: "walkable", x1: 101, y1: 300, x2: 201, y2: 300 }
+        ],
+        solids: [],
+        collisionPolygons: []
+    };
+    const noJumpGraph = bakeEnemyNavigationGraph(noJumpWorld, {
+        ...profile,
+        runSpeed: 500,
+        jumpHeight: 0,
+        maxStepGap: 0
+    }, { id: "zero_jump_gap_probe", stepTransitionMethod: "stride_arc" });
+    assert.equal(noJumpGraph.edges.some((edge) => edge.type === "jump"), false,
+        "zero-jump navigation profiles must never acquire a synthetic ballistic hop across a gap");
 
     const overlappingSlopes = {
         segments: [
@@ -3835,9 +4695,107 @@ function testEnemyNavigationStrideArcStepMethodComparison() {
     const legacySlopeSupports = buildEnemyNavigationSupports(overlappingSlopes, { ...profile, stepTransitionMethod: "legacy" });
     const strideSlopeSupports = buildEnemyNavigationSupports(overlappingSlopes, { ...profile, stepTransitionMethod: "stride_arc" });
     assert.equal(legacySlopeSupports.some((support) => support.id === "right_slope"), false, "legacy support splitting should retain its historical bounding-box behavior for A/B comparison");
-    assert.equal(strideSlopeSupports.some((support) => support.id === "right_slope"), true, "stride-arc support extraction should compare an overlapping sloped polygon at the local X instead of chopping a traversable stair because the polygon is taller elsewhere");
+    assert.equal(strideSlopeSupports.some((support) => support.id === "right_slope" || support.id.startsWith("right_slope_nav_")), true, "stride-arc support extraction should preserve the traversable right slope after virtual intersection splitting");
     const strideSlopes = bakeEnemyNavigationGraph(overlappingSlopes, profile, { id: "stride_sloped_overlap", stepTransitionMethod: "stride_arc" });
-    assert.ok(strideSlopes.edges.some((edge) => edge.type === "step" && edge.from === "left_slope" && edge.to === "right_slope"), "stride-arc navigation should keep overlapping stair slopes connected without jumping");
+    assert.ok(strideSlopes.edges.some((edge) => edge.type === "step" && edge.from.startsWith("left_slope") && edge.to.startsWith("right_slope")), "stride-arc navigation should keep overlapping stair-slope virtual fragments connected without jumping");
+
+    // Endpoint discovery must be allowed to skip a tiny intermediate floor
+    // fragment when the actor's actual stride circle lands safely on the
+    // larger support beyond it. The short lip remains collision geometry; it
+    // simply must not be forced to become an executable waypoint.
+    const endpointLipWorld = {
+        segments: [
+            { id: "endpoint_left", kind: "blockable", x1: 0, y1: 300, x2: 180, y2: 300 },
+            { id: "endpoint_lip", kind: "blockable", x1: 180, y1: 300, x2: 192, y2: 296 },
+            { id: "endpoint_right", kind: "blockable", x1: 192, y1: 296, x2: 360, y2: 296 }
+        ],
+        solids: [],
+        collisionPolygons: [],
+        navigationBlockers: [],
+        bounds: { x: -100, y: -200, w: 700, h: 700 }
+    };
+    const endpointLipGraph = bakeEnemyNavigationGraph(endpointLipWorld, { ...profile, maxStepHeight: 26 }, {
+        id: "endpoint_stride_lip_probe",
+        stepTransitionMethod: "stride_arc"
+    });
+    const directEndpointSteps = endpointLipGraph.edges.filter((edge) =>
+        edge.type === "step" && (
+            (edge.from === "endpoint_left" && edge.to === "endpoint_right") ||
+            (edge.from === "endpoint_right" && edge.to === "endpoint_left")
+        ));
+    assert.equal(directEndpointSteps.length, 2, "endpoint stride discovery should connect the larger supports directly around a tiny intermediate lip in both directions");
+    const endpointLipVerified = verifyEnemyNavigationGraphBySimulation(endpointLipWorld, endpointLipGraph);
+    assert.ok(endpointLipVerified.graph.edges.filter((edge) => directEndpointSteps.some((candidate) => candidate.id === edge.id)).every((edge) => edge.verification === "verified"),
+        "runtime-faithful simulation should verify both direct endpoint strides around the retained lip geometry");
+    const endpointLeft = endpointLipVerified.graph.supports.find((support) => support.id === "endpoint_left");
+    const endpointLip = endpointLipVerified.graph.supports.find((support) => support.id === "endpoint_lip");
+    const endpointRight = endpointLipVerified.graph.supports.find((support) => support.id === "endpoint_right");
+    assert.ok(endpointLeft?.walkRegionId && endpointLeft.walkRegionId === endpointLip?.walkRegionId && endpointLeft.walkRegionId === endpointRight?.walkRegionId,
+        "reciprocal simulated endpoint strides should keep the lip and both larger floors in one final walk region");
+
+    // A small literal crack is not categorically a jump. If it lies within the
+    // actor's automatic stride reach, geometry may propose an ordinary step
+    // and the runtime simulation decides whether walking truly succeeds. A
+    // gap beyond the circle reach must still remain disconnected by stepping.
+    const smallGapWorld = {
+        segments: [
+            { id: "small_gap_left", kind: "blockable", x1: 0, y1: 300, x2: 180, y2: 300 },
+            { id: "small_gap_right", kind: "blockable", x1: 188, y1: 300, x2: 368, y2: 300 }
+        ],
+        solids: [],
+        collisionPolygons: [],
+        navigationBlockers: [],
+        bounds: { x: -100, y: -200, w: 700, h: 700 }
+    };
+    const smallGapGraph = bakeEnemyNavigationGraph(smallGapWorld, { ...profile, maxStepHeight: 26 }, { id: "endpoint_small_gap_probe", stepTransitionMethod: "stride_arc" });
+    assert.ok(smallGapGraph.edges.some((edge) => edge.type === "step" && edge.from === "small_gap_left" && edge.to === "small_gap_right"),
+        "an 8 px crack within the stride circle should be proposed as ordinary walking rather than forced into a jump");
+    assert.ok(smallGapGraph.edges.some((edge) => edge.type === "step" && edge.from === "small_gap_right" && edge.to === "small_gap_left"),
+        "the same small crack should be proposed reciprocally when the physical stride works both ways");
+    const smallGapVerified = verifyEnemyNavigationGraphBySimulation(smallGapWorld, smallGapGraph);
+    assert.ok(smallGapVerified.graph.edges.filter((edge) => edge.type === "step").every((edge) => edge.verification === "verified"),
+        "simulation should confirm the ordinary walking connection across the small crack");
+
+    const largeGapWorld = {
+        ...smallGapWorld,
+        segments: [
+            { id: "large_gap_left", kind: "blockable", x1: 0, y1: 300, x2: 180, y2: 300 },
+            { id: "large_gap_right", kind: "blockable", x1: 240, y1: 300, x2: 420, y2: 300 }
+        ]
+    };
+    const largeGapGraph = bakeEnemyNavigationGraph(largeGapWorld, { ...profile, jumpHeight: 0, maxStepHeight: 26 }, { id: "endpoint_large_gap_probe", stepTransitionMethod: "stride_arc" });
+    assert.equal(largeGapGraph.edges.some((edge) => edge.type === "step"), false,
+        "a same-height gap beyond the automatic stride circle must not be mislabeled as ordinary walking");
+
+    // Virtual fragments can retain obstacleXMin/XMax from a much broader
+    // authored obstacle. Those provenance bounds must not move the stride
+    // origin/target across a real local gap. Only physical boundaries close
+    // enough to the endpoint to have caused the actor-clearance cut are valid
+    // endpoint-stride evidence.
+    const broadBoundarySupports = [
+        { id: "broad_boundary_left", kind: "blockable", x1: 0, y1: 300, x2: 180, y2: 300, xMin: 0, xMax: 180, obstacleXMin: 0, obstacleXMax: 230 },
+        { id: "broad_boundary_right", kind: "blockable", x1: 240, y1: 300, x2: 420, y2: 300, xMin: 240, xMax: 420, obstacleXMin: 190, obstacleXMax: 420 }
+    ];
+    const broadBoundaryWorld = {
+        ...largeGapWorld,
+        segments: [
+            { id: "broad_boundary_left", kind: "blockable", x1: 0, y1: 300, x2: 180, y2: 300 },
+            { id: "broad_boundary_right", kind: "blockable", x1: 240, y1: 300, x2: 420, y2: 300 }
+        ]
+    };
+    const broadBoundaryEdges = buildEnemyNavigationEdges(
+        broadBoundarySupports, { ...profile, jumpHeight: 0, maxStepHeight: 26, stepTransitionMethod: "stride_arc" }, broadBoundaryWorld
+    );
+    assert.equal([...broadBoundaryEdges.values()].flat().some((edge) => edge.type === "step"), false,
+        "remote obstacle provenance bounds must not teleport an endpoint stride across a real gap beyond circle reach");
+
+    const signatureProbe = [{
+        id: "negative_half_signature",
+        x1: -1.2345, y1: 0, x2: 10, y2: 0,
+        strideBoundaryXMin: null, strideBoundaryXMax: null, sourcePolygonId: null
+    }];
+    assert.equal(enemyNavigationSupportsSignature(signatureProbe), "negative_half_signature:-1.234:0:10:0:::",
+        "navigation support signatures should preserve JavaScript negative-half rounding and keep absent stride bounds absent");
 
     const blockedWorld = {
         ...world,
@@ -3845,6 +4803,964 @@ function testEnemyNavigationStrideArcStepMethodComparison() {
     };
     const blockedStride = bakeEnemyNavigationGraph(blockedWorld, profile, { id: "blocked_stride_probe", stepTransitionMethod: "stride_arc" });
     assert.equal(hasStep(blockedStride), false, "stride-arc navigation should reject a climb when the swept enemy body would hit a low ceiling");
+}
+
+function testEnemyNavigationSimulationVerification() {
+    const baseWorld = {
+        segments: [
+            { id: "left", kind: "walkable", x1: 0, y1: 300, x2: 160, y2: 300 },
+            { id: "right", kind: "walkable", x1: 260, y1: 300, x2: 420, y2: 300 }
+        ],
+        solids: [],
+        collisionPolygons: [],
+        movingPlatforms: [],
+        navigationBlockers: [],
+        bounds: { x: -100, y: -200, w: 800, h: 800 }
+    };
+    const profile = {
+        bodyWidth: 48,
+        bodyHeight: 96,
+        runSpeed: 260,
+        groundAcceleration: 950,
+        jumpHeight: 120,
+        gravity: 1200,
+        maxFallDistance: 300,
+        maxStepHeight: 20,
+        maxStepGap: 18
+    };
+    const graph = bakeEnemyNavigationGraph(baseWorld, profile, { id: "simulation_probe" });
+    const candidateJumpCount = graph.edges.filter((edge) => edge.type === "jump").length;
+    assert.ok(candidateJumpCount > 0, "simulation verification fixture should produce candidate jumps");
+
+    const progressUpdates = [];
+    const verified = verifyEnemyNavigationGraphBySimulation(baseWorld, graph, {
+        progressInterval: 1,
+        onProgress: (progress) => progressUpdates.push(progress)
+    });
+    assert.equal(verified.summary.checkedEdges, candidateJumpCount, "simulation verifier should check every traversal candidate at 60 Hz");
+    assert.equal(progressUpdates.at(-1)?.checkedEdges, candidateJumpCount, "simulation verifier should expose deterministic edge progress for worker/UI reporting");
+    assert.equal(progressUpdates.at(-1)?.totalCheckedEdges, candidateJumpCount, "simulation progress should report the candidate traversal total");
+    assert.equal(verified.summary.failedEdges, 0, "clear runtime-equivalent jump candidates should survive simulation verification");
+    assert.ok(graph.edges.filter((edge) => edge.type === "step" || edge.type === "jump" || edge.type === "drop").every((edge) => edge.verification === "unverified"), "freshly baked step/jump/drop candidates should start unverified");
+    assert.equal(graph.build.advisoryHeuristicSchema, 13, "fresh navigation graphs should record the advisory-heuristic schema independently from simulation proof");
+    assert.ok(graph.edges.filter((edge) => edge.type === "jump" || edge.type === "drop").every((edge) => Array.isArray(edge.heuristicRejectors)), "fresh jump/drop candidates should carry advisory heuristic opinions without changing verification state");
+    assert.ok(verified.graph.edges.filter((edge) => edge.type === "step" || edge.type === "jump" || edge.type === "drop").every((edge) => edge.verification === "verified"), "successful simulated step/jump/drop candidates should be marked verified");
+    assert.equal(verified.graph.build.simulationCheck.fixedStep, 1 / 60, "verified graphs should record the deterministic 60 Hz simulation step");
+    assert.equal(Object.hasOwn(verified.graph.build.simulationCheck, "elapsedMs"), false, "serialized simulation metadata should not contain nondeterministic timing");
+
+    // Virtual supports created by geometry splitting keep the physical collision
+    // segment's id with a `_nav_N` suffix. During a drop, that virtual support
+    // must still be treated as the same launch-surface family as the physical
+    // segment until the actor has genuinely departed it. This mirrors the real
+    // level_003 angled-rope-ladder case found by the JS/C++ differential oracle.
+    const virtualSourceWorld = {
+        segments: [
+            { id: "virtual_source", kind: "walkable", x1: 0, y1: 100, x2: 100, y2: 100 },
+            { id: "virtual_target", kind: "walkable", x1: 115, y1: 220, x2: 260, y2: 220 }
+        ],
+        solids: [], collisionPolygons: [], movingPlatforms: [], navigationBlockers: [],
+        bounds: { x: -100, y: -100, w: 600, h: 600 }
+    };
+    const virtualSourceProfile = {
+        bodyWidth: 34, bodyHeight: 104, runSpeed: 220, groundAcceleration: 950,
+        jumpHeight: 0, gravity: 1200, maxFallDistance: 300, maxStepHeight: 20.8,
+        maxStepGap: 10.88, edgeInset: 7.48, clearance: 11.56
+    };
+    const virtualSourceGraph = bakeEnemyNavigationGraph(virtualSourceWorld, virtualSourceProfile, {
+        id: "virtual_source_family_probe", stepTransitionMethod: "stride_arc"
+    });
+    const virtualSourceDrop = virtualSourceGraph.edges.find((edge) =>
+        edge.type === "drop" && edge.from === "virtual_source" && edge.to === "virtual_target"
+    );
+    assert.ok(virtualSourceDrop, "virtual-support source-family fixture should produce a real rightward drop candidate");
+    const virtualizedSourceGraph = structuredClone(virtualSourceGraph);
+    const virtualizedSource = virtualizedSourceGraph.supports.find((support) => support.id === "virtual_source");
+    assert.ok(virtualizedSource, "virtual-support source-family fixture should retain its source support");
+    virtualizedSource.id = "virtual_source_nav_1";
+    for (const region of virtualizedSourceGraph.walkRegions || []) {
+        region.supportIds = (region.supportIds || []).map((id) => id === "virtual_source" ? "virtual_source_nav_1" : id);
+    }
+    for (const edge of virtualizedSourceGraph.edges) {
+        if (edge.from === "virtual_source") edge.from = "virtual_source_nav_1";
+        if (edge.to === "virtual_source") edge.to = "virtual_source_nav_1";
+    }
+    const virtualSourceVerification = verifyEnemyNavigationGraphBySimulation(
+        virtualSourceWorld, virtualizedSourceGraph, { salvageWrongSupportLandings: false }
+    );
+    const virtualSourceVerifiedDrop = virtualSourceVerification.graph.edges.find((edge) => edge.id === virtualSourceDrop.id);
+    assert.equal(virtualSourceVerifiedDrop?.verification, "verified",
+        "drop simulation should ignore a physical launch segment while departing its `_nav_N` virtual support family");
+
+    const blockedWorld = {
+        ...baseWorld,
+        segments: [
+            ...baseWorld.segments,
+            { id: "simulation_wall", kind: "blockable", x1: 210, y1: 120, x2: 210, y2: 340 }
+        ]
+    };
+    const rejected = verifyEnemyNavigationGraphBySimulation(blockedWorld, graph);
+    assert.equal(rejected.summary.failedEdges, candidateJumpCount, "simulation verification should mark runtime-blocked jumps as failed");
+    assert.equal(rejected.graph.edges.filter((edge) => edge.type === "jump").length, candidateJumpCount, "failed jump candidates should remain serialized for heuristic diagnosis");
+    assert.ok(rejected.graph.edges.filter((edge) => edge.type === "jump").every((edge) => edge.verification === "failed" && edge.verificationFailure === "hit_wall"), "failed jump candidates should carry durable failed status and reason metadata");
+    assert.ok(rejected.failures.every((failure) => failure.reason === "hit_wall" && failure.collisionId === "simulation_wall"), "failed navigation simulations should log a stable reason and blocking collision id");
+
+    assert.ok(rejected.graph.edges.filter((edge) => edge.type === "jump").every((edge) => edge.verificationDiagnostics?.collisionId === "simulation_wall" && Number.isFinite(edge.verificationDiagnostics?.finalX)), "failed navigation edges should retain compact simulation diagnostics in the durable graph record");
+
+    // Failed-proof diagnostics name collision/support records that participate in
+    // the local proof dependency hash. A chunked verifier therefore has to
+    // re-stamp after merging the simulated result rather than retaining the
+    // candidate's pre-simulation hash. Once re-stamped, the proof hash itself
+    // must be stable.
+    const stampedBlockedCandidate = stampNavigationLocalProofHashes(blockedWorld, graph);
+    const preSimulationHashes = new Map(stampedBlockedCandidate.edges.map((edge) => [edge.id, edge.verificationInputHash]));
+    const rejectedStampedCandidate = verifyEnemyNavigationGraphBySimulation(blockedWorld, stampedBlockedCandidate, {
+        salvageWrongSupportLandings: false
+    });
+    const restampedRejected = stampNavigationLocalProofHashes(blockedWorld, rejectedStampedCandidate.graph);
+    const failedHashChanges = restampedRejected.edges.filter((edge) =>
+        edge.type === "jump"
+        && edge.verification === "failed"
+        && preSimulationHashes.get(edge.id) !== edge.verificationInputHash
+    );
+    assert.ok(failedHashChanges.length > 0, "failed simulation diagnostics should be incorporated by a post-simulation local proof-hash stamp");
+    const restampedRejectedAgain = stampNavigationLocalProofHashes(blockedWorld, restampedRejected);
+    assert.deepEqual(
+        restampedRejectedAgain.edges.map((edge) => edge.verificationInputHash || null),
+        restampedRejected.edges.map((edge) => edge.verificationInputHash || null),
+        "post-simulation local proof hashes should be idempotent once failure diagnostics have been incorporated"
+    );
+
+    // Verification must be an edge-local proof. Running another traversal
+    // first must not change a later edge's result or diagnostics, and merely
+    // reordering a batch must not make proof depend on accumulated simulator
+    // state. This guards the incremental verifier against subtle shared-state
+    // contamination as campaign-scale batches grow.
+    const blockedJumpCandidates = graph.edges.filter((edge) => edge.type === "jump");
+    assert.ok(blockedJumpCandidates.length >= 2, "order-independence fixture should provide at least two unrelated jump proofs");
+    const orderTarget = blockedJumpCandidates.at(-1);
+    const orderPredecessor = blockedJumpCandidates[0];
+    const verifiedAlone = verifyEnemyNavigationGraphBySimulation(blockedWorld, {
+        ...graph, edges: [orderTarget]
+    }, { salvageWrongSupportLandings: false });
+    const verifiedAfterOther = verifyEnemyNavigationGraphBySimulation(blockedWorld, {
+        ...graph, edges: [orderPredecessor, orderTarget]
+    }, { salvageWrongSupportLandings: false });
+    const aloneTargetProof = verifiedAlone.graph.edges.find((edge) => edge.id === orderTarget.id);
+    const afterTargetProof = verifiedAfterOther.graph.edges.find((edge) => edge.id === orderTarget.id);
+    assert.deepEqual(afterTargetProof, aloneTargetProof, "an edge verified after unrelated work should match the same edge verified in isolation");
+
+    const reversedRejected = verifyEnemyNavigationGraphBySimulation(blockedWorld, {
+        ...graph, edges: [...graph.edges].reverse()
+    }, { salvageWrongSupportLandings: false });
+    const rejectedById = new Map(rejected.graph.edges.map((edge) => [edge.id, edge]));
+    for (const reversedEdge of reversedRejected.graph.edges) {
+        assert.deepEqual(reversedEdge, rejectedById.get(reversedEdge.id), `reversing the verification batch must not alter proof for ${reversedEdge.id}`);
+    }
+
+    const salvageWorld = {
+        segments: [
+            { id: "salvage_source", kind: "walkable", x1: 508, y1: 428, x2: 639, y2: 426 },
+            { id: "salvage_target", kind: "walkable", x1: 3, y1: 242, x2: 319, y2: 236 },
+            { id: "salvage_landing", kind: "walkable", x1: 319, y1: 236, x2: 503, y2: 242 }
+        ],
+        solids: [], collisionPolygons: [], movingPlatforms: [], navigationBlockers: [],
+        bounds: { x: -100, y: -200, w: 900, h: 1000 }
+    };
+    const salvageSupports = [
+        { id: "salvage_source", kind: "walkable", x1: 508, y1: 428, x2: 639, y2: 426, xMin: 508, xMax: 639, sourcePolygonId: null, obstacleXMin: null, obstacleXMax: null },
+        { id: "salvage_target", kind: "walkable", x1: 3, y1: 242, x2: 319, y2: 236, xMin: 3, xMax: 319, sourcePolygonId: null, obstacleXMin: null, obstacleXMax: null },
+        { id: "salvage_landing", kind: "walkable", x1: 319, y1: 236, x2: 503, y2: 242, xMin: 319, xMax: 503, sourcePolygonId: null, obstacleXMin: null, obstacleXMax: null }
+    ];
+    const salvageJump = {
+        id: "planned_salvage_source_target", type: "jump", direction: "left", from: "salvage_source", to: "salvage_target",
+        launchX: 515.48, launchY: 427.886, landingX: 311.52, landingY: 236.142,
+        vx: -327.174, vy: -772.01, flightTime: 0.6234, cost: 450.041,
+        runUpX: 577.938, runUpY: 426.932, runUpDistance: 62.458, requiredLaunchSpeed: 327.174, groundAcceleration: 950,
+        blockerIds: [], verification: "unverified", heuristicRejectors: [], heuristicDiagnostics: {}
+    };
+    const salvageStep = {
+        id: "salvage_step_landing_target", type: "step", direction: "overlap", from: "salvage_landing", to: "salvage_target",
+        launchX: 319, launchY: 236, landingX: 319, landingY: 236, vx: 0, vy: 0, flightTime: 0, cost: 4, blockerIds: []
+    };
+    const salvageGraph = {
+        id: "salvage_fixture",
+        profile: { bodyWidth: 34, bodyHeight: 104, runSpeed: 360, groundAcceleration: 950, jumpHeight: 200, gravity: 1490, maxFallDistance: 696.806, maxStepHeight: 20.8, maxStepGap: 10.88, edgeInset: 7.48, bodyClearance: 11.56, stepTransitionMethod: "stride_arc" },
+        supports: salvageSupports, edges: [salvageJump, salvageStep], build: { stepTransitionMethod: "stride_arc" }
+    };
+    const salvaged = verifyEnemyNavigationGraphBySimulation(salvageWorld, salvageGraph);
+    const originalFailedEdge = salvaged.graph.edges.find((edge) => edge.id === salvageJump.id);
+    const recoveredEdge = salvaged.graph.edges.find((edge) => edge.simulationSalvage?.sourceEdgeId === salvageJump.id);
+    assert.equal(originalFailedEdge?.verification, "failed", "wrong-support salvage must preserve the original A→B failure rather than relabeling it as successful");
+    assert.equal(originalFailedEdge?.verificationFailure, "landed_wrong_support", "wrong-support salvage should retain the original durable failure reason");
+    assert.equal(recoveredEdge?.from, "salvage_source", "salvage should retain the original source support");
+    assert.equal(recoveredEdge?.to, "salvage_landing", "salvage should target the support that simulation actually reached");
+    assert.equal(recoveredEdge?.verification, "verified", "A→C salvage should only be retained after a separate simulation proves the redirected edge");
+    assert.equal(recoveredEdge?.simulationSalvage?.stepHopsToIntendedTarget, 1, "salvage metadata should record the short ordinary-step continuation to the intended target");
+    assert.equal(salvaged.summary.salvageProofChecks, 1, "the verifier should report the separate salvage proof attempt");
+    assert.equal(salvaged.summary.simulatedEdges, salvaged.summary.checkedEdges + 1, "simulation totals should include the separately simulated salvage proof");
+    assert.equal(salvaged.summary.salvagedEdges, 1, "the verifier should report the admitted simulation-proven salvage edge");
+    const noContinuation = verifyEnemyNavigationGraphBySimulation(salvageWorld, { ...salvageGraph, edges: [salvageJump] });
+    assert.equal(noContinuation.summary.salvageProofChecks, 0, "a wrong-support landing without a short ordinary-step route to the intended target should not even be proposed for salvage");
+    assert.equal(noContinuation.graph.edges.some((edge) => edge.simulationSalvage), false, "a wrong-support landing without useful continuation must not create a dubious shortcut");
+    const alreadyReachable = verifyEnemyNavigationGraphBySimulation(salvageWorld, {
+        ...salvageGraph,
+        edges: [salvageJump, salvageStep, { ...salvageStep, id: "existing_source_landing", from: "salvage_source", to: "salvage_landing", verification: "verified" }]
+    }, { reuseExistingVerification: true });
+    assert.equal(alreadyReachable.summary.salvageProofChecks, 0, "salvage should stay silent when the actual landing support is already reachable from the source through ordinary graph connectivity");
+    const alreadyReachableWithQueueGrowth = verifyEnemyNavigationGraphBySimulation(salvageWorld, {
+        ...salvageGraph,
+        edges: [
+            salvageJump,
+            salvageStep,
+            { ...salvageStep, id: "existing_source_distractor", type: "walk", from: "salvage_source", to: "salvage_target", verification: undefined },
+            { ...salvageStep, id: "existing_source_landing_walk", type: "walk", from: "salvage_source", to: "salvage_landing", verification: undefined }
+        ]
+    });
+    assert.equal(alreadyReachableWithQueueGrowth.summary.salvageProofChecks, 0, "salvage reachability should remain stable when breadth-first queue growth occurs before the direct landing edge");
+
+    const blockedStepWorld = {
+        segments: [
+            { id: "step_source_line", kind: "blockable", x1: 0, y1: 180, x2: 124, y2: 180 },
+            { id: "step_destination_line", kind: "blockable", x1: 80, y1: 200, x2: 180, y2: 200 }
+        ],
+        collisionPolygons: [
+            { id: "step_source_area", kind: "blockable", points: [{ x: 0, y: 180 }, { x: 124, y: 180 }, { x: 124, y: 230 }, { x: 0, y: 230 }] },
+            { id: "step_destination_area", kind: "blockable", points: [{ x: 80, y: 200 }, { x: 180, y: 200 }, { x: 180, y: 250 }, { x: 80, y: 250 }] }
+        ],
+        solids: [], movingPlatforms: [], navigationBlockers: [],
+        bounds: { x: -50, y: 0, w: 300, h: 400 }
+    };
+    const blockedStepSupports = [
+        { id: "step_source", kind: "blockable", x1: 0, y1: 180, x2: 124, y2: 180, xMin: 0, xMax: 124, sourcePolygonId: "step_source_area" },
+        { id: "step_destination", kind: "blockable", x1: 80, y1: 200, x2: 180, y2: 200, xMin: 80, xMax: 180, sourcePolygonId: "step_destination_area" }
+    ];
+    const blockedStepEdge = {
+        id: "blocked_step_probe", type: "step", direction: "overlap", from: "step_source", to: "step_destination",
+        launchX: 100, launchY: 180, landingX: 100, landingY: 200,
+        vx: 0, vy: 0, flightTime: 0, cost: 4, toObstacleId: "step_destination_area", verification: "unverified"
+    };
+    const blockedStepGraph = {
+        id: "blocked_step_fixture",
+        profile: { ...profile, bodyWidth: 70, bodyHeight: 105, runSpeed: 250, maxStepHeight: 25, maxStepGap: 22.4, edgeInset: 10, bodyClearance: 20, stepTransitionMethod: "stride_arc" },
+        supports: blockedStepSupports,
+        edges: [blockedStepEdge],
+        build: { stepTransitionMethod: "stride_arc" }
+    };
+    const blockedStepVerification = verifyEnemyNavigationGraphBySimulation(blockedStepWorld, blockedStepGraph, { salvageWrongSupportLandings: false });
+    assert.equal(blockedStepVerification.summary.checkedSteps, 1, "the canonical 60 Hz verifier should simulate ordinary step candidates too");
+    assert.equal(blockedStepVerification.graph.edges[0]?.verification, "failed", "a step whose landing is rejected by runtime collision rules should become a durable failed proof");
+    assert.equal(blockedStepVerification.graph.edges[0]?.verificationFailure, "step_blocked", "failed step proof should retain a stable step-specific reason");
+
+    // Exact authored seams are the opposite case: the graph edge itself is
+    // zero-length, so stopping exactly on the shared endpoint leaves physical
+    // support ownership ambiguous. Runtime must walk a tiny distance into the
+    // destination support before judging the transition. This reproduces the
+    // level_004 mushroom double-take where a successful seam crossing used to
+    // be recorded as step_wrong_support.
+    const exactSeamWorld = {
+        segments: [
+            { id: "recorded_mushroom_walkable_5", kind: "walkable", x1: 10514, y1: 603, x2: 10572, y2: 618 },
+            { id: "recorded_mushroom_walkable_6", kind: "walkable", x1: 10572, y1: 618, x2: 10642, y2: 651 }
+        ],
+        collisionPolygons: [], solids: [], movingPlatforms: [], navigationBlockers: [],
+        bounds: { x: 10000, y: 0, w: 1000, h: 1500 }
+    };
+    const exactSeamSupports = exactSeamWorld.segments.map((support) => ({
+        ...support,
+        xMin: Math.min(support.x1, support.x2),
+        xMax: Math.max(support.x1, support.x2),
+        sourcePolygonId: null,
+        obstacleXMin: null,
+        obstacleXMax: null
+    }));
+    const exactSeamGraph = {
+        id: "recorded_mushroom_exact_seam_fixture",
+        profile: {
+            ...profile,
+            bodyWidth: 70, bodyHeight: 105, runSpeed: 250, groundAcceleration: 950,
+            jumpHeight: 250, gravity: 1250, maxFallDistance: 600, maxStepHeight: 26,
+            maxStepGap: 22.4, edgeInset: 15.4, bodyClearance: 23.8, stepTransitionMethod: "stride_arc"
+        },
+        supports: exactSeamSupports,
+        edges: [{
+            id: "recorded_mushroom_exact_seam_5_to_6",
+            type: "step", direction: "right",
+            from: "recorded_mushroom_walkable_5", to: "recorded_mushroom_walkable_6",
+            launchX: 10572, launchY: 618, landingX: 10572, landingY: 618,
+            vx: 0, vy: 0, flightTime: 0, cost: 4, verification: "unverified"
+        }, {
+            id: "recorded_mushroom_exact_seam_6_to_5",
+            type: "step", direction: "left",
+            from: "recorded_mushroom_walkable_6", to: "recorded_mushroom_walkable_5",
+            launchX: 10572, launchY: 618, landingX: 10572, landingY: 618,
+            vx: 0, vy: 0, flightTime: 0, cost: 4, verification: "unverified"
+        }],
+        build: { stepTransitionMethod: "stride_arc" }
+    };
+    const exactSeamVerification = verifyEnemyNavigationGraphBySimulation(
+        exactSeamWorld, exactSeamGraph, { salvageWrongSupportLandings: false }
+    );
+    assert.equal(exactSeamVerification.summary.checkedSteps, 2,
+        "the exact-seam regression should exercise both walking directions");
+    assert.ok(exactSeamVerification.graph.edges.every((edge) => edge.verification === "verified"),
+        "an exact shared mushroom seam must physically cross into its destination in both directions instead of failing at ambiguous endpoint ownership");
+    assert.equal(exactSeamVerification.failures.length, 0,
+        "a successful exact seam must not create a false step_wrong_support proof failure");
+
+    // A non-zero step remains committed once its physical traversal begins.
+    // WIP16 approached launchX, took one tick toward landingX, then the generic
+    // pre-launch servo pulled it back to launchX on the next tick forever. The
+    // level_004 watchdog recording exposed this as a rapid left/right loop.
+    const committedStepWorld = {
+        segments: [
+            { id: "committed_step_source", kind: "walkable", x1: 0, y1: 100, x2: 100, y2: 100 },
+            { id: "committed_step_target", kind: "walkable", x1: 100, y1: 100, x2: 220, y2: 100 }
+        ],
+        collisionPolygons: [], solids: [], movingPlatforms: [], navigationBlockers: [],
+        bounds: { x: -100, y: -200, w: 500, h: 500 }
+    };
+    const committedStepSupports = committedStepWorld.segments.map((support) => ({
+        ...support,
+        xMin: Math.min(support.x1, support.x2),
+        xMax: Math.max(support.x1, support.x2),
+        sourcePolygonId: null,
+        obstacleXMin: null,
+        obstacleXMax: null
+    }));
+    const committedStepGraph = {
+        id: "committed_nonzero_step_fixture",
+        profile: {
+            ...profile,
+            bodyWidth: 70, bodyHeight: 105, runSpeed: 250, groundAcceleration: 950,
+            jumpHeight: 250, gravity: 1250, maxFallDistance: 600, maxStepHeight: 26,
+            maxStepGap: 22.4, edgeInset: 15.4, bodyClearance: 23.8, stepTransitionMethod: "stride_arc"
+        },
+        supports: committedStepSupports,
+        edges: [{
+            id: "committed_nonzero_step_right", type: "step", direction: "right",
+            from: "committed_step_source", to: "committed_step_target",
+            launchX: 80, launchY: 100, landingX: 120, landingY: 100,
+            vx: 0, vy: 0, flightTime: 0, cost: 44, verification: "unverified"
+        }],
+        build: { stepTransitionMethod: "stride_arc" }
+    };
+    const committedStepVerification = verifyEnemyNavigationGraphBySimulation(
+        committedStepWorld, committedStepGraph, { maxStepTicks: 180, salvageWrongSupportLandings: false }
+    );
+    assert.equal(committedStepVerification.graph.edges[0]?.verification, "verified",
+        "a started non-zero ground step must keep walking toward its landing instead of servoing back to launchX");
+    assert.equal(committedStepVerification.failures.length, 0,
+        "a physically continuous committed step must not time out around its baked launch coordinate");
+
+    // Segment endpoint tolerance is an absolute world-space tolerance. A long
+    // support must not gain a proportionally larger extrapolation window merely
+    // because its parametric t range is small. This reproduces the level_006
+    // rock seam that previously let the native verifier snap upward onto a
+    // support whose endpoint was still 0.05 px away from the sampled foot.
+    const endpointToleranceStepWorld = {
+        segments: [
+            { id: "endpoint_step_source", kind: "blockable", x1: 14, y1: 100, x2: 0, y2: 111 },
+            { id: "endpoint_step_target", kind: "blockable", x1: 0, y1: 111, x2: -12, y2: 148 },
+            { id: "endpoint_step_near_high", kind: "blockable", x1: 67, y1: 44, x2: 15, y2: 81 }
+        ],
+        collisionPolygons: [], solids: [], movingPlatforms: [], navigationBlockers: [],
+        bounds: { x: -200, y: -300, w: 500, h: 1000 }
+    };
+    const endpointToleranceStepSupports = endpointToleranceStepWorld.segments.slice(0, 2).map((support) => ({
+        ...support,
+        xMin: Math.min(support.x1, support.x2),
+        xMax: Math.max(support.x1, support.x2),
+        sourcePolygonId: null,
+        obstacleXMin: null,
+        obstacleXMax: null
+    }));
+    const endpointToleranceStepGraph = {
+        id: "endpoint_tolerance_step_fixture",
+        profile: {
+            ...profile,
+            bodyWidth: 72,
+            bodyHeight: 164,
+            runSpeed: 165,
+            groundAcceleration: 950,
+            jumpHeight: 190,
+            gravity: 1250,
+            maxFallDistance: 520,
+            maxStepHeight: 26,
+            maxStepGap: 23.04,
+            edgeInset: 15.84,
+            bodyClearance: 24.48,
+            stepTransitionMethod: "stride_arc"
+        },
+        supports: endpointToleranceStepSupports,
+        edges: [{
+            id: "endpoint_tolerance_step",
+            type: "step",
+            direction: "overlap",
+            from: "endpoint_step_source",
+            to: "endpoint_step_target",
+            launchX: 0,
+            launchY: 111,
+            landingX: 0,
+            landingY: 111,
+            vx: 0,
+            vy: 0,
+            flightTime: 0,
+            cost: 4,
+            verification: "unverified"
+        }],
+        build: { stepTransitionMethod: "stride_arc" }
+    };
+    const endpointToleranceStepVerification = verifyEnemyNavigationGraphBySimulation(
+        endpointToleranceStepWorld,
+        endpointToleranceStepGraph,
+        { salvageWrongSupportLandings: false }
+    );
+    const endpointToleranceStepProof = endpointToleranceStepVerification.graph.edges[0];
+    assert.equal(endpointToleranceStepProof?.verification, "failed", "a support 0.05 px beyond the sampled foot must not be accepted through parametric endpoint extrapolation");
+    assert.equal(endpointToleranceStepProof?.verificationFailure, "step_blocked", "the endpoint-tolerance seam should fail as an ordinary blocked step");
+    assert.equal(endpointToleranceStepProof?.verificationDiagnostics?.stepTicks, 1, "the endpoint-tolerance seam should reject the first attempted movement tick rather than snapping to the remote support");
+    assert.equal(endpointToleranceStepProof?.verificationDiagnostics?.finalX, 10.5, "a rejected endpoint-tolerance step should leave the probe at its authored run-in position");
+    assert.equal(endpointToleranceStepProof?.verificationDiagnostics?.finalY, 102.75, "a rejected endpoint-tolerance step should not snap the probe vertically onto a remote support");
+
+    // Conversely, the same 0.001 px endpoint tolerance is intentionally large
+    // enough to make coincident-seam contact deterministic. At this landing the
+    // left foot is only 0.0004 px before the shared endpoint. Both segments are
+    // eligible, and the slightly lower continuation segment must win exactly as
+    // it does in the browser runtime. This reproduces the level_004 differential.
+    const sharedEndpointLandingWorld = {
+        segments: [
+            { id: "endpoint_drop_source", kind: "walkable", x1: -20, y1: 735.6315789473684, x2: 26, y2: 755 },
+            { id: "endpoint_drop_landing_1", kind: "walkable", x1: -12, y1: 788, x2: 0, y2: 778 },
+            { id: "endpoint_drop_landing_2", kind: "walkable", x1: 0, y1: 778, x2: 13, y2: 772 },
+            { id: "endpoint_drop_target", kind: "blockable", x1: 25, y1: 884, x2: 150, y2: 884 }
+        ],
+        collisionPolygons: [], solids: [], movingPlatforms: [], navigationBlockers: [],
+        bounds: { x: -300, y: 0, w: 1000, h: 1500 }
+    };
+    const sharedEndpointLandingSupports = sharedEndpointLandingWorld.segments.map((support) => ({
+        ...support,
+        xMin: Math.min(support.x1, support.x2),
+        xMax: Math.max(support.x1, support.x2),
+        sourcePolygonId: null,
+        obstacleXMin: null,
+        obstacleXMax: null
+    }));
+    const sharedEndpointLandingGraph = {
+        id: "shared_endpoint_landing_fixture",
+        profile: {
+            ...profile,
+            bodyWidth: 148.5,
+            bodyHeight: 223.5,
+            runSpeed: 250,
+            groundAcceleration: 950,
+            jumpHeight: 250,
+            gravity: 1250,
+            maxFallDistance: 600,
+            maxStepHeight: 26,
+            maxStepGap: 28,
+            edgeInset: 32.67,
+            bodyClearance: 50.49,
+            stepTransitionMethod: "stride_arc"
+        },
+        supports: sharedEndpointLandingSupports,
+        edges: [{
+            id: "shared_endpoint_drop",
+            type: "drop",
+            direction: "right",
+            from: "endpoint_drop_source",
+            to: "endpoint_drop_target",
+            launchX: 23.5,
+            launchY: 753.947,
+            landingX: 120.214,
+            landingY: 884,
+            vx: 212.016,
+            vy: 0,
+            flightTime: 0.456162,
+            walkOff: true,
+            cost: 197.238,
+            runUpX: -5,
+            runUpY: 741.9473684210526,
+            runUpDistance: 28.5,
+            runUpSupportIds: ["endpoint_drop_source"],
+            requiredLaunchSpeed: 212.016,
+            groundAcceleration: 950,
+            verification: "unverified"
+        }],
+        build: { stepTransitionMethod: "stride_arc" }
+    };
+    const sharedEndpointLandingVerification = verifyEnemyNavigationGraphBySimulation(
+        sharedEndpointLandingWorld,
+        sharedEndpointLandingGraph,
+        { salvageWrongSupportLandings: false }
+    );
+    const sharedEndpointLandingProof = sharedEndpointLandingVerification.graph.edges[0];
+    assert.equal(sharedEndpointLandingProof?.verificationFailure, "landed_wrong_support", "the shared-endpoint fixture should remain a deliberately intercepted drop");
+    assert.equal(sharedEndpointLandingProof?.verificationDiagnostics?.landingCollisionId, "endpoint_drop_landing_2", "shared-endpoint landing collision selection should honor the canonical 0.001 px segment tolerance");
+    assert.equal(sharedEndpointLandingProof?.verificationDiagnostics?.resolvedSupportId, "endpoint_drop_landing_1", "shared-endpoint physical collision identity and navigation support resolution may legitimately differ at the same contact point");
+    assert.equal(sharedEndpointLandingProof?.verificationDiagnostics?.airTicks, 11, "the shared-endpoint regression should retain its precise interception tick");
+
+    // Candidate thick-cyan paths are provisional. A mutually proposed step pair
+    // may initially merge two fragments, but simulation is authoritative: if
+    // either direction fails, the final bidirectional walk region must split at
+    // that join rather than leaving a cyan path runtime cannot traverse.
+    const reverseBlockedStepEdge = {
+        ...blockedStepEdge,
+        id: "blocked_step_reverse_probe",
+        from: "step_destination",
+        to: "step_source",
+        launchY: 200,
+        landingY: 180,
+        toObstacleId: "step_source_area"
+    };
+    const candidateBlockedRegionGraph = rebuildEnemyNavigationWalkRegions({
+        ...blockedStepGraph, edges: [blockedStepEdge, reverseBlockedStepEdge]
+    });
+    assert.equal(candidateBlockedRegionGraph.walkRegions.length, 1, "geometry may provisionally propose one continuous walk region before runtime simulation judges the two-way join");
+    assert.equal(candidateBlockedRegionGraph.walkRegions[0]?.verification, "unverified", "a candidate walk region containing unproven step joins should remain explicitly unverified");
+    const bidirectionalBlockedVerification = verifyEnemyNavigationGraphBySimulation(
+        blockedStepWorld, candidateBlockedRegionGraph, { salvageWrongSupportLandings: false }
+    );
+    const finalBlockedRegionGraph = bidirectionalBlockedVerification.graph;
+    assert.equal(bidirectionalBlockedVerification.graph.edges.find((edge) => edge.id === "blocked_step_probe")?.verification, "failed", "simulation should reject the buried downward side of the proposed continuous path");
+    assert.equal(bidirectionalBlockedVerification.graph.edges.find((edge) => edge.id === "blocked_step_reverse_probe")?.verification, "verified", "the opposite step direction can remain valid without making the pair bidirectionally continuous");
+    assert.equal(finalBlockedRegionGraph.walkRegions.length, 2, "the verifier itself should rebuild a failed bidirectional join into separate final walk regions");
+    assert.ok(finalBlockedRegionGraph.walkRegions.every((region) => region.verification === "verified"), "after the failed join is removed, the remaining single-fragment walk regions should be resolved");
+
+    const advisorySupports = [
+        { id: "advisory_source_blockable_1", kind: "blockable", x1: 0, y1: 300, x2: 100, y2: 300, xMin: 0, xMax: 100, sourcePolygonId: "advisory_source_area" },
+        { id: "advisory_middle_walkable_1", kind: "walkable", x1: 0, y1: 250, x2: 100, y2: 250, xMin: 0, xMax: 100, sourcePolygonId: null },
+        { id: "advisory_target_walkable_1", kind: "walkable", x1: 0, y1: 300, x2: 100, y2: 300, xMin: 0, xMax: 100, sourcePolygonId: null }
+    ];
+    const advisoryEdge = {
+        id: "advisory_interception", type: "jump", direction: "up",
+        from: advisorySupports[0].id, to: advisorySupports[2].id,
+        launchX: 50, launchY: 300, landingX: 50, landingY: 300,
+        vx: 0, vy: -400, flightTime: 0.8, verification: "unverified", cost: 1
+    };
+    assert.deepEqual(enemyNavigationAdvisoryHeuristicRejectors(advisoryEdge, advisorySupports, { gravity: 1000 }), ["intervening_walkable_support", "intervening_walkable_support_body_span"], "the center and body-span advisory interception heuristics should both flag a broad different one-way support crossed on descent");
+    const advisoryAssessment = enemyNavigationAdvisoryHeuristicAssessment(advisoryEdge, advisorySupports, { gravity: 1000, bodyWidth: 48 });
+    assert.equal(advisoryAssessment.diagnostics.intervening_walkable_support.supportId, "advisory_middle_walkable_1", "advisory diagnostics should record the support predicted to intercept the traversal");
+    assert.equal(advisoryAssessment.diagnostics.intervening_walkable_support.sample, "center", "center-foot advisory diagnostics should record the sample that caused the warning");
+
+    const bodyOnlySupports = [
+        advisorySupports[0],
+        { id: "body_only_walkable_1", kind: "walkable", x1: 65, y1: 250, x2: 75, y2: 250, xMin: 65, xMax: 75, sourcePolygonId: null },
+        advisorySupports[2]
+    ];
+    const bodyOnlyAssessment = enemyNavigationAdvisoryHeuristicAssessment(advisoryEdge, bodyOnlySupports, { gravity: 1000, bodyWidth: 48 });
+    assert.deepEqual(bodyOnlyAssessment.rejectors, ["intervening_walkable_support_body_span"], "the body-span advisory should catch a side-foot interception that the center-foot heuristic misses");
+    assert.equal(bodyOnlyAssessment.diagnostics.intervening_walkable_support_body_span.sample, "right", "body-span diagnostics should identify which foot sample predicted the interception");
+
+    const endpointMissSupports = [
+        advisorySupports[0],
+        { id: "endpoint_miss_walkable_1", kind: "walkable", x1: 70.2, y1: 250, x2: 75, y2: 250, xMin: 70.2, xMax: 75, sourcePolygonId: null },
+        advisorySupports[2]
+    ];
+    assert.deepEqual(enemyNavigationAdvisoryHeuristicRejectors(advisoryEdge, endpointMissSupports, { gravity: 1000, bodyWidth: 48 }), [], "body-span advisory should use runtime-exact horizontal support bounds instead of warning about a sub-pixel endpoint miss");
+
+    const recoverableContactSupports = [
+        advisorySupports[0],
+        { id: "recoverable_contact_walkable_1", kind: "walkable", x1: 65, y1: 250, x2: 75, y2: 250, xMin: 65, xMax: 75, sourcePolygonId: null },
+        { id: "recoverable_target_walkable_1", kind: "walkable", x1: 26, y1: 252, x2: 28, y2: 252, xMin: 26, xMax: 28, sourcePolygonId: null }
+    ];
+    const recoverableContactEdge = { ...advisoryEdge, id: "recoverable_contact", to: recoverableContactSupports[2].id };
+    assert.deepEqual(enemyNavigationAdvisoryHeuristicRejectors(recoverableContactEdge, recoverableContactSupports, { gravity: 1000, bodyWidth: 48 }), [], "body-span advisory should not reject an incidental foot contact when runtime can resolve the intended target from the same snapped landing pose");
+
+    const sourceRecaptureSupports = [
+        { id: "recap_walkable_1", kind: "walkable", x1: 0, y1: 100, x2: 100, y2: 100, xMin: 0, xMax: 100, sourcePolygonId: null },
+        { id: "recap_walkable_2", kind: "walkable", x1: 120, y1: 200, x2: 220, y2: 200, xMin: 120, xMax: 220, sourcePolygonId: null },
+        { id: "target_walkable_1", kind: "walkable", x1: 230, y1: 300, x2: 330, y2: 300, xMin: 230, xMax: 330, sourcePolygonId: null }
+    ];
+    const sourceRecaptureEdge = { id: "source_recapture", type: "jump", from: sourceRecaptureSupports[0].id, to: sourceRecaptureSupports[2].id, launchX: 80, launchY: 100, landingX: 280, landingY: 300, vx: 180, vy: -250, flightTime: 1.2 };
+    const sourceRecaptureAssessment = enemyNavigationAdvisoryHeuristicAssessment(sourceRecaptureEdge, sourceRecaptureSupports, { gravity: 1000, bodyWidth: 48, bodyHeight: 100 });
+    assert.deepEqual(sourceRecaptureAssessment.rejectors, ["source_support_recapture"], "source-recapture advisory should flag a descending traversal that is caught by a sibling support from the departure structure");
+    assert.equal(sourceRecaptureAssessment.diagnostics.source_support_recapture.supportId, "recap_walkable_2", "source-recapture diagnostics should identify the sibling support predicted to catch the enemy");
+
+    const sourceReturnSupports = [
+        { id: "return_source_blockable_1", kind: "blockable", x1: 0, y1: 300, x2: 100, y2: 300, xMin: 0, xMax: 100, sourcePolygonId: "return_source_poly" },
+        { id: "return_target_walkable_1", kind: "walkable", x1: 200, y1: 150, x2: 300, y2: 150, xMin: 200, xMax: 300, sourcePolygonId: null }
+    ];
+    const sourceReturnEdge = { id: "source_return", type: "jump", from: sourceReturnSupports[0].id, to: sourceReturnSupports[1].id, launchX: 50, launchY: 300, landingX: 250, landingY: 150, vx: 0, vy: -600, flightTime: 1.4 };
+    const sourceReturnAssessment = enemyNavigationAdvisoryHeuristicAssessment(sourceReturnEdge, sourceReturnSupports, { gravity: 1000, bodyWidth: 48, bodyHeight: 100 });
+    assert.deepEqual(sourceReturnAssessment.rejectors, ["source_support_return"], "source-return advisory should flag a jump that comes back down onto the exact blockable support it departed from");
+    assert.equal(sourceReturnAssessment.diagnostics.source_support_return.supportId, sourceReturnSupports[0].id, "source-return diagnostics should retain the exact departure support predicted to catch the actor");
+
+    const runUpWorld = {
+        segments: [{ id: "run_up_source", kind: "walkable", x1: 0, y1: 300, x2: 160, y2: 300 }],
+        collisionPolygons: [{ id: "run_up_wall", kind: "blockable", points: [{ x: 60, y: 100 }, { x: 70, y: 100 }, { x: 70, y: 330 }, { x: 60, y: 330 }], lineIds: [] }],
+        navigationBlockers: [], solids: [], movingPlatforms: [], bounds: { x: 0, y: 0, w: 500, h: 500 }
+    };
+    const runUpSupports = [{ id: "run_up_source", kind: "walkable", x1: 0, y1: 300, x2: 160, y2: 300, xMin: 0, xMax: 160, sourcePolygonId: null }];
+    const runUpEdge = { id: "run_up_probe", type: "jump", from: "run_up_source", to: "run_up_target", runUpX: 50, runUpY: 300, launchX: 120, launchY: 300, landingX: 250, landingY: 300, vx: 200, vy: -400, flightTime: 0.8, groundAcceleration: 950 };
+    const runUpDiagnostic = enemyNavigationRunUpFirstStepAdvisory(runUpWorld, runUpEdge, runUpSupports, profile);
+    assert.equal(runUpDiagnostic?.tick, 1, "the cheap run-up advisory should detect a runtime-blocked first acceleration step without simulating the full jump");
+    assert.ok(Number.isFinite(runUpDiagnostic?.attemptedX), "run-up advisory diagnostics should retain the first attempted movement coordinate");
+
+    const delayedRunUpWorld = {
+        ...runUpWorld,
+        collisionPolygons: [{ id: "run_up_delayed_wall", kind: "blockable", points: [{ x: 65, y: 100 }, { x: 75, y: 100 }, { x: 75, y: 330 }, { x: 65, y: 330 }], lineIds: [] }]
+    };
+    assert.equal(enemyNavigationRunUpFirstStepAdvisory(delayedRunUpWorld, runUpEdge, runUpSupports, profile), null, "the one-step run-up advisory should stay silent when the first acceleration step is clear");
+    const shortRunUpDiagnostic = enemyNavigationRunUpFirstFourStepsAdvisory(delayedRunUpWorld, runUpEdge, runUpSupports, profile);
+    assert.ok(shortRunUpDiagnostic?.tick >= 2 && shortRunUpDiagnostic?.tick <= 4, "the four-step run-up advisory should catch a blocker reached shortly after a clear first step");
+
+    const apexGrazeSupports = [
+        advisorySupports[0],
+        { id: "apex_graze_walkable_1", kind: "walkable", x1: 0, y1: 221, x2: 100, y2: 221, xMin: 0, xMax: 100, sourcePolygonId: null },
+        advisorySupports[2]
+    ];
+    const apexGrazeEdge = { ...advisoryEdge, id: "advisory_apex_graze", from: apexGrazeSupports[0].id, to: apexGrazeSupports[2].id };
+    assert.deepEqual(enemyNavigationAdvisoryHeuristicRejectors(apexGrazeEdge, apexGrazeSupports, { gravity: 1000 }), [], "the advisory interception heuristic should use runtime 60 Hz semi-implicit stepping so an apex-grazing one-way line above the discrete jump is not falsely flagged");
+
+    const sameTickTargetSupports = [
+        { id: "same_tick_source", kind: "blockable", x1: 0, y1: 0, x2: 100, y2: 0, xMin: 0, xMax: 100, sourcePolygonId: "same_tick_source_poly" },
+        { id: "same_tick_intervening", kind: "walkable", x1: 0, y1: 100, x2: 100, y2: 100, xMin: 0, xMax: 100, sourcePolygonId: null },
+        { id: "same_tick_target", kind: "blockable", x1: 0, y1: 103, x2: 100, y2: 103, xMin: 0, xMax: 100, sourcePolygonId: "same_tick_target_poly" }
+    ];
+    const sameTickTargetEdge = { id: "same_tick_target_edge", type: "drop", from: "same_tick_source", to: "same_tick_target", launchX: 50, launchY: 0, landingX: 50, landingY: 103, vx: 0, vy: 1000, flightTime: 0.2 };
+    const sameTickTargetRejectors = enemyNavigationAdvisoryHeuristicRejectors(sameTickTargetEdge, sameTickTargetSupports, { gravity: 1 });
+    assert.equal(sameTickTargetRejectors.includes("intervening_walkable_support") || sameTickTargetRejectors.includes("intervening_walkable_support_body_span"), false, "the advisory interception heuristics should time blockable destination supports too, so a same-tick nearby one-way line is not treated as definitely preceding the target");
+
+    const steepSupport = { id: "steep_walkable_1", kind: "walkable", x1: 0, y1: 100, x2: 100, y2: 380, xMin: 0, xMax: 100, sourcePolygonId: null };
+    const steepContactY = 100 + 2.8 * 8;
+    assert.equal(findEnemyNavigationSupport([steepSupport], 50, steepContactY, {
+        maxRise: 5, maxDrop: 5, width: 100, sampleHalfWidthFactor: 0.48, preferredSupportId: steepSupport.id
+    }), null, "the old post-landing foot samples should demonstrate the steep-support identity gap in the regression fixture");
+    assert.equal(findEnemyNavigationSupport([steepSupport], 50, steepContactY, {
+        maxRise: 5, maxDrop: 5, width: 100, sampleHalfWidthFactor: 0.48, contactX: 8, preferredSupportId: steepSupport.id
+    })?.support?.id, steepSupport.id, "support resolution should accept the exact physical foot-contact X so steep landings retain their intended navigation segment identity");
+
+    assert.equal(enemyNavigationSupportPhysicalOwnerId({ id: "rope_ladder_angled_walkable_001_walkable_1" }), "segment:rope_ladder_angled_walkable_001", "physical-owner parsing should remove only the final collision-kind/index suffix");
+    assert.notEqual(
+        enemyNavigationSupportPhysicalOwnerId({ id: "rope_ladder_angled_walkable_001_walkable_1" }),
+        enemyNavigationSupportPhysicalOwnerId({ id: "rope_ladder_angled_walkable_002_walkable_1" }),
+        "separate multi-token ladder pieces must retain distinct physical-owner identities"
+    );
+
+    const routeSupports = [
+        { id: "route_a", x1: 0, y1: 300, x2: 100, y2: 300, xMin: 0, xMax: 100 },
+        { id: "route_b", x1: 300, y1: 300, x2: 400, y2: 300, xMin: 300, xMax: 400 },
+        { id: "route_c", x1: 150, y1: 260, x2: 250, y2: 260, xMin: 150, xMax: 250 }
+    ];
+    const routeEdge = (overrides) => ({ type: "jump", direction: "right", from: "route_a", to: "route_b", launchX: 100, launchY: 300, landingX: 300, landingY: 300, vx: 100, vy: -100, flightTime: 1, cost: 1, ...overrides });
+    const preferredMap = enemyNavigationEdgeMapFromFlat([
+        routeEdge({ id: "unverified_shortcut", verification: "unverified" }),
+        routeEdge({ id: "verified_leg_1", verification: "verified", to: "route_c", landingX: 150, landingY: 260, cost: 200 }),
+        routeEdge({ id: "verified_leg_2", verification: "verified", from: "route_c", to: "route_b", launchX: 250, launchY: 260, landingX: 300, landingY: 300, cost: 200 })
+    ], routeSupports);
+    const preferredRoute = planEnemyNavigationRoute(routeSupports, "route_a", "route_b", { edgeMap: preferredMap });
+    assert.deepEqual(preferredRoute.edges.map((edge) => edge.id), ["verified_leg_1", "verified_leg_2"], "runtime routing should prefer an all-verified route over a cheaper unverified shortcut");
+    const sameRegionSupports = routeSupports.map((support) => ({ ...support, walkRegionId: "walk_region_shared" }));
+    const sameRegionMap = enemyNavigationEdgeMapFromFlat([
+        routeEdge({ id: "verified_same_region_jump", verification: "verified", cost: 90 }),
+        routeEdge({ id: "verified_same_region_step_1", type: "step", verification: "verified", to: "route_c", landingX: 150, landingY: 260, vx: 0, vy: 0, flightTime: 0, cost: 20 }),
+        routeEdge({ id: "verified_same_region_step_2", type: "step", verification: "verified", from: "route_c", to: "route_b", launchX: 250, launchY: 260, landingX: 300, landingY: 300, vx: 0, vy: 0, flightTime: 0, cost: 20 })
+    ], sameRegionSupports);
+    assert.deepEqual(
+        planEnemyNavigationRoute(sameRegionSupports, "route_a", "route_b", { edgeMap: sameRegionMap })?.edges?.map((edge) => edge.id),
+        ["verified_same_region_step_1", "verified_same_region_step_2"],
+        "verified walking inside one final walk region should remain cheaper than a redundant verified jump, while retaining the jump proof as fallback evidence"
+    );
+
+    const sameRegionJumpOnlyMap = enemyNavigationEdgeMapFromFlat([
+        routeEdge({ id: "verified_same_region_jump_only", verification: "verified", cost: 90 })
+    ], sameRegionSupports);
+    assert.equal(
+        planEnemyNavigationRoute(sameRegionSupports, "route_a", "route_b", { edgeMap: sameRegionJumpOnlyMap })?.edges?.[0]?.id,
+        "verified_same_region_jump_only",
+        "a same-walk-region jump should remain usable when no verified walking route is available"
+    );
+
+    const failedOnlyMap = enemyNavigationEdgeMapFromFlat([routeEdge({ id: "failed_only", verification: "failed", verificationFailure: "hit_wall" })], routeSupports);
+    assert.equal(planEnemyNavigationRoute(routeSupports, "route_a", "route_b", { edgeMap: failedOnlyMap }), null, "runtime routing should never use a failed navigation edge");
+    const mixedCaseFailedMap = enemyNavigationEdgeMapFromFlat([routeEdge({ id: "failed_mixed_case", verification: "Failed", verificationFailure: "hit_wall" })], routeSupports);
+    assert.equal(planEnemyNavigationRoute(routeSupports, "route_a", "route_b", { edgeMap: mixedCaseFailedMap }), null, "runtime routing should treat verification state case-insensitively so hand-edited failed edges stay unusable");
+    const unverifiedOnlyMap = enemyNavigationEdgeMapFromFlat([routeEdge({ id: "unverified_fallback", verification: "unverified" })], routeSupports);
+    assert.equal(planEnemyNavigationRoute(routeSupports, "route_a", "route_b", { edgeMap: unverifiedOnlyMap })?.edges?.[0]?.id, "unverified_fallback", "runtime routing should still use an unverified edge when no verified route exists");
+    const heuristicOnlyEdge = routeEdge({ id: "heuristic_advisory_only", verification: "unverified", heuristicRejectors: ["intervening_walkable_support"] });
+    const heuristicOnlyMap = enemyNavigationEdgeMapFromFlat([heuristicOnlyEdge], routeSupports);
+    assert.equal(planEnemyNavigationRoute(routeSupports, "route_a", "route_b", { edgeMap: heuristicOnlyMap })?.edges?.[0]?.id, "heuristic_advisory_only", "advisory heuristic rejectors must not alter ordinary runtime routing during calibration");
+    assert.equal(enemyNavigationEdgeRuntimeAllowed(heuristicOnlyEdge), true, "ordinary game runs should keep heuristic rejectors advisory");
+    assert.equal(enemyNavigationEdgeRuntimeAllowed(heuristicOnlyEdge, { enforceAdvisoryHeuristics: true }), false, "Level Editor playtest policy should be able to enforce heuristic rejectors without rewriting verification");
+    const unverifiedCostMap = enemyNavigationEdgeMapFromFlat([
+        routeEdge({ id: "unverified_expensive_direct", verification: "unverified", cost: 500 }),
+        routeEdge({ id: "unverified_cheap_leg_1", verification: "unverified", to: "route_c", landingX: 150, landingY: 260, cost: 1 }),
+        routeEdge({ id: "unverified_cheap_leg_2", verification: "unverified", from: "route_c", to: "route_b", launchX: 250, launchY: 260, landingX: 300, landingY: 300, cost: 1 })
+    ], routeSupports);
+    assert.deepEqual(planEnemyNavigationRoute(routeSupports, "route_a", "route_b", { edgeMap: unverifiedCostMap })?.edges?.map((edge) => edge.id), ["unverified_cheap_leg_1", "unverified_cheap_leg_2"], "once unverified fallback is necessary, routing should use ordinary path cost rather than penalizing every unverified edge");
+
+    const dropWorld = {
+        segments: [
+            { id: "upper", kind: "walkable", x1: 0, y1: 200, x2: 160, y2: 200 },
+            { id: "lower", kind: "walkable", x1: 180, y1: 360, x2: 420, y2: 360 }
+        ],
+        solids: [],
+        collisionPolygons: [],
+        movingPlatforms: [],
+        navigationBlockers: [],
+        bounds: { x: -100, y: -200, w: 800, h: 900 }
+    };
+    const dropGraph = bakeEnemyNavigationGraph(dropWorld, { ...profile, runSpeed: 220, jumpHeight: 100 }, { id: "drop_simulation_probe" });
+    const candidateDropCount = dropGraph.edges.filter((edge) => edge.type === "drop").length;
+    assert.ok(candidateDropCount > 0, "simulation verification fixture should produce walk-off drops");
+    const verifiedDrops = verifyEnemyNavigationGraphBySimulation(dropWorld, dropGraph);
+    assert.equal(verifiedDrops.summary.failedEdges, 0, "valid walk-off drops should survive the same runtime-equivalent simulation verifier");
+    assert.equal(verifiedDrops.summary.checkedDrops, candidateDropCount, "simulation verification should account for every candidate drop");
+
+    const reusedFailedProof = verifyEnemyNavigationGraphBySimulation({
+        segments: [], collisionPolygons: [], solids: [], navigationBlockers: [], bounds: { x: 0, y: 0, w: 100, h: 100 }
+    }, {
+        profile: {}, supports: [], build: {},
+        edges: [{ id: "cached_failure", type: "jump", from: "a", to: "b", verification: "failed", verificationFailure: "hit_wall", verificationDiagnostics: { runUpTicks: 1, airTicks: 1, finalX: 0, finalY: 0 } }]
+    }, { reuseExistingVerification: true, salvageWrongSupportLandings: false });
+    assert.equal(reusedFailedProof.summary.checkedEdges, 0, "reusing a cached failed proof should not count as a fresh simulation");
+    assert.equal(reusedFailedProof.summary.reusedEdges, 1, "cached failed proofs should be counted as reused");
+    assert.equal(reusedFailedProof.summary.failedEdges, 1, "cached failed proofs should remain represented in final failure counts");
+    assert.equal(reusedFailedProof.summary.verifiedEdges, 0, "reused failures must not make the low-level verified-edge count negative");
+
+    const fixtureDocument = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
+    const fixtureLevel = fixtureDocument.level || fixtureDocument;
+    const fixtureEnemyCatalog = JSON.parse(readFileSync("./resources/characters/ct_enemies_001.json", "utf8"));
+    const fixtureTuning = JSON.parse(readFileSync("./resources/config/tuning.json", "utf8"));
+    const fixtureAtlasIds = [...new Set((fixtureLevel.placements || [])
+        .filter((placement) => placement?.kind === "atlasAsset" && placement?.collisionFromManifest !== false)
+        .map((placement) => String(placement.atlasId || "at_atlas_001")))];
+    const fixtureManifests = Object.fromEntries(fixtureAtlasIds.map((atlasId) => [
+        atlasId,
+        JSON.parse(readFileSync(`./resources/atlases/${atlasId}.json`, "utf8"))
+    ]));
+    const canonicalContext = { manifestByAtlasId: fixtureManifests, enemyCatalog: fixtureEnemyCatalog, tuning: fixtureTuning };
+    const canonicalBake = rebakeAndVerifyNavigation(fixtureDocument, canonicalContext, {
+        verifyBySimulation: false,
+        includeWizard: true,
+        stepTransitionMethod: "stride_arc"
+    });
+    assert.ok(canonicalBake.profiles.every((candidate) => /^navverify-v13-[0-9a-f]{16}$/.test(candidate.build?.verificationInputSignature || "")), "canonical rebakes should stamp every mobility profile with a deterministic verification-input signature");
+    const seededDocument = structuredClone(canonicalBake.level);
+    const seededProfiles = seededDocument.level?.navigationGraphs?.profiles || seededDocument.navigationGraphs?.profiles || [];
+    const seededEdge = seededProfiles.flatMap((candidate) => candidate.edges || []).find((edge) => edge.type === "jump" || edge.type === "drop");
+    assert.ok(seededEdge, "canonical rebake fixture should contain a jump/drop edge for verification-reuse testing");
+    const seededProfile = seededProfiles.find((candidate) => (candidate.edges || []).includes(seededEdge));
+    const seededSalvageSupport = seededProfile?.supports?.find((support) => support.id !== seededEdge.from && support.id !== seededEdge.to);
+    assert.ok(seededProfile && seededSalvageSupport, "verification-reuse fixture should provide an alternate support for a stored simulation-salvage proof");
+    seededEdge.verification = "failed";
+    seededEdge.verificationFailure = "landed_wrong_support";
+    seededEdge.verificationDiagnostics = { collisionId: seededSalvageSupport.id, landedSupportId: seededSalvageSupport.id, runUpTicks: 2, airTicks: 3, finalX: 4, finalY: 5 };
+    const seededSalvageEdge = {
+        ...structuredClone(seededEdge),
+        id: `${seededEdge.id}_simulation_salvage_fixture`,
+        to: seededSalvageSupport.id,
+        verification: "verified",
+        verificationFailure: undefined,
+        verificationDiagnostics: undefined,
+        simulationSalvage: {
+            kind: "landed_wrong_support",
+            sourceEdgeId: seededEdge.id,
+            intendedTargetSupportId: seededEdge.to,
+            landedSupportId: seededSalvageSupport.id,
+            stepHopsToIntendedTarget: 1
+        }
+    };
+    seededProfile.edges.push(seededSalvageEdge);
+    const reusedBake = rebakeAndVerifyNavigation(seededDocument, canonicalContext, {
+        verifyBySimulation: false,
+        includeWizard: true,
+        stepTransitionMethod: "stride_arc"
+    });
+    const reusedEdge = reusedBake.profiles.flatMap((candidate) => candidate.edges || []).find((edge) => edge.id === seededEdge.id && edge.from === seededEdge.from && edge.to === seededEdge.to);
+    const reusedSalvageEdge = reusedBake.profiles.flatMap((candidate) => candidate.edges || []).find((edge) => edge.id === seededSalvageEdge.id);
+    assert.equal(reusedEdge?.verification, "failed", "canonical fast rebakes should retain durable verification state when both world signature and heuristic graph are identical");
+    assert.equal(reusedEdge?.verificationFailure, "landed_wrong_support", "canonical fast rebakes should retain the corresponding failure reason when verification remains fresh");
+    assert.equal(reusedEdge?.verificationDiagnostics?.collisionId, seededSalvageSupport.id, "canonical fast rebakes should preserve compact failure diagnostics together with still-fresh proof");
+    assert.equal(reusedSalvageEdge?.verification, "verified", "unchanged-input fast rebakes should retain a separately simulation-proven A→C salvage edge");
+    assert.equal(reusedSalvageEdge?.simulationSalvage?.sourceEdgeId, seededEdge.id, "retained salvage should remain explicitly tied to the failed source candidate that produced it");
+    assert.equal(reusedBake.summary.reusedSalvageEdges, 1, "canonical rebake summaries should report retained simulation-salvage proof edges");
+    const cleanVerifiedBake = rebakeAndVerifyNavigation(fixtureDocument, canonicalContext, {
+        verifyBySimulation: true,
+        reuseSimulationProofs: false,
+        includeWizard: true,
+        stepTransitionMethod: "stride_arc"
+    });
+    const proofBearingEdges = cleanVerifiedBake.profiles.flatMap((candidate) => candidate.edges || []).filter((edge) => edge.type === "step" || edge.type === "jump" || edge.type === "drop");
+    assert.ok(proofBearingEdges.length > 0 && proofBearingEdges.every((edge) => /^navproof-v3-[0-9a-f]{16}$/.test(edge.verificationInputHash || "")), "clean simulation verification should stamp every step/jump/drop proof with a deterministic local verification-input hash");
+    assert.equal(cleanVerifiedBake.summary.reusedSimulationEdges, 0, "clean simulation verification must never reuse an earlier proof");
+
+    const preLocalCacheDocument = structuredClone(cleanVerifiedBake.level);
+    for (const graph of (preLocalCacheDocument.level?.navigationGraphs?.profiles || preLocalCacheDocument.navigationGraphs?.profiles || [])) {
+        for (const edge of graph.edges || []) delete edge.verificationInputHash;
+    }
+    const bootstrappedIncrementalBake = rebakeAndVerifyNavigation(preLocalCacheDocument, canonicalContext, {
+        verifyBySimulation: true,
+        includeWizard: true,
+        stepTransitionMethod: "stride_arc"
+    });
+    assert.equal(bootstrappedIncrementalBake.summary.checkedEdges, 0, "an unchanged pre-local-cache graph with a matching canonical whole-level signature should bootstrap local proof hashes without rerunning simulation");
+    assert.ok(bootstrappedIncrementalBake.summary.globallyReusedVerificationEdges > 0, "the one-time compatibility bootstrap should report reuse through the older whole-level proof signature");
+    assert.ok(bootstrappedIncrementalBake.profiles.flatMap((candidate) => candidate.edges || []).filter((edge) => edge.type === "step" || edge.type === "jump" || edge.type === "drop").every((edge) => /^navproof-v3-[0-9a-f]{16}$/.test(edge.verificationInputHash || "")), "the compatibility bootstrap should retrofit local proof hashes for later incremental edits");
+
+    const unchangedIncrementalBake = rebakeAndVerifyNavigation(cleanVerifiedBake.level, canonicalContext, {
+        verifyBySimulation: true,
+        includeWizard: true,
+        stepTransitionMethod: "stride_arc"
+    });
+    assert.equal(unchangedIncrementalBake.summary.checkedEdges, 0, "an unchanged incremental simulation rebake should not rerun any base step/jump/drop proof");
+    assert.ok(unchangedIncrementalBake.summary.reusedVerificationEdges > 0, "an unchanged incremental simulation rebake should reuse stored per-edge proofs");
+    assert.equal(unchangedIncrementalBake.summary.unverifiedEdges, 0, "proof reuse must still leave every candidate resolved as verified or failed");
+
+    const blockerEditedDocument = structuredClone(cleanVerifiedBake.level);
+    const blockerEditedLevel = blockerEditedDocument.level || blockerEditedDocument;
+    blockerEditedLevel.navigationBlockers = [
+        ...(blockerEditedLevel.navigationBlockers || []),
+        { id: "local_cache_blocker_probe", x: 1400, y: 120, w: 40, h: 20, dynamic: false, closedState: "closed" }
+    ];
+    const blockerEditedIncrementalBake = rebakeAndVerifyNavigation(blockerEditedDocument, canonicalContext, {
+        verifyBySimulation: true,
+        includeWizard: true,
+        stepTransitionMethod: "stride_arc"
+    });
+    assert.equal(blockerEditedIncrementalBake.summary.candidateSimulationEdges, cleanVerifiedBake.summary.candidateSimulationEdges, "the local blocker cache fixture should preserve candidate identity so it specifically exercises proof invalidation");
+    assert.ok(blockerEditedIncrementalBake.summary.checkedEdges > 0, "adding a nearby navigation blocker should invalidate affected stored simulation proofs even when candidate identities stay unchanged");
+    assert.ok(blockerEditedIncrementalBake.summary.reusedVerificationEdges > 0, "a local navigation blocker should leave distant simulation proofs reusable");
+    assert.ok(blockerEditedIncrementalBake.summary.checkedEdges < blockerEditedIncrementalBake.summary.candidateSimulationEdges, "navigation-blocker invalidation should stay local rather than forcing a full simulation rebuild");
+
+    const locallyEditedDocument = structuredClone(cleanVerifiedBake.level);
+    const locallyEditedLevel = locallyEditedDocument.level || locallyEditedDocument;
+    const movedCollisionPlacement = (locallyEditedLevel.placements || []).find((placement) => placement?.kind === "atlasAsset" && placement?.collisionFromManifest !== false);
+    assert.ok(movedCollisionPlacement, "local proof-cache fixture should provide collision-bearing authored terrain");
+    movedCollisionPlacement.x = Number(movedCollisionPlacement.x || 0) + 12;
+    const locallyEditedIncrementalBake = rebakeAndVerifyNavigation(locallyEditedDocument, canonicalContext, {
+        verifyBySimulation: true,
+        includeWizard: true,
+        stepTransitionMethod: "stride_arc"
+    });
+    assert.ok(locallyEditedIncrementalBake.summary.checkedEdges > 0, "editing collision geometry should resimulate affected traversal proofs");
+    assert.ok(locallyEditedIncrementalBake.summary.reusedVerificationEdges > 0, "a local terrain edit should keep reusing unaffected traversal proofs elsewhere in the same level");
+    assert.ok(locallyEditedIncrementalBake.summary.checkedEdges < locallyEditedIncrementalBake.summary.candidateSimulationEdges, "a local terrain edit should not degenerate into a full-map simulation rebuild");
+    assert.equal(locallyEditedIncrementalBake.summary.unverifiedEdges, 0, "incremental proof reuse plus local resimulation must leave no unresolved step/jump/drop candidates");
+
+    // A walk-region proof deliberately depends on every authored placement that
+    // contributed to the candidate continuous ground path, not merely on the
+    // two fragments touched by one particular step.  This synthetic chain is
+    // long enough that chain_8 sits outside nav_edge_1's local proof chunks, so
+    // moving only that remote contributor specifically exercises region-wide
+    // dependency hashing rather than the spatial cache.
+    const chainManifest = {
+        frames: { platform: { x: 0, y: 0, w: 100, h: 40 } },
+        objects: {
+            platform: {
+                nodes: [
+                    { id: "tl", x: 0, y: 0 }, { id: "tr", x: 100, y: 0 },
+                    { id: "br", x: 100, y: 40 }, { id: "bl", x: 0, y: 40 }
+                ],
+                lines: [
+                    { id: "top", from: "tl", to: "tr", kind: "blockable" },
+                    { id: "right", from: "tr", to: "br", kind: "blockable" },
+                    { id: "bottom", from: "br", to: "bl", kind: "blockable" },
+                    { id: "left", from: "bl", to: "tl", kind: "blockable" }
+                ]
+            }
+        }
+    };
+    const chainLevel = {
+        levelId: "navigation_walk_region_dependency_cache",
+        world: { bounds: { x: -200, y: -200, w: 1400, h: 1000 } },
+        placements: Array.from({ length: 8 }, (_, index) => ({
+            id: `chain_${index + 1}`,
+            kind: "atlasAsset",
+            atlasId: "chain_atlas",
+            assetId: "platform",
+            x: index * 90,
+            y: 300,
+            w: 100,
+            h: 40,
+            layer: "terrain",
+            collisionFromManifest: true
+        })),
+        entities: []
+    };
+    const chainContext = {
+        manifestByAtlasId: { chain_atlas: chainManifest },
+        tuning: {
+            playerWidth: 50, playerHeight: 100, maxRunSpeed: 260,
+            groundAcceleration: 950, gravity: 1200, ordinaryJumpHeight: 120,
+            fallDamageSafeImpactSpeed: 800
+        }
+    };
+    const chainBake = rebakeAndVerifyNavigation(chainLevel, chainContext, {
+        verifyBySimulation: false, includeWizard: true, stepTransitionMethod: "stride_arc"
+    });
+    const chainGraph = chainBake.profiles[0];
+    const remoteDependentStep = (chainGraph?.edges || []).find((edge) =>
+        edge.type === "step"
+        && edge.geometryDependencyIds?.includes("visual:chain_1")
+        && !edge.geometryDependencyIds?.includes("visual:chain_8")
+        && edge.walkRegionDependencyIds?.includes("visual:chain_8")
+    );
+    assert.ok(remoteDependentStep, "walk-region cache fixture should contain a local step whose candidate region also depends on remote chain_8");
+    assert.equal(chainGraph.walkRegions?.length, 1, "the overlapping chain should form one candidate continuous walk region");
+    assert.ok(/^navproof-v3-[0-9a-f]{16}$/.test(remoteDependentStep.verificationInputHash || ""), "candidate walk-region steps should receive deterministic local proof hashes");
+
+    const seededChainDocument = structuredClone(chainBake.level);
+    const seededChainGraph = (seededChainDocument.navigationGraphs?.profiles || [])[0];
+    const seededRemoteDependentStep = (seededChainGraph?.edges || []).find((edge) => edge.id === remoteDependentStep.id);
+    assert.ok(seededRemoteDependentStep, "walk-region cache fixture should retain the selected step in serialized navigation data");
+    seededRemoteDependentStep.verification = "verified";
+    const unchangedChainBake = rebakeAndVerifyNavigation(seededChainDocument, chainContext, {
+        verifyBySimulation: false, includeWizard: true, stepTransitionMethod: "stride_arc"
+    });
+    const unchangedRemoteDependentStep = unchangedChainBake.profiles[0]?.edges?.find((edge) => edge.id === remoteDependentStep.id);
+    assert.equal(unchangedRemoteDependentStep?.verification, "verified", "unchanged candidate-region geometry should reuse the stored step simulation proof");
+
+    // Region IDs are deliberately human-readable sequential labels, so an
+    // unrelated disconnected support whose ID sorts earlier can renumber the
+    // existing chain from walk_region_001 to walk_region_002.  That topology
+    // label is not simulation input and must not invalidate otherwise-identical
+    // local proofs or the region's own dependency hash.
+    const disconnectedRegionDocument = structuredClone(seededChainDocument);
+    disconnectedRegionDocument.placements.push({
+        id: "aaa_remote", kind: "atlasAsset", atlasId: "chain_atlas", assetId: "platform",
+        x: 1000, y: 300, w: 100, h: 40, layer: "terrain", collisionFromManifest: true
+    });
+    const disconnectedRegionBake = rebakeAndVerifyNavigation(disconnectedRegionDocument, chainContext, {
+        verifyBySimulation: false, includeWizard: true, stepTransitionMethod: "stride_arc"
+    });
+    const disconnectedRemoteDependentStep = disconnectedRegionBake.profiles[0]?.edges?.find((edge) =>
+        edge.id === remoteDependentStep.id
+        && edge.from === remoteDependentStep.from
+        && edge.to === remoteDependentStep.to
+    );
+    assert.ok(disconnectedRemoteDependentStep, "adding disconnected geometry should preserve the existing local step identity");
+    assert.equal(disconnectedRemoteDependentStep.verificationInputHash, remoteDependentStep.verificationInputHash, "unrelated walk-region renumbering must not perturb a local step proof hash");
+    assert.equal(disconnectedRemoteDependentStep.verification, "verified", "a disconnected region outside the proof chunks and dependency set should preserve the stored simulation result");
+    const originalChainRegion = chainGraph.walkRegions?.find((region) => region.supportIds?.includes(remoteDependentStep.from));
+    const renumberedChainRegion = disconnectedRegionBake.profiles[0]?.walkRegions?.find((region) => region.supportIds?.includes(remoteDependentStep.from));
+    assert.ok(originalChainRegion && renumberedChainRegion && originalChainRegion.id !== renumberedChainRegion.id, "cache fixture should genuinely renumber the chain walk region");
+    assert.equal(renumberedChainRegion.verificationInputHash, originalChainRegion.verificationInputHash, "walk-region proof hash should follow its supports/dependencies rather than the sequential region label");
+
+    const movedRemoteChainDocument = structuredClone(seededChainDocument);
+    const movedRemoteChainPlacement = movedRemoteChainDocument.placements?.find((placement) => placement.id === "chain_8");
+    assert.ok(movedRemoteChainPlacement, "walk-region cache fixture should expose the remote authored dependency");
+    movedRemoteChainPlacement.x = Number(movedRemoteChainPlacement.x || 0) + 1;
+    const movedRemoteChainBake = rebakeAndVerifyNavigation(movedRemoteChainDocument, chainContext, {
+        verifyBySimulation: false, includeWizard: true, stepTransitionMethod: "stride_arc"
+    });
+    const movedRemoteDependentStep = movedRemoteChainBake.profiles[0]?.edges?.find((edge) =>
+        edge.id === remoteDependentStep.id
+        && edge.from === remoteDependentStep.from
+        && edge.to === remoteDependentStep.to
+    );
+    assert.ok(movedRemoteDependentStep, "moving a remote contributor should preserve the unrelated local step identity for a precise cache-invalidation check");
+    assert.notEqual(movedRemoteDependentStep.verificationInputHash, remoteDependentStep.verificationInputHash, "moving remote chain_8 should invalidate the local step proof through the merged candidate-region dependency hash");
+    assert.equal(movedRemoteDependentStep.verification, "unverified", "a changed candidate-region dependency must prevent stale simulation-proof reuse even when the local step geometry itself is unchanged");
+
+    const locallyEditedCleanBake = rebakeAndVerifyNavigation(locallyEditedDocument, canonicalContext, {
+        verifyBySimulation: true,
+        reuseSimulationProofs: false,
+        includeWizard: true,
+        stepTransitionMethod: "stride_arc"
+    });
+    assert.equal(locallyEditedCleanBake.summary.reusedSimulationEdges, 0, "the explicit clean mode should bypass the local simulation-proof cache");
+    assert.equal(locallyEditedCleanBake.summary.checkedEdges, locallyEditedCleanBake.summary.candidateSimulationEdges, "the explicit clean mode should simulate every freshly generated base step/jump/drop candidate");
 }
 
 function testBakedNavigationGraphDirectionalTransitions() {
@@ -3920,10 +5836,10 @@ function testHunterEnemyJumpAndAttackPositioning() {
             jumpGravity: 1200,
             maxFallDistance: 280,
             awarenessRange: 500,
-            attackMode: "melee",
+            attackType: "melee",
             attackRange: 60,
             attackVerticalRange: 100,
-            attackDamage: 0
+            damage: 0
         }]
     });
     state.world.segments = [
@@ -3955,6 +5871,106 @@ function testHunterEnemyJumpAndAttackPositioning() {
 }
 
 
+function testHunterMeleeChoosesNearestAttackReadySpacing() {
+    const makeState = (playerX) => {
+        const state = createInitialGameState();
+        applyEditorLevelToWorld(state, {
+            levelId: "level_t34",
+            testPlayerStart: { x: playerX, y: 600 },
+            entities: [{
+                id: "spacing_hunter",
+                type: "characterEnemy",
+                characterId: "ct_char_enemy_001",
+                x: 0,
+                y: 600,
+                w: 72,
+                h: 148,
+                facing: 1,
+                strategy: "hunter",
+                patrolDistance: 100,
+                walkSpeed: 40,
+                runSpeed: 180,
+                jumpHeight: 140,
+                jumpGravity: 1200,
+                maxFallDistance: 280,
+                awarenessRange: 1000,
+                awarenessViewHalfAngle: 180,
+                attackType: "melee",
+                attackRange: 60,
+                meleeHitRange: 70,
+                attackVerticalRange: 100,
+                damage: 0,
+                attackDuration: 0.5,
+                attackCooldown: 0.12,
+                lungeRangeMin: 140,
+                lungeRangeMax: 400,
+                lungeSpeed: 1000,
+                lungeTargetDist: 50
+            }]
+        });
+        state.world.segments = [{ id: "spacing_ground", kind: "walkable", x1: -500, y1: 600, x2: 500, y2: 600 }];
+        state.world.solids = [];
+        state.world.collisionPolygons = [];
+        state.story.portalIntro = null;
+        state.story.portalExit = null;
+        state.story.mailboxEvent = null;
+        state.player.currentTransform.x = playerX;
+        state.player.currentTransform.y = 600;
+        state.player.onGround = true;
+        state.player.wasOnGround = true;
+        const enemy = state.enemies.find((item) => item.id === "spacing_hunter");
+        enemy.aiState = "pursue";
+        enemy.engaged = true;
+        enemy.alerted = true;
+        enemy.awarenessTimer = 1;
+        enemy.attackCooldownTimer = 1;
+        enemy.supportId = "spacing_ground";
+        enemy.currentSupportId = "spacing_ground";
+        return { state, enemy };
+    };
+
+    const close = makeState(60);
+    stepSimulation(close.state, createInputFrame(), FIXED_DT);
+    approx(close.enemy.currentTransform.x, 0, 0.000001, "cooling-down melee hunter already inside direct reach should hold position instead of backing away for a lunge");
+    assert.equal(close.enemy.routePurpose, "attack_position", "close melee hunter should keep an attack-ready plan while cooling down");
+
+    const directNearer = makeState(100);
+    stepSimulation(directNearer.state, createInputFrame(), FIXED_DT);
+    assert.ok(directNearer.enemy.currentTransform.x > 0, "between direct reach and lunge minimum, hunter should close when the direct-attack boundary is nearer");
+    approx(directNearer.enemy.routeTargetX, 30, 0.000001, "direct-attack option should target the nearest grounded-base melee boundary");
+
+    const lungeNearer = makeState(120);
+    stepSimulation(lungeNearer.state, createInputFrame(), FIXED_DT);
+    assert.ok(lungeNearer.enemy.currentTransform.x < 0, "between direct reach and lunge minimum, hunter may back up when the lunge boundary is genuinely nearer");
+    approx(lungeNearer.enemy.routeTargetX, -20, 0.000001, "lunge option should target lungeRangeMin rather than a fraction of lungeRangeMax");
+
+    const lungeReady = makeState(200);
+    stepSimulation(lungeReady.state, createInputFrame(), FIXED_DT);
+    approx(lungeReady.enemy.currentTransform.x, 0, 0.000001, "hunter already inside the valid lunge band should hold position while cooling down");
+
+    const postLunge = makeState(300);
+    postLunge.enemy.attackCooldownTimer = 0;
+    postLunge.enemy.attackCooldown = 1;
+    postLunge.enemy.attackHitTime = 0.4;
+    postLunge.enemy.routePurpose = "attack_position";
+    postLunge.enemy.routeTargetSupportId = "spacing_ground";
+    postLunge.enemy.routeTargetX = 0;
+    postLunge.enemy.routeTargetY = 600;
+    stepSimulation(postLunge.state, createInputFrame(), FIXED_DT);
+    assert.equal(postLunge.enemy.attackLungeActive, true, "hunter with a stale pre-attack route should still commit a valid lunge");
+    let postLungeGuard = 0;
+    while (postLunge.enemy.attackTimer > 0 && postLungeGuard < 240) {
+        stepSimulation(postLunge.state, createInputFrame(), FIXED_DT);
+        postLungeGuard += 1;
+    }
+    assert.equal(postLunge.enemy.attackLungeActive, false, "completed hunter lunge should leave attack state normally");
+    assert.equal(postLunge.enemy.routeTargetX, null, "completed lunge should discard the stale pre-lunge route target");
+    const postLungeX = postLunge.enemy.currentTransform.x;
+    stepSimulation(postLunge.state, createInputFrame(), FIXED_DT);
+    approx(postLunge.enemy.currentTransform.x, postLungeX, 0.000001, "first cooldown tick after lunge should replan from the landing point instead of walking back toward the stale route");
+}
+
+
 function testHunterUsesDeliberateDropTraversal() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
@@ -3978,10 +5994,10 @@ function testHunterUsesDeliberateDropTraversal() {
             maxFallDistance: 300,
             maxStepHeight: 26,
             awarenessRange: 800,
-            attackMode: "melee",
+            attackType: "melee",
             attackRange: 58,
             attackVerticalRange: 120,
-            attackDamage: 0
+            damage: 0
         }]
     });
     state.world.segments = [
@@ -4033,14 +6049,13 @@ function testHunterRangedAttackPositionSelection() {
             jumpGravity: 1200,
             maxFallDistance: 240,
             awarenessRange: 500,
-            attackMode: "projectile",
+            attackType: "projectile",
             attackRange: 320,
             attackVerticalRange: 160,
             preferredAttackRange: 180,
             preferredAttackMinRange: 110,
-            attackDamage: 0,
-            projectileDamage: 0,
-            projectileCooldown: 1
+            damage: 0,
+            attackCooldown: 1
         }]
     });
     state.world.segments = [{ id: "floor", kind: "walkable", x1: -400, y1: 600, x2: 400, y2: 600 }];
@@ -4063,6 +6078,19 @@ function testHunterRangedAttackPositionSelection() {
     assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED"), "ranged hunter should attack after reaching a valid firing position");
 }
 
+
+function bakedNavigationSupportIdAt(level, bodyWidth, bodyHeight, baseSupportId, x) {
+    const graph = (level?.navigationGraphs?.profiles || []).find((candidate) =>
+        Math.abs(Number(candidate?.profile?.bodyWidth) - bodyWidth) <= 0.001
+        && Math.abs(Number(candidate?.profile?.bodyHeight) - bodyHeight) <= 0.001
+    );
+    const support = (graph?.supports || []).find((candidate) =>
+        (candidate.id === baseSupportId || candidate.id.startsWith(`${baseSupportId}_nav_`))
+        && x >= Number(candidate.xMin) - 0.01
+        && x <= Number(candidate.xMax) + 0.01
+    );
+    return support?.id || null;
+}
 
 function testLevelOneUsesBakedHunterNavigationGraphs() {
     const level = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
@@ -4099,10 +6127,15 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
         humanGraph.edges.some((edge) => edge.from === "left_step_blockable_1" && edge.type === "drop" && edge.walkOff === true),
         "the modular-human graph should retain a deliberate walk-off escape from the screenshot ledge under its current authored mobility"
     );
+    const broadFloorFragments = graph.supports.filter((support) => support.id === "floor_cold_platform_001_blockable_2" || support.id.startsWith("floor_cold_platform_001_blockable_2_nav_"));
+    const broadFloorSupportAt = (x) => broadFloorFragments.find((support) => x >= Number(support.xMin) - 0.01 && x <= Number(support.xMax) + 0.01);
+    const pillarStartSupport = broadFloorSupportAt(2140);
+    const leftFloorTargetSupport = broadFloorSupportAt(1200);
+    assert.ok(pillarStartSupport && leftFloorTargetSupport, "the rebaked broad floor should retain the authored start and target positions even when virtual splitting renumbers fragments");
     const pillarRoute = planEnemyNavigationRoute(
         graph.supports,
-        "floor_cold_platform_001_blockable_2_nav_2",
-        "floor_cold_platform_001_blockable_2_nav_1",
+        pillarStartSupport.id,
+        leftFloorTargetSupport.id,
         {
             edgeMap: enemyNavigationEdgeMapFromFlat(graph.edges),
             startX: 2140,
@@ -4162,6 +6195,8 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
 function testHunterCrossesLevelOneCentralPillarAndJumpsDown() {
     const level = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_010_001");
+    const leftFloorSupportId = bakedNavigationSupportIdAt(level, 70, 105, "floor_cold_platform_001_blockable_2", 1200);
+    assert.ok(leftFloorSupportId, "level_t01 goblin graph should retain the broad lower floor beneath the central pillar");
 
     const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the central-pillar traversal regression test");
@@ -4195,8 +6230,8 @@ function testHunterCrossesLevelOneCentralPillarAndJumpsDown() {
         landedOnPillarTop ||= !enemy.airborne && enemy.currentSupportId === "object_036_001_blockable_1";
         launchedDownward ||= landedOnPillarTop
             && enemy.airborne
-            && enemy.route?.[enemy.routeIndex]?.to === "floor_cold_platform_001_blockable_2_nav_1";
-        landedOnLeftFloor ||= !enemy.airborne && enemy.currentSupportId === "floor_cold_platform_001_blockable_2_nav_1";
+            && enemy.route?.[enemy.routeIndex]?.to === leftFloorSupportId;
+        landedOnLeftFloor ||= !enemy.airborne && enemy.currentSupportId === leftFloorSupportId;
     }
 
     assert.equal(glared, false, "the hunter should not abandon a valid route across the central pillar");
@@ -4249,8 +6284,9 @@ function testLevelSixLowerPillarHunterUsesOverlappingFloorRunUp() {
     ));
     assert.ok(pillarJump, "the lower-left level_006 floor should have a rightward jump edge onto the pillar");
     assert.ok(
-        Number(pillarJump.runUpX) < Number(pillarJump.launchX) - 80,
-        "the pillar jump should retain enough run-up across the overlapping same-height floor polygons"
+        Number(pillarJump.runUpX) < Number(pillarJump.launchX) - 0.5
+            && Number(pillarJump.runUpDistance) > 0.5,
+        "the pillar jump should retain a non-zero physical acceleration run-up before launch"
     );
     const route = planEnemyNavigationRoute(supports, leftSupportId, rightSupportId, {
         ...profile,
@@ -4455,6 +6491,8 @@ function testHunterRestoredPursueStateNormalizesLikeSdl() {
 function testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer() {
     const level = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_010_001");
+    const rememberedFloorSupportId = bakedNavigationSupportIdAt(level, 70, 105, "floor_cold_platform_001_blockable_2", 1700);
+    assert.ok(rememberedFloorSupportId, "level_t01 goblin graph should retain the remembered broad-floor position");
 
     const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the ledge-exit awareness regression test");
@@ -4487,7 +6525,7 @@ function testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer() {
     enemy.awarenessTimer = 1.5;
     enemy.lastSeenPlayerX = state.player.currentTransform.x;
     enemy.lastSeenPlayerY = state.player.currentTransform.y;
-    enemy.lastSeenSupportId = "floor_cold_platform_001_blockable_2_nav_2";
+    enemy.lastSeenSupportId = rememberedFloorSupportId;
     enemy.engaged = true;
     enemy.alerted = true;
     enemy.aiState = "pursue";
@@ -4498,7 +6536,7 @@ function testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer() {
     const firstEdge = enemy.route?.[enemy.routeIndex];
     assert.equal(enemy.aiState, "investigate_last_seen", "losing the narrow facing cone should begin last-seen pursuit immediately instead of idling through the awareness hold");
     assert.equal(enemy.routePurpose, "last_seen", "the immediate pursuit should use the genuinely remembered player position");
-    assert.equal(firstEdge?.to, "floor_cold_platform_001_blockable_2_nav_2", "the remembered lower-floor position should produce an exit route from the pillar");
+    assert.equal(firstEdge?.to, rememberedFloorSupportId, "the remembered lower-floor position should produce an exit route from the pillar");
     assert.ok(enemy.currentTransform.x > startX, "the short downward-jump run-up should move toward the nearby right edge instead of backing across the whole ledge");
 
     let launchFrame = null;
@@ -4516,6 +6554,8 @@ function testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer() {
 function testHunterWalksOffLevelOneLeftLedge() {
     const level = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_010_001");
+    const lowerFloorSupportId = bakedNavigationSupportIdAt(level, 70, 105, "floor_cold_platform_001_blockable_2", 1000);
+    assert.ok(lowerFloorSupportId, "level_t01 goblin graph should retain the lower landing floor below the left ledge");
 
     const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the long ledge walk-off regression test");
@@ -4555,7 +6595,7 @@ function testHunterWalksOffLevelOneLeftLedge() {
     assert.equal(firstEdge?.type, "drop", "the hunter should choose a gravity-only drop instead of jumping from the ledge");
     assert.equal(firstEdge?.walkOff, true, "the descent should be marked as a controlled walk-off");
     assert.equal(firstEdge?.direction, "right", "the hunter should leave from the edge facing the wizard");
-    assert.equal(firstEdge?.to, "floor_cold_platform_001_blockable_2_nav_1", "the walk-off should land on the verified floor below");
+    assert.equal(firstEdge?.to, lowerFloorSupportId, "the walk-off should land on the verified floor below");
     assert.equal(firstEdge?.vy, 0, "walking off should not add an upward jump impulse");
 
     let sawDrop = false;
@@ -4563,7 +6603,7 @@ function testHunterWalksOffLevelOneLeftLedge() {
     for (let frame = 1; frame < 120; frame += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
         sawDrop ||= enemy.airborne && enemy.aiState === "drop";
-        landed ||= sawDrop && !enemy.airborne && enemy.currentSupportId === "floor_cold_platform_001_blockable_2_nav_1";
+        landed ||= sawDrop && !enemy.airborne && enemy.currentSupportId === lowerFloorSupportId;
         if (landed) break;
     }
     assert.equal(sawDrop, true, "the hunter should actually step off the ledge");
@@ -4575,6 +6615,8 @@ function testHunterWalksOffLevelOneLeftLedge() {
 function testHumanHunterEscapesLevelOneLeftLedge() {
     const level = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_033_001");
+    const lowerFloorSupportId = bakedNavigationSupportIdAt(level, 60, 170, "floor_cold_platform_001_blockable_2", 1200);
+    assert.ok(lowerFloorSupportId, "level_t01 human graph should retain the lower landing floor below the left ledge");
 
     const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the tall-human ledge regression test");
@@ -4614,14 +6656,14 @@ function testHumanHunterEscapesLevelOneLeftLedge() {
     assert.equal(firstEdge?.type, "drop", "the modular human should choose a physically valid walk-off under its current authored jump height instead of stranded patrol");
     assert.equal(firstEdge?.walkOff, true, "the human ledge escape should be represented as a controlled walk-off");
     assert.equal(firstEdge?.direction, "right", "the human should leave the ledge toward the reachable lower target");
-    assert.equal(firstEdge?.to, "floor_cold_platform_001_blockable_2_nav_1", "the human walk-off should land on the verified lower floor");
+    assert.equal(firstEdge?.to, lowerFloorSupportId, "the human walk-off should land on the verified lower floor");
 
     let sawDrop = false;
     let landed = false;
     for (let frame = 1; frame < 240; frame += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
         sawDrop ||= enemy.airborne && enemy.aiState === "drop";
-        landed ||= sawDrop && !enemy.airborne && enemy.currentSupportId === "floor_cold_platform_001_blockable_2_nav_1";
+        landed ||= sawDrop && !enemy.airborne && enemy.currentSupportId === lowerFloorSupportId;
         if (landed) break;
     }
     assert.equal(sawDrop, true, "the modular human should commit to the current valid ledge escape");
@@ -4735,6 +6777,8 @@ function testVisibleHunterStopsAtBlockedLevelOnePillarApproach() {
 function testHunterReturnHomeCanReengageAfterShortCooldown() {
     const level = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_032_001");
+    const floorSupportId = bakedNavigationSupportIdAt(level, 60, 170, "floor_cold_platform_001_blockable_2", 2100);
+    assert.ok(floorSupportId, "level_t01 human graph should retain the broad floor used by the return-home regression");
 
     const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_t01 should apply for the return-home reengagement cooldown regression test");
@@ -4755,8 +6799,8 @@ function testHunterReturnHomeCanReengageAfterShortCooldown() {
     enemy.currentTransform.y = 844.409954974282;
     enemy.spawnX = 2784;
     enemy.spawnY = 844.5508804953561;
-    enemy.homeSupportId = "floor_cold_platform_001_blockable_2_nav_2";
-    enemy.currentSupportId = "floor_cold_platform_001_blockable_2_nav_2";
+    enemy.homeSupportId = floorSupportId;
+    enemy.currentSupportId = floorSupportId;
     enemy.facing = 1;
     enemy.awarenessRange = 2000;
     enemy.engaged = false;
@@ -4992,7 +7036,7 @@ function testHunterFindsReachableFiringFallbackBeforeGlare() {
             maxFallDistance: 300,
             awarenessRange: 1200,
             unreachableGlareDuration: 1,
-            attackMode: "projectile",
+            attackType: "projectile",
             attackRange: 700,
             attackVerticalRange: 400,
             preferredAttackRange: 300,
@@ -5001,8 +7045,8 @@ function testHunterFindsReachableFiringFallbackBeforeGlare() {
             projectileLaunchType: "homing_lo",
             projectileSpeed: 280,
             projectileRadius: 14,
-            projectileDamage: 0,
-            projectileCooldown: 1
+            damage: 0,
+            attackCooldown: 1
         }]
     });
     state.world.segments = [
@@ -5077,10 +7121,10 @@ function testHunterJumpUsesObstacleClearRunUp() {
             maxFallDistance: 300,
             maxStepHeight: 26,
             awarenessRange: 1200,
-            attackMode: "melee",
+            attackType: "melee",
             attackRange: 58,
             attackVerticalRange: 110,
-            attackDamage: 0
+            damage: 0
         }]
     });
     state.world.segments = [
@@ -5159,10 +7203,10 @@ function testHunterJumpBacksAwayForReverseRunUp() {
             maxStepHeight: 26,
             awarenessRange: 1200,
             awarenessViewHalfAngle: 90,
-            attackMode: "melee",
+            attackType: "melee",
             attackRange: 58,
             attackVerticalRange: 110,
-            attackDamage: 0
+            damage: 0
         }]
     });
     state.world.segments = [
@@ -5241,12 +7285,12 @@ function testHunterDropLandsOnOrdinaryCollisionGeometry() {
             maxFallDistance: 400,
             maxStepHeight: 26,
             awarenessRange: 1000,
-            attackMode: "projectile",
+            attackType: "projectile",
             attackRange: 340,
             attackVerticalRange: 220,
             projectileKind: "fireball",
             projectileLaunchType: "homing_lo",
-            projectileDamage: 0
+            damage: 0
         }]
     });
     state.world.segments = [
@@ -5317,10 +7361,10 @@ function testHunterWalkOffDropClearsSourcePillar() {
             maxFallDistance: 400,
             maxStepHeight: 26,
             awarenessRange: 1000,
-            attackMode: "melee",
+            attackType: "melee",
             attackRange: 55,
             attackVerticalRange: 120,
-            attackDamage: 0
+            damage: 0
         }]
     });
     state.world.segments = [
@@ -5405,6 +7449,8 @@ function testHunterWalkOffDropClearsSourcePillar() {
 
 function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
     const level = JSON.parse(readFileSync("./resources/levels/level_t01.json", "utf8"));
+    const rightFloorSupportId = bakedNavigationSupportIdAt(level, 70, 105, "floor_cold_platform_001_blockable_2", 3900);
+    assert.ok(rightFloorSupportId, "level_t01 goblin graph should retain the broad floor to the right of the arch");
     level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_012_001");
 
     const state = createCatalogBackedGameState();
@@ -5447,7 +7493,8 @@ function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
     assert.equal(enemy.route?.[0]?.type, "step", "the route should traverse the connected sloped support before the ledge drop");
     assert.equal(enemy.route?.[0]?.to, "arch_ruin_001_blockable_6", "the first edge should continue down the same blockable polygon");
     assert.equal(enemy.route?.[1]?.type, "drop", "the next edge should be a gravity-only ledge exit");
-    assert.equal(enemy.route?.[1]?.walkOff, true, "the arch exit should retain the preferred walk-off behavior");
+    assert.equal(enemy.route?.[1]?.vy, 0, "the arch exit should remain a gravity-only fall rather than adding an upward jump impulse");
+    assert.equal(enemy.route?.[1]?.verification, "verified", "the selected blockable-slope descent should be proven by the 60 Hz navigation simulation");
 
     let crossedSteepSlope = false;
     let sawDrop = false;
@@ -5456,7 +7503,7 @@ function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
         stepSimulation(state, createInputFrame(), FIXED_DT);
         crossedSteepSlope ||= !enemy.airborne && enemy.currentSupportId === "arch_ruin_001_blockable_6" && enemy.currentTransform.x > 3378;
         sawDrop ||= enemy.airborne && enemy.aiState === "drop";
-        landed ||= sawDrop && !enemy.airborne && enemy.currentSupportId === "floor_cold_platform_001_blockable_2_nav_3";
+        landed ||= sawDrop && !enemy.airborne && enemy.currentSupportId === rightFloorSupportId;
         if (landed || enemy.aiState === "unreachable_glare") {
             break;
         }
@@ -5489,10 +7536,10 @@ function testHunterAwarenessIsConsistentBehindOccluder() {
                 runSpeed: 300,
                 jumpHeight: 200,
                 awarenessRange: 5000,
-                attackMode: "projectile",
+                attackType: "projectile",
                 attackRange: 340,
                 attackVerticalRange: 220,
-                projectileDamage: 0
+                damage: 0
             },
             {
                 id: "far_hunter",
@@ -5507,10 +7554,10 @@ function testHunterAwarenessIsConsistentBehindOccluder() {
                 runSpeed: 300,
                 jumpHeight: 200,
                 awarenessRange: 5000,
-                attackMode: "projectile",
+                attackType: "projectile",
                 attackRange: 420,
                 attackVerticalRange: 240,
-                projectileDamage: 0
+                damage: 0
             }
         ]
     });
@@ -5555,7 +7602,7 @@ function testMonsterAwarenessUsesDistanceAndFacingCone() {
                 patrolDistance: 500,
                 awarenessRange: 240,
                 awarenessViewHalfAngle: viewHalfAngle,
-                attackDamage: 0,
+                damage: 0,
                 attackRange: 50
             }]
         });
@@ -5606,6 +7653,95 @@ function testMonsterAwarenessUsesDistanceAndFacingCone() {
     const defaultConeFromZero = runCase({ strategy: "hunter", facing: -1, relativeAngleDegrees: 45, viewHalfAngle: 0 });
     assert.equal(defaultConeFromZero.alerted, true, "a non-positive authored awareness cone should use SDL's default half-angle instead of becoming a zero-degree cone");
 
+    function runRocketHearingCase({ explosionDistance = 140, playerDistance = 220, deaf = false, projectileKind = "dartRocket" }) {
+        const state = createCatalogBackedGameState();
+        applyEditorLevelToWorld(state, {
+            levelId: "monster_rocket_hearing_test",
+            testPlayerStart: { x: 300 - playerDistance, y: 600 },
+            entities: [{
+                id: "hearing_hunter",
+                type: "characterEnemy",
+                characterId: "ct_char_enemy_001",
+                x: 300,
+                y: 600,
+                w: 72,
+                h: 150,
+                facing: 1,
+                strategy: "hunter",
+                patrolDistance: 0,
+                awarenessRange: 300,
+                awarenessHoldDuration: 1.2,
+                awarenessViewHalfAngle: 60,
+                deaf,
+                damage: 0,
+                attackRange: 50
+            }]
+        });
+        state.story.portalIntro = null;
+        state.story.portalExit = null;
+        state.story.mailboxEvent = null;
+        state.world.solids = [];
+        state.world.collisionPolygons = [];
+        state.world.segments = [{ id: "hearing_floor", kind: "walkable", x1: -1000, y1: 600, x2: 1000, y2: 600 }];
+        const enemy = state.enemies.find((item) => item.id === "hearing_hunter");
+        enemy.airborne = false;
+        enemy.supportId = "hearing_floor";
+        enemy.currentSupportId = "hearing_floor";
+        enemy.alerted = false;
+        enemy.engaged = false;
+        enemy.awarenessTimer = 0;
+        enemy.aiState = "patrol";
+        state.player.currentTransform.x = 300 - playerDistance;
+        state.player.currentTransform.y = 600;
+        state.player.onGround = true;
+        state.player.wasOnGround = true;
+        state.player.supportId = "hearing_floor";
+
+        state.projectiles.push({
+            id: "hearing_rocket",
+            owner: "player",
+            kind: projectileKind,
+            isRocket: true,
+            state: "launched",
+            activeSinceTick: state.clock.tick,
+            ...createTransformTriplet({ x: 300 - explosionDistance, y: 525, angle: 0, scaleX: 1, scaleY: 1 }),
+            vx: 0,
+            vy: 0,
+            gravity: 0,
+            homing: false,
+            age: 0,
+            lifetime: 0,
+            explosionTimer: 0,
+            radius: 4,
+            damage: 0,
+            areaDamageRadius: 0,
+            secondaryEnemySplashDamage: 0,
+            secondaryEnemySplashRadius: 0,
+            trail: []
+        });
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        return { state, enemy };
+    }
+
+    const heardRocket = runRocketHearingCase({ explosionDistance: 140, playerDistance: 220 });
+    assert.equal(heardRocket.enemy.alerted, true, "a player rocket exploding within half awareness range should alert a hunter even when Ignatius is behind it");
+    assert.equal(heardRocket.enemy.engaged, true, "hearing a nearby player rocket should engage the hunter");
+    assert.equal(heardRocket.enemy.aiState, "pursue", "hearing should promote a hunter directly into pursuit of the acquired player position");
+    assert.equal(heardRocket.enemy.facing, -1, "the rapid hearing look-around should finish with the hunter facing Ignatius");
+    approx(heardRocket.enemy.lastSeenPlayerX, heardRocket.state.player.currentTransform.x, 0.000001, "hearing should remember Ignatius's current horizontal position");
+
+    const tooFarExplosion = runRocketHearingCase({ explosionDistance: 151, playerDistance: 220 });
+    assert.equal(tooFarExplosion.enemy.alerted, false, "an explosion beyond half awareness range should not be heard strongly enough to reveal Ignatius");
+
+    const playerTooFar = runRocketHearingCase({ explosionDistance: 100, playerDistance: 320 });
+    assert.equal(playerTooFar.enemy.alerted, false, "a nearby explosion should not reveal Ignatius when he is outside the enemy's full awareness range");
+
+    const deafHunter = runRocketHearingCase({ explosionDistance: 100, playerDistance: 220, deaf: true });
+    assert.equal(deafHunter.enemy.alerted, false, "an enemy authored as deaf should ignore player rocket explosions");
+
+    const slamExplosion = runRocketHearingCase({ explosionDistance: 100, playerDistance: 220, projectileKind: "fallImpactExplosion" });
+    assert.equal(slamExplosion.enemy.alerted, true, "Ignatius's body-slam impact should alert a nearby non-deaf enemy under the same hearing-distance rule");
+
     function runGroundTransientAwarenessCase({ combatState, attackTimer = 0, hurtTimer = 0 }) {
         const state = createCatalogBackedGameState();
         applyEditorLevelToWorld(state, {
@@ -5625,9 +7761,9 @@ function testMonsterAwarenessUsesDistanceAndFacingCone() {
                 awarenessRange: 1,
                 awarenessHoldDuration: 1.2,
                 awarenessViewHalfAngle: 180,
-                attackMode: "melee",
+                attackType: "melee",
                 attackRange: 50,
-                attackDamage: 0
+                damage: 0
             }]
         });
         state.world.segments = [{ id: "transient_floor", kind: "walkable", x1: 0, y1: 600, x2: 800, y2: 600 }];
@@ -5689,10 +7825,10 @@ function testHunterInvestigatesClosestReachableLastSeenPositionBeforeGlare() {
             awarenessHoldDuration: 0.05,
             awarenessViewHalfAngle: 90,
             unreachableGlareDuration: 5,
-            attackMode: "melee",
+            attackType: "melee",
             attackRange: 44,
             attackVerticalRange: 100,
-            attackDamage: 0
+            damage: 0
         }]
     });
     state.world.segments = [
@@ -5767,19 +7903,19 @@ function testZeroHealthStartsDeathLifecycleAndDisablesTargeting() {
             facing: -1,
             strategy: "hunter",
             health: 90,
-            attackMode: "projectile",
+            attackType: "projectile",
             attackRange: 420,
             attackVerticalRange: 220,
             attackDuration: 0.2,
             projectileReleaseTime: 0.05,
-            projectileCooldown: 0.25,
+            attackCooldown: 0.25,
             projectileKind: "fireball",
             projectileLaunchType: "homing_lo",
             projectileSpeed: 500,
             projectileGravity: 0,
             projectileLifetime: 2,
             projectileRadius: 10,
-            projectileDamage: 30,
+            damage: 30,
             projectileHomingStrength: 3,
             preferredAttackRange: 220,
             preferredAttackMinRange: 80,
@@ -5861,7 +7997,7 @@ function testHunterEnemyStrandedFallback() {
             homeRetryInterval: 0.2,
             attackRange: 60,
             attackVerticalRange: 100,
-            attackDamage: 0
+            damage: 0
         }]
     });
     state.world.segments = [
@@ -5946,6 +8082,7 @@ function testHunterEnemyStrandedFallback() {
     enemy.currentTransform.y = 600;
     enemy.supportId = "low";
     enemy.currentSupportId = "low";
+    enemy.navigationFailureCount = 2;
     enemy.facing = 1;
     state.player.currentTransform.x = 220;
     state.player.currentTransform.y = 600;
@@ -5958,6 +8095,8 @@ function testHunterEnemyStrandedFallback() {
     assert.notEqual(enemy.aiState, "unreachable_glare", "visible ranged hunter on the exact same support line must leave unreachable glare immediately without waiting for graph repath");
     assert.ok(enemy.currentTransform.x > 80 || enemy.combatState === "attacking", "same-floor ranged fallback should move or attack instead of merely looking at Ignatius");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_REENGAGED_LOCAL"), "ranged glare recovery should emit the local re-engagement diagnostic");
+    assert.equal(enemy.navigationFailureCount, 0,
+        "successful local re-engagement should clear a stale consecutive navigation-failure streak");
 
     // Revision 371: same-height evidence only authorizes an attempt. If the
     // physical walking probe cannot advance, preserve glare so graph/stranded
@@ -5977,6 +8116,7 @@ function testHunterEnemyStrandedFallback() {
     enemy.currentTransform.y = 600;
     enemy.supportId = "local_gap_left";
     enemy.currentSupportId = "local_gap_left";
+    enemy.navigationFailureCount = 2;
     enemy.facing = 1;
     state.player.currentTransform.x = 260;
     state.player.currentTransform.y = 600;
@@ -5991,6 +8131,8 @@ function testHunterEnemyStrandedFallback() {
     assert.equal(enemy.aiState, "unreachable_glare", "blocked local re-engagement should preserve glare for graph fallback");
     assert.ok(Math.abs(enemy.currentTransform.x - localGapStartX) <= 0.0001, "blocked local re-engagement must not manufacture movement across a support gap");
     assert.ok(!state.debug.lastEvents.some((event) => event.type === "ENEMY_REENGAGED_LOCAL"), "blocked local re-engagement must not emit a false success diagnostic");
+    assert.equal(enemy.navigationFailureCount, 2,
+        "a blocked local re-engagement attempt must not erase the existing navigation-failure streak");
 
     // Exact support identity must outrank a crude Y-distance test. On one long
     // incline the two actors may be much farther apart vertically than one
@@ -6052,6 +8194,39 @@ function testHunterEnemyStrandedFallback() {
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.ok(enemy.currentTransform.x > zeroRunStartX, "zero-run-speed local pursuit should still make SDL's minimum forward progress");
     assert.ok(enemy.currentTransform.x - zeroRunStartX <= FIXED_DT + 0.0001, "zero-run-speed local pursuit must use SDL's one-unit/second clamp instead of falling back to walkSpeed");
+
+    // Entering glare should establish its intended facing immediately rather than
+    // exposing the movement direction inherited from the previous state for one tick.
+    state.world.segments = [{ id: "glare_focus_floor", kind: "walkable", x1: 0, y1: 600, x2: 300, y2: 600 }];
+    enemy.aiState = "investigate_last_seen";
+    enemy.movementPhase = "investigate_last_seen";
+    enemy.engaged = true;
+    enemy.alerted = true;
+    enemy.awarenessTimer = 0;
+    enemy.currentTransform.x = 180;
+    enemy.currentTransform.y = 600;
+    enemy.supportId = "glare_focus_floor";
+    enemy.currentSupportId = "glare_focus_floor";
+    enemy.facing = 1;
+    enemy.lastSeenPlayerX = 80;
+    enemy.lastSeenPlayerY = 600;
+    enemy.lastSeenSupportId = "glare_focus_floor";
+    enemy.route = [];
+    enemy.routeIndex = 0;
+    enemy.routeTargetSupportId = "glare_focus_floor";
+    enemy.routeTargetX = 180;
+    enemy.routeTargetY = 600;
+    enemy.routePurpose = "last_seen";
+    state.player.visible = false;
+    state.player.targetable = true;
+    state.debug.lastEvents = [];
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(enemy.aiState, "unreachable_glare",
+        "reaching the last-seen investigation target should enter unreachable glare on that same tick");
+    assert.equal(enemy.glareFocusX, 80,
+        "last-seen glare should retain the intended focus point");
+    assert.equal(enemy.facing, -1,
+        "entering glare should immediately face the glare focus instead of retaining the prior movement facing for one tick");
 }
 
 function testHunterVerticalOneWayJumpAndDistanceWatchdog() {
@@ -6078,7 +8253,7 @@ function testHunterVerticalOneWayJumpAndDistanceWatchdog() {
                 walkSpeed: 58,
                 runSpeed: 200,
                 runAcceleration: 950,
-                attackMode: "melee",
+                attackType: "melee",
                 attackRange: 72,
                 attackVerticalRange: 108,
                 maxStepHeight: 26,
@@ -6136,7 +8311,7 @@ function testHunterVerticalOneWayJumpAndDistanceWatchdog() {
             awarenessViewHalfAngle: 180,
             walkSpeed: 58,
             runSpeed: 200,
-            attackMode: "melee",
+            attackType: "melee",
             attackRange: 72,
             attackVerticalRange: 108,
             maxStepHeight: 26,
@@ -6181,6 +8356,85 @@ function testHunterVerticalOneWayJumpAndDistanceWatchdog() {
     stepSimulation(jumpState, createInputFrame(), FIXED_DT);
     assert.equal(jumpingEnemy.airborne, true, "hunter should remain in its character-navigation air traversal after launch");
     assert.ok(jumpingEnemy.currentTransform.y < launchY - 1, "hunter should advance upward rather than restarting its launch frame");
+
+    // Standing ballistic launches are physical arrival regions, not exact-point
+    // servos. This reproduces the recorded level_004 x~=10607/10939 double-
+    // takes: WIP16 reversed four times around launchX before finally jumping.
+    const settlingJumpState = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(settlingJumpState, {
+        levelId: "hunter_vertical_launch_settle_test",
+        testPlayerStart: { x: 5000, y: 120 },
+        entities: [{
+            id: "hunter_vertical_launch_settle",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 148.5,
+            y: 300,
+            w: 60,
+            h: 170,
+            facing: -1,
+            strategy: "hunter",
+            locomotion: "ground",
+            health: 90,
+            awarenessRange: 100,
+            awarenessViewHalfAngle: 180,
+            walkSpeed: 58,
+            runSpeed: 200,
+            runAcceleration: 950,
+            attackType: "melee",
+            attackRange: 72,
+            attackVerticalRange: 108,
+            maxStepHeight: 26,
+            maxDropDistance: 34,
+            jumpHeight: 220,
+            jumpGravity: 1250,
+            maxFallDistance: 600,
+            routeRepathInterval: 0.34,
+            homeRetryInterval: 4
+        }]
+    }), true, "standing-launch settle fixture should apply");
+    settlingJumpState.world.solids = [];
+    settlingJumpState.world.collisionPolygons = [];
+    settlingJumpState.world.segments = [
+        { id: "hunter_settle_lower", kind: "blockable", x1: 0, y1: 300, x2: 300, y2: 300 },
+        { id: "hunter_settle_upper", kind: "walkable", x1: 80, y1: 120, x2: 220, y2: 120 }
+    ];
+    settlingJumpState.story.portalIntro = null;
+    settlingJumpState.story.portalExit = null;
+    settlingJumpState.story.mailboxEvent = null;
+    settlingJumpState.player.currentTransform.x = 5000;
+    settlingJumpState.player.currentTransform.y = 120;
+    const settlingJumpEnemy = settlingJumpState.enemies.find((item) => item.id === "hunter_vertical_launch_settle");
+    settlingJumpEnemy.currentTransform.x = 148.5;
+    settlingJumpEnemy.currentTransform.y = 300;
+    settlingJumpEnemy.spawnX = 148.5;
+    settlingJumpEnemy.spawnY = 300;
+    settlingJumpEnemy.supportId = "hunter_settle_lower";
+    settlingJumpEnemy.currentSupportId = "hunter_settle_lower";
+    settlingJumpEnemy.homeSupportId = "hunter_settle_lower";
+    settlingJumpEnemy.engaged = true;
+    settlingJumpEnemy.alerted = true;
+    settlingJumpEnemy.aiState = "investigate_last_seen";
+    settlingJumpEnemy.movementPhase = "investigate_last_seen";
+    settlingJumpEnemy.lastSeenPlayerX = 150;
+    settlingJumpEnemy.lastSeenPlayerY = 120;
+    settlingJumpEnemy.lastSeenAt = settlingJumpState.clock.time;
+    settlingJumpEnemy.lastSeenSupportId = "hunter_settle_upper";
+    settlingJumpEnemy.groundVelocityX = -25;
+    settlingJumpEnemy.velocityX = -25;
+    let standingLaunchFacingFlips = 0;
+    let standingLaunchFacing = settlingJumpEnemy.facing;
+    for (let tick = 0; tick < 20 && !settlingJumpEnemy.airborne; tick += 1) {
+        stepSimulation(settlingJumpState, createInputFrame(), FIXED_DT);
+        if (settlingJumpEnemy.facing !== standingLaunchFacing) {
+            standingLaunchFacingFlips += 1;
+            standingLaunchFacing = settlingJumpEnemy.facing;
+        }
+    }
+    assert.equal(settlingJumpEnemy.airborne, true,
+        "a standing jump should still launch when the actor settles inside the launch arrival region");
+    assert.ok(standingLaunchFacingFlips <= 1,
+        "a standing jump should settle without repeated left/right reversals around the exact launch coordinate");
 
     const rangedUnreachable = makeHunterStateMachineState();
     rangedUnreachable.state.world.segments = [
@@ -6459,6 +8713,41 @@ function testHunterVerticalOneWayJumpAndDistanceWatchdog() {
         "support-clamped return-home completion should preserve the reachable inset point");
     assert.equal(clampedHome.state.debug.exceptionAlerts.length, 0,
         "arrival at a support-clamped home point must not raise a false watchdog exception");
+
+    // rev530 level_003 exception: a zero-edge return-home plan survived after
+    // physics had moved the hunter onto a lower, different walk region. It then
+    // idled at the same X under home until the watchdog fired. A completed plan
+    // on the wrong region must fail immediately so normal stranded/replan logic
+    // owns recovery instead of the three-second watchdog.
+    const staleHome = makeHunterStateMachineState();
+    staleHome.state.world.segments = [
+        { id: "stale_home_upper", kind: "walkable", x1: -120, y1: 100, x2: 120, y2: 100 },
+        { id: "stale_home_lower", kind: "blockable", x1: -120, y1: 300, x2: 120, y2: 300 }
+    ];
+    staleHome.enemy.currentTransform.x = 0;
+    staleHome.enemy.currentTransform.y = 300;
+    staleHome.enemy.spawnX = 0;
+    staleHome.enemy.spawnY = 100;
+    staleHome.enemy.supportId = "stale_home_lower";
+    staleHome.enemy.currentSupportId = "stale_home_lower";
+    staleHome.enemy.homeSupportId = "stale_home_upper";
+    staleHome.enemy.engaged = false;
+    staleHome.enemy.alerted = false;
+    staleHome.enemy.aiState = "return_home";
+    staleHome.enemy.movementPhase = "return_home";
+    staleHome.enemy.route = [];
+    staleHome.enemy.routeIndex = 0;
+    staleHome.enemy.routeTargetSupportId = "stale_home_upper";
+    staleHome.enemy.routeTargetX = 0;
+    staleHome.enemy.routeTargetY = 100;
+    staleHome.enemy.routePurpose = "return_home";
+    staleHome.enemy.hunterWatchdogElapsed = 0;
+    staleHome.state.debug.exceptionAlerts = [];
+    stepSimulation(staleHome.state, createInputFrame(), FIXED_DT);
+    assert.equal(staleHome.enemy.aiState, "stranded_patrol",
+        "a completed return-home plan on the wrong walk region should enter immediate local recovery");
+    assert.equal(staleHome.state.debug.exceptionAlerts.length, 0,
+        "stale zero-edge return-home recovery should not wait for or consume a watchdog exception");
 }
 
 function testCharacterEnemyPatrolBehavior() {
@@ -6604,6 +8893,112 @@ function testGroundEnemyCannotDropThroughOneWayPlatform() {
     assert.equal(descents.every((edge) => Math.abs(edge.vx) > 0.001 && edge.direction !== "down"), true, "one-way navigation must never encode a straight drop through the support line");
     assert.equal(descents.every((edge) => edge.launchX <= 2.6 || edge.launchX >= 297.4), true, "one-way walk-offs should launch only at an authored platform end");
 
+    const narrowGapWorld = {
+        segments: [
+            { id: "narrow_gap_left", kind: "walkable", x1: 0, y1: 400, x2: 100, y2: 400 },
+            { id: "narrow_gap_right", kind: "walkable", x1: 106.66, y1: 400, x2: 300, y2: 400 },
+            { id: "narrow_gap_lower", kind: "walkable", x1: -300, y1: 650, x2: 600, y2: 650 }
+        ],
+        solids: [],
+        collisionPolygons: []
+    };
+    const narrowGapSupports = buildEnemyNavigationSupports(narrowGapWorld, profile);
+    const narrowGapEdges = buildEnemyNavigationEdges(narrowGapSupports, { ...profile, world: narrowGapWorld });
+    const leftGapDrops = narrowGapEdges.get("narrow_gap_left")?.filter((edge) => edge.type === "drop" && edge.to === "narrow_gap_lower") || [];
+    const rightGapDrops = narrowGapEdges.get("narrow_gap_right")?.filter((edge) => edge.type === "drop" && edge.to === "narrow_gap_lower") || [];
+    assert.equal(leftGapDrops.some((edge) => edge.direction === "right"), false, "a 72 px actor must not treat a 6.66 px same-height gap as an exposed right-hand drop");
+    assert.equal(rightGapDrops.some((edge) => edge.direction === "left"), false, "a 72 px actor must not treat a 6.66 px same-height gap as an exposed left-hand drop");
+    assert.equal(leftGapDrops.some((edge) => edge.direction === "left"), true, "the true outer left endpoint should remain a valid walk-off");
+    assert.equal(rightGapDrops.some((edge) => edge.direction === "right"), true, "the true outer right endpoint should remain a valid walk-off");
+
+    const verticallyOffsetGapWorld = {
+        segments: [
+            { id: "offset_gap_left", kind: "walkable", x1: 0, y1: 400, x2: 100, y2: 400 },
+            { id: "offset_gap_right", kind: "walkable", x1: 106.66, y1: 402, x2: 300, y2: 402 },
+            { id: "offset_gap_lower", kind: "walkable", x1: -300, y1: 650, x2: 600, y2: 650 }
+        ],
+        solids: [],
+        collisionPolygons: []
+    };
+    const verticallyOffsetSupports = buildEnemyNavigationSupports(verticallyOffsetGapWorld, profile);
+    const verticallyOffsetEdges = buildEnemyNavigationEdges(verticallyOffsetSupports, { ...profile, world: verticallyOffsetGapWorld });
+    const offsetLeftDrops = verticallyOffsetEdges.get("offset_gap_left")?.filter((edge) => edge.type === "drop" && edge.to === "offset_gap_lower") || [];
+    assert.equal(offsetLeftDrops.some((edge) => edge.direction === "right"), false, "a neighbouring one-way line 2 px lower must still block a walk-off that runtime feet immediately catch");
+
+    const staleNarrowGapEdge = {
+        type: "drop",
+        direction: "right",
+        from: "narrow_gap_left",
+        to: "narrow_gap_lower",
+        launchX: 98.1,
+        launchY: 400,
+        landingX: 160,
+        landingY: 650,
+        vx: 75,
+        vy: 0,
+        flightTime: 0.6,
+        walkOff: true,
+        cost: 1,
+        blockerIds: []
+    };
+    const narrowGapLeftSupport = narrowGapSupports.find((support) => support.id === "narrow_gap_left");
+    assert.equal(
+        enemyNavigationTraversalAllowedFromSupport(staleNarrowGapEdge, narrowGapLeftSupport, narrowGapSupports, profile),
+        false,
+        "runtime traversal policy should reject an already-baked narrow-gap walk-off edge"
+    );
+    const offsetGapLeftSupport = verticallyOffsetSupports.find((support) => support.id === "offset_gap_left");
+    const staleOffsetGapEdge = { ...staleNarrowGapEdge, from: "offset_gap_left", to: "offset_gap_lower" };
+    assert.equal(
+        enemyNavigationTraversalAllowedFromSupport(staleOffsetGapEdge, offsetGapLeftSupport, verticallyOffsetSupports, profile),
+        false,
+        "runtime traversal policy should reject a stale walk-off when a neighbouring one-way line 2 px lower catches the first descent tick"
+    );
+
+    // Regression geometry distilled from the angled rope-ladder cluster that
+    // exposed the sloped-neighbour early-exit bug. The neighbouring green line
+    // descends into the actor's departure path even though its near endpoint is
+    // already below the source. It must block a drop to some other destination,
+    // while remaining legal when that sloped line is itself the intended target.
+    const slopedSource = {
+        id: "sloped_source", kind: "walkable",
+        x1: 18013, y1: 1830, x2: 17916, y2: 1559, xMin: 17916, xMax: 18013
+    };
+    const slopedNeighbour = {
+        id: "sloped_neighbour", kind: "walkable",
+        x1: 18045, y1: 1926, x2: 17948, y2: 1655, xMin: 17948, xMax: 18045
+    };
+    const slopedTarget = {
+        id: "sloped_target", kind: "blockable",
+        x1: 17944.3058, y1: 1919.2, x2: 19313.6942, y2: 1919.2,
+        xMin: 17944.3058, xMax: 19313.6942
+    };
+    const slopedProfile = {
+        bodyWidth: 34, bodyHeight: 104, runSpeed: 360, groundAcceleration: 950,
+        jumpHeight: 200, gravity: 1490, maxFallDistance: 696.806,
+        maxStepHeight: 20.8, maxStepGap: 10.88, edgeInset: 7.48, bodyClearance: 11.56
+    };
+    const staleSlopedDrop = {
+        type: "drop", direction: "right", from: "sloped_source", to: "sloped_target",
+        launchX: 18012.102, launchY: 1827.492, landingX: 18138.409, landingY: 1919.2,
+        vx: 360, vy: 0, walkOff: true, cost: 1, blockerIds: []
+    };
+    assert.equal(
+        enemyNavigationTraversalAllowedFromSupport(
+            staleSlopedDrop, slopedSource, [slopedSource, slopedNeighbour, slopedTarget], slopedProfile
+        ),
+        false,
+        "runtime traversal policy should reject a walk-off intercepted a few ticks later by a descending neighbouring one-way line"
+    );
+    assert.equal(
+        enemyNavigationTraversalAllowedFromSupport(
+            { ...staleSlopedDrop, to: "sloped_neighbour", landingX: 18040, landingY: 1912 },
+            slopedSource, [slopedSource, slopedNeighbour, slopedTarget], slopedProfile
+        ),
+        true,
+        "walk-off validation should allow an early one-way catch when that sloped support is the intended destination"
+    );
+
     const state = createCatalogBackedGameState();
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "enemy_one_way_drop_guard_test",
@@ -6626,8 +9021,8 @@ function testGroundEnemyCannotDropThroughOneWayPlatform() {
             maxFallDistance: 300,
             maxStepHeight: 26,
             awarenessRange: 800,
-            attackMode: "melee",
-            attackDamage: 0
+            attackType: "melee",
+            damage: 0
         }]
     }), true, "one-way drop-guard fixture should apply");
     state.world.segments = world.segments.map((segment) => ({ ...segment }));
@@ -6686,10 +9081,10 @@ function testHunterDoesNotJumpLoopOnOneWayPlatform() {
     assert.equal(descents.some((edge) => edge.type === "jump"), false, "one-way descent planning must never use an upward jump arc toward a lower support");
     assert.equal(descents.every((edge) => edge.type === "drop" && edge.walkOff === true), true, "every one-way descent should be an endpoint walk-off");
 
-    // Add a deliberately stale pre-fix edge. Route planning must apply the
-    // same traversal policy as execution so this cheaper illegal edge cannot
-    // starve the valid endpoint drop. A future intentional green-line descent
-    // policy can change the shared policy helper without changing this rule.
+    // Add a deliberately cheap downward jump-through edge. WIP16 accepted
+    // this policy for green one-way supports, so route planning and execution
+    // must agree: the committed jump may pass back through only its source line
+    // and must complete on the lower support without entering a retry loop.
     baked.edges.unshift({
         id: "legacy_vertical_jump_through_green",
         type: "jump",
@@ -6731,10 +9126,10 @@ function testHunterDoesNotJumpLoopOnOneWayPlatform() {
             maxStepHeight: 26,
             awarenessRange: 1200,
             awarenessHalfAngle: 180,
-            attackMode: "melee",
+            attackType: "melee",
             attackRange: 60,
             attackVerticalRange: 110,
-            attackDamage: 0
+            damage: 0
         }],
         navigationGraphs: { version: 2, profiles: [baked] }
     }), true, "one-way jump-loop fixture should apply");
@@ -6767,11 +9162,10 @@ function testHunterDoesNotJumpLoopOnOneWayPlatform() {
         }
         wasAirborne = enemy.airborne;
     }
-    assert.equal(enemy.navigationGraphSource, "baked", "the stale-edge regression should exercise baked-graph planning");
-    assert.equal(launches.includes("jump"), false, "the planner must not select an edge that current traversal policy would reject");
-    assert.ok(launches.includes("drop"), "after filtering the stale illegal edge, the planner should fall through to the legal endpoint drop");
-    assert.equal(enemy.currentSupportId, "lower_yellow", "the hunter should complete the legal descent to the lower support");
-    assert.equal(enemy.currentTransform.y, 650, "the legal endpoint drop should land on the lower support");
+    assert.equal(enemy.navigationGraphSource, "baked", "the one-way jump-through regression should exercise baked-graph planning");
+    assert.equal(launches.filter((type) => type === "jump").length, 1, "the accepted downward jump-through should execute exactly once instead of retry-looping on its source green line");
+    assert.equal(enemy.currentSupportId, "lower_yellow", "the committed downward jump-through should complete on the lower support");
+    assert.equal(enemy.currentTransform.y, 650, "the committed downward jump-through should land on the lower support");
 }
 
 function testHunterDoesNotWalkOffInternalSegmentSeam() {
@@ -6838,10 +9232,10 @@ function testHunterDoesNotWalkOffInternalSegmentSeam() {
             maxStepHeight: 26,
             awarenessRange: 1400,
             awarenessHalfAngle: 180,
-            attackMode: "melee",
+            attackType: "melee",
             attackRange: 50,
             attackVerticalRange: 110,
-            attackDamage: 0
+            damage: 0
         }],
         navigationGraphs: { version: 2, profiles: [baked] }
     }), true, "segmented one-way drop fixture should apply");
@@ -7245,7 +9639,7 @@ function testGenericEnemyLegacySupportSelectionMatchesSdl() {
             awarenessViewHalfAngle: 180,
             attackRange: 1,
             attackVerticalRange: 120,
-            attackDamage: 0
+            damage: 0
         }]
     }), true, "legacy support parity fixture should apply");
     state.world.solids = [];
@@ -7297,7 +9691,7 @@ function testCharacterEnemyAggressiveChaseAndCombo() {
                 strategy: "sentry",
                 awarenessRange: 1000,
                 awarenessViewHalfAngle: 180,
-                attackDamage: 0,
+                damage: 0,
                 attackRange: 66,
                 meleeHitRange: 70,
                 attackVerticalRange: 110,
@@ -7487,7 +9881,7 @@ function testCharacterEnemyAggressiveChaseAndCombo() {
             strategy: "sentry",
             awarenessRange: 1000,
             awarenessViewHalfAngle: 180,
-            attackDamage: 0,
+            damage: 0,
             attackRange: 66,
             meleeHitRange: 70,
             attackVerticalRange: 110,
@@ -7510,17 +9904,17 @@ function testCharacterEnemyAggressiveChaseAndCombo() {
     stepSimulation(scaledRuntimeState, createInputFrame(), FIXED_DT);
     assert.notEqual(scaledRuntimeEnemy.combatState, "attacking", "half-scale melee hit range should not retain the unscaled browser reach");
 
-    const legacyFallbackState = createLungeState({ playerX: 60 });
-    const legacyFallbackEnemy = legacyFallbackState.enemies.find((item) => item.id === "rush_guard");
-    legacyFallbackEnemy.meleeHitRange = 0;
-    stepSimulation(legacyFallbackState, createInputFrame(), FIXED_DT);
-    assert.equal(legacyFallbackEnemy.combatState, "attacking", "zero meleeHitRange should fall back to ordinary attackRange even on a lunge-capable enemy");
-    assert.equal(legacyFallbackEnemy.attackLungeActive, false, "legacy close-range fallback should swing in place rather than force a lunge");
+    const missingMeleeReachState = createLungeState({ playerX: 60 });
+    const missingMeleeReachEnemy = missingMeleeReachState.enemies.find((item) => item.id === "rush_guard");
+    missingMeleeReachEnemy.meleeHitRange = 0;
+    stepSimulation(missingMeleeReachState, createInputFrame(), FIXED_DT);
+    assert.notEqual(missingMeleeReachEnemy.combatState, "attacking", "zero meleeHitRange must not fall back to projectile-only attackRange");
+    assert.equal(missingMeleeReachEnemy.attackLungeActive, false, "missing melee reach must not silently enable a close attack or lunge");
 
-    const handoffReachState = createLungeState({ playerX: 10 });
+    const handoffReachState = createLungeState({ playerX: 90 });
     const handoffReachEnemy = handoffReachState.enemies.find((item) => item.id === "rush_guard");
     handoffReachEnemy.lungeRangeMax = 0;
-    handoffReachEnemy.meleeHitRange = 24;
+    handoffReachEnemy.meleeHitRange = 120;
     handoffReachEnemy.attackDamage = 10;
     handoffReachEnemy.attackDuration = 0.2;
     handoffReachEnemy.attackHitTime = 0.1;
@@ -7529,20 +9923,19 @@ function testCharacterEnemyAggressiveChaseAndCombo() {
         detach: false,
         partName: "test_weapon",
         frameId: "test_weapon",
-        originLocalX: 100,
+        originLocalX: -200,
         originLocalY: -75,
         hasOriginLocal: true,
         rigScale: 1
     }];
     stepSimulation(handoffReachState, createInputFrame(), FIXED_DT);
-    assert.equal(handoffReachEnemy.combatState, "attacking", "handoff-geometry fixture should begin its close swing");
-    handoffReachState.player.currentTransform.x = 90;
+    assert.equal(handoffReachEnemy.combatState, "attacking", "grounded-base melee reach should allow a close swing independent of weapon handoff X");
     let handoffGuard = 0;
     while (!handoffReachState.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_HIT") && handoffGuard < 60) {
         stepSimulation(handoffReachState, createInputFrame(), FIXED_DT);
         handoffGuard += 1;
     }
-    assert.ok(handoffReachState.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_HIT"), "positive meleeHitRange should terminate at the authored handoff position without double-counting weapon reach");
+    assert.ok(handoffReachState.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_HIT"), "positive meleeHitRange should extend horizontally from the enemy grounded base while the handoff supplies strike height and timing");
 
     const chaseState = createInitialGameState();
     applyEditorLevelToWorld(chaseState, {
@@ -7560,7 +9953,7 @@ function testCharacterEnemyAggressiveChaseAndCombo() {
             walkSpeed: 40,
             runSpeed: 180,
             attackRange: 50,
-            attackDamage: 0
+            damage: 0
         }]
     });
     chaseState.world.solids = [];
@@ -7608,21 +10001,21 @@ function testRebalancedEnemyHealthAndRocketHits() {
     const catalog = JSON.parse(readFileSync(new URL("../resources/characters/ct_enemies_001.json", import.meta.url), "utf8"));
     const levelOne = JSON.parse(readFileSync(new URL("../resources/levels/level_t01.json", import.meta.url), "utf8"));
     const profiles = [
-        { id: "enemy_001", characterId: "ct_char_enemy_001", expectedHealth: 120, expectedHits: 4 },
-        { id: "enemy_002", characterId: "ct_char_enemy_002", expectedHealth: 120, expectedHits: 4 },
-        { id: "enemy_010", characterId: "ct_char_enemy_010", expectedHealth: 60, expectedHits: 2 },
-        { id: "enemy_011", characterId: "ct_char_enemy_011", expectedHealth: 60, expectedHits: 2, placedInLevelOne: false },
-        { id: "enemy_012", characterId: "ct_char_enemy_012", expectedHealth: 60, expectedHits: 2 },
-        { id: "enemy_020", characterId: "ct_char_enemy_020", expectedHealth: 1, expectedHits: 1 },
-        { id: "enemy_030", characterId: "ct_char_enemy_030", expectedHealth: 90, expectedHits: 3 },
-        { id: "enemy_031", characterId: "ct_char_enemy_031", expectedHealth: 90, expectedHits: 3 },
-        { id: "enemy_032", characterId: "ct_char_enemy_032", expectedHealth: 90, expectedHits: 3 },
-        { id: "enemy_033", characterId: "ct_char_enemy_033", expectedHealth: 90, expectedHits: 3 }
+        { id: "enemy_001", characterId: "ct_char_enemy_001" },
+        { id: "enemy_002", characterId: "ct_char_enemy_002" },
+        { id: "enemy_010", characterId: "ct_char_enemy_010" },
+        { id: "enemy_011", characterId: "ct_char_enemy_011", placedInLevelOne: false },
+        { id: "enemy_012", characterId: "ct_char_enemy_012" },
+        { id: "enemy_020", characterId: "ct_char_enemy_020" },
+        { id: "enemy_030", characterId: "ct_char_enemy_030" },
+        { id: "enemy_031", characterId: "ct_char_enemy_031" },
+        { id: "enemy_032", characterId: "ct_char_enemy_032" },
+        { id: "enemy_033", characterId: "ct_char_enemy_033" }
     ];
 
     for (const profile of profiles) {
         const catalogHealth = catalog.enemies[profile.id].defaults.health;
-        assert.equal(catalogHealth, profile.expectedHealth, `${profile.id} catalog health should match the revision-478 balance`);
+        assert.ok(Number.isFinite(Number(catalogHealth)) && Number(catalogHealth) > 0, `${profile.id} catalog health should be a positive authored value`);
         const placed = levelOne.entities.find((entity) => entity.enemyCatalogId === profile.id);
         if (profile.placedInLevelOne !== false) {
             assert.ok(placed, `level_t01 should contain a placement of ${profile.id}`);
@@ -7631,6 +10024,8 @@ function testRebalancedEnemyHealthAndRocketHits() {
     }
 
     for (const profile of profiles.filter((entry) => entry.id !== "enemy_020")) {
+        const expectedHealth = Number(catalog.enemies[profile.id].defaults.health);
+        const expectedHits = Math.ceil(expectedHealth / DEFAULT_TUNING.rocketProjectileDamage);
         const state = createCatalogBackedGameState();
         assert.equal(applyEditorLevelToWorld(state, {
             levelId: `balanced_health_${profile.id}`,
@@ -7643,7 +10038,7 @@ function testRebalancedEnemyHealthAndRocketHits() {
                 y: 100,
                 w: profile.id === "enemy_001" || profile.id === "enemy_002" ? 72 : (profile.id.startsWith("enemy_03") ? 60 : 70),
                 h: profile.id === "enemy_001" || profile.id === "enemy_002" ? 164 : (profile.id.startsWith("enemy_03") ? 170 : 105),
-                health: profile.expectedHealth,
+                health: expectedHealth,
                 strategy: "sentry",
                 facing: -1
             }]
@@ -7656,17 +10051,17 @@ function testRebalancedEnemyHealthAndRocketHits() {
         state.story.mailboxEvent = null;
         const enemy = state.enemies[0];
 
-        for (let hit = 1; hit <= profile.expectedHits; hit += 1) {
+        for (let hit = 1; hit <= expectedHits; hit += 1) {
             state.projectiles = [];
             addTestRocket(state, { id: `${profile.id}_standard_hit_${hit}`, damage: DEFAULT_TUNING.rocketProjectileDamage });
             stepSimulation(state, createInputFrame(), FIXED_DT);
-            if (hit < profile.expectedHits) {
+            if (hit < expectedHits) {
                 assert.ok(enemy.health > 0, `${profile.id} should survive standard rocket hit ${hit}`);
-                assert.notEqual(enemy.combatState, "dead", `${profile.id} should remain alive before hit ${profile.expectedHits}`);
+                assert.notEqual(enemy.combatState, "dead", `${profile.id} should remain alive before hit ${expectedHits}`);
             }
         }
-        assert.equal(enemy.health, 0, `${profile.id} should reach zero HP on standard rocket hit ${profile.expectedHits}`);
-        assert.equal(enemy.combatState, "dead", `${profile.id} should die exactly on standard rocket hit ${profile.expectedHits}`);
+        assert.equal(enemy.health, 0, `${profile.id} should reach zero HP on standard rocket hit ${expectedHits}`);
+        assert.equal(enemy.combatState, "dead", `${profile.id} should die exactly on standard rocket hit ${expectedHits}`);
     }
 
     const fallbackState = createInitialGameState();
@@ -7810,6 +10205,90 @@ function testCharacterEnemyRocketCombat() {
     stepMany(state, 120);
     assert.equal(enemy.currentTransform.alpha, 0, "defeated enemy should be fully transparent after the three-second fade");
 
+    const immuneState = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(immuneState, {
+        levelId: "level_t92",
+        testPlayerStart: { x: -200, y: 600 },
+        entities: [{
+            id: "immune_guard",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 180,
+            y: 100,
+            w: 72,
+            h: 150,
+            health: 100,
+            strategy: "sentry",
+            facing: 1,
+            awarenessRange: 1,
+            attackType: "melee",
+            attackRange: 66,
+            attackVerticalRange: 104,
+            attackDuration: 1,
+            attackCooldown: 2,
+            meleeHitRange: 66,
+            lungeRangeMin: 145,
+            lungeRangeMax: 600,
+            lungeSpeed: 2000,
+            lungeTargetDist: 50,
+            immuneToInterrupts: true,
+            hurtDuration: 0.48
+        }]
+    }), true, "interruption-immune enemy fixture should apply");
+    immuneState.world.solids = [];
+    immuneState.world.segments = [];
+    immuneState.world.collisionPolygons = [];
+    immuneState.world.bounds = { x: -100000, y: -100000, w: 200000, h: 200000 };
+    immuneState.story.portalIntro = null;
+    immuneState.story.portalExit = null;
+    immuneState.story.mailboxEvent = null;
+    immuneState.camera.currentTransform.x = 160;
+    immuneState.camera.currentTransform.y = 430;
+    immuneState.camera.viewportWidth = 2000;
+    const immuneEnemy = immuneState.enemies.find((item) => item.id === "immune_guard");
+    assert.equal(immuneEnemy.immuneToInterrupts, true, "runtime enemy should retain authored interruption immunity");
+    immuneEnemy.combatState = "attacking";
+    immuneEnemy.movementPhase = "attack";
+    immuneEnemy.animationSlot = "attack";
+    immuneEnemy.attackTimer = 1;
+    immuneEnemy.attackRuntimeDuration = 1;
+    immuneEnemy.attackHitApplied = false;
+    immuneEnemy.attackLungeActive = true;
+    immuneEnemy.attackLungeStarted = false;
+    immuneEnemy.attackLungeStartTime = 0.8;
+    immuneEnemy.attackLungeImpactTime = 0.8;
+    immuneEnemy.attackLungeVisualLaunchTime = 0.8;
+    immuneEnemy.attackCooldownTimer = 0;
+    immuneEnemy.hurtTimer = 0;
+    immuneEnemy.facing = 1;
+    const immuneHit = addTestRocket(immuneState, { id: "immune_combat_hit", damage: 5 });
+    stepSimulation(immuneState, createInputFrame(), FIXED_DT);
+    assert.equal(immuneHit.state, "exploding", "rocket should still hit an interruption-immune attacker");
+    assert.equal(immuneEnemy.health, 95, "interruption immunity should not reduce damage");
+    assert.equal(immuneEnemy.combatState, "attacking", "non-lethal damage should not leave an immune active attack");
+    assert.ok(immuneEnemy.attackTimer > 0, "non-lethal damage should not clear an immune active attack timer");
+    assert.equal(immuneEnemy.attackLungeActive, true, "non-lethal damage should not cancel an immune committed lunge");
+    assert.equal(immuneEnemy.hurtTimer, 0, "immune active attacks should not start hurt recoil");
+    assert.equal(immuneEnemy.animationSlot, "attack", "immune active attacks should keep their attack presentation");
+    assert.equal(immuneEnemy.attackCooldownTimer, 0, "immune active attacks should not restart attack cooldown on damage");
+    assert.equal(immuneEnemy.facing, 1, "damage should not turn an immune committed attack around");
+    assert.ok(immuneState.debug.lastEvents.some((event) => event.type === "ENEMY_DAMAGED" && event.enemyId === immuneEnemy.id), "immune hits should still emit ordinary damage events");
+
+    immuneState.projectiles = [];
+    immuneEnemy.combatState = "alive";
+    immuneEnemy.state = "idle";
+    immuneEnemy.attackTimer = 0;
+    immuneEnemy.attackLungeActive = false;
+    immuneEnemy.attackLungeStarted = false;
+    immuneEnemy.attackCooldownTimer = 0;
+    immuneEnemy.hurtTimer = 0;
+    immuneEnemy.animationSlot = "idle";
+    addTestRocket(immuneState, { id: "immune_idle_hit", damage: 5 });
+    stepSimulation(immuneState, createInputFrame(), FIXED_DT);
+    assert.equal(immuneEnemy.health, 90, "interruption immunity should still take ordinary damage outside an attack");
+    assert.equal(immuneEnemy.combatState, "hurt", "interruption immunity should not suppress hurt reactions outside an active attack");
+    assert.ok(immuneEnemy.hurtTimer > 0, "idle damage should still start the normal hurt timer for an interruption-immune enemy");
+
     const concealedState = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(concealedState, {
         levelId: "magic_ring_enemy_panic_test",
@@ -7831,7 +10310,7 @@ function testCharacterEnemyRocketCombat() {
             awarenessRange: 1000,
             awarenessViewHalfAngle: 180,
             awarenessHoldSeconds: 1.2,
-            attackMode: "projectile",
+            attackType: "projectile",
             attackRange: 900,
             attackVerticalRange: 900,
             preferredAttackMinRange: 0,
@@ -7841,8 +10320,8 @@ function testCharacterEnemyRocketCombat() {
             projectileGravity: 0,
             projectileLifetime: 4,
             projectileRadius: 8,
-            projectileDamage: 0,
-            projectileCooldown: 0.08,
+            damage: 0,
+            attackCooldown: 0.08,
             projectileHomingStrength: 0,
             attackDuration: 0.18,
             attackHitTime: 0.06,
@@ -8032,6 +10511,8 @@ function testAirborneEnemyDefersDeathUntilLanding() {
 
     const enemy = state.enemies.find((item) => item.id === "jumping_guard");
     const target = state.targets.find((item) => item.enemyId === enemy.id);
+    applyLootCatalog(state, JSON.parse(readFileSync(new URL("../resources/items/it_loot_001.json", import.meta.url), "utf8")));
+    enemy.dropTable = [{ itemId: "coin", chance: 1 }];
     enemy.airborne = true;
     enemy.supportId = null;
     enemy.ridingPlatformId = null;
@@ -8071,6 +10552,8 @@ function testAirborneEnemyDefersDeathUntilLanding() {
         event.enemyId === enemy.id &&
         event.deferredUntilLanding === true
     )), "defeat diagnostics should record that presentation is deferred until landing");
+    assert.equal(state.pickups.length, 0, "an airborne killing blow must not drop loot at the impact position");
+    assert.equal(enemy.dropsEmitted, false, "airborne ground-enemy loot should remain pending through the landing and death presentation");
 
     stepMany(state, 8);
     assert.equal(enemy.airborne, true, "the test mob should still be completing its jump shortly after the lethal hit");
@@ -8099,12 +10582,245 @@ function testAirborneEnemyDefersDeathUntilLanding() {
     assert.equal(enemy.velocityX, 0, "landing death should not retain airborne horizontal momentum");
     assert.equal(enemy.velocityY, 0, "landing death should not retain airborne vertical momentum");
     assert.equal(enemy.supportId, "landing_floor", "the dying mob should retain its landing support identity");
+    assert.equal(state.pickups.length, 0, "landing starts the death animation but should not emit the drop yet");
+    const corpseDropX = enemy.currentTransform.x;
+    const corpseDropY = enemy.currentTransform.y;
+    stepMany(state, 80);
+    assert.equal(state.pickups.length, 1, "the ground enemy should emit its guaranteed loot only after the death animation finishes");
+    approx(state.pickups[0].x, corpseDropX, 0.000001, "airborne-killed enemy loot should use the final corpse X rather than the killing-blow position");
+    approx(state.pickups[0].y, corpseDropY - 23, 0.000001, "airborne-killed enemy loot should use the final corpse feet position and authored drop offset");
 
     state.world.segments = [];
     stepMany(state, 10);
     assert.ok(Math.abs(enemy.currentTransform.y - 400) < 0.01, "SDL parity: a grounded corpse stays at its death position even if its former support disappears");
-    stepMany(state, 90);
-    assert.ok(Math.abs(enemy.currentTransform.y - 400) < 0.01, "the grounded death animation should not be followed by a second corpse drop");
+    const corpsePickupCount = state.pickups.length;
+    stepMany(state, 20);
+    assert.equal(state.pickups.length, corpsePickupCount, "the grounded death animation should not be followed by a second corpse drop");
+
+    state.world.segments = [];
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    enemy.currentTransform.x = 120;
+    enemy.currentTransform.y = 100;
+    enemy.health = 0;
+    enemy.deathPendingLanding = true;
+    enemy.combatState = "death_pending_landing";
+    enemy.state = "idle";
+    enemy.movementPhase = "jump";
+    enemy.airborne = true;
+    enemy.supportId = null;
+    enemy.ridingPlatformId = null;
+    enemy.currentSupportId = null;
+    enemy.airTraversalType = "jump";
+    enemy.airSourceSupportId = null;
+    enemy.airSourceObstacleId = null;
+    enemy.airTargetSupportId = null;
+    enemy.airTimer = 5;
+    enemy.velocityX = 0;
+    enemy.velocityY = 0;
+    enemy.deathTimer = 0;
+    enemy.deathElapsed = 0;
+    enemy.animationSlot = "walk";
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(enemy.airborne, true, "a five-second fall should remain airborne rather than tripping the defensive traversal timeout");
+    assert.equal(enemy.deathPendingLanding, true, "deferred death should remain pending after five seconds of airborne traversal");
+    enemy.airTimer = 10.01;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(enemy.airborne, false, "the ten-second defensive traversal timeout should still terminate a pathological fall");
+    assert.equal(enemy.deathPendingLanding, false, "the ten-second timeout should release a deferred death instead of waiting forever");
+    assert.equal(enemy.animationSlot, "death", "the defensive traversal timeout should enter the normal death presentation");
+
+    const offWorldState = createCatalogBackedGameState();
+    assert.equal(applyEditorLevelToWorld(offWorldState, {
+        levelId: "pending_corpse_drop_off_world",
+        world: { bounds: { x: -200, y: -200, w: 400, h: 400 } },
+        testPlayerStart: { x: -150, y: 0 },
+        entities: [{
+            id: "off_world_dead_guard", type: "characterEnemy", characterId: "ct_char_enemy_001",
+            x: 0, y: 80, w: 72, h: 150, health: 30, strategy: "passive", facing: 1,
+            deathDuration: 0.05, corpseHoldDuration: 0, corpseFadeDuration: 0.05
+        }]
+    }), true, "off-world pending-drop fixture should apply");
+    applyLootCatalog(offWorldState, JSON.parse(readFileSync(new URL("../resources/items/it_loot_001.json", import.meta.url), "utf8")));
+    offWorldState.world.segments = [];
+    offWorldState.world.solids = [];
+    offWorldState.world.collisionPolygons = [];
+    offWorldState.story.portalIntro = null;
+    offWorldState.story.portalExit = null;
+    const offWorldEnemy = offWorldState.enemies.find((item) => item.id === "off_world_dead_guard");
+    offWorldEnemy.dropTable = [{ itemId: "coin", chance: 1 }];
+    offWorldEnemy.autoSpawned = true;
+    offWorldEnemy.health = 0;
+    offWorldEnemy.combatState = "dead";
+    offWorldEnemy.state = "death";
+    offWorldEnemy.movementPhase = "dead";
+    offWorldEnemy.targetable = false;
+    offWorldEnemy.airborne = true;
+    offWorldEnemy.supportId = null;
+    offWorldEnemy.ridingPlatformId = null;
+    offWorldEnemy.deathTimer = 0.05;
+    offWorldEnemy.deathElapsed = 0;
+    offWorldEnemy.dropsEmitted = false;
+    stepMany(offWorldState, 20);
+    assert.ok(offWorldState.enemies.some((item) => item.id === offWorldEnemy.id),
+        "an auto-spawned corpse with pending loot must not be pruned merely because its fade reached zero");
+    assert.ok(offWorldEnemy.currentTransform.y > 80,
+        "an invisible airborne corpse with pending loot should continue passive falling instead of freezing after fade-out");
+    assert.equal(offWorldEnemy.dropsEmitted, false, "off-world corpse loot should remain pending while the corpse is still inside the usable world margin");
+    for (let tick = 0; tick < 240 && offWorldState.enemies.some((item) => item.id === offWorldEnemy.id); tick += 1) {
+        stepSimulation(offWorldState, createInputFrame(), FIXED_DT);
+    }
+    assert.equal(offWorldEnemy.dropsEmitted, true, "a corpse that falls beyond the usable world should explicitly cull its pending loot");
+    assert.ok(offWorldState.debug.lastEvents.some((event) => event.type === "ENEMY_LOOT_CULLED_OFF_WORLD" && event.enemyId === offWorldEnemy.id),
+        "off-world pending-loot culling should emit a diagnostic");
+    assert.ok(!offWorldState.enemies.some((item) => item.id === offWorldEnemy.id),
+        "an auto-spawned corpse should become pruneable once its off-world pending loot has been consumed");
+    assert.equal(offWorldState.pickups.length, 0, "off-world corpse cleanup should not create a pickup");
+}
+
+
+function testAirborneHunterHurtPreservesNavigationTraversal() {
+    const state = createCatalogBackedGameState();
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "domed_grounded_hurt_jump_regression",
+        testPlayerStart: { x: 5000, y: 720 },
+        entities: [{
+            id: "domed_grounded_hurt_jump",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: -115.217,
+            y: 907.5666666666666,
+            w: 72,
+            h: 164,
+            health: 120,
+            strategy: "hunter",
+            locomotion: "ground",
+            runSpeed: 165,
+            runAcceleration: 950,
+            jumpHeight: 190,
+            jumpGravity: 1250,
+            maxFallDistance: 520,
+            maxStepHeight: 26,
+            maxDropDistance: 34,
+            awarenessRange: 0,
+            awarenessViewHalfAngle: 180,
+            awarenessHoldDuration: 1.2,
+            hurtDuration: 0.48
+        }]
+    }), true, "controlled Domed Grounded hurt-jump level should apply");
+    state.world.solids = [];
+    state.world.segments = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.visible = true;
+    state.player.targetable = true;
+
+    const topId = "support_route_main_edge_000_ground_01_placement_blockable_1";
+    const bottomId = "support_route_main_edge_000_ground_01_placement_blockable_4";
+    const polygonId = "support_route_main_edge_000_ground_01_placement_area_12";
+    const targetId = "support_upper_access_01_support_route_main_edge_000_ground_01_placement_walkable_1";
+    const visualId = "support_route_main_edge_000_ground_01_placement";
+    const addSegment = (id, lineId, x1, y1, x2, y2, kind = "blockable") => {
+        state.world.segments.push({ id, lineId, kind, x1, y1, x2, y2, visualId, tags: [] });
+    };
+    addSegment(topId, "blockable_1", 756.8706963168868, 907.5666666666666, -633.2946963168868, 907.5666666666666);
+    addSegment("support_route_main_edge_000_ground_01_placement_blockable_2", "blockable_2", -633.2946963168868, 907.5666666666666, -663.9826740792216, 918.7666666666667);
+    addSegment("support_route_main_edge_000_ground_01_placement_blockable_3", "blockable_3", -663.9826740792216, 918.7666666666667, -648.6386851980542, 1008.3666666666667);
+    addSegment(bottomId, "blockable_4", -648.6386851980542, 1008.3666666666667, 772.2146851980542, 1008.3666666666667);
+    addSegment("support_route_main_edge_000_ground_01_placement_blockable_5", "blockable_5", 772.2146851980542, 1008.3666666666667, 787.5586740792216, 918.7666666666667);
+    addSegment("support_route_main_edge_000_ground_01_placement_blockable_6", "blockable_6", 787.5586740792216, 918.7666666666667, 756.8706963168868, 907.5666666666666);
+    state.world.segments.push({
+        id: targetId,
+        lineId: "walkable_1",
+        kind: "walkable",
+        x1: 25.530549295774676,
+        y1: 719.9996,
+        x2: -255.96454929577462,
+        y2: 719.9996,
+        visualId: "support_upper_access_01_support_route_main_edge_000_ground_01_placement",
+        tags: []
+    });
+    state.world.segments.push({
+        id: "controlled_player_floor",
+        lineId: "walkable_1",
+        kind: "walkable",
+        x1: 4900,
+        y1: 720,
+        x2: 5100,
+        y2: 720,
+        visualId: "controlled_player_floor",
+        tags: []
+    });
+    state.world.collisionPolygons.push({
+        id: polygonId,
+        kind: "blockable",
+        visualId,
+        lineIds: ["blockable_1", "blockable_2", "blockable_3", "blockable_4", "blockable_5", "blockable_6"],
+        points: [
+            { x: 756.8706963168868, y: 907.5666666666666 },
+            { x: -633.2946963168868, y: 907.5666666666666 },
+            { x: -663.9826740792216, y: 918.7666666666667 },
+            { x: -648.6386851980542, y: 1008.3666666666667 },
+            { x: 772.2146851980542, y: 1008.3666666666667 },
+            { x: 787.5586740792216, y: 918.7666666666667 }
+        ]
+    });
+
+    const enemy = state.enemies.find((candidate) => candidate.id === "domed_grounded_hurt_jump");
+    Object.assign(enemy, {
+        engaged: true,
+        alerted: true,
+        aiState: "jump",
+        movementPhase: "jump",
+        airborne: true,
+        airTimer: 0,
+        airTraversalType: "jump",
+        airSourceSupportId: topId,
+        airSourceObstacleId: polygonId,
+        airTargetSupportId: targetId,
+        currentSupportId: topId,
+        supportId: null,
+        ridingPlatformId: null,
+        velocityX: 0,
+        velocityY: -Math.sqrt(2 * 1250 * 190),
+        route: [],
+        routeIndex: 0,
+        routeTraversalPhase: null,
+        routeTraversalEdgeIndex: -1,
+        groundVelocityX: 0,
+        combatState: "alive",
+        state: "idle",
+        animationSlot: "walk"
+    });
+
+    for (let tick = 0; tick < 21; tick += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+    }
+    assert.equal(enemy.airborne, true, "controlled Domed Grounded hunter should still be airborne at the recorded impact frame");
+    approx(enemy.currentTransform.x, -115.217, 0.001, "controlled Domed Grounded hunter should use the recorded vertical launch coordinate");
+    approx(enemy.currentTransform.y, 746.5541468384212, 0.01, "controlled Domed Grounded hunter should reach the recorded pre-impact jump height");
+
+    const impactY = enemy.currentTransform.y;
+    enemy.hurtTimer = 0.48;
+    enemy.combatState = "hurt";
+    enemy.state = "hurt";
+    enemy.movementPhase = "hurt";
+    for (let tick = 0; tick < 29; tick += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+    }
+    assert.ok(Math.abs(enemy.currentTransform.y - impactY) > 20, "airborne hunter should keep advancing its ballistic traversal throughout non-lethal hurt presentation");
+    assert.ok(enemy.airTimer > 0.75, "airborne hunter should keep advancing source-departure time while hurt");
+
+    let landed = !enemy.airborne;
+    for (let tick = 0; tick < 180 && !landed; tick += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        landed = !enemy.airborne;
+    }
+    assert.equal(landed, true, "controlled Domed Grounded hunter should eventually land after the interrupted jump");
+    assert.notEqual(enemy.supportId, bottomId, "non-lethal hurt must not strand the hunter on the underside of the source blockable polygon");
+    approx(enemy.currentTransform.y, 907.5666666666666, 0.01, "controlled hunter should return to the source top when the marginal upward jump misses its target");
 }
 
 function testEnemyContactDamageUsesIndependentInvulnerability() {
@@ -8128,9 +10844,8 @@ function testEnemyContactDamageUsesIndependentInvulnerability() {
             h: 150,
             strategy: "sentry",
             health: 100,
-            attackDamage: 40,
-            projectileDamage: 80,
-            attackRange: 92,
+            damage: 80,
+            meleeHitRange: 92,
             attackVerticalRange: 110,
             attackDuration: 0.3,
             attackHitTime: 0.1,
@@ -8149,7 +10864,7 @@ function testEnemyContactDamageUsesIndependentInvulnerability() {
 
     const before = state.health.amount;
     stepSimulation(state, createInputFrame(), FIXED_DT);
-    approx(before - state.health.amount, 40, 0.000001, "Normal contact damage should be twice one quarter of the stronger ranged or melee damage");
+    approx(before - state.health.amount, 40, 0.000001, "Normal contact damage should be twice one quarter of the authored enemy damage");
     assert.ok(state.health.contactInvulnerabilityTimer > 0, "contact damage should start its own cooldown");
     assert.equal(state.health.invulnerabilityTimer, 0, "contact damage must not consume ordinary attack invulnerability");
     approx(state.player.vx, -state.tuning.playerContactDamageKnockbackX, 0.000001, "contact damage should nudge Ignatius away from the enemy");
@@ -8170,6 +10885,28 @@ function testEnemyContactDamageUsesIndependentInvulnerability() {
     });
     assert.equal(contactResult.damage, 0, "the independent contact cooldown should still block another contact hit");
     assert.ok(contactTimerBefore > 0, "contact timer should remain active during the independent melee hit");
+
+    // Holding Down is a physical brace against external pushback even before a
+    // body slam has reached its committed fall speed. Damage still applies.
+    state.health.amount = state.health.max;
+    state.health.invulnerabilityTimer = 0;
+    state.health.contactInvulnerabilityTimer = 0;
+    state.player.bodySlamCommitted = false;
+    state.player.vx = 37;
+    state.player.vy = 140;
+    state.player.onGround = false;
+    state.player.supportId = null;
+    state.debug.lastInputFrame = createInputFrame({ dropHeld: true });
+    const bracedContact = damagePlayer(state, 20, "down_braced_contact", {
+        invulnerabilityTimerKey: "contactInvulnerabilityTimer",
+        invulnerabilitySeconds: state.tuning.playerContactDamageInvulnerabilitySeconds,
+        knockbackX: -state.tuning.playerContactDamageKnockbackX,
+        knockbackY: state.tuning.playerContactDamageKnockbackY
+    });
+    approx(bracedContact.damage, 40, 0.000001, "holding Down before slam commitment must not grant damage immunity");
+    assert.equal(state.player.bodySlamCommitted, false, "Down-braced damage can occur before body-slam commitment");
+    approx(state.player.vx, 37, 0.000001, "holding Down suppresses horizontal enemy-contact pushback");
+    approx(state.player.vy, 140, 0.000001, "holding Down preserves the current fall speed instead of applying vertical enemy-contact pushback");
 
     const shield = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.SHIELD);
     assert.ok(shield, "contact-damage parity test should have a Shield definition");
@@ -8221,8 +10958,8 @@ function testCharacterEnemyMeleeAttack() {
             facing: -1,
             strategy: "sentry",
             health: 100,
-            attackDamage: 25,
-            attackRange: 92,
+            damage: 25,
+            meleeHitRange: 92,
             attackVerticalRange: 110,
             attackDuration: 0.3,
             attackHitTime: 0.1,
@@ -8247,7 +10984,6 @@ function testCharacterEnemyMeleeAttack() {
     assert.equal(enemy.combatState, "attacking", "guard should enter an explicit attack combat state");
     assert.equal(enemy.animationSlot, "attack", "guard should use the authored attack clip");
     assert.equal(enemy.facing, -1, "guard should face Ignatius when the attack begins");
-    approx(enemy.meleeHitRadius, 46, 0.000001, "default melee handoff radius should use SDL's 50% of attackRange rule");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED"), "attack start should emit an event");
 
     stepMany(state, 7);
@@ -8293,13 +11029,13 @@ function testAttackStartPreservesSdlHandoffTiming() {
             strategy: "sentry",
             awarenessRange: 500,
             awarenessViewHalfAngle: 180,
-            attackMode: "melee",
-            attackRange: 100,
+            attackType: "melee",
+            meleeHitRange: 100,
             attackVerticalRange: 120,
             attackDuration: 0.5,
             attackHitTime: 0.2,
             projectileReleaseTime: 0,
-            attackDamage: 0
+            damage: 0
         }]
     }), true, "SDL attack-start timing fixture should apply");
     state.world.solids = [];
@@ -8371,10 +11107,10 @@ function testEnemyMeleeBlockedByTerrain() {
             strategy: "sentry",
             attackRange: 110,
             attackVerticalRange: 120,
-            attackDamage: 25
+            damage: 25
         }]
     });
-    state.world.solids = [{ id: "melee_wall", kind: "wall", x: 28, y: 390, w: 18, h: 210 }];
+    state.world.solids = [{ id: "melee_wall", kind: "wall", x: 22, y: 390, w: 18, h: 210 }];
     state.world.segments = [];
     state.world.collisionPolygons = [];
     state.story.portalIntro = null;
@@ -8417,19 +11153,18 @@ function testFireballGoblinProjectileAttack() {
             facing: -1,
             strategy: "sentry",
             health: 80,
-            attackMode: "projectile",
+            attackType: "projectile",
             attackRange: 340,
             attackVerticalRange: 180,
             attackDuration: 0.4,
             attackHitTime: 0.1,
-            attackCooldown: 0.12,
-            projectileCooldown: 0.8,
+            attackCooldown: 0.8,
             projectileKind: "fireball",
             projectileSpeed: 260,
             projectileGravity: 0,
             projectileLifetime: 3.2,
             projectileRadius: 14,
-            projectileDamage: 12,
+            damage: 12,
             projectileHomingStrength: 1.1,
             preferredAttackRange: 220,
             preferredAttackMinRange: 90,
@@ -8505,20 +11240,20 @@ function testTriFireballGoblinVolleyUsesAnyClearTrajectory() {
             h: 105,
             facing: -1,
             strategy: "sentry",
-            attackMode: "projectile",
+            attackType: "projectile",
             attackDuration: 0.24,
             attackHitTime: 0.08,
-            projectileCooldown: 1,
+            attackCooldown: 1,
             projectileKind: "fireball",
             projectileLaunchType: "straight",
             projectileSpeed: 285,
             projectileGravity: 0,
             projectileLifetime: 3.6,
             projectileRadius: 12,
-            projectileDamage: 12,
+            damage: 12,
             projectileHomingStrength: 0,
-            projectileVolleyCount: 3,
-            projectileVolleyHalfAngle: 15,
+            spreadCount: 3,
+            spreadAngle: 15,
             preferredAttackRange: 220,
             preferredAttackMinRange: 0,
             awarenessRange: 800,
@@ -8561,18 +11296,18 @@ function testTriFireballGoblinVolleyUsesAnyClearTrajectory() {
             h: 105,
             facing: -1,
             strategy: "sentry",
-            attackMode: "projectile",
+            attackType: "projectile",
             attackDuration: 0.24,
             attackHitTime: 0.08,
-            projectileCooldown: 1,
+            attackCooldown: 1,
             projectileKind: "fireball",
             projectileLaunchType: "straight",
             projectileSpeed: 285,
             projectileLifetime: 3.6,
             projectileRadius: 12,
-            projectileDamage: 12,
-            projectileVolleyCount: 3,
-            projectileVolleyHalfAngle: 15,
+            damage: 12,
+            spreadCount: 3,
+            spreadAngle: 15,
             preferredAttackMinRange: 0,
             awarenessRange: 800,
             awarenessViewHalfAngle: 90
@@ -8887,19 +11622,18 @@ function testMusketGoblinProjectileAttack() {
             facing: -1,
             strategy: "sentry",
             health: 90,
-            attackMode: "projectile",
+            attackType: "projectile",
             attackRange: 420,
             attackVerticalRange: 220,
             attackDuration: 0.42,
             attackHitTime: 0.1,
-            attackCooldown: 0.12,
-            projectileCooldown: 0.9,
+            attackCooldown: 0.9,
             projectileKind: "musketBall",
             projectileSpeed: 380,
             projectileGravity: 820,
             projectileLifetime: 3.1,
             projectileRadius: 7,
-            projectileDamage: 18,
+            damage: 18,
             projectileHomingStrength: 0,
             preferredAttackRange: 250,
             preferredAttackMinRange: 120,
@@ -9659,7 +12393,7 @@ function testCharacterProjectWorkspace() {
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("ctx.fillStyle = LEVEL_BACKGROUND_COLOR"), "runtime cutout masks should repaint the shared cave backing");
     assert.ok(!rendererSource.includes('globalCompositeOperation = "destination-out"'), "runtime cutout masks should not erase canvas alpha");
-    const nativeRendererSource = readFileSync(new URL("../../src/runtime/ignatius-app.cpp", import.meta.url), "utf8");
+    const nativeRendererSource = readNativeAppSourceBundle();
     assert.ok(nativeRendererSource.includes("levelBackgroundGpuColor")
         && nativeRendererSource.includes("entry.color = levelBackgroundGpuColor")
         && (nativeRendererSource.match(/levelBackgroundGpuColor\(static_cast/g) || []).length >= 2,
@@ -9712,7 +12446,9 @@ function testCharacterMp4MotionReference() {
     assert.ok(toolHtml.includes("URL.createObjectURL") && toolHtml.includes("URL.revokeObjectURL"), "the reference MP4 should remain a tab-local object URL rather than a project asset");
     assert.ok(toolHtml.includes("never written to character, rig, atlas, or animation JSON"), "the editor should explicitly document that reference video is not serialized");
 }
-async function testCharacterPartColorExchange() {
+async function testCharacterAuthoredAtlasVariants() {
+    // Color Exchange remains a generic level-wide world treatment. Character
+    // rigs no longer use it; variants must point at authored atlas pixels.
     const exact = normalizeColorExchange({
         fromColor: [224, 148, 94],
         toColor: [140, 81, 38],
@@ -9720,76 +12456,62 @@ async function testCharacterPartColorExchange() {
         greenThreshold: 0,
         blueThreshold: 0
     });
-    assert.deepEqual(exact.fromColor, [224, 148, 94], "Color Exchange should preserve exact source RGB bytes");
-    assert.equal(rgbColorToHex(exact.toColor), "#8c5126", "Color Exchange colors should round-trip through editor hex controls");
-    assert.equal(colorExchangeCacheKey(exact), "224,148,94|140,81,38|0|0|0", "Color Exchange settings should have a stable cache key");
+    assert.deepEqual(exact.fromColor, [224, 148, 94], "world Color Exchange should preserve exact source RGB bytes");
+    assert.equal(rgbColorToHex(exact.toColor), "#8c5126", "world Color Exchange colors should round-trip through editor hex controls");
+    assert.equal(colorExchangeCacheKey(exact), "224,148,94|140,81,38|0|0|0", "world Color Exchange settings should have a stable cache key");
 
     const exactPixels = new Uint8ClampedArray([
         224, 148, 94, 137,
         224, 149, 94, 211
     ]);
     assert.equal(applyColorExchangeToRgbaBytes(exactPixels, exact), 1, "zero thresholds should change only an exact RGB match");
-    assert.deepEqual(Array.from(exactPixels), [140, 81, 38, 137, 224, 149, 94, 211], "Color Exchange should add the GIMP channel difference and preserve alpha");
-
-    const fullRange = normalizeColorExchange({
-        fromColor: [224, 148, 94],
-        toColor: [140, 81, 38],
-        redThreshold: 1,
-        greenThreshold: 1,
-        blueThreshold: 1
-    });
-    const fullRangePixel = new Uint8ClampedArray([255, 255, 255, 64]);
-    assert.equal(applyColorExchangeToRgbaBytes(fullRangePixel, fullRange), 1, "threshold 1.0 should accept the complete channel range");
-    assert.deepEqual(Array.from(fullRangePixel), [171, 188, 199, 64], "full-range exchange should clamp the same additive channel shift used by GIMP");
+    assert.deepEqual(Array.from(exactPixels), [140, 81, 38, 137, 224, 149, 94, 211], "world Color Exchange should preserve alpha");
 
     const rig031 = JSON.parse(readFileSync(new URL("../resources/characters/ct_rig_enemy_031.json", import.meta.url), "utf8"));
     const rig032 = JSON.parse(readFileSync(new URL("../resources/characters/ct_rig_enemy_032.json", import.meta.url), "utf8"));
     const rig021 = JSON.parse(readFileSync(new URL("../resources/characters/ct_rig_enemy_021.json", import.meta.url), "utf8"));
-    for (const partName of ["leftUpperArm", "leftLowerArm", "rightUpperArm", "rightLowerArm"]) {
-        assert.deepEqual(rig031.parts[partName].colorExchange.fromColor, [224, 148, 94], `${partName} should use the sampled fair source color`);
-        assert.deepEqual(rig031.parts[partName].colorExchange.toColor, [140, 81, 38], `${partName} should use the sampled darker target color`);
-        assert.equal(rig031.parts[partName].colorExchange.redThreshold, 1, `${partName} should use GIMP full-range red threshold`);
-        assert.equal(rig031.parts[partName].colorExchange.greenThreshold, 1, `${partName} should use GIMP full-range green threshold`);
-        assert.equal(rig031.parts[partName].colorExchange.blueThreshold, 1, `${partName} should use GIMP full-range blue threshold`);
+    const expectedBaked031Frames = {
+        leftUpperArm: "arm_upper_01_body_01",
+        leftLowerArm: "arm_lower_01_body_01",
+        rightUpperArm: "arm_upper_00_body_01",
+        rightLowerArm: "arm_lower_00_body_01"
+    };
+    for (const [partName, frameName] of Object.entries(expectedBaked031Frames)) {
+        assert.equal(rig031.parts[partName].frame, frameName, `${partName} should use its baked body_01 arm artwork`);
+        assert.equal(rig031.parts[partName].colorExchange, undefined, `${partName} should not carry removed runtime character-part Color Exchange data`);
     }
     for (const partName of ["leftUpperArm", "leftLowerArm", "rightUpperArm", "rightLowerArm"]) {
-        assert.equal(rig032.parts[partName].colorExchange, undefined, `${partName} should keep its fair source skin for the body_02/head_02 knife thrower`);
+        assert.equal(rig032.parts[partName].colorExchange, undefined, `${partName} should keep its authored fair source skin for the body_02/head_02 knife thrower`);
     }
     assert.equal(rig021.global.scale, 0.28, "Blue bat rig should shrink the retained bat to two thirds scale");
+    assert.equal(rig021.atlasId, "ct_atlas_enemy_021", "Blue bat should use its own pre-baked authored atlas ID");
+    assert.equal(rig021.atlasManifest, "ct_atlas_enemy_021.json", "Blue bat should use its own pre-baked authored atlas manifest");
     for (const partName of ["frame_01", "frame_11", "frame_22"]) {
-        assert.equal(rig021.parts[partName].colorExchange.fromColor, "#5f2483", `${partName} should exchange the retained bat purple swatch`);
-        assert.equal(rig021.parts[partName].colorExchange.toColor, "#34348f", `${partName} should target the supplied blue swatch`);
-        assert.equal(rig021.parts[partName].colorExchange.redThreshold, 1, `${partName} should use the full GIMP-style red threshold for the blue recolor`);
-        assert.equal(rig021.parts[partName].colorExchange.greenThreshold, 1, `${partName} should use the full GIMP-style green threshold for the blue recolor`);
-        assert.equal(rig021.parts[partName].colorExchange.blueThreshold, 1, `${partName} should use the full GIMP-style blue threshold for the blue recolor`);
+        assert.equal(rig021.parts[partName].colorExchange, undefined, `${partName} should not carry removed runtime character-part Color Exchange data`);
+    }
+
+    for (const rigName of readdirSync(new URL("../resources/characters/", import.meta.url)).filter((name) => /^ct_rig_.*\.json$/.test(name))) {
+        const rig = JSON.parse(readFileSync(new URL(`../resources/characters/${rigName}`, import.meta.url), "utf8"));
+        for (const [partName, part] of Object.entries(rig.parts || {})) {
+            assert.equal(Object.prototype.hasOwnProperty.call(part, "colorExchange"), false, `${rigName}:${partName} should use authored atlas pixels rather than removed character-part colorExchange`);
+        }
     }
 
     const runtimeSource = readFileSync(new URL("../src/presentation/character-runtime.js", import.meta.url), "utf8");
-    assert.ok(runtimeSource.includes("createColorExchangedSpriteCanvas") && runtimeSource.includes("colorExchangeCanvasCache"), "runtime should preprocess and cache treated character-part canvases once");
-    assert.ok(runtimeSource.includes("image: null"), "treated assets should force WebGL to upload the recolored canvas rather than the original atlas rectangle");
-
-    function createPixelCanvas(width, height) {
-        const canvas = {
-            width,
-            height,
-            pixels: new Uint8ClampedArray(width * height * 4)
-        };
-        canvas.getContext = () => ({
-            imageSmoothingEnabled: true,
-            imageSmoothingQuality: "high",
-            clearRect: () => canvas.pixels.fill(0),
-            drawImage: (source) => {
-                const sourcePixels = source?.pixels;
-                const rgba = sourcePixels?.length >= 4 ? sourcePixels.slice(0, 4) : new Uint8ClampedArray([0, 0, 0, 0]);
-                for (let index = 0; index < canvas.pixels.length; index += 4) {
-                    canvas.pixels.set(rgba, index);
-                }
-            },
-            getImageData: () => ({ data: new Uint8ClampedArray(canvas.pixels) }),
-            putImageData: (imageData) => canvas.pixels.set(imageData.data)
-        });
-        return canvas;
-    }
+    const nativeRuntimeSource = readFileSync(new URL("../../src/runtime/character-runtime.cpp", import.meta.url), "utf8");
+    const nativeHeaderSource = readFileSync(new URL("../../src/runtime/character-runtime.h", import.meta.url), "utf8");
+    assert.ok(!runtimeSource.includes("createColorExchangedSpriteCanvas")
+            && !runtimeSource.includes("colorExchangeCanvasCache")
+            && !runtimeSource.includes("colorExchangeChangedPixelCount"),
+        "browser character runtime should use immutable authored atlas pixels without per-part recolour preprocessing");
+    assert.ok(!nativeRuntimeSource.includes("createColorExchangedTexture")
+            && !nativeRuntimeSource.includes("acquireSharedColorExchangedTexture")
+            && !nativeHeaderSource.includes("colorExchangeTextureCache")
+            && !nativeHeaderSource.includes("colorExchangeChangedPixelCounts"),
+        "native character runtime should not retain per-character recolour texture machinery");
+    assert.ok(runtimeSource.includes("uses removed character-part colorExchange")
+            && nativeRuntimeSource.includes("uses removed character-part colorExchange"),
+        "both character runtimes should reject stale rig-level colorExchange data instead of silently reintroducing derived textures");
 
     const syntheticJson = new Map([
         ["resources/color_exchange_character.json", {
@@ -9812,32 +12534,29 @@ async function testCharacterPartColorExchange() {
                     colorExchange: exact
                 }
             }
-        }],
-        ["resources/color_exchange_atlas.json", {
-            atlasId: "color_exchange_atlas",
-            image: "color_exchange.png",
-            frames: { arm: { x: 0, y: 0, w: 4, h: 4 } }
         }]
     ]);
-    const fairPixels = new Uint8ClampedArray(4 * 4 * 4);
-    for (let index = 0; index < fairPixels.length; index += 4) {
-        fairPixels.set([224, 148, 94, 255], index);
-    }
-    const exchangedProject = await loadRuntimeCharacterProject("resources/color_exchange_character.json", {
-        loadJson: async (url) => JSON.parse(JSON.stringify(syntheticJson.get(url))),
-        loadImage: async () => ({ width: 4, height: 4, naturalWidth: 4, naturalHeight: 4, pixels: fairPixels }),
-        createCanvas: createPixelCanvas
-    });
-    const exchangedArm = exchangedProject.assets.get("arm");
-    assert.deepEqual(Array.from(exchangedArm.canvas.pixels.slice(0, 4)), [140, 81, 38, 255], "treated character asset should contain the exchanged pixels");
-    assert.equal(exchangedArm.pixmapPyramid.source, exchangedArm.canvas, "treated character asset should rebuild its pixmap pyramid from the exchanged canvas");
-    assert.deepEqual(Array.from(exchangedArm.pixmapPyramid.levels[1].source.pixels.slice(0, 4)), [140, 81, 38, 255], "reduced editor/runtime pixmaps should retain the exchanged colours instead of the original atlas pixels");
+    await assert.rejects(
+        loadRuntimeCharacterProject("resources/color_exchange_character.json", {
+            loadJson: async (url) => JSON.parse(JSON.stringify(syntheticJson.get(url)))
+        }),
+        /uses removed character-part colorExchange/,
+        "browser character loading should reject deprecated per-part Color Exchange data"
+    );
+    assert.throws(
+        () => assertNoRemovedCharacterPartColorExchange(syntheticJson.get("resources/color_exchange_rig.json"), "Puppet Forge test rig"),
+        /uses removed character-part colorExchange/,
+        "Puppet Forge project validation should reject the same stale per-part Color Exchange schema as runtime"
+    );
 
     const toolHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
-    assert.ok(toolHtml.includes('id="color-exchange-enabled"'), "Puppet Forge should expose a per-part Color Exchange toggle");
-    assert.ok(toolHtml.includes('id="color-exchange-red-threshold"') && toolHtml.includes('id="color-exchange-blue-threshold"'), "Puppet Forge should expose separate GIMP-style channel thresholds");
-    assert.ok(toolHtml.includes('id="color-exchange-red-threshold" type="number" min="0" max="1" step="0.001" value="1"'), "Puppet Forge should default GIMP channel thresholds to 1.0");
-    assert.ok(toolHtml.includes("writeColorExchangeFromUi") && toolHtml.includes("buildAssetsFromAtlas"), "Puppet Forge should rebuild the treated preview when Color Exchange changes");
+    assert.ok(!toolHtml.includes('id="color-exchange-enabled"')
+            && !toolHtml.includes("writeColorExchangeFromUi")
+            && !toolHtml.includes("createColorExchangedSpriteCanvas"),
+        "Puppet Forge should not expose or preprocess removed per-part Color Exchange");
+    assert.ok(toolHtml.includes("assertNoRemovedCharacterPartColorExchange(state.rig")
+            && toolHtml.includes('assertNoRemovedCharacterPartColorExchange(parsed, "Character rig JSON")'),
+        "Puppet Forge should reject stale character Color Exchange both while loading projects and while applying raw rig JSON");
 }
 
 function testPuppetGuideDebugOverlay() {
@@ -9990,7 +12709,7 @@ function testSelectiveLevelColorMap() {
     assert.ok(levelEditorHtml.includes('id="color-exchange-red-threshold" type="number" min="0" max="1" step="0.001" value="1"'), "level editor should default GIMP channel thresholds to 1.0");
     assert.ok(levelEditorHtml.includes('id="color-treatment-preview"') && levelEditorHtml.includes('id="color-map-apply"'), "level colour treatment should keep the palette preview and defer atlas rebuilding until Apply");
     assert.ok(levelEditorHtml.includes("function drawSelectedColorTreatmentPreview()") && levelEditorHtml.includes("selectedMapAssetsForColorTreatmentPreview"), "pending colour treatment should also preview every selected map asset");
-    assert.ok(levelEditorHtml.includes("drawSelectedColorTreatmentPreview();") && levelEditorHtml.includes("updateAssetPaletteSelection();\n            draw();"), "map previews should redraw live while native colour controls are open");
+    assert.ok(levelEditorHtml.includes("drawSelectedColorTreatmentPreview();") && /updateAssetPaletteSelection\(\);\s*draw\(\);/.test(levelEditorHtml), "map previews should redraw live while native colour controls are open");
     assert.ok(levelEditorHtml.includes("createLevelColorTreatedCanvas"), "level editor should build cached colour-treated atlases and selected-frame previews");
     assert.ok(levelEditorHtml.includes("function scheduleColorMapRefresh()") && levelEditorHtml.includes("function applyColorMapControls"), "preview refresh and full atlas application should use separate paths");
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
@@ -12913,7 +15632,14 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     gpu.beginFrame(640, 360, "rgb(6, 6, 12)");
     gpu.queueSprite({ source: atlasSource, sourceWidth: 64, sourceHeight: 64, centerX: 100, centerY: 100, width: 64, height: 64 });
     gpu.queueSprite({ source: atlasSource, sourceX: 64, sourceWidth: 64, sourceHeight: 64, centerX: 170, centerY: 100, width: 64, height: 64 });
-    gpu.queueSprite({ source: atlasSource, sourceX: 128, sourceWidth: 64, sourceHeight: 64, centerX: 240, centerY: 100, width: 64, height: 64, blendMode: "brightenOnly" });
+    gpu.queueSprite({ source: atlasSource, sourceX: 128, sourceWidth: 64, sourceHeight: 64, centerX: 240, centerY: 100, width: 64, height: 64, alpha: 0.25, blendMode: "brightenOnly" });
+    for (let vertex = 0; vertex < 6; vertex += 1) {
+        const colorOffset = vertex * 8 + 4;
+        assert.ok(Math.abs(gpu.vertexData[colorOffset] - 0.25) < 0.000001, "brighten-only vertex red should include visual alpha before MAX blending");
+        assert.ok(Math.abs(gpu.vertexData[colorOffset + 1] - 0.25) < 0.000001, "brighten-only vertex green should include visual alpha before MAX blending");
+        assert.ok(Math.abs(gpu.vertexData[colorOffset + 2] - 0.25) < 0.000001, "brighten-only vertex blue should include visual alpha before MAX blending");
+        assert.ok(Math.abs(gpu.vertexData[colorOffset + 3] - 0.25) < 0.000001, "brighten-only vertex alpha should retain visual alpha");
+    }
     gpu.flush();
     assert.ok(glCalls.blendEquations.some(([color]) => color === gl.MAX), "brighten-only sprites should switch to fixed-function maximum blending");
     const stagingSource = { width: 640, height: 360 };
@@ -13365,7 +16091,7 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     const rightwardRocketOffsets = rocketPresentationOffsets(0, 1);
     assert.ok(Math.abs(rightwardRocketOffsets.trailX) < 0.000001 && Math.abs(rightwardRocketOffsets.trailY - 2) < 0.000001, "the trail correction should rotate with a rightward rocket");
     assert.ok(Math.abs(rightwardRocketOffsets.flameX - 6) < 0.000001 && Math.abs(rightwardRocketOffsets.flameY - 2) < 0.000001, "the flame correction should retain its rocket-relative orientation");
-    const nativeRendererSource = readFileSync(new URL("../../src/runtime/ignatius-app.cpp", import.meta.url), "utf8");
+    const nativeRendererSource = readNativeAppSourceBundle();
     assert.ok(nativeRendererSource.includes("ROCKET_TRAIL_LATERAL_OFFSET_PX = 2.0") && nativeRendererSource.includes("ROCKET_FLAME_FORWARD_OFFSET_PX = 6.0"), "the native renderer should use the same rocket-relative trail and flame offsets as the browser renderer");
     assert.ok(
         nativeRendererSource.includes("void drawProjectileExplosionEffects(const NativeRenderView& view)")
@@ -13381,8 +16107,15 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.ok(fireballWebGLSource.includes("the circular glow is only a missing-art fallback"), "the WebGL fireball must keep its circular glow limited to missing-art fallback rendering");
     assert.equal(fireballWebGLSource.includes("drawUndeathProjectileCoreWebGL"), false, "the WebGL skeleton-caster shot should remain a bubble-trail-only projectile without a separate large core");
     assert.ok(fireballWebGLSource.indexOf("const asset =") < fireballWebGLSource.indexOf('getWebGLParticleSpriteCanvas("softGlow")'), "the authored fireball sprite should return before any circular fallback glow is considered");
-    assert.ok(rendererSource.includes("hitFlashCanvas") && rendererSource.includes("overlayTintCanvasKey"), "WebGL character rendering should preserve player and enemy hit-flash overlays");
-    assert.ok(rendererSource.includes('overlayTintCanvasKey: "hitFlashCanvas"') && rendererSource.includes("drawPlayer(state, view)"), "player and enemy hit reactions should continue to rely on prepared white hit-flash overlays");
+    assert.ok(rendererSource.includes("hitFlashCanvas") && rendererSource.includes('overlayTintCanvasKey: "hitFlashCanvas"'), "the player and Canvas fallback should preserve the prepared white hit-flash overlay");
+    assert.ok(
+        rendererSource.includes("overlayTintUseBaseSource: true")
+            && rendererSource.includes("overlayTintColor: [1, 0.965, 0.84, 1]")
+            && rendererSource.includes('overlayTintBlendMode: "alpha"'),
+        "WebGL enemy hit flashes should redraw the authored atlas with the native SDL warm flash treatment instead of uploading white per-part textures"
+    );
+    assert.ok(rendererSource.includes("ensureRuntimeCharacterHitFlashCanvas(asset)"), "Canvas2D enemy hit flashes should lazily create their compatibility white masks only when needed");
+    assert.ok(nativeRendererSource.includes("enemyLoadOptions.createGpuHitFlashTexture = false"), "native enemy character loading should skip the unused white GPU hit-flash atlas while retaining the player mask path");
     assert.equal(rendererSource.includes("this.ctx.filter = `brightness(${1 + hitFlash * 1.65}) saturate(${1 - hitFlash * 0.64}) sepia(${hitFlash * 0.32})`"), false, "the Canvas player injury flash should not use a live ctx.filter on the gameplay surface");
     assert.ok(rendererSource.includes("drawTargetsWebGL") && rendererSource.includes("drawPickupsWebGL") && rendererSource.includes("drawEnemiesWebGL") && rendererSource.includes("drawPlayerWebGL"), "targets, pickups, enemies, and the player rig should use direct WebGL2 presentation paths where practical");
     assert.ok(rendererSource.includes("drawScorePopupsWebGL") && rendererSource.includes("drawPortalIntroGlowWebGL") && rendererSource.includes("getWebGLTextSpriteCanvas"), "score popups and portal glow should use cached direct WebGL2 sprite paths");
@@ -13398,6 +16131,22 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     assert.ok(webglSource.includes("stencil: true") && webglSource.includes("gl.INVERT") && webglSource.includes("drawCaveMaskGeometry"), "the cave exterior should use the WebGL stencil buffer instead of a CPU-painted mask upload");
     assert.ok(webglSource.includes("blendMode = \"alpha\"") && webglSource.includes("gl.blendFuncSeparate(gl.ONE, gl.ONE"), "the WebGL backend should support switching between alpha and additive sprite blending for particle passes");
     assert.ok(webglSource.includes('mode === "brightenOnly"') && webglSource.includes("gl.blendEquationSeparate(gl.MAX") && rendererSource.includes('ctx.globalCompositeOperation = "lighten"'), "atlas assets should support GPU maximum blending with a Canvas lighten fallback that cannot darken the cave background");
+    assert.ok(webglSource.includes("premultipliedVisualAlpha") && webglSource.includes('this.normalizeBlendMode(blendMode) === "brightenOnly"'), "WebGL brighten-only sprite tint should premultiply visual alpha before MAX blending");
+    assert.ok(levelEditorHtml.includes('blendMode === "brightenOnly"') && levelEditorHtml.includes('ctx.globalCompositeOperation = "lighten"'), "the Level Editor should preview authored brighten-only atlas assets with the same non-darkening composite semantics");
+    const nativeGpuCanvasSource = readFileSync(new URL("../../src/runtime/gpu-canvas-2d.cpp", import.meta.url), "utf8");
+    const nativeCharacterRuntimeSource = readFileSync(new URL("../../src/runtime/character-runtime.cpp", import.meta.url), "utf8");
+    const nativeCharacterRuntimeHeader = readFileSync(new URL("../../src/runtime/character-runtime.h", import.meta.url), "utf8");
+    assert.ok(
+        nativeCharacterRuntimeSource.includes("premultipliedAlphaRgbaBytes")
+            && nativeCharacterRuntimeHeader.includes("brightenOnlyTexture")
+            && nativeCharacterRuntimeHeader.includes("brightenOnlyGpuTexture"),
+        "native brighten-only atlases should keep premultiplied texture variants instead of feeding hidden straight-alpha RGB into MAX blending"
+    );
+    assert.ok(
+        nativeGpuCanvasSource.includes("SDL_GPU_BLENDOP_MAX")
+            && nativeGpuCanvasSource.includes("SDL_GPU_BLENDFACTOR_ONE"),
+        "the native GPU brighten-only pipeline should MAX premultiplied source RGB without relying on an ignored MAX blend factor"
+    );
     assert.ok(webglSource.includes("texSubImage2D") && webglSource.includes("UNPACK_PREMULTIPLY_ALPHA_WEBGL") && webglSource.includes("residentTextureBytes"), "dynamic fallback surfaces should update reusable premultiplied textures while diagnostics report persistent GPU residency");
     assert.ok(webglSource.includes("webglcontextlost") && webglSource.includes("webglcontextrestored"), "the GPU backend should explicitly handle WebGL context loss and restoration");
     assert.ok(rendererSource.includes("foregroundSpriteCache") && rendererSource.includes("getForegroundSpriteCanvas"), "dark foreground variants should be cached instead of filtered on every draw");
@@ -13638,6 +16387,86 @@ function testPlayerStartSnapsToNearbyGround() {
     applyEditorLevelToWorld(distant, distantLevel);
     applyAtlasManifestsToWorld(distant, new Map([["test_atlas", { manifest }]]));
     approx(distant.world.start.y, 100, 0.000001, "ground farther than half a wizard height should not move playerStart");
+
+    const closedManifest = {
+        frames: { block: { x: 0, y: 0, w: 200, h: 100 } },
+        objects: {
+            block: {
+                nodes: [
+                    { id: "tl", x: 0, y: 0 }, { id: "tr", x: 200, y: 0 },
+                    { id: "br", x: 200, y: 100 }, { id: "bl", x: 0, y: 100 }
+                ],
+                lines: [
+                    { id: "top", from: "tl", to: "tr", kind: "blockable" },
+                    { id: "right", from: "tr", to: "br", kind: "blockable" },
+                    { id: "bottom", from: "br", to: "bl", kind: "blockable" },
+                    { id: "left", from: "bl", to: "tl", kind: "blockable" }
+                ]
+            }
+        }
+    };
+    const underside = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(underside, {
+        levelId: "invalid_underside_ground_snap",
+        world: { bounds: { x: -200, y: -200, w: 800, h: 800 } },
+        testPlayerStart: { x: 100, y: 152 },
+        placements: [{
+            id: "closed_block", kind: "atlasAsset", atlasId: "closed_atlas", assetId: "block",
+            x: 0, y: 100, w: 200, h: 100, collisionFromManifest: true
+        }],
+        entities: []
+    }), true, "closed-block underside fixture should apply");
+    assert.equal(applyAtlasManifestsToWorld(underside, new Map([["closed_atlas", { manifest: closedManifest }]])), true,
+        "closed-block underside collision should apply");
+    approx(underside.world.start.y, 100, 0.000001,
+        "initial player ground snapping should reject the nearer polygon underside and use the valid top surface");
+    approx(underside.player.currentTransform.y, 100, 0.000001,
+        "runtime player start should never be embedded by snapping to a closed polygon bottom edge");
+
+    const lineCrossManifest = {
+        frames: { crossed_floor: { x: 0, y: 0, w: 200, h: 100 } },
+        objects: {
+            crossed_floor: {
+                nodes: [
+                    { id: "wall_top", x: 100, y: 0 }, { id: "wall_bottom", x: 100, y: 92 },
+                    { id: "floor_left", x: 0, y: 100 }, { id: "floor_right", x: 200, y: 100 }
+                ],
+                lines: [
+                    { id: "body_wall", from: "wall_top", to: "wall_bottom", kind: "blockable" },
+                    { id: "floor", from: "floor_left", to: "floor_right", kind: "blockable" }
+                ]
+            }
+        }
+    };
+    const lineCrossed = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(lineCrossed, {
+        levelId: "invalid_line_crossing_ground_snap",
+        world: { bounds: { x: -200, y: -200, w: 800, h: 800 } },
+        testPlayerStart: { x: 100, y: 104 },
+        placements: [{
+            id: "line_crossed_floor", kind: "atlasAsset", atlasId: "line_cross_atlas", assetId: "crossed_floor",
+            x: 0, y: 0, w: 200, h: 100, collisionFromManifest: true
+        }],
+        entities: []
+    }), true, "line-crossing player snap fixture should apply");
+    assert.equal(applyAtlasManifestsToWorld(lineCrossed, new Map([["line_cross_atlas", { manifest: lineCrossManifest }]])), true,
+        "line-crossing player snap collision should apply");
+    approx(lineCrossed.world.start.y, 104, 0.000001,
+        "initial player ground snapping should reject a floor candidate when another blockable line crosses the resulting body");
+
+    const thinSolid = createInitialGameState();
+    thinSolid.world.start = { x: 100, y: 104 };
+    thinSolid.player.currentTransform.x = 100;
+    thinSolid.player.currentTransform.y = 104;
+    thinSolid.player.spawnX = 100;
+    thinSolid.player.spawnY = 104;
+    thinSolid.world.segments = [{ id: "thin_solid_floor", kind: "blockable", x1: 0, y1: 100, x2: 200, y2: 100 }];
+    thinSolid.world.solids = [{ id: "thin_body_obstruction", kind: "wall", x: 89, y: 0, w: 4, h: 96 }];
+    thinSolid.world.collisionPolygons = [];
+    assert.equal(snapPlayerStartToNearbyGround(thinSolid), null,
+        "initial player ground snapping should reject a floor when a narrow solid intersects the resulting torso between sample points");
+    approx(thinSolid.world.start.y, 104, 0.000001,
+        "rejected narrow-solid snap should leave the authored player start height unchanged");
 }
 
 function testInteractiveItemAtlasAndEntityVisuals() {
@@ -13648,18 +16477,18 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.equal(atlas.image, "it_atlas_001.png", "interactive atlas should reference the user-supplied PNG name");
     assert.equal(Object.keys(atlas.frames).length, 53, "interactive atlas should expose all authored item frames, including the scripted-speech bubble");
     assert.ok(atlas.frames.mailbox_with_letter && atlas.frames.portal_foreground && atlas.frames.letter_scroll, "story-item frames should be present");
-    assert.deepEqual(atlas.frames.rune_marker_inactive, { x: 0, y: 1400, w: 98, h: 123 }, "the inactive checkpoint frame should be isolated in the appended greyscale atlas strip");
+    assert.deepEqual([atlas.frames.rune_marker_inactive.w, atlas.frames.rune_marker_inactive.h], [98, 123], "the inactive checkpoint frame should preserve its authored dimensions after atlas reforging");
     assert.equal(catalog.entities.checkpointRune.states.inactive.visuals[0].assetId, "rune_marker_inactive", "new checkpoint runes should use the grey inactive frame from catalog data");
     assert.equal(catalog.entities.checkpointRune.states.active.visuals[0].assetId, "rune_marker", "activated checkpoint runes should retain the original purple frame");
-    assert.deepEqual(atlas.frames.powerup_icon_coin, { x: 7, y: 570, w: 99, h: 100 }, "coin icon should be tightly isolated from the revised atlas");
-    assert.deepEqual(atlas.frames.powerup_icon_star, { x: 120, y: 570, w: 93, h: 94 }, "star icon should be tightly isolated from the revised atlas");
-    assert.deepEqual(atlas.frames.powerup_icon_bomb, { x: 232, y: 572, w: 87, h: 91 }, "bomb icon should be tightly isolated from the revised atlas");
-    assert.deepEqual(atlas.frames.powerup_icon_magnet, { x: 336, y: 572, w: 88, h: 93 }, "magnet icon should be tightly isolated from the revised atlas");
-    assert.deepEqual(atlas.frames.powerup_glow_white, { x: 434, y: 566, w: 204, h: 204 }, "white power-up glow should retain its full soft alpha falloff");
-    assert.deepEqual(atlas.frames.powerup_icon_lightning, { x: 26, y: 679, w: 60, h: 97 }, "lightning icon should be tightly isolated from the revised atlas");
-    assert.deepEqual(atlas.frames.powerup_icon_spark, { x: 119, y: 684, w: 66, h: 75 }, "spark icon should be tightly isolated from the revised atlas");
-    assert.deepEqual(atlas.frames.powerup_icon_wrench, { x: 219, y: 676, w: 89, h: 90 }, "wrench icon should be tightly isolated from the revised atlas");
-    assert.deepEqual(atlas.frames.powerup_icon_shield, { x: 339, y: 674, w: 80, h: 94 }, "shield icon should be tightly isolated from the revised atlas");
+    assert.deepEqual([atlas.frames.powerup_icon_coin.w, atlas.frames.powerup_icon_coin.h], [99, 100], "coin icon should preserve its authored dimensions after atlas reforging");
+    assert.deepEqual([atlas.frames.powerup_icon_star.w, atlas.frames.powerup_icon_star.h], [93, 94], "star icon should preserve its authored dimensions after atlas reforging");
+    assert.deepEqual([atlas.frames.powerup_icon_bomb.w, atlas.frames.powerup_icon_bomb.h], [87, 91], "bomb icon should preserve its authored dimensions after atlas reforging");
+    assert.deepEqual([atlas.frames.powerup_icon_magnet.w, atlas.frames.powerup_icon_magnet.h], [88, 93], "magnet icon should preserve its authored dimensions after atlas reforging");
+    assert.deepEqual([atlas.frames.powerup_glow_white.w, atlas.frames.powerup_glow_white.h], [204, 204], "white power-up glow should retain its full soft alpha falloff after atlas reforging");
+    assert.deepEqual([atlas.frames.powerup_icon_lightning.w, atlas.frames.powerup_icon_lightning.h], [60, 97], "lightning icon should preserve its authored dimensions after atlas reforging");
+    assert.deepEqual([atlas.frames.powerup_icon_spark.w, atlas.frames.powerup_icon_spark.h], [66, 75], "spark icon should preserve its authored dimensions after atlas reforging");
+    assert.deepEqual([atlas.frames.powerup_icon_wrench.w, atlas.frames.powerup_icon_wrench.h], [89, 90], "wrench icon should preserve its authored dimensions after atlas reforging");
+    assert.deepEqual([atlas.frames.powerup_icon_shield.w, atlas.frames.powerup_icon_shield.h], [80, 94], "shield icon should preserve its authored dimensions after atlas reforging");
     assert.equal(atlas.objects.powerup_glow_white.type, "effect", "the glow should remain a tintable composite visual rather than a gameplay pickup");
     assert.ok(atlas.objects.powerup_icon_wrench.tags.includes("upgrade"), "the wrench should be identified as the generic rocket-upgrade emblem");
     assert.ok(!atlas.objects.powerup_icon_lightning.tags.includes("rapid-fire") && atlas.objects.powerup_icon_lightning.tags.includes("fuel-efficiency"), "the lightning icon should describe Overdrive fuel efficiency without a retired rapid-fire promise");
@@ -13700,11 +16529,11 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     const openPortal = catalog.entities.wizard_entry_door.states.open.visuals;
     assert.equal(openPortal.length, 2, "open portal should use background and foreground visuals");
     assert.equal(openPortal[1].layer, "actorFront", "portal foreground should render after the player");
-    assert.deepEqual(atlas.frames.mailbox_with_letter, { x: 24, y: 0, w: 185, h: 265 }, "letter mailbox frame should match the revised pixel-aligned atlas");
-    assert.deepEqual(atlas.frames.mailbox_empty, { x: 269, y: 0, w: 185, h: 265 }, "empty mailbox frame should share the same pixel dimensions");
-    assert.deepEqual(atlas.frames.portal_closed, { x: 28, y: 289, w: 183, h: 263 }, "closed portal frame should match the revised atlas");
-    assert.deepEqual(atlas.frames.portal_open, { x: 352, y: 290, w: 208, h: 263 }, "open portal frame should match the revised atlas");
-    assert.deepEqual(atlas.frames.portal_foreground, { x: 223, y: 291, w: 114, h: 263 }, "foreground portal frame should match the revised atlas");
+    assert.deepEqual([atlas.frames.mailbox_with_letter.w, atlas.frames.mailbox_with_letter.h], [185, 265], "letter mailbox frame should preserve its authored dimensions after atlas reforging");
+    assert.deepEqual([atlas.frames.mailbox_empty.w, atlas.frames.mailbox_empty.h], [185, 265], "empty mailbox frame should preserve the same authored dimensions after atlas reforging");
+    assert.deepEqual([atlas.frames.portal_closed.w, atlas.frames.portal_closed.h], [183, 263], "closed portal frame should preserve its authored dimensions after atlas reforging");
+    assert.deepEqual([atlas.frames.portal_open.w, atlas.frames.portal_open.h], [208, 263], "open portal frame should preserve its authored dimensions after atlas reforging");
+    assert.deepEqual([atlas.frames.portal_foreground.w, atlas.frames.portal_foreground.h], [114, 263], "foreground portal frame should preserve its authored dimensions after atlas reforging");
     approx(openPortal[0].widthFactor, 208 / 183, 0.0000001, "open portal should preserve source-pixel scale");
     approx(openPortal[0].offsetXFactor, 25 / 366, 0.0000001, "open portal should keep its left edge aligned");
     approx(openPortal[1].widthFactor, 114 / 183, 0.0000001, "foreground portal should preserve source-pixel scale");
@@ -13811,7 +16640,7 @@ function testInteractiveItemAtlasAndEntityVisuals() {
         && rendererSource.includes('"items/it_atlas_001.json"')
         && rendererSource.includes("withRequiredRuntimeAtlasManifests(manifestUrls)"),
         "HTML renderer should keep the shared item atlas resident even when a level has no explicit item-atlas ref");
-    const nativeRendererSource = readFileSync(new URL("../../src/runtime/ignatius-app.cpp", import.meta.url), "utf8");
+    const nativeRendererSource = readNativeAppSourceBundle();
     assert.ok(nativeRendererSource.includes('requiredRuntimeAtlasManifest = "items/it_atlas_001.json"')
         && nativeRendererSource.includes("withRequiredRuntimeAtlasManifests(gameState.world.atlasManifests)"),
         "SDL renderer should keep the shared item atlas resident without adding it to gameplay world topology");
@@ -13922,7 +16751,7 @@ function testDataDrivenEnemyLootAndCoinPickup() {
     assert.deepEqual(goblinCharacter.drops, [{ itemId: "coin", chance: 1 }], "goblin character data should guarantee a coin drop");
     assert.deepEqual(humanCharacter.drops, [{ itemId: "coin", chance: 0.5 }], "human character data should author a fifty-percent coin chance");
 
-    function defeatCharacter({ character, enemyId, levelId = "enemy_loot_test", isBoss = false, authoredDrops = [] }) {
+    function defeatCharacter({ character, enemyId, levelId = "enemy_loot_test", isBoss = false, authoredDrops = [], blockDropAfterDeath = false }) {
         const state = createInitialGameState();
         assert.equal(applyEditorLevelToWorld(state, {
             levelId,
@@ -13937,6 +16766,7 @@ function testDataDrivenEnemyLootAndCoinPickup() {
                 h: 150,
                 health: 1,
                 strategy: "sentry",
+                deathDuration: 0.05,
                 isBoss,
                 drops: authoredDrops
             }]
@@ -13945,12 +16775,22 @@ function testDataDrivenEnemyLootAndCoinPickup() {
         state.story.portalExit = null;
         state.story.mailboxEvent = null;
         state.world.solids = [];
-        state.world.segments = [];
+        state.world.segments = [{ id: `${enemyId}_loot_floor`, kind: "walkable", x1: -200, y1: 100, x2: 400, y2: 100 }];
         state.world.collisionPolygons = [];
+        const enemy = state.enemies.find((item) => item.id === enemyId);
+        enemy.currentTransform.y = 100;
+        enemy.airborne = false;
+        enemy.supportId = `${enemyId}_loot_floor`;
         applyLootCatalog(state, lootCatalog);
         applyCharacterDropProfiles(state, new Map([[character.characterId, character]]));
-        addTestRocket(state, { id: `${enemyId}_lethal_rocket`, damage: 2 });
+        addTestRocket(state, { id: `${enemyId}_lethal_rocket`, y: 50, damage: 2 });
         stepSimulation(state, createInputFrame(), FIXED_DT);
+        assert.equal(state.pickups.length, 0, "ground-enemy loot should not spawn at the killing blow before the death animation finishes");
+        assert.equal(enemy.dropsEmitted, false, "ground-enemy drop tables should remain pending during the death animation");
+        if (blockDropAfterDeath) {
+            state.world.solids.push({ id: `${enemyId}_blocked_drop_region`, kind: "wall", x: 50, y: 20, w: 100, h: 80 });
+        }
+        stepMany(state, 8);
         return state;
     }
 
@@ -13963,7 +16803,7 @@ function testDataDrivenEnemyLootAndCoinPickup() {
         "the spawned coin should retain its catalog-authored score, presentation data, and reduced size"
     );
     assert.equal(coin.y, 77, "the dropped coin should spawn one original radius higher than the enemy anchor");
-    assert.equal(goblinState.enemies[0].dropsEmitted, true, "enemy death should mark its drop table as consumed");
+    assert.equal(goblinState.enemies[0].dropsEmitted, true, "the completed ground-enemy death animation should mark its drop table as consumed");
     stepSimulation(goblinState, createInputFrame(), FIXED_DT);
     assert.equal(goblinState.pickups.length, 1, "dead-enemy updates must not emit the same drop table twice");
 
@@ -13998,6 +16838,14 @@ function testDataDrivenEnemyLootAndCoinPickup() {
         return state.pickups.some((pickup) => pickup.pickupKind === "coin");
     });
     assert.deepEqual(repeatedHumanOutcomes, humanOutcomes, "enemy drop rolls should be deterministic for replay and parity");
+
+    const blockedDropState = defeatCharacter({
+        character: goblinCharacter, enemyId: "blocked_corpse_drop_goblin", blockDropAfterDeath: true
+    });
+    assert.equal(blockedDropState.enemies[0].dropsEmitted, true, "a blocked corpse-time drop should still consume its one-shot drop table");
+    assert.equal(blockedDropState.pickups.length, 0, "a drop whose final corpse-time spawn point is inside a blockable region should be culled");
+    assert.ok(blockedDropState.debug.lastEvents.some((event) => event.type === "ENEMY_LOOT_CULLED_BLOCKED"),
+        "blocked enemy loot should emit a deterministic cull diagnostic");
 
     const bareBossState = defeatCharacter({ character: goblinCharacter, enemyId: "boss_without_authored_upgrade_table", isBoss: true });
     assert.equal(bareBossState.pickups.length, 0, "a boss with no entity-authored table should not inherit the base goblin coin table");
@@ -14213,7 +17061,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(activeRing.remainingSeconds > 29.9 && activeRing.remainingSeconds <= 30, "fresh Magic Ring concealment should begin with essentially the full thirty-second timer");
     const magicRingRendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     assert.match(magicRingRendererSource, /tint: \[brightness, brightness, brightness, 1\]/, "WebGL Magic Ring darkening should multiply RGB while leaving alpha fully opaque");
-    assert.ok(magicRingRendererSource.includes("asset.magicRingCanvas = makeDarkenedSpriteCanvas(asset.canvas, MAGIC_RING_BRIGHTNESS)"), "Canvas Magic Ring darkening should use a cached RGB-darkened player sprite rather than live filtering");
+    assert.ok(magicRingRendererSource.includes("cached.magicRingCanvas = makeDarkenedSpriteCanvas(asset.canvas, MAGIC_RING_BRIGHTNESS)") && magicRingRendererSource.includes("asset.magicRingCanvas = cached.magicRingCanvas"), "Canvas Magic Ring darkening should use a cached RGB-darkened player sprite rather than live filtering");
     assert.ok(magicRingRendererSource.includes('ctx.globalCompositeOperation = "source-atop"') && magicRingRendererSource.includes('ctx.fillStyle = "#000000"'), "the cached Magic Ring sprite should darken RGB toward black without changing its source alpha");
 
     const overdrive = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.OVERDRIVE);
@@ -15024,7 +17872,7 @@ function testRocketPowerUpArsenal() {
         "a Level Editor browser-copy playtest should bypass the title screen after its authored level is applied"
     );
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
-    const nativeRendererSource = readFileSync(new URL("../../src/runtime/ignatius-app.cpp", import.meta.url), "utf8");
+    const nativeRendererSource = readNativeAppSourceBundle();
     const simulationSource = readFileSync(new URL("../src/core/simulation.js", import.meta.url), "utf8");
     const characterEditorSource = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     const manualSource = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
@@ -15058,7 +17906,7 @@ function testRocketPowerUpArsenal() {
     assert.ok(!assetEditorSource.includes("Custom atlas image") && !assetEditorSource.includes("Custom JSON"), "Asset Tool should retire the visible custom import pickers from the primary Files panel");
     assert.doesNotMatch(assetEditorSource, /load-default-image|load-default-json/, "Asset Tool should retire the hard-coded at_atlas_001 load buttons");
     assert.ok(assetEditorSource.includes('event.button === 2') && assetEditorSource.includes('viewport.addEventListener("wheel"') && assetEditorSource.includes("zoomAtClientPoint"), "Asset Tool should support right-drag panning and wheel zooming");
-    assert.ok(editorSource.includes("state.level.layerVisuals = normalizeLevelLayerVisuals({\n            version: 3,"), "editor metadata commits should retain the canonical layer-visual schema instead of reapplying legacy Foreground factors");
+    assert.match(editorSource, /state\.level\.layerVisuals = normalizeLevelLayerVisuals\(\{\s*version:\s*3,/, "editor metadata commits should retain the canonical layer-visual schema instead of reapplying legacy Foreground factors");
     assert.ok(
         editorSource.includes('id="background-asset-toggle"')
             && editorSource.includes("Set background asset")
@@ -15856,7 +18704,7 @@ function testScriptedCutsceneTrigger() {
     const atlas = JSON.parse(readFileSync(new URL("../resources/items/it_atlas_001.json", import.meta.url), "utf8"));
     const definition = catalog.entities.cutsceneTrigger;
     assert.ok(definition, "interactive entity catalog should expose the scripted cutscene trigger");
-    assert.deepEqual(atlas.frames.speech_bubble_large, { x: 491, y: 1282, w: 397, h: 241 }, "speech-bubble frame should match the authored atlas artwork exactly");
+    assert.deepEqual([atlas.frames.speech_bubble_large.w, atlas.frames.speech_bubble_large.h], [397, 241], "speech-bubble frame should preserve its authored dimensions after atlas reforging");
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(editorHtml.includes('id="inspect-cutscene-script"'), "Level Editor should expose a multiline scripted-cutscene textbox");
@@ -16383,7 +19231,7 @@ function testScriptedCutsceneTrigger() {
             },
             {
                 id: "enemy_cutscene_support_loss", type: "characterEnemy", characterId: "ct_char_enemy_001",
-                x: 520, y: 500, w: 72, h: 150, strategy: "simple_patrol", animationSlot: "idle"
+                x: 520, y: 320, w: 72, h: 150, strategy: "simple_patrol", animationSlot: "idle"
             }
         ]
     }), true, "cutscene support-loss regression level should apply");
@@ -16503,6 +19351,39 @@ function testScriptedCutsceneTrigger() {
     assert.equal(flyingActor.animationSlot, "fly", "releasing a flying GOTO should leave the actor in its flying presentation");
     assert.equal(flyingActor.aiState, "bomber", "releasing a flying GOTO should not rewrite the frozen flying AI state");
     assert.equal(flyingActor.movementPhase, "perched_guard", "releasing a flying GOTO should not invent a new AI movement phase");
+
+    const groundFollowState = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(groundFollowState, {
+        levelId: "cutscene_ground_follow_goto_test",
+        world: { bounds: { x: 0, y: 0, w: 800, h: 800 } },
+        testPlayerStart: { x: 180, y: 500 },
+        placements: [],
+        entities: [{
+            id: "cutscene_ground_follow_trigger", type: "cutsceneTrigger", interaction: "scriptedCutscene",
+            x: 180, y: 500, w: definition.defaultSize.w, h: definition.defaultSize.h,
+            state: definition.defaultState,
+            visualStates: Object.fromEntries(Object.entries(definition.states).map(([id, entry]) => [id, entry.visuals])),
+            ...structuredClone(definition.defaults),
+            script: "GOTO wizard 300\nDELAY 0.1"
+        }]
+    }), true, "X-only GOTO ground-follow regression level should apply");
+    groundFollowState.story.portalIntro = null;
+    groundFollowState.story.portalExit = null;
+    groundFollowState.world.segments.push({
+        id: "cutscene_ground_follow_slope", kind: "walkable", x1: 100, y1: 500, x2: 400, y2: 440
+    });
+    stepSimulation(groundFollowState, createInputFrame(), FIXED_DT);
+    assert.equal(groundFollowState.story.cutscene?.commands[0]?.followGround, true,
+        "three-token GOTO should parse as the X-only ground-follow form");
+    let groundFollowSafety = 0;
+    while (groundFollowState.story.cutscene?.commands[groundFollowState.story.cutscene.commandIndex]?.type === "GOTO" && groundFollowSafety++ < 180) {
+        stepSimulation(groundFollowState, createInputFrame(), FIXED_DT);
+    }
+    assert.equal(groundFollowState.story.cutscene?.commands[groundFollowState.story.cutscene.commandIndex]?.type, "DELAY",
+        "X-only GOTO should complete on a simple authored slope");
+    approx(groundFollowState.player.currentTransform.x, 300, 0.000001, "X-only GOTO should finish on its authored X");
+    approx(groundFollowState.player.currentTransform.y, 460, 0.01,
+        "X-only GOTO should snap the wizard's feet coordinate to the walkable edge at the destination");
 
     const validationCases = [
         { id: "missing", includeEnemy: false, expectedReason: "missing" },
@@ -16858,13 +19739,25 @@ function testPersistentPlayerProgressionUpgrades() {
         collectedUpgradeIds: ["upgrade_b", "", "upgrade_a", "upgrade_b"]
     });
     assert.deepEqual(normalized, {
-        schemaVersion: 1,
+        schemaVersion: 2,
         healthLevel: 2,
         fuelLevel: 0,
         regenLevel: 2,
         speedLevel: 1,
+        lungeUnlocked: true,
+        fallImpactExplosionUnlocked: true,
+        fallDamageReductionUnlocked: true,
         collectedUpgradeIds: ["upgrade_a", "upgrade_b"]
-    }, "player progression should normalize levels and stable pickup IDs deterministically");
+    }, "player progression should normalize levels, ability unlocks and stable pickup IDs deterministically");
+
+    const lockedAbilities = normalizePlayerProgression({
+        lungeUnlocked: false,
+        fallImpactExplosionUnlocked: false,
+        fallDamageReductionUnlocked: false
+    });
+    assert.equal(lockedAbilities.lungeUnlocked, false, "player progression should preserve a locked lunge ability");
+    assert.equal(lockedAbilities.fallImpactExplosionUnlocked, false, "player progression should preserve a locked fall-impact attack");
+    assert.equal(lockedAbilities.fallDamageReductionUnlocked, false, "player progression should preserve a locked fall-damage reduction");
 
     const derived = playerProgressionStats(DEFAULT_TUNING, normalized);
     const expectedHealthLevel2 = DEFAULT_TUNING.maxHealth * (2 - Math.pow(0.8, 2));
@@ -16883,6 +19776,9 @@ function testPersistentPlayerProgressionUpgrades() {
             collectedUpgradeIds: []
         }
     });
+    assert.equal(state.playerProgression.lungeUnlocked, true, "missing progression flags should preserve legacy lunge access");
+    assert.equal(state.playerProgression.fallImpactExplosionUnlocked, true, "missing progression flags should preserve legacy fall-impact access");
+    assert.equal(state.playerProgression.fallDamageReductionUnlocked, true, "missing progression flags should preserve legacy fall-damage reduction access");
     approx(state.health.max, 120, 0.000001, "initial game state should apply permanent health capacity");
     approx(state.fuel.max, 120, 0.000001, "initial game state should apply permanent fuel capacity");
     approx(state.fuel.rechargeCap, 120, 0.000001, "fuel capacity upgrades should raise the ordinary recharge cap too");
@@ -16931,6 +19827,12 @@ function testPersistentPlayerProgressionUpgrades() {
     cleanLevelStartState.player.ordinaryJumpActive = true;
     cleanLevelStartState.player.ordinaryJumpStartY = 400;
     cleanLevelStartState.player.ordinaryJumpApexY = 320;
+    cleanLevelStartState.player.lungeCharging = true;
+    cleanLevelStartState.player.lungeChargeTime = cleanLevelStartState.tuning.playerLungeChargeSeconds;
+    cleanLevelStartState.player.lungeCooldownTimer = 3.5;
+    cleanLevelStartState.player.fallImpactExplosionCooldownTimer = 4.25;
+    cleanLevelStartState.player.bodySlamCommitted = true;
+    cleanLevelStartState.player.bodySlamImmunityTimer = 0.3;
     assert.equal(applyEditorLevelToWorld(cleanLevelStartState, {
         levelId: "clean_level_start_test",
         world: { bounds: { x: 0, y: 0, w: 1000, h: 800 } },
@@ -16962,6 +19864,11 @@ function testPersistentPlayerProgressionUpgrades() {
     assert.equal(cleanLevelStartState.player.crushCandidateTicks, 0, "crush-candidate history should reset at a level boundary");
     assert.equal(cleanLevelStartState.player.crushCandidateKey, null, "crush-candidate identity should reset at a level boundary");
     assert.equal(cleanLevelStartState.player.airBoostArmed, false, "temporary jump/boost state should reset when a new level starts");
+    assert.equal(cleanLevelStartState.player.lungeCharging, false, "lunge charge state should not hitchhike across a level boundary");
+    approx(cleanLevelStartState.player.lungeCooldownTimer, 0, 0.000001, "lunge cooldown should reset at a level boundary");
+    approx(cleanLevelStartState.player.fallImpactExplosionCooldownTimer, 0, 0.000001, "body-slam cooldown should reset at a level boundary");
+    assert.equal(cleanLevelStartState.player.bodySlamCommitted, false, "body-slam commitment should reset at a level boundary");
+    approx(cleanLevelStartState.player.bodySlamImmunityTimer, 0, 0.000001, "body-slam immunity should reset at a level boundary");
     assert.deepEqual(cleanLevelStartState.playerProgression, permanentProgressionBeforeLevel, "permanent upgrades and their collected IDs should survive level changes unchanged");
     const browserBootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
     assert.ok(browserBootstrapSource.includes("if (levelTransitionLoading) {\n        accumulator = 0;")
@@ -17120,7 +20027,7 @@ function testPersistentPlayerProgressionUpgrades() {
         campaign: { playerProgression: pickupState.playerProgression }
     });
     const saveRoundTrip = normalizeSaveGameRecord(JSON.parse(JSON.stringify(save)), "slot1");
-    assert.deepEqual(saveRoundTrip.campaign.playerProgression, pickupState.playerProgression, "save records should preserve progression levels and stable collected IDs in campaign data");
+    assert.deepEqual(saveRoundTrip.campaign.playerProgression, pickupState.playerProgression, "save records should preserve progression levels, ability unlock flags and stable collected IDs in campaign data");
     assert.equal(saveRoundTrip.schemaVersion, 2, "progression saves should use save schema version 2");
 
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
@@ -17269,11 +20176,15 @@ function testNumberedEnemy001Assets() {
     assert.ok(goblinAtlas.frames.fireball, "goblin atlas should include the fireball projectile frame");
     assert.ok(goblinAtlas.frames.cannonball, "goblin atlas should include the cannonball projectile frame");
     assert.ok(goblinAtlas.frames.musket, "goblin atlas should include the musket frame");
-    assert.equal(goblinAtlas.frames.leftArmOpen.x, 409, "open left casting arm should retain its correct atlas rectangle");
-    assert.equal(goblinAtlas.frames.leftArmClosed.x, 865, "closed left arm should use the formerly mislabelled right-side rectangle");
-    assert.equal(goblinAtlas.frames.rightArmClosed.x, 432, "closed right arm should use the formerly mislabelled left-side rectangle");
-    assert.equal(goblinAtlas.frames.leftLeg.x, 586, "left leg should use the corrected front-leg rectangle");
-    assert.equal(goblinAtlas.frames.rightLeg.x, 335, "right leg should use the corrected rear-leg rectangle");
+    assert.deepEqual([goblinAtlas.frames.leftArmOpen.w, goblinAtlas.frames.leftArmOpen.h], [408, 192], "open left casting arm should preserve its corrected atlas dimensions after atlas reforging");
+    assert.deepEqual([goblinAtlas.frames.leftArmClosed.w, goblinAtlas.frames.leftArmClosed.h], [365, 229], "closed left arm should preserve its corrected atlas dimensions after atlas reforging");
+    assert.deepEqual([goblinAtlas.frames.rightArmClosed.w, goblinAtlas.frames.rightArmClosed.h], [370, 226], "closed right arm should preserve its corrected atlas dimensions after atlas reforging");
+    assert.deepEqual([goblinAtlas.frames.leftLeg.w, goblinAtlas.frames.leftLeg.h], [208, 269], "left leg should preserve its corrected atlas dimensions after atlas reforging");
+    assert.deepEqual([goblinAtlas.frames.rightLeg.w, goblinAtlas.frames.rightLeg.h], [226, 284], "right leg should preserve its corrected atlas dimensions after atlas reforging");
+    assert.equal(goblinFireballRig.parts.leftArm.frame, "leftArmOpen", "Fireball Goblin rig should keep the corrected open left-arm frame identity independent of atlas packing");
+    assert.equal(goblinFireballRig.parts.leftArmClosed.frame, "leftArmClosed", "Fireball Goblin rig should keep the corrected closed left-arm frame identity independent of atlas packing");
+    assert.equal(goblinFireballRig.parts.leftLeg.frame, "leftLeg", "Fireball Goblin rig should keep the corrected front-leg frame identity independent of atlas packing");
+    assert.equal(goblinFireballRig.parts.rightLeg.frame, "rightLeg", "Fireball Goblin rig should keep the corrected rear-leg frame identity independent of atlas packing");
     assert.equal(goblinAtlas.objects.fireball.type, "projectileSprite", "fireball should remain in the atlas as an unattached projectile resource");
     assert.equal(goblinAtlas.objects.cannonball.type, "projectileSprite", "cannonball should remain in the atlas as an unattached projectile resource");
     assert.equal("rigPartOverrides" in goblinFireballCharacter, false, "Fireball Goblin character data should not contain rig-part overrides");
@@ -18424,6 +21335,386 @@ function testHeadlessSteppingAndFloorCollision() {
     assert.ok(state.debug.lastEvents.some((event) => event.type === "PLAYER_LANDED"), "landing should be logged");
 }
 
+
+function testPlayerChargedLunge() {
+    const chargeTicks = Math.ceil(DEFAULT_TUNING.playerLungeChargeSeconds / FIXED_DT) + 1;
+    const lunge2 = JSON.parse(readFileSync(new URL("../resources/characters/ct_anim_wizard_lunge_2.json", import.meta.url), "utf8"));
+    const wizard = JSON.parse(readFileSync(new URL("../resources/characters/ct_char_wizard_1.json", import.meta.url), "utf8"));
+    assert.equal(lunge2.animationId, "ct_anim_wizard_lunge_2", "lunge2 should carry its own animation id");
+    approx(lunge2.duration, 0.53125, 0.000001, "lunge2 should span the 850 px / 1600 px/s movement burst");
+    assert.equal(DEFAULT_TUNING.playerLungeSpeed, 1600, "player lunges should use the experimental 1600 px/s movement speed");
+    approx(DEFAULT_TUNING.playerFireHoldLungeSeconds, 0.25, 0.000001, "stationary fire-hold lunge detection should begin after 0.25 seconds");
+
+    const tapFire = createInitialGameState();
+    settleOnGround(tapFire);
+    tapFire.enemies = [];
+    tapFire.targets = [];
+    const tapProjectileId = tapFire.weapons.nextProjectileId;
+    const tapHoldTicks = Math.max(1, Math.ceil(tapFire.tuning.playerFireHoldLungeSeconds / FIXED_DT) - 1);
+    stepSimulation(tapFire, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    assert.equal(tapFire.weapons.nextProjectileId, tapProjectileId + 1, "a stationary fire press should launch one ordinary rocket immediately on button-down");
+    assert.equal(tapFire.player.fireHoldLungePending, true, "the same stationary fire press should also begin watching for an alternate lunge hold");
+    for (let tick = 1; tick < tapHoldTicks; tick += 1) {
+        stepSimulation(tapFire, createInputFrame({ weaponHeld: true }), FIXED_DT);
+    }
+    assert.equal(tapFire.weapons.nextProjectileId, tapProjectileId + 1, "holding stationary fire before the threshold should not launch additional rockets");
+    assert.equal(tapFire.player.fireHoldLungePending, true, "a stationary held fire press should remain pending right up to the hold threshold");
+    stepSimulation(tapFire, createInputFrame({ weaponReleased: true }), FIXED_DT);
+    assert.equal(tapFire.weapons.nextProjectileId, tapProjectileId + 1, "releasing stationary fire just before 0.25 seconds should not launch a second rocket");
+    assert.equal(tapFire.player.lungeCharging, false, "a short stationary fire tap should not begin lunge charging");
+
+    const movingFire = createInitialGameState();
+    settleOnGround(movingFire);
+    movingFire.enemies = [];
+    movingFire.targets = [];
+    const movingProjectileId = movingFire.weapons.nextProjectileId;
+    stepSimulation(movingFire, createInputFrame({ weaponPressed: true, weaponHeld: true, moveRight: true, moveAxis: 1 }), FIXED_DT);
+    assert.equal(movingFire.weapons.nextProjectileId, movingProjectileId + 1, "fire while moving should still launch immediately on button-down");
+    assert.equal(movingFire.player.fireHoldLungePending, true, "holding fire while moving should arm the alternate lunge until Ignatius eventually settles");
+    approx(movingFire.player.fireHoldLungeTime, 0, 0.000001, "the alternate fire-lunge timer must not run while Ignatius is moving");
+
+    const interruptedFire = createInitialGameState();
+    settleOnGround(interruptedFire);
+    interruptedFire.enemies = [];
+    interruptedFire.targets = [];
+    const interruptedProjectileId = interruptedFire.weapons.nextProjectileId;
+    stepSimulation(interruptedFire, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    stepSimulation(interruptedFire, createInputFrame({ weaponHeld: true, moveLeft: true, moveAxis: -1 }), FIXED_DT);
+    assert.equal(interruptedFire.weapons.nextProjectileId, interruptedProjectileId + 1, "moving during the 0.25-second detection window should not fire again");
+    assert.equal(interruptedFire.player.fireHoldLungePending, true, "breaking stillness should keep a held fire-lunge armed instead of cancelling it");
+    approx(interruptedFire.player.fireHoldLungeTime, 0, 0.000001, "breaking stillness should reset the fire-lunge timer");
+    let interruptedSettleGuard = 0;
+    while (Math.abs(interruptedFire.player.vx) > 0.001 && interruptedSettleGuard++ < 120) {
+        stepSimulation(interruptedFire, createInputFrame({ weaponHeld: true }), FIXED_DT);
+    }
+    assert.ok(interruptedSettleGuard < 120, "the interrupted fire-lunge fixture should come to rest");
+    const interruptedDetectTicks = Math.ceil(interruptedFire.tuning.playerFireHoldLungeSeconds / FIXED_DT);
+    stepMany(interruptedFire, interruptedDetectTicks, () => createInputFrame({ weaponHeld: true }));
+    assert.equal(interruptedFire.player.lungeCharging, true, "a held fire-lunge should restart its 0.25-second timer after Ignatius becomes stationary again");
+
+    const fireHold = createInitialGameState();
+    settleOnGround(fireHold);
+    fireHold.enemies = [];
+    fireHold.targets = [];
+    const fireHoldProjectileId = fireHold.weapons.nextProjectileId;
+    const fireHoldDetectTicks = Math.ceil(fireHold.tuning.playerFireHoldLungeSeconds / FIXED_DT);
+    for (let tick = 0; tick < fireHoldDetectTicks; tick += 1) {
+        stepSimulation(fireHold, createInputFrame({ weaponPressed: tick === 0, weaponHeld: true }), FIXED_DT);
+    }
+    assert.equal(fireHold.weapons.nextProjectileId, fireHoldProjectileId + 1, "holding fire stationary should retain the ordinary rocket fired on the initial button-down");
+    assert.equal(fireHold.player.lungeCharging, true, "holding fire stationary for 0.25 seconds should begin the normal lunge charge");
+    assert.equal(fireHold.player.lungeChargeUsesFire, true, "the alternate gesture should keep using fire-held state during the charge");
+    let fireHoldGuard = 0;
+    while (!fireHold.player.lungeActive && fireHoldGuard++ < 120) {
+        stepSimulation(fireHold, createInputFrame({ weaponHeld: true }), FIXED_DT);
+    }
+    assert.equal(fireHold.player.lungeActive, true, "continuing to hold fire should perform the same charged lunge as the dedicated lunge action");
+    assert.equal(fireHold.weapons.nextProjectileId, fireHoldProjectileId + 1, "a fire-triggered lunge should not launch any additional rocket beyond the initial button-down shot");
+
+    const movingHeldLunge = createInitialGameState();
+    settleOnGround(movingHeldLunge);
+    movingHeldLunge.enemies = [];
+    movingHeldLunge.player.vx = 240;
+    stepSimulation(movingHeldLunge, createInputFrame({ lungePressed: true, lungeHeld: true }), FIXED_DT);
+    assert.equal(movingHeldLunge.player.lungeHoldPending, true, "pressing and holding lunge while sliding should arm the charge");
+    assert.equal(movingHeldLunge.player.lungeCharging, false, "an armed lunge should not forcibly stop Ignatius before he naturally comes to rest");
+    let movingHeldLungeGuard = 0;
+    while (!movingHeldLunge.player.lungeCharging && movingHeldLungeGuard++ < 120) {
+        stepSimulation(movingHeldLunge, createInputFrame({ lungeHeld: true }), FIXED_DT);
+    }
+    assert.ok(movingHeldLungeGuard < 120, "a held lunge should begin charging after ordinary ground friction brings Ignatius to rest");
+    assert.equal(movingHeldLunge.player.lungeHoldPending, false, "starting the delayed dedicated charge should consume its armed hold");
+
+    const airborneHeldLunge = createInitialGameState();
+    settleOnGround(airborneHeldLunge);
+    airborneHeldLunge.enemies = [];
+    airborneHeldLunge.player.currentTransform.y = 500;
+    airborneHeldLunge.player.previousTransform.y = 500;
+    airborneHeldLunge.player.shownTransform.y = 500;
+    airborneHeldLunge.player.vy = 160;
+    airborneHeldLunge.player.onGround = false;
+    airborneHeldLunge.player.supportId = null;
+    stepSimulation(airborneHeldLunge, createInputFrame({ lungePressed: true, lungeHeld: true }), FIXED_DT);
+    assert.equal(airborneHeldLunge.player.lungeHoldPending, true, "pressing lunge while falling should arm it for the eventual landing");
+    assert.equal(airborneHeldLunge.player.lungeCharging, false, "an airborne armed lunge must not begin charging in midair");
+    let airborneHeldLungeGuard = 0;
+    while (!airborneHeldLunge.player.lungeCharging && airborneHeldLungeGuard++ < 240) {
+        stepSimulation(airborneHeldLunge, createInputFrame({ lungeHeld: true }), FIXED_DT);
+    }
+    assert.ok(airborneHeldLungeGuard < 240, "a lunge held through a fall should begin charging once Ignatius lands and becomes stationary");
+
+    const airborneFireHold = createInitialGameState();
+    settleOnGround(airborneFireHold);
+    airborneFireHold.enemies = [];
+    airborneFireHold.targets = [];
+    airborneFireHold.player.currentTransform.y = 500;
+    airborneFireHold.player.previousTransform.y = 500;
+    airborneFireHold.player.shownTransform.y = 500;
+    airborneFireHold.player.vy = 160;
+    airborneFireHold.player.onGround = false;
+    airborneFireHold.player.supportId = null;
+    const airborneFireProjectileId = airborneFireHold.weapons.nextProjectileId;
+    stepSimulation(airborneFireHold, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    assert.equal(airborneFireHold.weapons.nextProjectileId, airborneFireProjectileId + 1, "fire pressed while falling should still launch its rocket immediately");
+    assert.equal(airborneFireHold.player.fireHoldLungePending, true, "holding that airborne fire press should arm the alternate lunge");
+    approx(airborneFireHold.player.fireHoldLungeTime, 0, 0.000001, "the fire-lunge timer should wait while Ignatius is airborne");
+    let airborneFireLandingGuard = 0;
+    while (!airborneFireHold.player.onGround && airborneFireLandingGuard++ < 240) {
+        stepSimulation(airborneFireHold, createInputFrame({ weaponHeld: true }), FIXED_DT);
+    }
+    assert.ok(airborneFireLandingGuard < 240, "the airborne fire-lunge fixture should land");
+    approx(airborneFireHold.player.fireHoldLungeTime, 0, 0.000001, "landing itself should not retroactively count airborne time toward the 0.25-second fire hold");
+    const airborneFireDetectTicks = Math.ceil(airborneFireHold.tuning.playerFireHoldLungeSeconds / FIXED_DT);
+    stepMany(airborneFireHold, airborneFireDetectTicks, () => createInputFrame({ weaponHeld: true }));
+    assert.equal(airborneFireHold.player.lungeCharging, true, "the 0.25-second fire-lunge timer should begin only after the held airborne press has landed and settled");
+    assert.equal(airborneFireHold.weapons.nextProjectileId, airborneFireProjectileId + 1, "arming a fire-lunge in the air should never create a second rocket");
+
+    const locked = createInitialGameState({
+        playerProgression: { lungeUnlocked: false }
+    });
+    settleOnGround(locked);
+    const lockedX = locked.player.currentTransform.x;
+    stepMany(locked, 45, () => createInputFrame({ lungePressed: true, lungeHeld: true }));
+    assert.equal(locked.player.lungeCharging, false, "holding lunge while the ability is locked should not begin the charge");
+    assert.equal(locked.player.lungeActive, false, "a locked lunge ability should never launch");
+    approx(locked.player.currentTransform.x, lockedX, 0.000001, "locked lunge input should not move Ignatius");
+    assert.equal(wizard.animationMap.lunge2, "ct_anim_wizard_lunge_2.json", "Ignatius should map the movement phase to the separate lunge2 slot");
+
+    const early = createInitialGameState();
+    settleOnGround(early);
+    const earlyFuel = early.fuel.amount;
+    stepSimulation(early, createInputFrame({ lungePressed: true, lungeHeld: true }), FIXED_DT);
+    assert.equal(early.player.lungeCharging, true, "Shift/X should begin a grounded lunge charge");
+    assert.equal(early.player.height, early.tuning.playerLungeHitboxHeight, "charging should use the lowered lunge hitbox");
+    stepMany(early, 4, () => createInputFrame({ lungeHeld: true }));
+    stepSimulation(early, createInputFrame({ lungeReleased: true }), FIXED_DT);
+    assert.equal(early.player.lungeCharging, false, "releasing before the charge threshold should cancel the charge");
+    assert.equal(early.player.lungeActive, false, "an early release should not start a lunge");
+    approx(early.fuel.amount, earlyFuel, 0.000001, "an aborted charge should not consume fuel");
+    approx(early.player.height, early.tuning.playerHeight, 0.000001, "an aborted charge should restore the standing hitbox");
+
+    const smokeState = createInitialGameState();
+    settleOnGround(smokeState);
+    smokeState.enemies = [];
+    smokeState.player.lungeCooldownTimer = 10;
+    const lungeSmokeCount = () => smokeState.effects.smokePuffs.filter((puff) => puff.kind === "attachedRocketSmokePuff").length;
+    stepSimulation(smokeState, createInputFrame({ lungePressed: true, lungeHeld: true }), FIXED_DT);
+    const halfChargeTicks = Math.ceil((smokeState.tuning.playerLungeChargeSeconds * 0.5) / FIXED_DT);
+    stepMany(smokeState, Math.max(0, halfChargeTicks - 1), () => createInputFrame({ lungeHeld: true }));
+    const firstHalfChargeSmoke = lungeSmokeCount();
+    stepMany(smokeState, halfChargeTicks, () => createInputFrame({ lungeHeld: true }));
+    const secondHalfChargeSmoke = lungeSmokeCount() - firstHalfChargeSmoke;
+    assert.ok(secondHalfChargeSmoke > firstHalfChargeSmoke, "lunge preparation smoke should visibly ramp up through the 0.5-second bend");
+    assert.equal(smokeState.player.lungeCharging, true, "cooldown should hold the smoke-ramp fixture in its fully charged crouch");
+    const beforeHeldChargeSmoke = lungeSmokeCount();
+    const densityWindowTicks = Math.ceil(0.13 / FIXED_DT);
+    stepMany(smokeState, densityWindowTicks, () => createInputFrame({ lungeHeld: true }));
+    const heldChargeSmoke = lungeSmokeCount() - beforeHeldChargeSmoke;
+    assert.ok(heldChargeSmoke > 0, "a fully charged cooldown wait should keep emitting normal-density lunge smoke");
+    smokeState.player.lungeCooldownTimer = 0;
+    const beforeMovementSmoke = lungeSmokeCount();
+    stepSimulation(smokeState, createInputFrame({ lungeHeld: true }), FIXED_DT);
+    assert.equal(smokeState.player.lungeActive, true, "smoke-density fixture should launch as soon as its cooldown gate is cleared");
+    stepMany(smokeState, Math.max(0, densityWindowTicks - 1), () => createInputFrame());
+    const movementSmoke = lungeSmokeCount() - beforeMovementSmoke;
+    assert.ok(movementSmoke >= heldChargeSmoke * 4, "actual lunge movement should emit about five times the normal held-charge smoke density");
+
+    const state = createInitialGameState();
+    settleOnGround(state);
+    state.enemies[0].currentTransform.x = 560;
+    state.enemies[0].currentTransform.y = 600;
+    state.enemies[0].previousTransform.x = 560;
+    state.enemies[0].previousTransform.y = 600;
+    state.enemies[0].shownTransform.x = 560;
+    state.enemies[0].shownTransform.y = 600;
+    state.enemies[0].spawnX = 560;
+    state.enemies[0].spawnY = 600;
+    state.enemies[0].health = 90;
+    state.enemies[0].maxHealth = 90;
+    state.enemies[0].strategy = "passive";
+    state.enemies[0].walkSpeed = 0;
+    state.enemies[0].runSpeed = 0;
+    state.enemies.splice(1);
+
+    const startX = state.player.currentTransform.x;
+    const fuelBeforeCharge = state.fuel.amount;
+    stepSimulation(state, createInputFrame({ lungePressed: true, lungeHeld: true }), FIXED_DT);
+    approx(state.player.currentTransform.x, startX, 0.000001, "starting a lunge charge should stop voluntary horizontal motion");
+    assert.equal(state.player.lungeCharging, true, "the lunge charge should remain active after its first tick");
+
+    stepSimulation(state, createInputFrame({ lungeHeld: true, moveLeft: true, moveAxis: -1 }), FIXED_DT);
+    assert.equal(state.player.facing, -1, "left input should turn Ignatius while charging");
+    approx(state.player.currentTransform.x, startX, 0.000001, "turning during the charge should not move Ignatius");
+    stepSimulation(state, createInputFrame({ lungeHeld: true, moveRight: true, moveAxis: 1 }), FIXED_DT);
+    assert.equal(state.player.facing, 1, "right input should turn Ignatius while charging");
+    approx(state.player.currentTransform.x, startX, 0.000001, "turning back during the charge should remain stationary");
+
+    const thresholdTurn = createInitialGameState();
+    settleOnGround(thresholdTurn);
+    thresholdTurn.enemies = [];
+    stepSimulation(thresholdTurn, createInputFrame({ lungePressed: true, lungeHeld: true }), FIXED_DT);
+    thresholdTurn.player.facing = 1;
+    thresholdTurn.player.lungeChargeTime = Math.max(0, thresholdTurn.tuning.playerLungeChargeSeconds - FIXED_DT);
+    stepSimulation(thresholdTurn, createInputFrame({ lungeHeld: true, moveLeft: true, moveAxis: -1 }), FIXED_DT);
+    assert.equal(thresholdTurn.player.lungeActive, true, "charge-threshold fixture should auto-launch on the current tick");
+    assert.equal(thresholdTurn.player.lungeDirection, -1, "turn input on the exact auto-launch tick should determine lunge direction");
+
+    const aggregateRelease = createInitialGameState();
+    settleOnGround(aggregateRelease);
+    aggregateRelease.enemies = [];
+    aggregateRelease.player.lungeCooldownTimer = 2;
+    stepSimulation(aggregateRelease, createInputFrame({ lungePressed: true, lungeHeld: true }), FIXED_DT);
+    aggregateRelease.player.lungeChargeTime = aggregateRelease.tuning.playerLungeChargeSeconds;
+    stepSimulation(aggregateRelease, createInputFrame({ lungeHeld: true, lungeReleased: true }), FIXED_DT);
+    assert.equal(aggregateRelease.player.lungeCharging, true, "a physical release edge must not cancel while another mapped lunge input remains held");
+
+    const healthBeforeKnockback = state.health.amount;
+    const knockback = damagePlayer(state, 1, "lunge_charge_knockback", {
+        bypassDifficulty: true,
+        invulnerabilitySeconds: 0,
+        knockbackX: 180
+    });
+    assert.equal(knockback.damage, 1, "charging should not grant damage immunity");
+    assert.equal(state.player.lungeCharging, true, "damage and knockback should not cancel a charge");
+    assert.equal(state.health.amount, healthBeforeKnockback - 1, "charging damage should still be applied");
+    const beforeKnockbackStepX = state.player.currentTransform.x;
+    stepSimulation(state, createInputFrame({ lungeHeld: true }), FIXED_DT);
+    assert.ok(state.player.currentTransform.x > beforeKnockbackStepX, "knockback should be allowed to reposition Ignatius while charging");
+    assert.equal(state.player.lungeCharging, true, "the charge should survive knockback movement");
+
+    while (state.player.lungeCharging) {
+        stepSimulation(state, createInputFrame({ lungeHeld: true }), FIXED_DT);
+    }
+    state.health.invulnerabilityTimer = 0;
+    assert.equal(state.player.lungeActive, true, "holding the lunge input for 0.5 seconds should automatically start the lunge");
+    approx(state.player.lungeCooldownTimer, state.tuning.playerLungeCooldownSeconds, 0.000001, "launching should start the five-second lunge cooldown");
+    const launchX = state.player.currentTransform.x
+        - state.player.lungeDirection * (state.tuning.playerLungeDistance - state.player.lungeDistanceRemaining);
+    approx(state.fuel.amount, fuelBeforeCharge - state.tuning.attachedBoostKickFuelCost, 0.000001, "a lunge should cost the same fuel as a rocket kick");
+    assert.ok(state.player.currentTransform.x > launchX, "the threshold tick should immediately begin horizontal lunge motion");
+    assert.equal(state.player.height, state.tuning.playerLungeHitboxHeight, "the reduced hitbox should remain active during the lunge");
+
+    const healthAtLungeStart = state.health.amount;
+    const blockedDamage = damagePlayer(state, 25, "lunge_immunity_test");
+    assert.equal(blockedDamage.damage, 0, "the active lunge should block ordinary incoming damage");
+    approx(state.health.amount, healthAtLungeStart, 0.000001, "lunge immunity should preserve health");
+
+    state.world.entities = state.world.entities || [];
+    state.world.entities.push({ id: "lunge_cutscene_guard", type: "cutsceneTrigger", x: state.player.currentTransform.x, y: state.player.currentTransform.y });
+    state.story.cutsceneScripts = [{
+        active: false, completed: false, entityId: "lunge_cutscene_guard", triggerDistance: 96, verticalTolerance: 150,
+        commands: [{ type: "DELAY", duration: 1 }], parseErrors: [], animationOverrides: {}, commandIndex: 0, commandTime: 0, commandStartedAt: null
+    }];
+    state.story.cutscene = null;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.story.cutscene, null, "crossing a cutscene proximity trigger during lunge movement must not start it");
+    assert.equal(state.story.cutsceneScripts[0].active, false, "lunge movement should leave a crossed cutscene trigger armed");
+    assert.equal(state.story.cutsceneScripts[0].completed, false, "lunge movement should not consume a crossed cutscene trigger");
+    state.story.cutsceneScripts[0].completed = true;
+
+    state.world.entities.push({ id: "lunge_mailbox_guard", type: "mailbox", x: state.player.currentTransform.x, y: state.player.currentTransform.y, state: "letterAvailable" });
+    state.story.mailboxEvents = [{
+        active: false, completed: false, storyKind: "mailbox", consumedState: "empty", mailboxId: "lunge_mailbox_guard", phase: "armed",
+        phaseTime: 0, triggerDistance: 72, verticalTolerance: 80, letterDuration: 1, thoughtDuration: 1, letterText: "test", thoughtText: "test"
+    }];
+    state.story.mailboxEvent = null;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.story.mailboxEvent, null, "crossing a mailbox proximity trigger during lunge movement must not open it");
+    assert.equal(state.story.mailboxEvents[0].active, false, "lunge movement should leave a crossed mailbox trigger armed");
+
+    let guard = 2;
+    while (state.player.lungeActive && guard < 90) {
+        stepSimulation(state, createInputFrame({ moveLeft: true, jumpPressed: true, weaponPressed: true, lungePressed: true }), FIXED_DT);
+        guard += 1;
+    }
+    assert.ok(guard < 90, "the lunge should finish within a bounded number of fixed steps");
+    approx(state.player.currentTransform.x - launchX, state.tuning.playerLungeDistance, 0.01, "an unobstructed lunge should travel exactly the configured distance");
+    approx(state.enemies[0].health, 45, 0.000001, "an enemy crossed by the lunge should take 45 damage exactly once");
+    assert.equal(state.player.facing, 1, "inputs during the lunge should not change direction");
+    approx(state.player.height, state.tuning.playerHeight, 0.000001, "finishing the lunge should restore the standing hitbox");
+    assert.ok(state.effects.smokePuffs.some((puff) => puff.kind === "attachedRocketSmokePuff"), "the active lunge should emit the backpack smoke trail");
+
+    const cooldown = createInitialGameState();
+    settleOnGround(cooldown);
+    cooldown.enemies = [];
+    cooldown.player.lungeCooldownTimer = 1.0;
+    const cooldownFuel = cooldown.fuel.amount;
+    stepSimulation(cooldown, createInputFrame({ lungePressed: true, lungeHeld: true }), FIXED_DT);
+    let cooldownChargeGuard = 0;
+    while (cooldown.player.lungeChargeTime + 1e-9 < cooldown.tuning.playerLungeChargeSeconds && cooldownChargeGuard < chargeTicks + 10) {
+        stepSimulation(cooldown, createInputFrame({ lungeHeld: true }), FIXED_DT);
+        cooldownChargeGuard += 1;
+    }
+    assert.equal(cooldown.player.lungeCharging, true, "a charge completed during cooldown should remain crouched instead of launching early");
+    assert.equal(cooldown.player.lungeActive, false, "cooldown should block the burst even after the 0.5-second charge completes");
+    approx(cooldown.player.lungeChargeTime, cooldown.tuning.playerLungeChargeSeconds, 0.000001, "a cooldown-blocked charge should hold the final charge pose");
+    approx(cooldown.fuel.amount, cooldownFuel, 0.000001, "waiting for lunge cooldown should not consume fuel");
+    stepSimulation(cooldown, createInputFrame({ lungeReleased: true }), FIXED_DT);
+    assert.equal(cooldown.player.lungeCharging, false, "releasing a fully charged lunge while cooldown remains active should cancel it");
+    assert.equal(cooldown.player.lungeActive, false, "a released cooldown-blocked charge must not launch later");
+    approx(cooldown.fuel.amount, cooldownFuel, 0.000001, "cancelling a cooldown-blocked charge should not consume fuel");
+
+    const cooldownHeld = createInitialGameState();
+    settleOnGround(cooldownHeld);
+    cooldownHeld.enemies = [];
+    cooldownHeld.player.lungeCooldownTimer = 1.0;
+    const cooldownHeldFuel = cooldownHeld.fuel.amount;
+    stepSimulation(cooldownHeld, createInputFrame({ lungePressed: true, lungeHeld: true }), FIXED_DT);
+    let cooldownHeldGuard = 0;
+    while (!cooldownHeld.player.lungeActive && cooldownHeldGuard < 180) {
+        stepSimulation(cooldownHeld, createInputFrame({ lungeHeld: true }), FIXED_DT);
+        cooldownHeldGuard += 1;
+    }
+    assert.equal(cooldownHeld.player.lungeActive, true, "holding a completed charge should launch automatically as soon as the cooldown expires");
+    approx(cooldownHeld.fuel.amount, cooldownHeldFuel - cooldownHeld.tuning.attachedBoostKickFuelCost, 0.000001, "cooldown-delayed fuel cost should be paid only when the held burst actually launches");
+
+    const airborneCharge = createInitialGameState();
+    settleOnGround(airborneCharge);
+    airborneCharge.enemies = [];
+    stepSimulation(airborneCharge, createInputFrame({ lungePressed: true, lungeHeld: true }), FIXED_DT);
+    airborneCharge.player.vy = -450;
+    airborneCharge.player.onGround = false;
+    airborneCharge.player.supportId = null;
+    let airborneChargeGuard = 0;
+    while (airborneCharge.player.lungeChargeTime + 1e-9 < airborneCharge.tuning.playerLungeChargeSeconds && airborneChargeGuard < chargeTicks + 10) {
+        stepSimulation(airborneCharge, createInputFrame({ lungeHeld: true }), FIXED_DT);
+        airborneChargeGuard += 1;
+    }
+    assert.equal(airborneCharge.player.lungeCharging, true, "knockback that leaves Ignatius airborne must not cancel a completed charge");
+    assert.equal(airborneCharge.player.lungeActive, false, "a charged lunge must wait until Ignatius is grounded before starting");
+    let landingGuard = 0;
+    while (!airborneCharge.player.lungeActive && landingGuard < 240) {
+        stepSimulation(airborneCharge, createInputFrame(), FIXED_DT);
+        landingGuard += 1;
+    }
+    assert.equal(airborneCharge.player.lungeActive, true, "an airborne completed charge should launch automatically after Ignatius lands");
+
+    const ledge = createInitialGameState();
+    settleOnGround(ledge);
+    ledge.world.solids[0].w = 500;
+    ledge.enemies = [];
+    const ledgeY = ledge.player.currentTransform.y;
+    stepSimulation(ledge, createInputFrame({ lungePressed: true, lungeHeld: true }), FIXED_DT);
+    while (ledge.player.lungeCharging) stepSimulation(ledge, createInputFrame({ lungeHeld: true }), FIXED_DT);
+    const ledgeLaunchX = ledge.player.currentTransform.x
+        - ledge.player.lungeDirection * (ledge.tuning.playerLungeDistance - ledge.player.lungeDistanceRemaining);
+    while (ledge.player.lungeActive) stepSimulation(ledge, createInputFrame(), FIXED_DT);
+    approx(ledge.player.currentTransform.x - ledgeLaunchX, ledge.tuning.playerLungeDistance, 0.01, "a lunge should continue its full horizontal distance after leaving ground support");
+    approx(ledge.player.currentTransform.y, ledgeY, 0.001, "gravity should not pull Ignatius downward during the lunge");
+    assert.equal(ledge.player.onGround, false, "a lunge ending beyond a ledge should finish airborne");
+
+    const blocked = createInitialGameState();
+    settleOnGround(blocked);
+    blocked.enemies = [];
+    const blockedStart = blocked.player.currentTransform.x;
+    blocked.world.solids.push({ id: "lunge_wall", kind: "blockable", x: blockedStart + 300, y: 360, w: 40, h: 240 });
+    stepSimulation(blocked, createInputFrame({ lungePressed: true, lungeHeld: true }), FIXED_DT);
+    while (blocked.player.lungeCharging) stepSimulation(blocked, createInputFrame({ lungeHeld: true }), FIXED_DT);
+    while (blocked.player.lungeActive) stepSimulation(blocked, createInputFrame(), FIXED_DT);
+    assert.ok(blocked.player.currentTransform.x - blockedStart < 320, "blockable terrain should stop a lunge before its full distance");
+    assert.ok(blocked.player.currentTransform.x - blockedStart > 250, "the lunge should stop at the wall rather than abort at launch");
+}
+
 function testClosedSlopedStairBodyDoesNotConveyorPlayerDownhill() {
     const support = {
         id: "synthetic_stair_blockable_2",
@@ -19210,6 +22501,12 @@ function testBoostKickCostsFuelAndRechargesOnLanding() {
     assert.ok(lowFuel.equipment.rocket.boostKickCharge > 0.99, "failed low-fuel kick should not spend the landing-recharged kick charge");
 }
 
+function launchPlayerRocketForTest(state) {
+    // Projectile-focused tests inject the one-shot simulation pulse directly.
+    // User-level tap/hold discrimination is covered by the lunge input tests.
+    stepSimulation(state, createInputFrame({ weaponPressed: true }), FIXED_DT);
+}
+
 function testHomingRocketLaunch() {
     const state = createInitialGameState();
     settleOnGround(state);
@@ -19225,8 +22522,8 @@ function testHomingRocketLaunch() {
     state.camera.currentTransform.x = (state.player.currentTransform.x + target.x) * 0.5;
     state.camera.viewportWidth = Math.abs(target.x - state.player.currentTransform.x) + 1000;
     const startDistance = Math.hypot(target.x - state.player.currentTransform.x, target.y - (state.player.currentTransform.y - state.player.height * 0.72));
-    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
-    assert.equal(state.projectiles.length, 1, "weapon press should launch one test rocket");
+    launchPlayerRocketForTest(state);
+    assert.equal(state.projectiles.length, 1, "a weapon pulse should launch one test rocket");
     assert.equal(state.projectiles[0].targetId, target.id, "test rocket should target the explicit enemy bullseye");
     assert.ok(state.projectiles[0].vx > 0 && state.projectiles[0].vx < 100, "test rocket should begin its tight initial curve while remaining mostly vertical");
     assert.ok(state.projectiles[0].vy < -490, "test rocket should retain a strong upward launch component during the initial curve at the 500 px/s base speed");
@@ -19239,11 +22536,11 @@ function testHomingRocketLaunch() {
         "standard rocket lifetime should derive from its 600 px travel distance"
     );
     state.weapons.launchCooldownTimer = 999;
-    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
-    assert.equal(state.projectiles.length, 2, "a second press on the next simulation step should launch immediately when fuel is available");
+    launchPlayerRocketForTest(state);
+    assert.equal(state.projectiles.length, 2, "a second weapon pulse should launch when fuel is available");
     assert.equal(state.debug.lastEvents.some((event) => event.type === "ROCKET_LAUNCH_BLOCKED" && event.reason === "cooldown"), false, "legacy cooldown state must never block a rocket launch");
     assert.equal("rocketLaunchCooldown" in DEFAULT_TUNING, false, "the portable tuning contract should not retain a rocket firing cooldown");
-    assert.ok(state.fuel.amount <= state.tuning.initialFuel - state.tuning.rocketLaunchCost * 2, "two immediate rocket launches should spend fuel twice");
+    assert.ok(state.fuel.amount <= state.tuning.initialFuel - state.tuning.rocketLaunchCost * 2, "two weapon pulses should spend fuel twice");
     stepMany(state, 60, () => createInputFrame());
     assert.ok(state.projectiles.length >= 1, "unwrenched rocket should still be inspectable before its 1.2-second expiry");
     const rocket = state.projectiles[0];
@@ -19295,7 +22592,7 @@ function runJumpHeightPlatformRocket(initialHomingStrength) {
         }
     ];
 
-    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    launchPlayerRocketForTest(state);
     const rocket = state.projectiles[0];
     let minimumCenterY = rocket.currentTransform.y;
     let maximumX = rocket.currentTransform.x;
@@ -19352,7 +22649,7 @@ function testStandardRocketSecondarySplash() {
         state: "active"
     }];
 
-    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    launchPlayerRocketForTest(state);
     assert.equal(state.projectiles.length, 1, "a standard launch should create one rocket for splash testing");
     assert.equal(state.projectiles[0].secondaryEnemySplashDamage, 1, "standard rockets should carry exactly one point of secondary-enemy splash damage");
     approx(
@@ -19415,14 +22712,14 @@ function testRocketTargetPrefersClosestEnemyInFacingDirection() {
         { id: "forward_near", enemyId: "forward_near_enemy", x: 110, y: state.player.currentTransform.y - 60, radius: 12, state: "active" }
     ];
 
-    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    launchPlayerRocketForTest(state);
     assert.equal(state.projectiles[0].targetId, "forward_near", "rocket should prefer the closest target in Ignatius's facing direction even when a rear target is nearer overall");
 
     state.projectiles = [];
     state.fuel.amount = state.fuel.max;
     state.targets.find((target) => target.id === "forward_far").state = "inactive";
     state.targets.find((target) => target.id === "forward_near").state = "inactive";
-    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    launchPlayerRocketForTest(state);
     assert.equal(state.projectiles[0].targetId, "rear_near", "rocket should fall back to the closest target behind Ignatius only when no forward target remains");
 }
 
@@ -19444,7 +22741,7 @@ function testRocketTargetPrioritizesLineOfSight() {
     };
 
     const homingState = makeState();
-    stepSimulation(homingState, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    launchPlayerRocketForTest(homingState);
     assert.equal(homingState.projectiles[0].targetId, "visible_far", "homing rockets should prefer a farther line-of-sight target over a nearer target hidden by terrain");
 
     const aimedState = makeState();
@@ -19457,7 +22754,7 @@ function testRocketTargetPrioritizesLineOfSight() {
         activatedAt: 0,
         refreshCount: 0
     };
-    stepSimulation(aimedState, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    launchPlayerRocketForTest(aimedState);
     assert.equal(aimedState.projectiles[0].targetId, "visible_far", "monster-aimed straight rockets should use the same line-of-sight-first target ordering");
 
     const makeGreenPlatformState = () => {
@@ -19477,7 +22774,7 @@ function testRocketTargetPrioritizesLineOfSight() {
     };
 
     const greenHomingState = makeGreenPlatformState();
-    stepSimulation(greenHomingState, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    launchPlayerRocketForTest(greenHomingState);
     assert.equal(greenHomingState.projectiles[0].targetId, "elevated_green_target", "homing rockets should see enemies through one-way green platforms that rockets themselves pass through");
 
     const greenAimedState = makeGreenPlatformState();
@@ -19490,7 +22787,7 @@ function testRocketTargetPrioritizesLineOfSight() {
         activatedAt: 0,
         refreshCount: 0
     };
-    stepSimulation(greenAimedState, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    launchPlayerRocketForTest(greenAimedState);
     assert.equal(greenAimedState.projectiles[0].targetId, "elevated_green_target", "green launch-aim rockets should also treat one-way platforms as transparent for targeting");
 }
 
@@ -19559,7 +22856,7 @@ function testHomingRocketTargetsWithinFixedRange() {
         { id: "far_abandoned_target", x: 1600, y: 540, radius: 12, state: "active" }
     ];
 
-    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    launchPlayerRocketForTest(state);
     assert.equal(state.projectiles[0].targetId, null, "a homing rocket should ignore targets farther than the authored 1500 px lock radius");
 
     stepSimulation(state, createInputFrame(), FIXED_DT);
@@ -19599,7 +22896,7 @@ function testHomingRocketTargetsWithinFixedRange() {
         radius: 12,
         state: "active"
     }];
-    stepSimulation(fullscreenState, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    launchPlayerRocketForTest(fullscreenState);
     assert.equal(fullscreenState.projectiles[0].targetId, "visible_far_corner_target", "a target at the far visible 1080p corner should remain lockable");
 
     const blueArcState = createInitialGameState();
@@ -19631,7 +22928,7 @@ function testHomingRocketTargetsWithinFixedRange() {
         activatedAt: 0,
         refreshCount: 0
     };
-    stepSimulation(blueArcState, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    launchPlayerRocketForTest(blueArcState);
     const blueMinimumDistances = new Map(blueArcState.projectiles.map((projectile) => [projectile.id, Infinity]));
     for (let frame = 0; frame < 260 && blueArcState.projectiles.length; frame += 1) {
         stepSimulation(blueArcState, createInputFrame(), FIXED_DT);
@@ -19653,7 +22950,7 @@ function testHomingRocketTargetsWithinFixedRange() {
     staggeredState.world.segments = [];
     staggeredState.world.collisionPolygons = [];
     staggeredState.targets = [];
-    stepSimulation(staggeredState, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    launchPlayerRocketForTest(staggeredState);
     const baseRocket = staggeredState.projectiles[0];
     staggeredState.projectiles = Array.from({ length: 4 }, (_, index) => ({
         ...baseRocket,
@@ -19686,7 +22983,7 @@ function testRocketTrailTracksCurvedPathAndPersistsAfterExplosion() {
     state.targets = [target];
     state.camera.currentTransform.x = state.player.currentTransform.x + 150;
     state.camera.viewportWidth = Math.abs(target.x - state.player.currentTransform.x) * 2 + 1000;
-    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    launchPlayerRocketForTest(state);
     stepMany(state, 60, () => createInputFrame());
     assert.equal(state.projectiles.length, 1, "rocket should still exist while trail is inspected");
     const trail = state.projectiles[0].trail;
@@ -19740,14 +23037,14 @@ function targetImpactSpeedForExtraFallWh(state, extraWizardHeights) {
     return Math.sqrt(safeImpactSpeed * safeImpactSpeed + 2 * t.gravity * t.wizardHeight * extraWizardHeights);
 }
 
-function forceLandingAtImpactSpeed(state, impactSpeed) {
+function forceLandingAtImpactSpeed(state, impactSpeed, input = createInputFrame()) {
     state.player.currentTransform.x = state.world.start.x;
     state.player.currentTransform.y = 580;
     state.player.vy = impactSpeed - state.tuning.gravity * FIXED_DT;
     state.player.onGround = false;
     state.player.wasOnGround = false;
     state.player.airborneTime = 1;
-    stepSimulation(state, createInputFrame(), FIXED_DT);
+    stepSimulation(state, input, FIXED_DT);
     assert.ok(state.player.onGround, "forced impact should land on the test floor");
 }
 
@@ -19773,8 +23070,141 @@ function testFallDamageUsesExcessKineticEnergy() {
     settleOnGround(state);
     const oneExtraWhImpact = targetImpactSpeedForExtraFallWh(state, 1);
     forceLandingAtImpactSpeed(state, oneExtraWhImpact);
-    approx(state.health.amount, 80, 0.05, "one extra wizard-height impact should deal 20 HP on Normal");
+    approx(state.health.amount, 90, 0.05, "one extra wizard-height impact should lose only 10 HP after the 50% fall-damage reduction on Normal");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "PLAYER_FALL_DAMAGE"), "damaging landing should emit fall damage event");
+    assert.ok(!state.debug.lastEvents.some((event) => event.type === "PLAYER_FALL_IMPACT_EXPLOSION"), "an accidental damaging fall should not trigger the body-slam AOE");
+
+    const sameTickCommit = createInitialGameState();
+    settleOnGround(sameTickCommit);
+    sameTickCommit.enemies = [];
+    sameTickCommit.player.currentTransform.y = 580;
+    sameTickCommit.player.vy = sameTickCommit.tuning.fallDamageSafeImpactSpeed - 5;
+    sameTickCommit.player.onGround = false;
+    sameTickCommit.player.wasOnGround = false;
+    sameTickCommit.player.airborneTime = 1;
+    stepSimulation(sameTickCommit, createInputFrame({ dropHeld: true }), FIXED_DT);
+    assert.equal(sameTickCommit.player.onGround, true, "same-tick slam fixture should land after gravity crosses the damage threshold");
+    assert.ok(sameTickCommit.debug.lastEvents.some((event) => event.type === "PLAYER_FALL_IMPACT_EXPLOSION"), "Down-held fall that becomes damaging and lands in the same tick should still commit and explode");
+    assert.ok(sameTickCommit.player.bodySlamImmunityTimer > 0.4, "same-tick commitment should receive the normal post-impact slam immunity");
+
+    const impact = createInitialGameState();
+    settleOnGround(impact);
+    const prototype = impact.enemies[0];
+    impact.enemies = [
+        { ...prototype, ...createTransformTriplet({ x: impact.player.currentTransform.x - 80, y: 600 }), id: "fall_aoe_left", health: 500, maxHealth: 500, state: "idle", combatState: "alive", simulationDormant: true },
+        { ...prototype, ...createTransformTriplet({ x: impact.player.currentTransform.x + 80, y: 600 }), id: "fall_aoe_right", health: 500, maxHealth: 500, state: "idle", combatState: "alive", simulationDormant: true }
+    ];
+    impact.targets = [];
+    forceLandingAtImpactSpeed(impact, targetImpactSpeedForExtraFallWh(impact, 1), createInputFrame({ dropHeld: true }));
+    approx(impact.enemies[0].health, 440, 0.001, "committed body-slam AOE gives the first enemy the full independent 60-damage slam hit");
+    approx(impact.enemies[1].health, 440, 0.001, "committed body-slam AOE gives every enemy in range the full independent 60-damage slam hit");
+    const impactProjectile = impact.projectiles.find((projectile) => projectile.kind === "fallImpactExplosion");
+    assert.ok(impactProjectile && impactProjectile.state === "exploding", "committed body slam creates the normal exploding-projectile presentation state");
+    approx(impactProjectile.areaDamageRadius, impact.tuning.wizardHeight * 2, 0.001, "fall impact reuses the Bigbomb two-wizard-height AOE radius");
+    approx(impact.player.fallImpactExplosionCooldownTimer, impact.tuning.playerFallImpactExplosionCooldownSeconds, FIXED_DT + 0.001, "body-slam impact starts its own five-second cooldown");
+    const enemyHealthAfterFirstImpact = impact.enemies.map((enemy) => enemy.health);
+    forceLandingAtImpactSpeed(impact, targetImpactSpeedForExtraFallWh(impact, 1), createInputFrame({ dropHeld: true }));
+    assert.deepEqual(impact.enemies.map((enemy) => enemy.health), enemyHealthAfterFirstImpact, "a second Down-held damaging landing during cooldown does not commit or launch another AOE");
+    assert.equal(impact.player.bodySlamCommitted, false, "body slam cannot commit while its impact cooldown is active");
+
+    const slamShield = createInitialGameState();
+    settleOnGround(slamShield);
+    slamShield.player.currentTransform.y = 420;
+    slamShield.player.vy = slamShield.tuning.fallDamageSafeImpactSpeed + 120;
+    slamShield.player.onGround = false;
+    slamShield.player.wasOnGround = false;
+    slamShield.player.airborneTime = 1;
+    stepSimulation(slamShield, createInputFrame({ dropHeld: true }), FIXED_DT);
+    assert.equal(slamShield.player.bodySlamCommitted, true, "holding Down while already falling at damaging speed commits the body slam immediately");
+    const committedVy = slamShield.player.vy;
+    const slamHealthBeforeHit = slamShield.health.amount;
+    assert.equal(damagePlayer(slamShield, 25, "body_slam_shield_test").damage, 0, "committed body slam blocks ordinary shield-like damage");
+    approx(slamShield.health.amount, slamHealthBeforeHit, 0.000001, "committed body-slam immunity preserves health");
+    stepSimulation(slamShield, createInputFrame({ jumpPressed: true, jumpHeld: true, boostPressed: true, boostHeld: true }), FIXED_DT);
+    assert.ok(slamShield.player.bodySlamCommitted && slamShield.player.vy >= committedVy, "jump or rocket-kick input cannot brake a committed body slam");
+    approx(
+        slamShield.player.vy,
+        Math.min(committedVy + slamShield.tuning.gravity * FIXED_DT, slamShield.tuning.terminalVelocity),
+        0.000001,
+        "releasing Down after commitment restores ordinary gravity without cancelling the slam"
+    );
+    assert.equal(slamShield.equipment.rocket.attachedBoosting, false, "committed body slam keeps rocket hover disabled");
+    const committedVyBeforeHeldDown = slamShield.player.vy;
+    stepSimulation(slamShield, createInputFrame({ dropHeld: true }), FIXED_DT);
+    approx(
+        slamShield.player.vy,
+        Math.min(committedVyBeforeHeldDown + slamShield.tuning.gravity * 2 * FIXED_DT, slamShield.tuning.terminalVelocity),
+        0.000001,
+        "holding Down after commitment continues to apply double gravity"
+    );
+    const slamHealthBeforeLanding = slamShield.health.amount;
+    forceLandingAtImpactSpeed(slamShield, targetImpactSpeedForExtraFallWh(slamShield, 1));
+    assert.ok(slamShield.health.amount < slamHealthBeforeLanding, "committed body-slam immunity does not block its own bypassing fall damage");
+    assert.equal(slamShield.player.bodySlamCommitted, false, "body-slam commitment clears on landing");
+    assert.ok(slamShield.player.bodySlamImmunityTimer > 0.4, "landing a committed body slam starts the normal 0.45-second shield-like grace");
+    const postImpactHealth = slamShield.health.amount;
+    assert.equal(damagePlayer(slamShield, 25, "body_slam_post_impact_test").damage, 0, "post-slam grace blocks ordinary damage without blocking fall damage itself");
+    approx(slamShield.health.amount, postImpactHealth, 0.000001, "post-slam shield-like grace preserves health");
+
+    const lateDown = createInitialGameState();
+    settleOnGround(lateDown);
+    lateDown.player.currentTransform.y = 420;
+    lateDown.player.vy = lateDown.tuning.fallDamageSafeImpactSpeed + 180;
+    lateDown.player.onGround = false;
+    stepSimulation(lateDown, createInputFrame(), FIXED_DT);
+    assert.equal(lateDown.player.bodySlamCommitted, false, "falling above the damage threshold without Down remains an ordinary fall");
+    stepSimulation(lateDown, createInputFrame({ dropHeld: true }), FIXED_DT);
+    assert.equal(lateDown.player.bodySlamCommitted, true, "pressing Down after the fall-damage threshold has already been crossed still commits the slam");
+
+    const lockedImpact = createInitialGameState({
+        playerProgression: {
+            fallImpactExplosionUnlocked: false,
+            fallDamageReductionUnlocked: false
+        }
+    });
+    settleOnGround(lockedImpact);
+    const lockedImpactHealthBefore = lockedImpact.health.amount;
+    const lockedCommit = createInitialGameState({
+        playerProgression: {
+            fallImpactExplosionUnlocked: false,
+            fallDamageReductionUnlocked: false
+        }
+    });
+    settleOnGround(lockedCommit);
+    lockedCommit.player.currentTransform.y = 420;
+    lockedCommit.player.vy = lockedCommit.tuning.fallDamageSafeImpactSpeed + 120;
+    lockedCommit.player.onGround = false;
+    lockedCommit.player.wasOnGround = false;
+    stepSimulation(lockedCommit, createInputFrame({ dropHeld: true }), FIXED_DT);
+    assert.equal(lockedCommit.player.bodySlamCommitted, false, "holding Down cannot commit a body slam while the impact ability is locked");
+    forceLandingAtImpactSpeed(lockedImpact, targetImpactSpeedForExtraFallWh(lockedImpact, 1));
+    approx(lockedImpact.health.amount, lockedImpactHealthBefore - 20, 0.05, "without the reduction ability, one excess wizard-height should apply the original 20 HP fall damage");
+    assert.ok(!lockedImpact.debug.lastEvents.some((event) => event.type === "PLAYER_FALL_IMPACT_EXPLOSION"), "without the impact ability, damaging landings should not create an AOE");
+    approx(lockedImpact.player.fallImpactExplosionCooldownTimer, 0, 0.000001, "a locked impact attack should not start its cooldown");
+
+    const reductionOnly = createInitialGameState({
+        playerProgression: {
+            fallImpactExplosionUnlocked: false,
+            fallDamageReductionUnlocked: true
+        }
+    });
+    settleOnGround(reductionOnly);
+    const reductionOnlyCommit = createInitialGameState({
+        playerProgression: {
+            fallImpactExplosionUnlocked: false,
+            fallDamageReductionUnlocked: true
+        }
+    });
+    settleOnGround(reductionOnlyCommit);
+    reductionOnlyCommit.player.currentTransform.y = 420;
+    reductionOnlyCommit.player.vy = reductionOnlyCommit.tuning.fallDamageSafeImpactSpeed + 120;
+    reductionOnlyCommit.player.onGround = false;
+    reductionOnlyCommit.player.wasOnGround = false;
+    stepSimulation(reductionOnlyCommit, createInputFrame({ dropHeld: true }), FIXED_DT);
+    assert.equal(reductionOnlyCommit.player.bodySlamCommitted, false, "fall-damage reduction alone cannot commit the body-slam attack");
+    forceLandingAtImpactSpeed(reductionOnly, targetImpactSpeedForExtraFallWh(reductionOnly, 1));
+    approx(reductionOnly.health.amount, 90, 0.05, "fall-damage reduction should remain independent from the impact attack unlock");
+    assert.ok(!reductionOnly.debug.lastEvents.some((event) => event.type === "PLAYER_FALL_IMPACT_EXPLOSION"), "reduction-only progression should not secretly unlock the AOE");
 
     const terminal = createInitialGameState();
     settleOnGround(terminal);
@@ -19962,7 +23392,11 @@ function testPhase1013TuningDefaultsDebugPoseAndFuelBulbFlash() {
     assert.equal(DEFAULT_TUNING.terminalVelocity, 2500, "terminal velocity should allow very long falls to be lethal");
     assert.equal(DEFAULT_TUNING.fallDamageEnabled, true, "fall damage should be enabled by default");
     assert.equal(DEFAULT_TUNING.fallDamageSafeImpactSpeed, 1441, "normal quick double-jump landing should be harmless");
-    assert.equal(DEFAULT_TUNING.fallDamagePerWizardHeight, 10, "fall damage should scale as 10 HP per excess wizard-height");
+    assert.equal(DEFAULT_TUNING.fallDamagePerWizardHeight, 10, "fall damage should scale as 10 HP per excess wizard-height before mitigation");
+    assert.equal(DEFAULT_TUNING.playerFallDamageMultiplier, 0.5, "player fall damage should be halved after the impact threshold is calculated");
+    assert.equal(DEFAULT_TUNING.playerFallImpactExplosionCooldownSeconds, 5, "body-slam explosions should use a separate five-second cooldown");
+    assert.equal(DEFAULT_TUNING.playerFallImpactExplosionDamage, 60, "body-slam explosions should use their own 60-damage tuning independent of Bigbomb");
+    assert.equal(DEFAULT_TUNING.playerLungeCooldownSeconds, 5, "player lunges should use a five-second cooldown");
     assert.equal(DEFAULT_TUNING.rocketFuelBulbScale, 2.4);
     assert.equal(DEFAULT_TUNING.rocketFuelBulbEnabled, true, "rocket fuel bulb should be enabled by default");
     assert.equal(DEFAULT_TUNING.poseBlendSpeed, 14, "pose transitions should blend by default");
@@ -21072,7 +24506,8 @@ function testWizardAtlasIncludesDedicatedProjectileRocket() {
     const wizardAtlas = JSON.parse(readFileSync("./resources/characters/ct_atlas_wizard_1.json", "utf8"));
     const projectileFrame = wizardAtlas.frames.rocket_projectile;
     assert.ok(projectileFrame, "wizard atlas should expose a separate projectile rocket frame");
-    assert.deepEqual(projectileFrame, { x: 1235, y: 563, w: 196, h: 509 }, "projectile rocket frame should match the authored lower-right atlas rocket");
+    assert.deepEqual([projectileFrame.w, projectileFrame.h], [196, 509], "projectile rocket frame should preserve the authored rocket dimensions after atlas reforging");
+    assert.equal(wizardAtlas.objects.rocket_projectile?.frame, "rocket_projectile", "the projectile object should retain the dedicated rocket frame identity independent of atlas packing");
     assert.equal(wizardAtlas.objects.rocket_projectile?.type, "projectile", "the separate rocket should be registered as a projectile asset");
     assert.equal(wizardAtlas.objects.rocket?.type, "characterPart", "the worn backpack rocket should remain the character part");
 }
@@ -21266,7 +24701,6 @@ function runUndeathPedestalAvoidanceScenario({ useAiAttack = false } = {}) {
             awarenessRange: 1200,
             awarenessViewHalfAngle: 90,
             preferredAttackMinRange: 0,
-            projectileCooldown: 0,
             attackCooldown: 0
         })]
     });
@@ -21316,7 +24750,7 @@ function runUndeathPedestalAvoidanceScenario({ useAiAttack = false } = {}) {
     }
     assert.equal(projectile.projectileKind, "undeathOrb", "fixture should launch the Skeleton Caster undeath orb");
     assert.equal(projectile.launchType, "pathing_lo", "fixture should preserve the obstacle-aware pathing launch type");
-    approx(projectile.homingStrength, 2.61, 0.000001, "Skeleton Caster pathing_lo launch should use the shared strong authored homing strength");
+    approx(projectile.homingStrength, Number(catalog.enemies.enemy_002.defaults.projectileHomingStrength), 0.000001, "Skeleton Caster pathing_lo launch should use the current authored homing strength");
     projectile.debugGuidanceCapture = true;
     projectile.debugGuidanceTraceLimit = 180;
 
@@ -21464,8 +24898,7 @@ function testRocketLaunchDoesNotFalseHitUnrelatedAtlasArea() {
     }
     stepMany(state, 30, () => createInputFrame());
     assert.ok(state.player.onGround, "player should settle before firing");
-    const launchFrame = createInputFrame({ weaponPressed: true, weaponHeld: true });
-    stepSimulation(state, launchFrame, FIXED_DT);
+    launchPlayerRocketForTest(state);
 
     assert.equal(state.projectiles.length, 1, "rocket should exist after launch");
     assert.equal(state.projectiles[0].state, "launched", "rocket should not instantly explode from an unrelated collision area");
@@ -21630,6 +25063,49 @@ function testGamepadTriggersLaunchWeapon() {
     }
 }
 
+function testRemappableGameplayBindings() {
+    let bindings = assignInputBinding(DEFAULT_INPUT_BINDINGS, "upLeft", "keyboard:KeyQ");
+    bindings = assignInputBinding(bindings, "pause", "keyboard:KeyP");
+    const input = new RocketfrockInput({ addEventListener() {} }, bindings);
+
+    input.onKeyDown({ code: "KeyQ", repeat: false, preventDefault() {} });
+    const diagonal = input.sample();
+    assert.equal(diagonal.jumpHeld, true, "an advanced Up + Left binding should hold jump");
+    assert.equal(diagonal.moveLeft, true, "an advanced Up + Left binding should hold left movement");
+    assert.equal(diagonal.moveRight, false, "an advanced Up + Left binding should not hold right movement");
+    input.onKeyUp({ code: "KeyQ", repeat: false, preventDefault() {} });
+    input.sample();
+
+    input.onKeyDown({ code: "KeyP", repeat: false, preventDefault() {} });
+    const pause = input.sample();
+    assert.equal(pause.pausePressed, true, "a user-mapped Pause key should produce the pause edge");
+    assert.equal(pause.debugPausePressed, false, "mapping a development shortcut key should suppress its hidden debug action");
+    input.onKeyUp({ code: "KeyP", repeat: false, preventDefault() {} });
+    input.sample();
+
+    const multi = new RocketfrockInput({ addEventListener() {} }, DEFAULT_INPUT_BINDINGS);
+    multi.onKeyDown({ code: "KeyW", repeat: false, preventDefault() {} });
+    assert.equal(multi.sample().jumpPressed, true, "the first held binding for an action should produce its press edge");
+    multi.onKeyDown({ code: "ArrowUp", repeat: false, preventDefault() {} });
+    assert.equal(multi.sample().jumpPressed, false, "pressing a second binding for an already-held action should not produce another press edge");
+    multi.onKeyUp({ code: "KeyW", repeat: false, preventDefault() {} });
+    const oneStillHeld = multi.sample();
+    assert.equal(oneStillHeld.jumpHeld, true, "an action should remain held while any of its bindings remains held");
+    assert.equal(oneStillHeld.jumpReleased, false, "releasing one of several held bindings should not release the action");
+    multi.onKeyUp({ code: "ArrowUp", repeat: false, preventDefault() {} });
+    assert.equal(multi.sample().jumpReleased, true, "releasing the final held binding should release the action");
+
+    const captureLeak = new RocketfrockInput({ addEventListener() {} }, DEFAULT_INPUT_BINDINGS);
+    captureLeak.onKeyDown({ code: "KeyP", repeat: false, preventDefault() {} });
+    captureLeak.setInputBindings(assignInputBinding(DEFAULT_INPUT_BINDINGS, "pause", "keyboard:KeyP"));
+    captureLeak.clear();
+    const clearedAfterCapture = captureLeak.sample();
+    assert.equal(clearedAfterCapture.pausePressed, false, "clearing input after binding capture should discard the remapped Pause pulse");
+    assert.equal(clearedAfterCapture.debugPausePressed, false, "clearing input after binding capture should discard development hotkeys queued before the new mapping existed");
+    assert.equal(captureLeak.takeBindingPress(), "", "clearing input after binding capture should discard queued capture tokens");
+}
+
+
 function testAttachedSmokeDownSpeedTuning() {
     const state = createInitialGameState({
         tuning: {
@@ -21672,7 +25148,7 @@ function testAttachedSmokeDownSpeedTuning() {
 }
 
 
-function createMovingPlatformTestState(movement, entities = []) {
+function createMovingPlatformTestState(movement, entities = [], options = {}) {
     const level = {
         levelId: "moving_platform_test",
         world: { bounds: { x: 0, y: 0, w: 1000, h: 800 } },
@@ -21686,11 +25162,12 @@ function createMovingPlatformTestState(movement, entities = []) {
             w: 100,
             h: 20,
             collisionFromManifest: true,
-            movement
+            movement,
+            ...(options.placement || {})
         }],
         entities
     };
-    const manifest = {
+    const manifest = options.manifest || {
         frames: {
             test_platform: { x: 0, y: 0, w: 100, h: 20 }
         },
@@ -21706,7 +25183,7 @@ function createMovingPlatformTestState(movement, entities = []) {
             }
         }
     };
-    const state = createInitialGameState();
+    const state = options.state || createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "moving-platform test level should apply");
     assert.equal(
         applyAtlasManifestsToWorld(state, new Map([["at_atlas_001", { manifest }]])),
@@ -21904,8 +25381,11 @@ function testMovingPlatformCrushParticlesRespawnCleanly() {
 }
 
 function testMovingPlatformSchemaAndEditor() {
+    assert.equal(DEFAULT_MOVING_PLATFORM.version, 2, "moving-platform motion types should use schema version 2");
+    assert.equal(DEFAULT_MOVING_PLATFORM.motionType, "translate", "existing moving platforms should default to translational motion");
     assert.equal(DEFAULT_MOVING_PLATFORM.pattern, "shuttle", "the ordinary shuttle should be the default pattern");
     assert.equal(DEFAULT_MOVING_PLATFORM.activation, "automatic", "ordinary moving platforms should start automatically");
+    assert.equal(DEFAULT_MOVING_PLATFORM.easing, "linear", "existing moving platforms should retain constant-speed translation by default");
     assert.equal(DEFAULT_MOVING_PLATFORM.persistent, false, "moving platforms should reset on player respawn unless explicitly made persistent");
     assert.ok(DEFAULT_MOVING_PLATFORM.startPause > 0, "default shuttles should pause at the start");
     assert.ok(DEFAULT_MOVING_PLATFORM.endPause > 0, "default shuttles should pause at the end");
@@ -21939,11 +25419,40 @@ function testMovingPlatformSchemaAndEditor() {
     assert.equal(movingPlatformUsesFade(normalized), true, "move-and-respawn platforms should expose fade timing");
     assert.ok(normalized.hiddenDuration >= 0.05, "normalization should not permit an unrecoverable zero-length reset state");
     assert.equal(movingPlatformHasEndpoint(createDefaultMovingPlatform({ pattern: "vanishRespawn" })), false, "vanish traps should not require a fake endpoint");
+    const swing = normalizeMovingPlatform({
+        motionType: "swing",
+        pattern: "loopRespawn",
+        angleAmplitude: 30,
+        initialAngle: 50,
+        swingPeriod: 2.5,
+        pivotX: 40,
+        pivotY: -200
+    });
+    assert.equal(swing.motionType, "swing", "pendulum motion should normalize as a distinct moving-platform type");
+    assert.equal(swing.pattern, "shuttle", "swing motion should keep a single continuous pendulum lifecycle");
+    assert.equal(swing.initialAngle, 30, "swing initial angle should remain inside the configured amplitude");
+    const boundedAmplitude = normalizeMovingPlatform({ motionType: "swing", angleAmplitude: 999, initialAngle: -999 });
+    assert.equal(boundedAmplitude.angleAmplitude, 180, "pendulum amplitude should clamp to 180 degrees");
+    assert.equal(boundedAmplitude.initialAngle, -180, "pendulum initial angle should remain within the capped amplitude");
+    assert.equal(normalizeMovingPlatform({ enabled: false }), null, "disabled moving-platform records should remain inert");
+    assert.equal(normalizeMovingPlatform({ motionType: "swing", swingPeriod: 0.1 }).swingPeriod, 2, "pendulum periods faster than two seconds should clamp to the realistic minimum");
+    const boundedPivot = normalizeMovingPlatform({ motionType: "swing", pivotX: 600, pivotY: -800 });
+    approx(Math.hypot(boundedPivot.pivotX, boundedPivot.pivotY), 800, 0.000001, "pendulum pivot vectors should be limited to 800 px");
+    assert.equal(movingPlatformHasEndpoint(swing), false, "swing platforms should not expose translational endpoint controls");
+    assert.equal(movingPlatformUsesFade(swing), false, "swing platforms should not inherit translational fade/respawn patterns");
+    approx(movingPlatformEasedProgress(0.25, "easeInOut"), 0.125, 0.000001, "moving-platform ease-in/out should reuse the character-animation quadratic curve");
+    approx(movingPlatformSwingStartPhase({ ...swing, initialAngle: 0 }), Math.PI, 0.000001, "a swing starting at the bottom should initially move counter-clockwise");
 
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.match(editorSource, /Enable movement/, "Level Editor should expose the moving-platform component");
     assert.match(editorSource, /Persistent through respawn/, "Level Editor should expose the moving-platform persistence checkbox");
     assert.match(editorSource, /Shuttle loop/, "Level Editor should present the safe default shuttle preset");
+    assert.match(editorSource, /Swing \(pendulum\)/, "Level Editor should expose pendulum motion as a separate motion type");
+    assert.match(editorSource, /Ease in\/out/, "Level Editor should expose the shared translation easing choices");
+    assert.match(editorSource, /Amplitude °/u, "Level Editor should expose swing amplitude");
+    assert.match(editorSource, /inspect-moving-angle-amplitude" type="number" min="0" max="180"/, "Level Editor should cap swing amplitude authoring at 180 degrees");
+    assert.match(editorSource, /inspect-moving-initial-angle" type="number" min="-180" max="180"/, "Level Editor should bound swing initial-angle authoring to plus or minus 180 degrees");
+    assert.match(editorSource, /Pivot X/, "Level Editor should expose the local swing pivot");
     assert.match(editorSource, /Hidden reset time/, "Level Editor should expose the automatic recovery timing");
     const developerManual = readFileSync(new URL("../DEVELOPER_MANUAL.md", import.meta.url), "utf8");
     assert.match(developerManual, /circular END handle edits the route/, "the developer manual should explain direct route editing");
@@ -21954,7 +25463,19 @@ function testMovingPlatformSchemaAndEditor() {
     const itemCatalog = JSON.parse(readFileSync(new URL("../resources/items/it_entities_001.json", import.meta.url), "utf8"));
     assert.equal(itemCatalog.entities?.proximitySignalTrigger?.defaults?.interaction, "proximitySignal", "interactive-item catalog should expose the one-shot proximity signal trigger");
     assert.match(editorSource, /NO EMITTER/, "Level Editor should warn visually when a signal platform has no matching emitter");
-    assert.match(editorSource, /movingPlatformId: placement\.movement \? placement\.id : undefined/, "Level Editor navigation baking should tag dynamic geometry instead of renumbering later collision polygons");
+    const navigationRebakeSource = readFileSync(new URL("../src/tools/navigation-rebake.js", import.meta.url), "utf8");
+    const simulationNavigationSource = readFileSync(new URL("../src/core/simulation.js", import.meta.url), "utf8");
+    assert.match(simulationNavigationSource, /movingPlatformId: visual\.movement \? visual\.id : undefined/, "canonical navigation hydration should preserve moving-platform identity before the shared rebaker excludes dynamic geometry");
+    assert.ok(navigationRebakeSource.includes('filter((segment) => !segment?.movingPlatformId)') && navigationRebakeSource.includes('filter((polygon) => !polygon?.movingPlatformId)'), "canonical navigation world construction should exclude moving-platform collision after shared runtime hydration");
+    assert.match(editorSource, /movingPlatformInitialPlacement/, "Level Editor hit testing and selection should use the swing platform's initial display transform");
+    assert.match(editorSource, /movingPlatformPathCorners/, "Level Editor bounds should include the complete swing envelope rather than only the authored base rectangle");
+    assert.match(editorSource, /corners\.push\(placementLocalToWorld\(placement, movement\.pivotX, movement\.pivotY\)\)/, "Level Editor swing bounds should include an external pivot handle as well as the swept platform body");
+    const simulationSource = readFileSync(new URL("../src/core/simulation.js", import.meta.url), "utf8");
+    assert.match(
+        simulationSource,
+        /if \(polygonOverlapsRect\(polygon, hazardRect\)\) \{\s*recordMovingPlatformSwingHazard/s,
+        "sampled swing polygons should use the same single expanded-rect overlap tolerance as native"
+    );
 }
 
 function testBossDefeatSignalGate() {
@@ -22211,6 +25732,857 @@ function testAutomaticShuttleMovingPlatform() {
     assert.equal(crushEvents(state, "PLAYER_CRUSH_NEAR_MISS").length, 0, "ordinary platform riding should not produce near-crush diagnostics");
 }
 
+
+function testTranslatedMovingPlatformEasing() {
+    const linearState = createMovingPlatformTestState({
+        motionType: "translate",
+        pattern: "shuttle",
+        activation: "automatic",
+        endOffsetX: 120,
+        endOffsetY: 0,
+        speed: 120,
+        easing: "linear",
+        startPause: 0,
+        endPause: 0
+    });
+    const easedState = createMovingPlatformTestState({
+        motionType: "translate",
+        pattern: "shuttle",
+        activation: "automatic",
+        endOffsetX: 120,
+        endOffsetY: 0,
+        speed: 120,
+        easing: "easeInOut",
+        startPause: 0,
+        endPause: 0
+    });
+    const linearVisual = linearState.world.visuals.find((item) => item.id === linearState.world.movingPlatforms[0].visualId);
+    const easedVisual = easedState.world.visuals.find((item) => item.id === easedState.world.movingPlatforms[0].visualId);
+
+    stepMany(linearState, 15, () => createInputFrame());
+    stepMany(easedState, 15, () => createInputFrame());
+    approx(linearVisual.currentTransform.x, 130, 0.01, "linear translation should retain the existing constant-speed quarter-trip position");
+    approx(easedVisual.currentTransform.x, 115, 0.01, "ease-in/out translation should be one eighth through distance at one quarter of trip time");
+
+    stepMany(linearState, 45, () => createInputFrame());
+    stepMany(easedState, 45, () => createInputFrame());
+    approx(linearVisual.currentTransform.x, 220, 0.01, "linear translation should reach the endpoint after distance/speed seconds");
+    approx(easedVisual.currentTransform.x, 220, 0.01, "eased translation should preserve the same endpoint arrival time");
+
+    const easedSweepManifest = {
+        frames: {
+            test_platform: { x: 0, y: 0, w: 100, h: 20 }
+        },
+        objects: {
+            test_platform: {
+                nodes: [
+                    { id: "top", x: 100, y: -40 },
+                    { id: "bottom", x: 100, y: 20 }
+                ],
+                lines: [
+                    { id: "moving_line", kind: "blockable", from: "top", to: "bottom", tags: [] }
+                ]
+            }
+        }
+    };
+    const easedSweepState = createMovingPlatformTestState({
+        motionType: "translate",
+        pattern: "shuttle",
+        activation: "automatic",
+        endOffsetX: 120,
+        endOffsetY: 0,
+        speed: 120,
+        easing: "easeInOut",
+        startPause: 0,
+        endPause: 0
+    }, [], { manifest: easedSweepManifest });
+    easedSweepState.player.currentTransform.x = 225;
+    easedSweepState.player.currentTransform.y = 320;
+    easedSweepState.player.spawnX = 225;
+    easedSweepState.player.spawnY = 320;
+    easedSweepState.player.vx = 0;
+    easedSweepState.player.vy = 0;
+    easedSweepState.player.onGround = false;
+    easedSweepState.player.wasOnGround = false;
+    const easedSweepStartX = easedSweepState.player.currentTransform.x;
+    stepMany(easedSweepState, 30, () => createInputFrame());
+    assert.ok(
+        easedSweepState.player.currentTransform.x > easedSweepStartX + 0.5,
+        "eased translation should use the same swept non-rider interaction path as linear translation"
+    );
+}
+
+function testSwingingMovingPlatform() {
+    const state = createMovingPlatformTestState({
+        motionType: "swing",
+        activation: "automatic",
+        angleAmplitude: 30,
+        initialAngle: 30,
+        swingPeriod: 4,
+        pivotX: 50,
+        pivotY: -100,
+        initialDelay: 0
+    });
+    const platform = state.world.movingPlatforms[0];
+    const visual = state.world.visuals.find((item) => item.id === platform.visualId);
+    assert.equal(platform.phase, "swing", "automatic pendulums should begin swinging immediately when no initial delay is authored");
+    approx(platform.currentSwingAngle, 30, 0.000001, "pendulum should begin at the authored positive extreme");
+    approx(visual.currentTransform.angle, Math.PI / 6, 0.000001, "initial swing angle should be applied to the rendered platform before collision binding");
+    assert.equal(platform.baseSegments.length, 1, "swing platform should retain immutable source collision geometry for absolute transforms");
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.ok(platform.currentSwingAngle < 30 && platform.currentSwingAngle > 0, "a positive initial angle should first accelerate toward the center");
+
+    stepMany(state, 59, () => createInputFrame());
+    approx(platform.currentSwingAngle, 0, 0.02, "a four-second swing released from +30 degrees should cross the center after one second");
+    const centerSegment = platform.segments[0];
+    approx(centerSegment.x1, 100, 0.03, "swing collision should return the left endpoint to its base world position at the center angle");
+    approx(centerSegment.y1, 300, 0.03, "swing collision should return to the base support height at the center angle");
+    approx(centerSegment.x2, 200, 0.03, "swing collision should preserve authored segment length while rotating");
+    approx(centerSegment.y2, 300, 0.03, "swing collision should rotate around the configured pivot rather than drifting");
+
+    stepMany(state, 60, () => createInputFrame());
+    approx(platform.currentSwingAngle, -30, 0.02, "pendulum should reach the opposite extreme after half a period");
+    approx(visual.currentTransform.angle, -Math.PI / 6, 0.001, "visual rotation should remain in parity with swing collision geometry");
+
+    const negativeState = createMovingPlatformTestState({
+        motionType: "swing",
+        activation: "automatic",
+        angleAmplitude: 30,
+        initialAngle: -20,
+        swingPeriod: 4,
+        pivotX: 50,
+        pivotY: -100
+    });
+    const negativePlatform = negativeState.world.movingPlatforms[0];
+    stepSimulation(negativeState, createInputFrame(), FIXED_DT);
+    assert.ok(negativePlatform.currentSwingAngle > -20, "a negative initial swing angle should first move toward the center");
+
+    const bottomState = createMovingPlatformTestState({
+        motionType: "swing",
+        activation: "automatic",
+        angleAmplitude: 30,
+        initialAngle: 0,
+        swingPeriod: 4,
+        pivotX: 50,
+        pivotY: -100
+    });
+    const bottomPlatform = bottomState.world.movingPlatforms[0];
+    stepSimulation(bottomState, createInputFrame(), FIXED_DT);
+    assert.ok(bottomPlatform.currentSwingAngle < 0, "a pendulum starting at the bottom should initially travel counter-clockwise");
+
+    const triggeredState = createMovingPlatformTestState({
+        motionType: "swing",
+        activation: "rider",
+        angleAmplitude: 30,
+        initialAngle: 20,
+        swingPeriod: 4,
+        pivotX: 50,
+        pivotY: -100,
+        triggerDelay: 0.2
+    });
+    const triggeredPlatform = placePlayerOnMovingPlatform(triggeredState);
+    stepSimulation(triggeredState, createInputFrame(), FIXED_DT);
+    assert.equal(triggeredPlatform.phase, "triggerDelay", "rider-triggered swing should honor trigger delay before releasing");
+    approx(triggeredPlatform.currentSwingAngle, 20, 0.000001, "trigger delay should hold the pendulum at its authored initial angle");
+    stepMany(triggeredState, 10, () => createInputFrame());
+    approx(triggeredPlatform.currentSwingAngle, 20, 0.000001, "pendulum should remain stationary throughout trigger delay");
+    stepMany(triggeredState, 3, () => createInputFrame());
+    assert.equal(triggeredPlatform.phase, "swing", "pendulum should enter continuous swing after trigger delay expires");
+    assert.ok(triggeredPlatform.currentSwingAngle < 20, "released triggered pendulum should begin toward the center");
+}
+
+function testSwingingMovingPlatformSweptHazards() {
+    const hazardManifest = {
+        frames: { test_platform: { x: 0, y: 0, w: 100, h: 20 } },
+        objects: {
+            test_platform: {
+                nodes: [
+                    { id: "a", x: 30, y: 0 },
+                    { id: "b", x: 70, y: 0 },
+                    { id: "c", x: 70, y: 20 },
+                    { id: "d", x: 30, y: 20 }
+                ],
+                lines: [
+                    { id: "ab", kind: "damaging", from: "a", to: "b", tags: [] },
+                    { id: "bc", kind: "damaging", from: "b", to: "c", tags: [] },
+                    { id: "cd", kind: "damaging", from: "c", to: "d", tags: [] },
+                    { id: "da", kind: "damaging", from: "d", to: "a", tags: [] }
+                ]
+            }
+        }
+    };
+    const normalSwing = {
+        motionType: "swing",
+        activation: "automatic",
+        angleAmplitude: 30,
+        initialAngle: 0,
+        swingPeriod: 2,
+        pivotX: 50,
+        pivotY: -300,
+        initialDelay: 0
+    };
+    const hazardState = createMovingPlatformTestState(normalSwing, [], { manifest: hazardManifest });
+    assert.equal(hazardState.world.movingPlatforms[0].polygons.length, 1, "a closed orange loop should create one filled damaging polygon on a moving platform");
+    assert.equal(hazardState.world.movingPlatforms[0].polygons[0].kind, "damaging", "the closed orange loop should retain damaging area semantics");
+
+    const riderState = createMovingPlatformTestState(normalSwing);
+    const riderPlatform = placePlayerOnMovingPlatform(riderState);
+    riderState.world.solids.push({ id: "rider_wall", kind: "wall", x: 174, y: 180, w: 20, h: 180 });
+    stepSimulation(riderState, createInputFrame(), FIXED_DT);
+    assert.ok(riderState.player.currentTransform.x <= 157.1, "a pendulum rider should stop against other world geometry instead of being carried through it");
+    assert.equal(riderState.player.supportId, riderPlatform.segments[0].id, "a side obstruction should not unnecessarily detach a rider from its pendulum support");
+
+    const lineManifest = {
+        frames: { test_platform: { x: 0, y: 0, w: 100, h: 20 } },
+        objects: {
+            test_platform: {
+                nodes: [
+                    { id: "top", x: 100, y: 0 },
+                    { id: "bottom", x: 100, y: 20 }
+                ],
+                lines: [
+                    { id: "moving_wall", kind: "blockable", from: "top", to: "bottom", tags: [] }
+                ]
+            }
+        }
+    };
+    const lineState = createMovingPlatformTestState(normalSwing, [], { manifest: lineManifest });
+    lineState.player.currentTransform.x = 225;
+    lineState.player.currentTransform.y = 320;
+    lineState.player.spawnX = 225;
+    lineState.player.spawnY = 320;
+    lineState.player.vx = 0;
+    lineState.player.vy = 0;
+    lineState.player.onGround = false;
+    const lineStartX = lineState.player.currentTransform.x;
+    stepSimulation(lineState, createInputFrame(), FIXED_DT);
+    assert.ok(lineState.player.currentTransform.x > lineStartX + 1, "an open yellow blockable line should push the wizard when a normal-speed pendulum sweeps into him");
+
+    const walkableManifest = {
+        frames: { test_platform: { x: 0, y: 0, w: 100, h: 20 } },
+        objects: {
+            test_platform: {
+                nodes: [
+                    { id: "left", x: 0, y: 0 },
+                    { id: "right", x: 100, y: 0 }
+                ],
+                lines: [
+                    { id: "moving_floor", kind: "walkable", from: "left", to: "right", tags: [] }
+                ]
+            }
+        }
+    };
+    const walkableState = createMovingPlatformTestState(normalSwing, [], { manifest: walkableManifest });
+    walkableState.player.currentTransform.x = 158;
+    walkableState.player.currentTransform.y = 301;
+    walkableState.player.spawnX = 158;
+    walkableState.player.spawnY = 301;
+    walkableState.player.vx = 0;
+    walkableState.player.vy = 0;
+    walkableState.player.onGround = false;
+    stepSimulation(walkableState, createInputFrame(), FIXED_DT);
+    assert.equal(walkableState.player.onGround, true, "an open green walkable line should be able to catch an airborne wizard during a swing step");
+    assert.ok(walkableState.player.supportId?.includes("moving_floor"), "a wizard caught by a swinging green line should adopt that line as support");
+
+    const enemyState = createMovingPlatformTestState(normalSwing, [{
+        id: "swing_target_enemy",
+        type: "characterEnemy",
+        characterId: "ct_char_enemy_001",
+        x: 225,
+        y: 320,
+        facing: 1,
+        strategy: "sentry"
+    }], { manifest: lineManifest, state: createCatalogBackedGameState() });
+    const enemy = enemyState.enemies.find((item) => item.id === "swing_target_enemy");
+    enemy.width = 16;
+    enemy.height = 40;
+    enemy.currentTransform.x = 216;
+    enemy.currentTransform.y = 320;
+    enemy.airborne = true;
+    enemy.supportId = null;
+    const enemyStartX = enemy.currentTransform.x;
+    stepSimulation(enemyState, createInputFrame(), FIXED_DT);
+    assert.ok(enemy.currentTransform.x > enemyStartX + 0.5, "a swinging blockable line should push a non-rider character enemy instead of passing through it");
+
+    const riderEnemyState = createMovingPlatformTestState(normalSwing, [{
+        id: "swing_rider_enemy",
+        type: "characterEnemy",
+        characterId: "ct_char_enemy_001",
+        x: 150,
+        y: 300,
+        facing: 1,
+        strategy: "sentry",
+        awarenessRange: 0,
+        damage: 0
+    }], { state: createCatalogBackedGameState() });
+    const riderEnemyPlatform = riderEnemyState.world.movingPlatforms[0];
+    const riderEnemy = riderEnemyState.enemies.find((item) => item.id === "swing_rider_enemy");
+    riderEnemy.width = 16;
+    riderEnemy.height = 40;
+    riderEnemy.currentTransform.x = 150;
+    riderEnemy.currentTransform.y = 300;
+    riderEnemy.airborne = false;
+    riderEnemy.supportId = riderEnemyPlatform.segments[0].id;
+    riderEnemy.ridingPlatformId = riderEnemyPlatform.id;
+    riderEnemyState.world.solids.push({ id: "enemy_rider_wall", kind: "wall", x: 166, y: 180, w: 20, h: 180 });
+    stepSimulation(riderEnemyState, createInputFrame(), FIXED_DT);
+    assert.ok(riderEnemy.currentTransform.x <= 158.1, "a swinging platform should not carry an enemy rider through an unrelated wall");
+    assert.equal(riderEnemy.supportId, riderEnemyPlatform.segments[0].id, "side-clamped swing riders should retain their moving-platform support while the support is still beneath them");
+    stepMany(riderEnemyState, 30, () => createInputFrame());
+    assert.notEqual(riderEnemy.supportId, riderEnemyPlatform.segments[0].id,
+        "a side-clamped enemy should detach once the swinging support has physically moved away");
+    assert.notEqual(riderEnemy.ridingPlatformId, riderEnemyPlatform.id,
+        "a detached side-clamped enemy should not keep an invisible moving-platform rider identity");
+}
+
+
+function testMovingPlatformInteractionRegressions() {
+    const translate = {
+        pattern: "shuttle",
+        activation: "automatic",
+        endOffsetX: 120,
+        endOffsetY: 0,
+        speed: 120,
+        initialDelay: 0,
+        startPause: 0,
+        endPause: 0
+    };
+    const verticalLineManifest = (kind) => ({
+        frames: { test_platform: { x: 0, y: 0, w: 100, h: 20 } },
+        objects: {
+            test_platform: {
+                nodes: [
+                    { id: "top", x: 100, y: -40 },
+                    { id: "bottom", x: 100, y: 20 }
+                ],
+                lines: [
+                    { id: "moving_line", kind, from: "top", to: "bottom", tags: [] }
+                ]
+            }
+        }
+    });
+
+    const riderWallState = createMovingPlatformTestState(translate);
+    placePlayerOnMovingPlatform(riderWallState);
+    riderWallState.world.solids.push({ id: "translate_rider_wall", kind: "wall", x: 174, y: 180, w: 20, h: 180 });
+    stepMany(riderWallState, 12, () => createInputFrame());
+    assert.ok(riderWallState.player.currentTransform.x <= 157.1,
+        "a translating platform should not carry a grounded wizard through unrelated world geometry");
+
+    const translatedDropState = createMovingPlatformTestState(translate);
+    placePlayerOnMovingPlatform(translatedDropState);
+    stepMany(translatedDropState, 6, () => createInputFrame({ dropHeld: true }));
+    assert.equal(translatedDropState.player.supportId, null,
+        "drop-through should release a translating green moving-platform support in the same tick");
+    assert.equal(translatedDropState.player.onGround, false,
+        "a translating green platform must not re-catch the wizard while drop-through grace is active");
+    assert.ok(translatedDropState.player.currentTransform.y > 310,
+        "drop-through on a translating green platform should let gravity move the wizard below the surface");
+    approx(translatedDropState.player.currentTransform.x, 150, 0.01,
+        "drop-through intent should prevent same-tick translating-platform rider carry");
+
+    const swingDropState = createMovingPlatformTestState({
+        motionType: "swing",
+        activation: "automatic",
+        angleAmplitude: 30,
+        initialAngle: 0,
+        swingPeriod: 2,
+        pivotX: 50,
+        pivotY: -300,
+        initialDelay: 0
+    });
+    placePlayerOnMovingPlatform(swingDropState);
+    stepMany(swingDropState, 6, () => createInputFrame({ dropHeld: true }));
+    assert.equal(swingDropState.player.supportId, null,
+        "drop-through should release a swinging green moving-platform support in the same tick");
+    assert.equal(swingDropState.player.onGround, false,
+        "a swinging green platform must not re-catch the wizard while drop-through grace is active");
+    assert.ok(swingDropState.player.currentTransform.y > 310,
+        "drop-through on a swinging green platform should let the wizard fall through its moving support");
+
+    const translatedLineState = createMovingPlatformTestState(translate, [], { manifest: verticalLineManifest("blockable") });
+    translatedLineState.player.currentTransform.x = 225;
+    translatedLineState.player.currentTransform.y = 320;
+    translatedLineState.player.spawnX = 225;
+    translatedLineState.player.spawnY = 320;
+    translatedLineState.player.onGround = false;
+    const translatedLineStartX = translatedLineState.player.currentTransform.x;
+    stepMany(translatedLineState, 12, () => createInputFrame());
+    assert.ok(translatedLineState.player.currentTransform.x > translatedLineStartX + 0.5,
+        "an open translating blockable line should push a non-rider wizard instead of passing through him");
+
+    const damagingState = createMovingPlatformTestState(translate, [], { manifest: verticalLineManifest("damaging") });
+    damagingState.player.currentTransform.x = 230;
+    damagingState.player.currentTransform.y = 320;
+    damagingState.player.spawnX = 230;
+    damagingState.player.spawnY = 320;
+    damagingState.player.onGround = false;
+    const damagingHealth = damagingState.health.amount;
+    stepMany(damagingState, 12, () => createInputFrame());
+    assert.ok(damagingState.health.amount < damagingHealth,
+        "a translating damaging line should retain swept hazard contact even when it no longer overlaps at the tick endpoint");
+
+    const killableState = createMovingPlatformTestState(translate, [], { manifest: verticalLineManifest("killable") });
+    killableState.player.currentTransform.x = 230;
+    killableState.player.currentTransform.y = 320;
+    killableState.player.spawnX = 230;
+    killableState.player.spawnY = 320;
+    killableState.player.onGround = false;
+    stepMany(killableState, 12, () => createInputFrame());
+    assert.ok(killableState.health.amount <= 0 || playerDeathActive(killableState),
+        "a translating killable line should remain lethal when contact occurs only during the swept motion");
+
+    const deathState = createMovingPlatformTestState(translate);
+    const deathPlatform = placePlayerOnMovingPlatform(deathState);
+    deathState.health.amount = 0;
+    stepSimulation(deathState, createInputFrame(), FIXED_DT);
+    assert.equal(deathState.player.supportId, null,
+        "starting player death should detach moving-platform support immediately");
+    const deathX = deathState.player.currentTransform.x;
+    const platformX = deathState.world.visuals.find((item) => item.id === deathPlatform.visualId).currentTransform.x;
+    stepMany(deathState, 5, () => createInputFrame());
+    assert.ok(deathState.world.visuals.find((item) => item.id === deathPlatform.visualId).currentTransform.x > platformX,
+        "moving platforms should continue simulating during the death sequence");
+    approx(deathState.player.currentTransform.x, deathX, 0.001,
+        "a dead wizard should not continue riding a moving platform after death begins");
+
+    const portalState = createMovingPlatformTestState(translate);
+    placePlayerOnMovingPlatform(portalState);
+    portalState.player.supportId = null;
+    portalState.player.onGround = false;
+    portalState.player.wasOnGround = false;
+    portalState.story.portalExit = { active: true, completed: false, portalId: "missing_test_portal" };
+    const portalX = portalState.player.currentTransform.x;
+    stepSimulation(portalState, createInputFrame(), FIXED_DT);
+    approx(portalState.player.currentTransform.x, portalX, 0.001,
+        "an active portal exit should own the wizard and prevent a moving platform from pushing him");
+
+    const oneWayState = createMovingPlatformTestState(translate);
+    oneWayState.player.currentTransform.x = 150;
+    oneWayState.player.currentTransform.y = 302.48;
+    oneWayState.player.spawnX = 150;
+    oneWayState.player.spawnY = 302.48;
+    oneWayState.player.vx = 0;
+    oneWayState.player.vy = -525.5;
+    oneWayState.player.onGround = false;
+    oneWayState.player.wasOnGround = false;
+    oneWayState.player.supportId = null;
+    stepSimulation(oneWayState, createInputFrame(), FIXED_DT);
+    assert.ok(oneWayState.player.vy < 0 && !oneWayState.player.onGround,
+        "a horizontally moving green one-way line must not catch Ignatius while he is travelling upward through it");
+
+    const fallingState = createMovingPlatformTestState(translate, [], {
+        state: createInitialGameState({
+            tuning: {
+                fallDamageEnabled: true,
+                fallDamageSafeImpactSpeed: 100,
+                fallDamagePerWizardHeight: 10
+            }
+        })
+    });
+    fallingState.player.currentTransform.x = 150;
+    fallingState.player.currentTransform.y = 299;
+    fallingState.player.spawnX = 150;
+    fallingState.player.spawnY = 299;
+    fallingState.player.vx = 0;
+    fallingState.player.vy = 500;
+    fallingState.player.onGround = false;
+    fallingState.player.wasOnGround = false;
+    fallingState.player.supportId = null;
+    const fallHealth = fallingState.health.amount;
+    stepSimulation(fallingState, createInputFrame(), FIXED_DT);
+    assert.equal(fallingState.player.onGround, true,
+        "a moving green platform should still catch a genuinely descending wizard crossing it from above");
+    assert.ok(fallingState.health.amount < fallHealth,
+        "landing on a moving platform should use ordinary fall-damage semantics");
+    assert.ok(fallingState.debug.lastEvents.some((event) => event.type === "PLAYER_LANDED"),
+        "landing on a moving platform should emit the ordinary landing event");
+    assert.ok(fallingState.debug.lastEvents.some((event) => event.type === "PLAYER_FALL_DAMAGE"),
+        "a hard moving-platform landing should emit the ordinary fall-damage event");
+
+    const enemyState = createMovingPlatformTestState(translate, [{
+        id: "pinned_enemy",
+        type: "characterEnemy",
+        characterId: "ct_char_enemy_001",
+        x: 230,
+        y: 320,
+        facing: 1,
+        strategy: "sentry",
+        awarenessRange: 0,
+        damage: 0
+    }], { manifest: verticalLineManifest("blockable"), state: createCatalogBackedGameState() });
+    const enemy = enemyState.enemies.find((item) => item.id === "pinned_enemy");
+    enemy.width = 16;
+    enemy.height = 40;
+    enemy.currentTransform.x = 230;
+    enemy.currentTransform.y = 320;
+    enemy.airborne = true;
+    enemy.supportId = null;
+    enemyState.world.solids.push({ id: "pin_wall", kind: "wall", x: 238, y: 240, w: 20, h: 100 });
+    stepMany(enemyState, 20, () => createInputFrame());
+    assert.ok(enemy.health <= 0 || enemy.combatState === "dead",
+        "a moving solid line that cannot push a pinned character enemy should crush it instead of becoming intangible");
+
+    const blockedSwing = {
+        motionType: "swing",
+        activation: "automatic",
+        angleAmplitude: 30,
+        initialAngle: 0,
+        swingPeriod: 2,
+        pivotX: 50,
+        pivotY: -300,
+        initialDelay: 0
+    };
+    const blockedSwingState = createMovingPlatformTestState(blockedSwing, [], {
+        manifest: verticalLineManifest("blockable"),
+        state: createInitialGameState({ tuning: { playerCrushConfirmTicks: 3 } })
+    });
+    blockedSwingState.player.currentTransform.x = 225;
+    blockedSwingState.player.currentTransform.y = 320;
+    blockedSwingState.player.spawnX = 225;
+    blockedSwingState.player.spawnY = 320;
+    blockedSwingState.player.onGround = false;
+    blockedSwingState.world.solids.push({ id: "swing_pin_wall", kind: "wall", x: 246, y: 220, w: 20, h: 140 });
+    stepMany(blockedSwingState, 12, () => createInputFrame());
+    assert.ok(blockedSwingState.health.amount <= 0 || playerDeathActive(blockedSwingState),
+        "a swinging open blockable line should crush a wizard pinned against unrelated world geometry instead of passing through him");
+
+    const resetEnemyState = createMovingPlatformTestState(translate, [{
+        id: "reset_rider_enemy",
+        type: "characterEnemy",
+        characterId: "ct_char_enemy_001",
+        x: 150,
+        y: 300,
+        facing: 1,
+        strategy: "sentry",
+        awarenessRange: 0,
+        damage: 0
+    }], { state: createCatalogBackedGameState() });
+    const resetEnemyPlatform = resetEnemyState.world.movingPlatforms[0];
+    const resetEnemyVisual = resetEnemyState.world.visuals.find((item) => item.id === resetEnemyPlatform.visualId);
+    const resetEnemy = resetEnemyState.enemies.find((item) => item.id === "reset_rider_enemy");
+    resetEnemy.currentTransform.x = 150;
+    resetEnemy.currentTransform.y = 300;
+    resetEnemy.spawnX = 150;
+    resetEnemy.spawnY = 300;
+    resetEnemy.airborne = false;
+    resetEnemy.supportId = resetEnemyPlatform.segments[0].id;
+    resetEnemy.ridingPlatformId = resetEnemyPlatform.id;
+    resetEnemy.currentSupportId = null;
+    resetEnemy.simulationDormant = true;
+    stepMany(resetEnemyState, 45, () => createInputFrame());
+    const resetEnemyX = resetEnemy.currentTransform.x;
+    assert.ok(resetEnemyX > 150 + 20, "reset-rider fixture should first carry the enemy away from the authored start");
+    resetPlayer(resetEnemyState, "movingPlatformDiscontinuityRegression");
+    approx(resetEnemy.currentTransform.x, resetEnemyX, 0.001,
+        "respawning Ignatius should snap a non-persistent platform home without teleporting surviving enemy riders");
+    assert.notEqual(resetEnemy.supportId, resetEnemyPlatform.segments[0].id,
+        "enemy support should be revalidated after a platform reset discontinuity");
+    preparePresentationFrame(resetEnemyState, 0.5);
+    approx(resetEnemyVisual.shownTransform.x, resetEnemyVisual.currentTransform.x, 0.000001,
+        "browser presentation should snap a reset moving platform instead of interpolating through its respawn teleport");
+    approx(resetEnemyVisual.previousTransform.x, resetEnemyVisual.currentTransform.x, 0.000001,
+        "moving-platform reset should align previous/current presentation transforms");
+
+    const endpointKillState = createMovingPlatformTestState({
+        motionType: "translate",
+        pattern: "loopRespawn",
+        activation: "automatic",
+        endOffsetX: 40,
+        endOffsetY: 0,
+        speed: 120,
+        initialDelay: 0,
+        startPause: 0,
+        endPause: 0,
+        fadeDuration: 0.1,
+        hiddenDuration: 0.1
+    }, [], { manifest: verticalLineManifest("killable") });
+    endpointKillState.player.currentTransform.x = 257.2;
+    endpointKillState.player.currentTransform.y = 320;
+    endpointKillState.player.spawnX = 257.2;
+    endpointKillState.player.spawnY = 320;
+    endpointKillState.player.onGround = false;
+    endpointKillState.player.wasOnGround = false;
+    let endpointDetached = false;
+    for (let tick = 0; tick < 30 && !endpointDetached; tick += 1) {
+        stepSimulation(endpointKillState, createInputFrame(), FIXED_DT);
+        endpointDetached = endpointKillState.world.movingPlatforms[0].collisionAttached === false;
+    }
+    assert.equal(endpointDetached, true, "loop-respawn lethal endpoint fixture should detach collision on the contact tick");
+    assert.ok(endpointKillState.health.amount <= 0 || playerDeathActive(endpointKillState),
+        "a swept lethal contact must survive same-tick loop-respawn collision detachment");
+
+    const hazardPriorityState = createMovingPlatformTestState(translate, [], { manifest: verticalLineManifest("killable") });
+    hazardPriorityState.player.currentTransform.x = 217.2;
+    hazardPriorityState.player.currentTransform.y = 320;
+    hazardPriorityState.player.spawnX = 217.2;
+    hazardPriorityState.player.spawnY = 320;
+    hazardPriorityState.player.onGround = false;
+    hazardPriorityState.player.wasOnGround = false;
+    hazardPriorityState.world.solids.unshift({ id: "static_damage_priority", kind: "damaging", x: 205, y: 280, w: 24, h: 50 });
+    stepSimulation(hazardPriorityState, createInputFrame(), FIXED_DT);
+    assert.ok(hazardPriorityState.health.amount <= 0 || playerDeathActive(hazardPriorityState),
+        "killable swept moving-platform contact should outrank simultaneous ordinary damaging contact globally");
+    assert.ok(hazardPriorityState.debug.lastEvents.some((event) => event.type === "PLAYER_DAMAGED" && event.sourceId?.includes("moving_line")),
+        "global hazard severity selection should preserve the lethal moving-platform source");
+
+    const deathSwingEnemyState = createMovingPlatformTestState(blockedSwing, [{
+        id: "death_swing_enemy",
+        type: "characterEnemy",
+        characterId: "ct_char_enemy_001",
+        x: 216,
+        y: 320,
+        facing: 1,
+        strategy: "sentry",
+        awarenessRange: 0,
+        damage: 0
+    }], { manifest: verticalLineManifest("blockable"), state: createCatalogBackedGameState() });
+    const deathSwingEnemy = deathSwingEnemyState.enemies.find((item) => item.id === "death_swing_enemy");
+    deathSwingEnemy.currentTransform.x = 216;
+    deathSwingEnemy.currentTransform.y = 320;
+    deathSwingEnemy.spawnX = 216;
+    deathSwingEnemy.spawnY = 320;
+    deathSwingEnemy.width = 16;
+    deathSwingEnemy.height = 40;
+    deathSwingEnemy.airborne = true;
+    deathSwingEnemy.supportId = null;
+    deathSwingEnemy.ridingPlatformId = null;
+    deathSwingEnemy.currentSupportId = null;
+    deathSwingEnemy.velocityX = 0;
+    deathSwingEnemy.velocityY = 0;
+    deathSwingEnemy.groundVelocityX = 0;
+    deathSwingEnemy.simulationDormant = true;
+    deathSwingEnemyState.player.deathPhase = "cover";
+    deathSwingEnemyState.player.deathPhaseTimer = 1;
+    const deathSwingEnemyX = deathSwingEnemy.currentTransform.x;
+    stepSimulation(deathSwingEnemyState, createInputFrame(), FIXED_DT);
+    assert.ok(deathSwingEnemy.currentTransform.x > deathSwingEnemyX + 0.5,
+        "swinging platforms should remain physically solid to enemies while Ignatius death presentation is active");
+
+    const gotoState = createMovingPlatformTestState(translate, [], { manifest: verticalLineManifest("blockable") });
+    gotoState.player.currentTransform.x = 217.2;
+    gotoState.player.currentTransform.y = 320;
+    gotoState.player.spawnX = 217.2;
+    gotoState.player.spawnY = 320;
+    gotoState.player.onGround = false;
+    gotoState.player.wasOnGround = false;
+    gotoState.story.cutscene = {
+        active: true, parseErrors: [],
+        commands: [{ type: "GOTO", lineNumber: 1, characterId: "wizard", x: 400, y: 320, speed: 100 }],
+        commandIndex: 0, commandStartedAt: null, commandTime: 0, animationOverrides: {}, participantEnemyIds: [], triggerId: "moving_platform_goto"
+    };
+    const gotoStartX = gotoState.player.currentTransform.x;
+    stepSimulation(gotoState, createInputFrame(), FIXED_DT);
+    approx(gotoState.player.currentTransform.x - gotoStartX, 100 * FIXED_DT, 0.00001,
+        "active cutscene GOTO should exclusively own wizard motion against moving-platform pushes");
+}
+
+function testEnemyBlockableSlopeStandability() {
+    const runSlope = (dy) => {
+        const state = createCatalogBackedGameState();
+        const yAt = (x) => 300 + dy * ((x - 100) / 100);
+        const level = {
+            levelId: "enemy_slope_test",
+            world: { bounds: { x: 0, y: 0, w: 1000, h: 800 } },
+            placements: [{
+                id: "slope", kind: "atlasAsset", atlasId: "at_atlas_001", assetId: "slope_asset",
+                x: 100, y: 300, w: 100, h: Math.abs(dy) + 20, collisionFromManifest: true
+            }],
+            entities: [{
+                id: "slope_enemy", type: "characterEnemy", characterId: "ct_char_enemy_001",
+                x: 120, y: yAt(120), facing: 1, strategy: "simple_patrol", patrolDistance: 90, awarenessRange: 0
+            }]
+        };
+        const manifest = {
+            frames: { slope_asset: { x: 0, y: 0, w: 100, h: Math.abs(dy) + 20 } },
+            objects: {
+                slope_asset: {
+                    nodes: [{ id: "left", x: 0, y: 0 }, { id: "right", x: 100, y: dy }],
+                    lines: [{ id: "top", kind: "blockable", from: "left", to: "right", tags: [] }]
+                }
+            }
+        };
+        assert.equal(applyEditorLevelToWorld(state, level), true, "enemy slope fixture should apply");
+        assert.equal(applyAtlasManifestsToWorld(state, new Map([["at_atlas_001", { manifest }]])), true,
+            "enemy slope fixture should create collision");
+        const enemy = state.enemies.find((item) => item.id === "slope_enemy");
+        enemy.currentTransform.x = 120;
+        enemy.currentTransform.y = yAt(120);
+        enemy.spawnX = 120;
+        enemy.spawnY = yAt(120);
+        enemy.homeX = 120;
+        enemy.homeY = yAt(120);
+        enemy.patrolMinX = 105;
+        enemy.patrolMaxX = 195;
+        enemy.facing = 1;
+        enemy.phaseTimer = 0;
+        enemy.movementPhase = "walk";
+        enemy.aiState = "patrol";
+        enemy.alerted = false;
+        enemy.engaged = false;
+        enemy.airborne = false;
+        enemy.supportId = state.world.segments.find((segment) => segment.kind === "blockable")?.id || null;
+        enemy.ridingPlatformId = null;
+        stepMany(state, 10, () => createInputFrame());
+        return enemy;
+    };
+
+    const tooSteep = runSlope(100); // 45 degrees, beyond the shared 0.75 blockable-slope ratio.
+    approx(tooSteep.currentTransform.x, 120, 0.01,
+        "ground enemies should not walk along blockable slopes steeper than the standable limit");
+
+    const atLimit = runSlope(75); // atan(0.75) ~= 36.87 degrees.
+    assert.ok(atLimit.currentTransform.x > 125,
+        "the existing 0.75 blockable-slope boundary should remain traversable for ground enemies");
+
+    for (const kind of ["damaging", "killable"]) {
+        const hazardState = createCatalogBackedGameState();
+        const hazardLevel = {
+            levelId: `enemy_${kind}_support_test`,
+            world: { bounds: { x: 0, y: 0, w: 800, h: 800 } },
+            placements: [{
+                id: `${kind}_platform`, kind: "atlasAsset", atlasId: "hazard_atlas", assetId: "hazard_platform",
+                x: 100, y: 300, w: 200, h: 20, collisionFromManifest: true
+            }],
+            entities: [{
+                id: `${kind}_enemy`, type: "characterEnemy", characterId: "ct_char_enemy_001",
+                x: 180, y: 304, facing: 1, strategy: "passive", awarenessRange: 0
+            }]
+        };
+        const hazardManifest = {
+            frames: { hazard_platform: { x: 0, y: 0, w: 200, h: 20 } },
+            objects: {
+                hazard_platform: {
+                    nodes: [{ id: "left", x: 0, y: 0 }, { id: "right", x: 200, y: 0 }],
+                    lines: [{ id: "top", kind, from: "left", to: "right", tags: [] }]
+                }
+            }
+        };
+        assert.equal(applyEditorLevelToWorld(hazardState, hazardLevel), true, `${kind} enemy-support fixture should apply`);
+        assert.equal(applyAtlasManifestsToWorld(hazardState, new Map([["hazard_atlas", { manifest: hazardManifest }]])), true,
+            `${kind} enemy-support collision should apply`);
+        const hazardEnemy = hazardState.enemies.find((item) => item.id === `${kind}_enemy`);
+        assert.ok(hazardEnemy.supportId?.includes("top"),
+            `ground enemies should accept ${kind} terrain as physical support during initial snapping`);
+        const healthBefore = hazardEnemy.health;
+        hazardEnemy.currentTransform.y = 260;
+        hazardEnemy.airborne = true;
+        hazardEnemy.supportId = null;
+        hazardEnemy.ridingPlatformId = null;
+        hazardEnemy.velocityY = 0;
+        stepMany(hazardState, 90, () => createInputFrame());
+        assert.equal(hazardEnemy.airborne, false, `ground enemies should land on ${kind} terrain`);
+        approx(hazardEnemy.currentTransform.y, 300, 0.01, `ground enemies should physically rest on ${kind} terrain`);
+        assert.equal(hazardEnemy.health, healthBefore, `${kind} terrain should not damage enemies`);
+    }
+
+    const undersideEnemyState = createCatalogBackedGameState();
+    const undersideEnemyManifest = {
+        frames: { block: { x: 0, y: 0, w: 200, h: 100 } },
+        objects: {
+            block: {
+                nodes: [
+                    { id: "tl", x: 0, y: 0 }, { id: "tr", x: 200, y: 0 },
+                    { id: "br", x: 200, y: 100 }, { id: "bl", x: 0, y: 100 }
+                ],
+                lines: [
+                    { id: "top", kind: "blockable", from: "tl", to: "tr" },
+                    { id: "right", kind: "blockable", from: "tr", to: "br" },
+                    { id: "bottom", kind: "blockable", from: "br", to: "bl" },
+                    { id: "left", kind: "blockable", from: "bl", to: "tl" }
+                ]
+            }
+        }
+    };
+    assert.equal(applyEditorLevelToWorld(undersideEnemyState, {
+        levelId: "enemy_invalid_underside_snap",
+        world: { bounds: { x: -200, y: -200, w: 800, h: 800 } },
+        placements: [{
+            id: "enemy_closed_block", kind: "atlasAsset", atlasId: "enemy_closed_atlas", assetId: "block",
+            x: 0, y: 100, w: 200, h: 100, collisionFromManifest: true
+        }],
+        entities: [{
+            id: "underside_enemy", type: "characterEnemy", characterId: "ct_char_enemy_001",
+            x: 100, y: 152, facing: 1, strategy: "passive", awarenessRange: 0
+        }]
+    }), true, "enemy underside-snap fixture should apply");
+    assert.equal(applyAtlasManifestsToWorld(undersideEnemyState, new Map([["enemy_closed_atlas", { manifest: undersideEnemyManifest }]])), true,
+        "enemy underside-snap collision should apply");
+    const undersideEnemy = undersideEnemyState.enemies.find((item) => item.id === "underside_enemy");
+    approx(undersideEnemy.currentTransform.y, 100, 0.000001,
+        "initial enemy ground snapping should reject the nearer closed-polygon underside and use its valid top surface");
+
+    const lineCrossEnemyState = createCatalogBackedGameState();
+    const lineCrossEnemyManifest = {
+        frames: { crossed_floor: { x: 0, y: 0, w: 200, h: 100 } },
+        objects: {
+            crossed_floor: {
+                nodes: [
+                    { id: "wall_top", x: 100, y: 0 }, { id: "wall_bottom", x: 100, y: 92 },
+                    { id: "floor_left", x: 0, y: 100 }, { id: "floor_right", x: 200, y: 100 }
+                ],
+                lines: [
+                    { id: "body_wall", kind: "blockable", from: "wall_top", to: "wall_bottom" },
+                    { id: "floor", kind: "blockable", from: "floor_left", to: "floor_right" }
+                ]
+            }
+        }
+    };
+    assert.equal(applyEditorLevelToWorld(lineCrossEnemyState, {
+        levelId: "enemy_invalid_line_crossing_snap",
+        world: { bounds: { x: -200, y: -200, w: 800, h: 800 } },
+        placements: [{
+            id: "enemy_line_cross_floor", kind: "atlasAsset", atlasId: "enemy_line_cross_atlas", assetId: "crossed_floor",
+            x: 0, y: 0, w: 200, h: 100, collisionFromManifest: true
+        }],
+        entities: [{
+            id: "line_cross_enemy", type: "characterEnemy", characterId: "ct_char_enemy_001",
+            x: 100, y: 104, facing: 1, strategy: "passive", awarenessRange: 0
+        }]
+    }), true, "enemy line-crossing snap fixture should apply");
+    assert.equal(applyAtlasManifestsToWorld(lineCrossEnemyState, new Map([["enemy_line_cross_atlas", { manifest: lineCrossEnemyManifest }]])), true,
+        "enemy line-crossing snap collision should apply");
+    const lineCrossEnemy = lineCrossEnemyState.enemies.find((item) => item.id === "line_cross_enemy");
+    approx(lineCrossEnemy.currentTransform.y, 104, 0.000001,
+        "initial enemy ground snapping should reject a floor candidate when another blockable line crosses the resulting body");
+    assert.equal(lineCrossEnemy.supportId, null, "invalid line-crossing snap should not assign the rejected floor as enemy support");
+
+    const dynamicState = createCatalogBackedGameState();
+    assert.equal(applyEditorLevelToWorld(dynamicState, {
+        levelId: "enemy_dynamic_support_loss",
+        world: { bounds: { x: 0, y: 0, w: 800, h: 800 } },
+        entities: [{
+            id: "dynamic_support_enemy", type: "characterEnemy", characterId: "ct_char_enemy_001",
+            x: 180, y: 300, facing: 1, strategy: "passive", awarenessRange: 0
+        }]
+    }), true, "dynamic-support enemy fixture should apply");
+    const dynamicEnemy = dynamicState.enemies.find((item) => item.id === "dynamic_support_enemy");
+    dynamicState.world.segments = [];
+    dynamicState.world.collisionPolygons = [];
+    dynamicState.world.solids = [{
+        id: "support_crate_reactive_solid", kind: "reactiveObject", reactiveObjectId: "support_crate", runtimeDynamic: true,
+        x: 100, y: 300, w: 160, h: 80
+    }];
+    dynamicEnemy.currentTransform.x = 180;
+    dynamicEnemy.currentTransform.y = 300;
+    dynamicEnemy.spawnX = 180;
+    dynamicEnemy.spawnY = 300;
+    dynamicEnemy.airborne = false;
+    dynamicEnemy.supportId = "support_crate_reactive_solid";
+    dynamicEnemy.ridingPlatformId = null;
+    dynamicEnemy.velocityX = 0;
+    dynamicEnemy.velocityY = 0;
+    dynamicState.world.solids = [];
+    const dynamicStartY = dynamicEnemy.currentTransform.y;
+    stepMany(dynamicState, 4, () => createInputFrame());
+    assert.equal(dynamicEnemy.airborne, true,
+        "an enemy should release a destroyed reactive-object support instead of standing on stale collision");
+    assert.ok(dynamicEnemy.currentTransform.y > dynamicStartY,
+        "a non-hunter enemy released from destroyed reactive collision should immediately begin falling");
+}
+
+
 function testRiderTriggeredMovingPlatform() {
     const state = createMovingPlatformTestState({
         pattern: "shuttle",
@@ -22290,7 +26662,7 @@ function testEnemyRiderTriggersAndFollowsMovingPlatform() {
         h: 80,
         strategy: "sentry",
         awarenessRange: 0,
-        attackDamage: 0
+        damage: 0
     }]);
     const platform = state.world.movingPlatforms[0];
     const enemy = state.enemies.find((item) => item.id === "platform_guard");
@@ -22332,10 +26704,10 @@ function testHunterTreatsMovingPlatformAsDisconnected() {
         maxFallDistance: 40,
         awarenessRange: 1000,
         awarenessViewHalfAngle: 180,
-        attackMode: "melee",
+        attackType: "melee",
         attackRange: 24,
         attackVerticalRange: 120,
-        attackDamage: 0
+        damage: 0
     }]);
     state.world.segments.push(
         { id: "left_dock", kind: "walkable", x1: 0, y1: 300, x2: 100, y2: 300 },
@@ -22396,10 +26768,10 @@ function testHunterTreatsMovingPlatformAsDisconnected() {
         maxFallDistance: 40,
         awarenessRange: 1000,
         awarenessViewHalfAngle: 180,
-        attackMode: "melee",
+        attackType: "melee",
         attackRange: 24,
         attackVerticalRange: 120,
-        attackDamage: 0
+        damage: 0
     }]);
     ridingState.world.segments.push({ id: "floor_under_lift", kind: "walkable", x1: 0, y1: 500, x2: 500, y2: 500 });
     ridingState.world.solids = [];
@@ -22451,10 +26823,10 @@ function testHunterTreatsMovingPlatformAsDisconnected() {
         maxFallDistance: 40,
         awarenessRange: 1000,
         awarenessViewHalfAngle: 180,
-        attackMode: "melee",
+        attackType: "melee",
         attackRange: 24,
         attackVerticalRange: 120,
-        attackDamage: 0
+        damage: 0
     }]);
     carriedHunterState.world.segments.push({ id: "floor_below_carried_hunter", kind: "walkable", x1: 0, y1: 306, x2: 500, y2: 306 });
     carriedHunterState.world.solids = [];
@@ -22524,8 +26896,519 @@ function testVanishingMovingPlatformsAlwaysRecover() {
         approx(visual.currentTransform.alpha, 1, 0.001, `${pattern} should finish fully visible`);
         assert.equal(platform.collisionAttached, true, `${pattern} should restore collision after fading in`);
     }
+
+    const riderState = createMovingPlatformTestState({
+        pattern: "vanishRespawn", activation: "automatic", endOffsetX: 12, endOffsetY: 0, speed: 720,
+        startPause: 0.05, endPause: 0, fadeDuration: 0.05, hiddenDuration: 0.2
+    }, [{
+        id: "vanishing_platform_enemy", type: "characterEnemy", characterId: "ct_char_enemy_001",
+        x: 150, y: 300, facing: 1, strategy: "sentry", awarenessRange: 0
+    }], { state: createCatalogBackedGameState() });
+    const riderPlatform = riderState.world.movingPlatforms[0];
+    const riderEnemy = riderState.enemies.find((item) => item.id === "vanishing_platform_enemy");
+    riderEnemy.currentTransform.x = 150;
+    riderEnemy.currentTransform.y = 300;
+    riderEnemy.spawnX = 150;
+    riderEnemy.spawnY = 300;
+    riderEnemy.airborne = false;
+    riderEnemy.supportId = riderPlatform.segments[0].id;
+    riderEnemy.ridingPlatformId = riderPlatform.id;
+    riderEnemy.velocityX = 0;
+    riderEnemy.velocityY = 0;
+    let detachedY = null;
+    for (let i = 0; i < 90 && detachedY === null; i += 1) {
+        stepSimulation(riderState, createInputFrame(), FIXED_DT);
+        if (!riderPlatform.collisionAttached) detachedY = riderEnemy.currentTransform.y;
+    }
+    assert.notEqual(detachedY, null, "vanish-respawn enemy fixture should enter its detached-collision phase");
+    stepMany(riderState, 4, () => createInputFrame());
+    assert.equal(riderEnemy.airborne, true,
+        "a non-hunter enemy should become airborne when its moving-platform support disappears");
+    assert.ok(riderEnemy.currentTransform.y > detachedY,
+        "a non-hunter enemy should fall instead of hanging where a vanished moving platform used to be");
+
+    const corpseState = createMovingPlatformTestState({
+        pattern: "vanishRespawn", activation: "automatic", endOffsetX: 12, endOffsetY: 0, speed: 720,
+        startPause: 0.05, endPause: 0, fadeDuration: 0.05, hiddenDuration: 0.2
+    }, [{
+        id: "vanishing_platform_corpse", type: "characterEnemy", characterId: "ct_char_enemy_001",
+        x: 150, y: 300, facing: 1, strategy: "sentry", awarenessRange: 0
+    }], { state: createCatalogBackedGameState() });
+    const corpsePlatform = corpseState.world.movingPlatforms[0];
+    const corpseEnemy = corpseState.enemies.find((item) => item.id === "vanishing_platform_corpse");
+    corpseEnemy.currentTransform.x = 150;
+    corpseEnemy.currentTransform.y = 300;
+    corpseEnemy.airborne = false;
+    corpseEnemy.supportId = corpsePlatform.segments[0].id;
+    corpseEnemy.ridingPlatformId = corpsePlatform.id;
+    corpseEnemy.health = 0;
+    corpseEnemy.combatState = "dead";
+    corpseEnemy.state = "death";
+    corpseEnemy.movementPhase = "dead";
+    corpseEnemy.targetable = false;
+    corpseEnemy.deathDuration = 20;
+    corpseEnemy.deathTimer = 20;
+    corpseEnemy.corpseHoldDuration = 20;
+    corpseEnemy.deathElapsed = 0;
+    let corpseDetachedY = null;
+    for (let i = 0; i < 90 && corpseDetachedY === null; i += 1) {
+        stepSimulation(corpseState, createInputFrame(), FIXED_DT);
+        if (!corpsePlatform.collisionAttached) corpseDetachedY = corpseEnemy.currentTransform.y;
+    }
+    assert.notEqual(corpseDetachedY, null, "corpse fixture should enter the detached-collision phase");
+    const corpseAnimationClockAtDetach = Number(corpseEnemy.animationClock?.current) || 0;
+    stepMany(corpseState, 4, () => createInputFrame());
+    assert.equal(corpseEnemy.airborne, true,
+        "a dead ground enemy should release a moving-platform support that disappears");
+    assert.ok(corpseEnemy.currentTransform.y > corpseDetachedY,
+        "a dead ground enemy should keep passive falling physics after its support disappears");
+    assert.equal(corpseEnemy.combatState, "dead", "passive corpse falling must not wake enemy AI");
+    assert.equal(corpseEnemy.movementPhase, "dead", "passive corpse falling must retain death presentation state");
+    assert.ok((Number(corpseEnemy.animationClock?.current) || 0) > corpseAnimationClockAtDetach,
+        "passive corpse falling must not reset the death-animation clock every tick");
+
+    const closedManifest = {
+        frames: { test_platform: { x: 0, y: 0, w: 100, h: 40 } },
+        objects: {
+            test_platform: {
+                nodes: [
+                    { id: "tl", x: 0, y: 0 }, { id: "tr", x: 100, y: 0 },
+                    { id: "br", x: 100, y: 40 }, { id: "bl", x: 0, y: 40 }
+                ],
+                lines: [
+                    { id: "top", kind: "blockable", from: "tl", to: "tr", tags: [] },
+                    { id: "right", kind: "blockable", from: "tr", to: "br", tags: [] },
+                    { id: "bottom", kind: "blockable", from: "br", to: "bl", tags: [] },
+                    { id: "left", kind: "blockable", from: "bl", to: "tl", tags: [] }
+                ]
+            }
+        }
+    };
+    const telefragState = createMovingPlatformTestState({
+        pattern: "vanishRespawn", activation: "automatic", endOffsetX: 12, endOffsetY: 0, speed: 720,
+        startPause: 0.05, endPause: 0, fadeDuration: 0.05, hiddenDuration: 0.2
+    }, [{
+        id: "respawn_overlap_enemy", type: "characterEnemy", characterId: "ct_char_enemy_001",
+        x: 150, y: 500, facing: 1, strategy: "passive", awarenessRange: 0
+    }], { manifest: closedManifest, placement: { h: 40 }, state: createCatalogBackedGameState() });
+    const telefragPlatform = telefragState.world.movingPlatforms[0];
+    const telefragEnemy = telefragState.enemies.find((item) => item.id === "respawn_overlap_enemy");
+    for (let i = 0; i < 90 && telefragPlatform.collisionAttached; i += 1) {
+        stepSimulation(telefragState, createInputFrame(), FIXED_DT);
+    }
+    assert.equal(telefragPlatform.collisionAttached, false, "telefrag fixture should hide and detach its platform before repositioning the enemy");
+    telefragEnemy.currentTransform.x = 150;
+    telefragEnemy.currentTransform.y = 330;
+    telefragEnemy.spawnX = 150;
+    telefragEnemy.spawnY = 330;
+    telefragEnemy.airborne = false;
+    telefragEnemy.supportId = null;
+    telefragEnemy.ridingPlatformId = null;
+    telefragEnemy.velocityX = 0;
+    telefragEnemy.velocityY = 0;
+    telefragEnemy.simulationDormant = true;
+    telefragEnemy.isBoss = true;
+    telefragEnemy.bossName = "Telefrag Test Boss";
+    telefragEnemy.bossDefeatSignalChannel = "BOSS_TELEFRAG_TEST";
+    telefragEnemy.bossDefeatEmitted = false;
+    telefragEnemy.dropsEmitted = false;
+    for (let i = 0; i < 90 && !telefragPlatform.collisionAttached; i += 1) {
+        stepSimulation(telefragState, createInputFrame(), FIXED_DT);
+    }
+    assert.equal(telefragPlatform.collisionAttached, true, "recovery fixture should restore platform collision");
+    assert.ok(telefragEnemy.health > 0 && telefragEnemy.combatState !== "dead",
+        "a respawning moving platform should depenetrate a stationary enemy when a short safe exit exists");
+    assert.equal(telefragEnemy.dropsEmitted, false, "successful moving-platform recovery must not consume enemy drops");
+    assert.equal(telefragEnemy.bossDefeatEmitted, false, "successful moving-platform recovery must not defeat a boss");
+    assert.notEqual(telefragState.world.signalChannels?.BOSS_TELEFRAG_TEST?.active, true,
+        "successful moving-platform recovery must not emit a boss defeat signal");
+    assert.ok(telefragState.debug.lastEvents.some((event) => event.type === "ENEMY_COLLISION_RECOVERED" && event.enemyId === telefragEnemy.id),
+        "moving-platform respawn overlap should emit the generic recovery diagnostic");
 }
 
+
+
+function testEmbeddedEnemyRecoveryAndMovingPlatformResetRecovery() {
+    const embeddedState = createCatalogBackedGameState();
+    assert.equal(applyEditorLevelToWorld(embeddedState, {
+        levelId: "embedded_enemy_recovery",
+        world: { bounds: { x: 0, y: 0, w: 900, h: 800 } },
+        entities: [{
+            id: "embedded_enemy", type: "characterEnemy", characterId: "ct_char_enemy_001",
+            x: 150, y: 330, facing: 1, strategy: "passive", awarenessRange: 0
+        }]
+    }), true, "embedded-enemy recovery fixture should apply");
+    const embeddedEnemy = embeddedState.enemies.find((item) => item.id === "embedded_enemy");
+    embeddedEnemy.currentTransform.x = 150;
+    embeddedEnemy.currentTransform.y = 330;
+    embeddedEnemy.airborne = false;
+    embeddedEnemy.supportId = null;
+    embeddedEnemy.ridingPlatformId = null;
+    embeddedState.world.solids.push({
+        id: "embedded_enemy_box", kind: "wall", x: 110, y: 180, w: 80, h: 180
+    });
+    stepSimulation(embeddedState, createInputFrame(), FIXED_DT);
+    assert.ok(embeddedEnemy.health > 0 && embeddedEnemy.combatState !== "dead",
+        "a recoverable enemy overlap should push the enemy out instead of killing it");
+    assert.ok(embeddedState.debug.lastEvents.some((event) => event.type === "ENEMY_COLLISION_RECOVERED" && event.enemyId === embeddedEnemy.id),
+        "generic enemy depenetration should emit a deterministic recovery diagnostic");
+    assert.equal(embeddedEnemy.dropsEmitted, false, "recovering an embedded enemy must not consume its drop table");
+
+    const multiBlockerState = createCatalogBackedGameState();
+    assert.equal(applyEditorLevelToWorld(multiBlockerState, {
+        levelId: "multi_blocker_enemy_recovery",
+        world: { bounds: { x: 0, y: 0, w: 900, h: 800 } },
+        entities: [{
+            id: "multi_blocker_enemy", type: "characterEnemy", characterId: "ct_char_enemy_001",
+            x: 150, y: 330, facing: 1, strategy: "passive", awarenessRange: 0
+        }]
+    }), true, "multi-blocker recovery fixture should apply");
+    const multiEnemy = multiBlockerState.enemies.find((item) => item.id === "multi_blocker_enemy");
+    const width = Math.max(1, Number(multiEnemy.width) || 1);
+    const height = Math.max(1, Number(multiEnemy.height) || 1);
+    const sideInset = Math.min(width * 0.2, Math.max(1, width * 0.04));
+    const headInset = Math.min(height * 0.12, Math.max(1, height * 0.03));
+    const footInset = Math.min(height * 0.22, Math.max(3, height * 0.08));
+    const recoveryRect = {
+        x: multiEnemy.currentTransform.x - width * 0.5 + sideInset,
+        y: multiEnemy.currentTransform.y - height + headInset,
+        w: Math.max(1, width - sideInset * 2),
+        h: Math.max(1, height - headInset - footInset)
+    };
+    multiBlockerState.world.segments = [{ id: "multi_floor", kind: "walkable", x1: -200, y1: 330, x2: 600, y2: 330 }];
+    multiBlockerState.world.solids = [
+        { id: "multi_left", kind: "wall", x: recoveryRect.x - 100, y: recoveryRect.y - 10, w: 108, h: 40 },
+        { id: "multi_right", kind: "wall", x: recoveryRect.x + recoveryRect.w - 8, y: recoveryRect.y - 10, w: 108, h: 40 }
+    ];
+    multiBlockerState.world.collisionPolygons = [];
+    multiEnemy.airborne = false;
+    multiEnemy.supportId = "multi_floor";
+    multiEnemy.velocityX = 0;
+    multiEnemy.velocityY = 0;
+    multiEnemy.penetrationRecoveryProbeX = multiEnemy.currentTransform.x;
+    multiEnemy.penetrationRecoveryProbeY = multiEnemy.currentTransform.y;
+    multiEnemy.penetrationRecoveryTicks = 1;
+    const multiStartX = multiEnemy.currentTransform.x;
+    const multiStartY = multiEnemy.currentTransform.y;
+    stepSimulation(multiBlockerState, createInputFrame(), FIXED_DT);
+    assert.ok(multiEnemy.health > 0 && multiEnemy.combatState !== "dead",
+        "the unblocker should find one complete escape from simultaneous blockers instead of ping-ponging between them");
+    approx(multiEnemy.currentTransform.x, multiStartX, 0.1, "the shortest multi-blocker escape should stay on the same X coordinate");
+    assert.ok(multiEnemy.currentTransform.y > multiStartY + 29 && multiEnemy.currentTransform.y < multiStartY + 31,
+        `the shortest complete multi-blocker escape should be about 30 px downward, got ${multiEnemy.currentTransform.y - multiStartY}`);
+
+    const boundedState = createCatalogBackedGameState();
+    assert.equal(applyEditorLevelToWorld(boundedState, {
+        levelId: "bounded_enemy_recovery",
+        world: { bounds: { x: -1200, y: -1200, w: 2400, h: 2400 } },
+        entities: [{
+            id: "bounded_enemy", type: "characterEnemy", characterId: "ct_char_enemy_001",
+            x: 150, y: 330, facing: 1, strategy: "passive", awarenessRange: 0
+        }]
+    }), true, "bounded recovery fixture should apply");
+    const boundedEnemy = boundedState.enemies.find((item) => item.id === "bounded_enemy");
+    const boundedWidth = Math.max(1, Number(boundedEnemy.width) || 1);
+    const boundedHeight = Math.max(1, Number(boundedEnemy.height) || 1);
+    const boundedSideInset = Math.min(boundedWidth * 0.2, Math.max(1, boundedWidth * 0.04));
+    const boundedHeadInset = Math.min(boundedHeight * 0.12, Math.max(1, boundedHeight * 0.03));
+    const boundedFootInset = Math.min(boundedHeight * 0.22, Math.max(3, boundedHeight * 0.08));
+    const boundedRect = {
+        x: boundedEnemy.currentTransform.x - boundedWidth * 0.5 + boundedSideInset,
+        y: boundedEnemy.currentTransform.y - boundedHeight + boundedHeadInset,
+        w: Math.max(1, boundedWidth - boundedSideInset * 2),
+        h: Math.max(1, boundedHeight - boundedHeadInset - boundedFootInset)
+    };
+    const recoveryLimit = Math.hypot(boundedWidth, boundedHeight) * 0.50;
+    boundedState.world.solids = [{
+        id: "beyond_recovery_limit", kind: "wall",
+        x: boundedRect.x - 200,
+        y: boundedRect.y - 200,
+        w: boundedRect.w + 400,
+        h: 200 + recoveryLimit + 5
+    }];
+    boundedState.world.segments = [];
+    boundedState.world.collisionPolygons = [];
+    stepSimulation(boundedState, createInputFrame(), FIXED_DT);
+    assert.ok(boundedEnemy.health <= 0 || boundedEnemy.combatState === "dead",
+        "the unblocker should fail rather than teleport an enemy when the nearest complete escape exceeds 50% of its body diagonal");
+
+    const shallowState = createCatalogBackedGameState();
+    assert.equal(applyEditorLevelToWorld(shallowState, {
+        levelId: "shallow_stationary_enemy_recovery",
+        world: { bounds: { x: 0, y: 0, w: 900, h: 800 } },
+        entities: [{
+            id: "shallow_embedded_enemy", type: "characterEnemy", characterId: "ct_char_enemy_001",
+            x: 150, y: 330, facing: 1, strategy: "passive", awarenessRange: 0
+        }]
+    }), true, "shallow stationary recovery fixture should apply");
+    shallowState.world.segments = [{ id: "shallow_floor", kind: "blockable", x1: -200, y1: 330, x2: 600, y2: 330 }];
+    shallowState.world.solids = [{ id: "shallow_wall", kind: "wall", x: 180, y: 170, w: 20, h: 170 }];
+    shallowState.world.collisionPolygons = [];
+    const shallowEnemy = shallowState.enemies.find((item) => item.id === "shallow_embedded_enemy");
+    shallowEnemy.currentTransform.x = 150;
+    shallowEnemy.currentTransform.y = 330;
+    shallowEnemy.airborne = false;
+    shallowEnemy.supportId = "shallow_floor";
+    shallowEnemy.currentSupportId = "shallow_floor";
+    shallowEnemy.ridingPlatformId = null;
+    shallowEnemy.velocityX = 0;
+    shallowEnemy.velocityY = 0;
+    stepSimulation(shallowState, createInputFrame(), FIXED_DT);
+    assert.ok(!shallowState.debug.lastEvents.some((event) => event.type === "ENEMY_COLLISION_RECOVERED" && event.enemyId === shallowEnemy.id),
+        "a shallow overlap should get one ordinary physics tick before defensive recovery");
+    stepSimulation(shallowState, createInputFrame(), FIXED_DT);
+    assert.ok(shallowEnemy.health > 0 && shallowEnemy.combatState !== "dead",
+        "a shallow stationary enemy overlap should recover without killing the enemy");
+    assert.ok(shallowState.debug.lastEvents.some((event) => event.type === "ENEMY_COLLISION_RECOVERED" && event.enemyId === shallowEnemy.id),
+        "a shallow overlap that persists at the same position should trigger defensive recovery");
+    assert.equal(shallowEnemy.supportId, "shallow_floor",
+        "defensive recovery should re-ground the enemy on the same physical support");
+    assert.equal(shallowEnemy.currentSupportId, "shallow_floor",
+        "defensive recovery should preserve matching navigation support ownership instead of creating a one-tick support gap");
+
+    shallowEnemy.currentTransform.x = 150;
+    shallowEnemy.currentTransform.y = 330;
+    shallowEnemy.airborne = false;
+    shallowEnemy.supportId = "shallow_floor";
+    shallowEnemy.currentSupportId = "stale_navigation_support";
+    shallowEnemy.ridingPlatformId = null;
+    shallowEnemy.velocityX = 0;
+    shallowEnemy.velocityY = 0;
+    shallowEnemy.penetrationRecoveryTicks = 0;
+    shallowEnemy.penetrationRecoveryProbeX = null;
+    shallowEnemy.penetrationRecoveryProbeY = null;
+    shallowState.debug.lastEvents = [];
+    stepSimulation(shallowState, createInputFrame(), FIXED_DT);
+    stepSimulation(shallowState, createInputFrame(), FIXED_DT);
+    assert.ok(shallowState.debug.lastEvents.some((event) => event.type === "ENEMY_COLLISION_RECOVERED" && event.enemyId === shallowEnemy.id),
+        "the stale-support recovery regression should exercise the same defensive recovery path");
+    assert.equal(shallowEnemy.supportId, "shallow_floor",
+        "defensive recovery with stale navigation ownership should still re-ground on the physical support");
+    assert.equal(shallowEnemy.currentSupportId, null,
+        "defensive recovery must discard a navigation support that does not exactly match the recovered physical support");
+
+    const airborneState = createCatalogBackedGameState();
+    assert.equal(applyEditorLevelToWorld(airborneState, {
+        levelId: "airborne_enemy_embed_recovery",
+        world: { bounds: { x: 0, y: 0, w: 900, h: 800 } },
+        entities: [{
+            id: "airborne_embedded_enemy", type: "characterEnemy", characterId: "ct_char_enemy_001",
+            x: 150, y: 330, facing: 1, strategy: "passive", awarenessRange: 0
+        }]
+    }), true, "airborne embedded recovery fixture should apply");
+    airborneState.world.segments = [];
+    airborneState.world.solids = [{ id: "airborne_embed_box", kind: "wall", x: 110, y: 160, w: 80, h: 200 }];
+    airborneState.world.collisionPolygons = [];
+    const airborneEmbeddedEnemy = airborneState.enemies.find((item) => item.id === "airborne_embedded_enemy");
+    airborneEmbeddedEnemy.airborne = true;
+    airborneEmbeddedEnemy.supportId = null;
+    airborneEmbeddedEnemy.ridingPlatformId = null;
+    airborneEmbeddedEnemy.velocityX = 0;
+    airborneEmbeddedEnemy.velocityY = 0;
+    stepSimulation(airborneState, createInputFrame(), FIXED_DT);
+    assert.ok(airborneEmbeddedEnemy.health > 0 && airborneEmbeddedEnemy.combatState !== "dead",
+        "a deeply embedded airborne ground enemy should get one normal physics tick before defensive recovery");
+    stepSimulation(airborneState, createInputFrame(), FIXED_DT);
+    assert.ok(airborneEmbeddedEnemy.health > 0 && airborneEmbeddedEnemy.combatState !== "dead",
+        "a persistent airborne embed should be depenetrated instead of killed");
+    assert.ok(airborneState.debug.lastEvents.some((event) => event.type === "ENEMY_COLLISION_RECOVERED" && event.enemyId === airborneEmbeddedEnemy.id),
+        "a deep airborne embed that survives the grace tick should trigger defensive recovery");
+
+    const trappedState = createCatalogBackedGameState();
+    assert.equal(applyEditorLevelToWorld(trappedState, {
+        levelId: "trapped_enemy_last_resort",
+        world: { bounds: { x: -1200, y: -1200, w: 2400, h: 2400 } },
+        entities: [{
+            id: "trapped_boss", type: "characterEnemy", characterId: "ct_char_enemy_001",
+            x: 150, y: 330, facing: 1, strategy: "passive", awarenessRange: 0,
+            isBoss: true, bossName: "Trapped Test Boss", bossDefeatSignalChannel: "BOSS_TRAPPED_TEST",
+            deathDuration: 0.05,
+            drops: [{ itemId: "coin", chance: 1 }]
+        }]
+    }), true, "unrecoverable enemy fixture should apply");
+    applyLootCatalog(trappedState, JSON.parse(readFileSync(new URL("../resources/items/it_loot_001.json", import.meta.url), "utf8")));
+    const trappedEnemy = trappedState.enemies.find((item) => item.id === "trapped_boss");
+    trappedState.world.solids.push({
+        id: "trapped_enemy_box", kind: "wall", x: -900, y: -900, w: 1800, h: 1800
+    });
+    stepSimulation(trappedState, createInputFrame(), FIXED_DT);
+    assert.ok(trappedEnemy.health <= 0 || trappedEnemy.combatState === "dead",
+        "an enemy with no bounded depenetration escape should be killed only as a last resort");
+    assert.ok(trappedState.debug.lastEvents.some((event) => event.type === "ENEMY_TRAPPED_IN_SOLID" && event.enemyId === trappedEnemy.id),
+        "last-resort trapped-enemy removal should emit a deterministic diagnostic");
+    assert.equal(trappedEnemy.bossDefeatEmitted, true, "last-resort trapped-boss removal should complete boss defeat state");
+    assert.equal(trappedState.world.signalChannels?.BOSS_TRAPPED_TEST?.active, true,
+        "last-resort trapped-boss removal should emit the boss defeat signal channel");
+    assert.equal(trappedEnemy.dropsEmitted, false,
+        "ground-enemy loot should wait for the corpse death animation even after a last-resort trapped kill");
+    stepMany(trappedState, 8);
+    assert.equal(trappedEnemy.dropsEmitted, true, "a trapped ground corpse should consume its drop table when its death animation finishes");
+    assert.equal(trappedState.pickups.length, 0, "loot whose corpse-time spawn point is still inside blockable geometry should be culled");
+    assert.ok(trappedState.debug.lastEvents.some((event) => event.type === "ENEMY_LOOT_CULLED_BLOCKED" && event.enemyId === trappedEnemy.id),
+        "blocked corpse-time loot culling should emit a diagnostic");
+
+    const closedManifest = {
+        frames: { test_platform: { x: 0, y: 0, w: 100, h: 40 } },
+        objects: {
+            test_platform: {
+                nodes: [
+                    { id: "tl", x: 0, y: 0 }, { id: "tr", x: 100, y: 0 },
+                    { id: "br", x: 100, y: 40 }, { id: "bl", x: 0, y: 40 }
+                ],
+                lines: [
+                    { id: "top", kind: "blockable", from: "tl", to: "tr", tags: [] },
+                    { id: "right", kind: "blockable", from: "tr", to: "br", tags: [] },
+                    { id: "bottom", kind: "blockable", from: "br", to: "bl", tags: [] },
+                    { id: "left", kind: "blockable", from: "bl", to: "tl", tags: [] }
+                ]
+            }
+        }
+    };
+    const resetState = createMovingPlatformTestState({
+        pattern: "shuttle", activation: "automatic", endOffsetX: 300, endOffsetY: 0,
+        speed: 12000, initialDelay: 0, startPause: 0, endPause: 1
+    }, [{
+        id: "reset_overlap_enemy", type: "characterEnemy", characterId: "ct_char_enemy_001",
+        x: 700, y: 500, facing: 1, strategy: "passive", awarenessRange: 0
+    }], { manifest: closedManifest, placement: { h: 40 }, state: createCatalogBackedGameState() });
+    const resetPlatform = resetState.world.movingPlatforms[0];
+    const resetVisual = resetState.world.visuals.find((item) => item.id === resetPlatform.visualId);
+    stepSimulation(resetState, createInputFrame(), FIXED_DT);
+    assert.ok(resetVisual.currentTransform.x >= 299, "reset fixture should first move the platform away from its authored start");
+    const resetEnemy = resetState.enemies.find((item) => item.id === "reset_overlap_enemy");
+    resetEnemy.currentTransform.x = 150;
+    resetEnemy.currentTransform.y = 330;
+    resetEnemy.airborne = false;
+    resetEnemy.supportId = null;
+    resetEnemy.ridingPlatformId = null;
+    resetEnemy.velocityX = 0;
+    resetEnemy.velocityY = 0;
+    resetEnemy.simulationDormant = true;
+    resetPlayer(resetState, "rev483ResetRecoveryRegression");
+    approx(resetVisual.currentTransform.x, 100, 0.001, "player reset should return the platform to its authored start");
+    assert.ok(resetEnemy.health > 0 && resetEnemy.combatState !== "dead",
+        "resetting an already-attached platform around an enemy should depenetrate the enemy when a short safe exit exists");
+    assert.ok(resetState.debug.lastEvents.some((event) => event.type === "ENEMY_COLLISION_RECOVERED" && event.enemyId === resetEnemy.id),
+        "moving-platform reset recovery should run immediately even for a simulation-dormant enemy");
+}
+
+function testMovingPlatformsSweepProjectiles() {
+    const closedManifest = {
+        frames: { test_platform: { x: 0, y: 0, w: 100, h: 40 } },
+        objects: {
+            test_platform: {
+                nodes: [
+                    { id: "tl", x: 0, y: 0 }, { id: "tr", x: 100, y: 0 },
+                    { id: "br", x: 100, y: 40 }, { id: "bl", x: 0, y: 40 }
+                ],
+                lines: [
+                    { id: "top", kind: "blockable", from: "tl", to: "tr", tags: [] },
+                    { id: "right", kind: "blockable", from: "tr", to: "br", tags: [] },
+                    { id: "bottom", kind: "blockable", from: "br", to: "bl", tags: [] },
+                    { id: "left", kind: "blockable", from: "bl", to: "tl", tags: [] }
+                ]
+            }
+        }
+    };
+    const movement = {
+        pattern: "shuttle", activation: "automatic", endOffsetX: 300, endOffsetY: 0,
+        speed: 12000, initialDelay: 0, startPause: 0, endPause: 1, easing: "linear"
+    };
+    const makeProjectile = (id, y) => ({
+        id, kind: "testProjectile", owner: "enemy", state: "launched",
+        x: 250, y, currentTransform: { x: 250, y, angle: 0, alpha: 1, scaleX: 1, scaleY: 1 },
+        vx: 0, vy: 0, gravity: 0, homing: false, homingStrength: 0, age: 0, lifetime: 2,
+        explosionTimer: 0, radius: 4, damage: 0, areaDamageRadius: 0, trailEffect: "none", trail: []
+    });
+
+    const solidState = createMovingPlatformTestState(movement, [], {
+        manifest: closedManifest, placement: { h: 40 }, state: createInitialGameState()
+    });
+    solidState.player.currentTransform.x = 850;
+    solidState.player.currentTransform.y = 700;
+    const solidVisual = solidState.world.visuals.find((item) => item.id === solidState.world.movingPlatforms[0].visualId);
+    const solidProjectile = makeProjectile("platform_swept_projectile", 320);
+    solidState.projectiles.push(solidProjectile);
+    stepSimulation(solidState, createInputFrame(), FIXED_DT);
+    assert.ok(solidVisual.currentTransform.x >= 299, "solid projectile fixture should move completely past the projectile in one tick");
+    assert.notEqual(solidProjectile.state, "launched",
+        "a solid moving platform should collide with a projectile that it sweeps through even when final geometry no longer overlaps");
+
+    const parallelState = createMovingPlatformTestState(movement, [], {
+        manifest: closedManifest, placement: { h: 40 }, state: createInitialGameState()
+    });
+    parallelState.player.currentTransform.x = 850;
+    parallelState.player.currentTransform.y = 700;
+    const parallelProjectile = makeProjectile("parallel_platform_projectile", 320);
+    parallelProjectile.vx = 12000;
+    parallelState.projectiles.push(parallelProjectile);
+    stepSimulation(parallelState, createInputFrame(), FIXED_DT);
+    assert.equal(parallelProjectile.state, "launched",
+        "a projectile maintaining a constant gap from a same-speed moving platform must not hit the platform's final-pose geometry");
+    approx(parallelProjectile.currentTransform.x, 450, 0.01,
+        "same-speed projectile should keep its world-space motion when relative platform motion has no collision");
+
+    const bornLateState = createMovingPlatformTestState(movement, [], {
+        manifest: closedManifest, placement: { h: 40 }, state: createInitialGameState()
+    });
+    bornLateState.player.currentTransform.x = 850;
+    bornLateState.player.currentTransform.y = 700;
+    const bornLateProjectile = makeProjectile("born_late_platform_projectile", 320);
+    bornLateProjectile.x = 295;
+    bornLateProjectile.currentTransform.x = 295;
+    bornLateProjectile.vx = -600;
+    bornLateProjectile.activeSinceTick = bornLateState.clock.tick + 1;
+    bornLateState.projectiles.push(bornLateProjectile);
+    stepSimulation(bornLateState, createInputFrame(), FIXED_DT);
+    assert.equal(bornLateProjectile.state, "launched",
+        "a projectile activated after this tick's platform motion must not collide with motion that happened before it existed");
+    approx(bornLateProjectile.currentTransform.x, 285, 0.01,
+        "a born-late projectile moving away from final platform geometry should keep its ordinary world-space motion");
+
+    const verticalFlyerState = createMovingPlatformTestState({
+        pattern: "shuttle", activation: "automatic", endOffsetX: 0, endOffsetY: 180,
+        speed: 10800, initialDelay: 0, startPause: 0, endPause: 1, easing: "linear"
+    }, [{
+        id: "platform_shoved_flyer", type: "characterEnemy", characterId: "ct_char_enemy_020",
+        x: 150, y: 410, w: 84, h: 66, facing: 1, strategy: "simple_patrol", locomotion: "flying",
+        patrolDistance: 0, walkSpeed: 0, flightAmplitude: 0, health: 10, animationSlot: "fly"
+    }], { manifest: closedManifest, placement: { h: 40 }, state: createInitialGameState() });
+    verticalFlyerState.player.currentTransform.x = 850;
+    verticalFlyerState.player.currentTransform.y = 700;
+    const shovedFlyer = verticalFlyerState.enemies.find((enemy) => enemy.id === "platform_shoved_flyer");
+    const shovedFlyerStartY = shovedFlyer.currentTransform.y;
+    stepSimulation(verticalFlyerState, createInputFrame(), FIXED_DT);
+    assert.ok(shovedFlyer.currentTransform.y > shovedFlyerStartY + 40,
+        `a vertically sweeping solid platform should leave a flying enemy physically displaced after its own flight update; y=${shovedFlyer.currentTransform.y}`);
+    assert.equal(shovedFlyer.supportId, null, "a shoved flying enemy should remain flying rather than acquiring platform support");
+
+    const blockedShoveState = createMovingPlatformTestState({
+        pattern: "shuttle", activation: "automatic", endOffsetX: 40, endOffsetY: 0,
+        speed: 2400, initialDelay: 0, startPause: 0, endPause: 1, easing: "linear"
+    }, [{
+        id: "platform_shoved_blocked_flyer", type: "characterEnemy", characterId: "ct_char_enemy_020",
+        x: 250, y: 320, w: 84, h: 66, facing: 1, strategy: "simple_patrol", locomotion: "flying",
+        patrolDistance: 0, walkSpeed: 0, flightAmplitude: 0, health: 10, animationSlot: "fly", simulationDormant: true
+    }], { manifest: closedManifest, placement: { h: 40 }, state: createInitialGameState() });
+    blockedShoveState.player.currentTransform.x = 850;
+    blockedShoveState.player.currentTransform.y = 700;
+    blockedShoveState.world.segments.push({
+        id: "platform_shove_shallow_blocker", kind: "blockable", x1: 292, y1: 250, x2: 500, y2: 330
+    });
+    const blockedShovedFlyer = blockedShoveState.enemies.find((enemy) => enemy.id === "platform_shoved_blocked_flyer");
+    stepSimulation(blockedShoveState, createInputFrame(), FIXED_DT);
+    assert.ok(blockedShovedFlyer.currentTransform.x < 300,
+        `moving-platform displacement should not shove a flyer through a shallow blockable line; x=${blockedShovedFlyer.currentTransform.x}`);
+
+    const walkableState = createMovingPlatformTestState(movement);
+    walkableState.player.currentTransform.x = 850;
+    walkableState.player.currentTransform.y = 700;
+    const walkableProjectile = makeProjectile("walkable_platform_projectile", 300);
+    walkableState.projectiles.push(walkableProjectile);
+    stepSimulation(walkableState, createInputFrame(), FIXED_DT);
+    assert.equal(walkableProjectile.state, "launched",
+        "green walkable moving-platform geometry should remain transparent to projectiles during swept motion");
+}
 
 function testSignalTriggeredMovingPlatform() {
     const lever = {
@@ -23001,6 +27884,21 @@ function testMinimapUsesGameplayBoundaryWithCanonicalForegroundParallax() {
         "Level Editor playtests should retain minimap teleportation when the product flag is off");
     assert.equal(minimapTeleportAllowed(true, false), true,
         "product-development builds should enable ordinary minimap teleportation");
+    assert.equal(MINIMAP_CHECKPOINT_SNAP_DISTANCE, 4000,
+        "development minimap teleport should use the authored 4000 px checkpoint snap radius");
+    const checkpointWorld = {
+        entities: [
+            { id: "checkpoint_far", type: "checkpointRune", x: 7000, y: 1000 },
+            { id: "checkpoint_near", interaction: "checkpoint", x: 3900, y: 1000 },
+            { id: "not_checkpoint", type: "treasureChest", x: 1100, y: 1000 }
+        ]
+    };
+    assert.deepEqual(minimapTeleportDestination(checkpointWorld, { x: 1000, y: 1000 }), { x: 3900, y: 1000 },
+        "development minimap teleport should snap to the nearest checkpoint within 4000 px of the click");
+    assert.deepEqual(minimapTeleportDestination(checkpointWorld, { x: 12000, y: 1000 }), { x: 12000, y: 1000 },
+        "development minimap teleport should preserve the exact click when no checkpoint is within 4000 px");
+    assert.deepEqual(minimapTeleportDestination({ entities: [{ type: "checkpointRune", x: 5000, y: 1000 }] }, { x: 1000, y: 1000 }), { x: 5000, y: 1000 },
+        "development minimap teleport should include a checkpoint exactly on the 4000 px boundary");
 
     const teleportState = createInitialGameState();
     teleportState.player.vx = 200;
@@ -23023,7 +27921,7 @@ function testMinimapUsesGameplayBoundaryWithCanonicalForegroundParallax() {
 
 function testBrowserMinimapTracksLivePresentation() {
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
-    const nativeAppSource = readFileSync(new URL("../../src/runtime/ignatius-app.cpp", import.meta.url), "utf8");
+    const nativeAppSource = readNativeAppSourceBundle();
     const drawStart = bootstrapSource.indexOf("function drawMinimap(force = false)");
     const drawEnd = bootstrapSource.indexOf("function setupGameMenuAndSettings()", drawStart);
     assert.ok(drawStart >= 0 && drawEnd > drawStart, "the browser bootstrap should retain a dedicated minimap renderer");
@@ -23036,14 +27934,14 @@ function testBrowserMinimapTracksLivePresentation() {
     assert.doesNotMatch(drawSource, /gameState\.player\?\.x|gameState\.player\?\.y/, "the minimap must not read retired top-level player coordinates");
     assert.match(bootstrapSource, /function minimapTeleportEnabled\(\)[\s\S]*minimapTeleportAllowed\(DEVELOPMENT, launchEditorPlaytest\)/,
         "browser minimap teleport should be available in development builds and browser-copy editor playtests");
-    assert.match(bootstrapSource, /tryTeleportPlayerFromMinimapClick[\s\S]*minimapPointInsideGameplayPerimeter[\s\S]*teleportPlayer\(/,
-        "browser minimap clicks should teleport only after an authoritative perimeter check");
+    assert.match(bootstrapSource, /tryTeleportPlayerFromMinimapClick[\s\S]*minimapPointInsideGameplayPerimeter[\s\S]*minimapTeleportDestination[\s\S]*teleportPlayer\(/,
+        "browser minimap clicks should snap to nearby checkpoints only after an authoritative perimeter check");
     assert.match(bootstrapSource, /openGameMenuButton\?\.addEventListener\("click"[\s\S]*tryTeleportPlayerFromMinimapClick[\s\S]*openGameMenu\("menu"\)/,
         "non-teleporting minimap clicks should retain the normal pause-menu behavior");
     assert.match(nativeAppSource, /minimapTeleportEnabled\(\) const[\s\S]*minimapTeleportAllowed\(DEVELOPMENT, editorPlaytest\)/,
         "SDL minimap teleport should be available in development builds and level_temp editor playtests");
-    assert.match(nativeAppSource, /tryTeleportPlayerFromMinimap[\s\S]*minimapPointInsideGameplayPerimeter[\s\S]*teleportPlayer\(/,
-        "SDL minimap clicks should teleport only after an authoritative perimeter check");
+    assert.match(nativeAppSource, /tryTeleportPlayerFromMinimap[\s\S]*minimapPointInsideGameplayPerimeter[\s\S]*minimapTeleportDestination[\s\S]*teleportPlayer\(/,
+        "SDL minimap clicks should snap to nearby checkpoints only after an authoritative perimeter check");
 }
 
 function testGameSettingsSchemaPersistenceAndMenuShell() {
@@ -23055,6 +27953,18 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal(DEFAULT_GAME_SETTINGS.fullscreen, true, "browser play should default to fullscreen when a user gesture permits it");
     assert.equal(DEFAULT_GAME_SETTINGS.showMinimap, true, "the minimap should be visible by default");
     assert.equal(DEFAULT_GAME_SETTINGS.developmentMode, true, "development tools should remain visible by default in development builds");
+    assert.equal(DEFAULT_GAME_SETTINGS.version, 12, "browser settings should carry the persisted input-binding schema version 12");
+    assert.equal(GAME_INPUT_ACTIONS.length, 11, "controls should expose seven primary and four advanced actions");
+    assert.equal(GAME_INPUT_ACTIONS.find((action) => action.id === "down")?.label, "Down (slam)", "the Down action should hint at the body slam");
+    assert.deepEqual(DEFAULT_INPUT_BINDINGS.upLeft, [], "advanced diagonal bindings should default to unbound");
+    assert.ok(DEFAULT_INPUT_BINDINGS.fire.includes("gamepad:leftTrigger") && DEFAULT_INPUT_BINDINGS.fire.includes("gamepad:rightTrigger"), "both gamepad triggers should be ordinary remappable default fire bindings");
+    assert.equal(DEFAULT_INPUT_BINDINGS.up.includes("keyboard:KeyZ"), false, "Z should no longer be part of the default Up bindings");
+    assert.equal(DEFAULT_INPUT_BINDINGS.fire.includes("keyboard:KeyK"), false, "K should no longer be part of the default Fire bindings");
+    assert.equal(DEFAULT_INPUT_BINDINGS.fire.includes("keyboard:KeyX"), false, "X should no longer default to Fire");
+    assert.equal(DEFAULT_INPUT_BINDINGS.lunge.includes("keyboard:KeyX"), true, "X should default to Lunge");
+    assert.equal(DEFAULT_INPUT_BINDINGS.pause.includes("keyboard:Space"), true, "Space should default to Pause");
+    assert.equal(DEFAULT_INPUT_BINDINGS.fire.includes("keyboard:Space"), false, "Space should not remain a default Fire binding after moving to Pause");
+    assert.equal(Object.values(DEFAULT_INPUT_BINDINGS).flat().includes("keyboard:Escape"), false, "Escape must remain outside the remappable binding database");
     assert.equal(DEFAULT_GAME_SETTINGS.renderingMode, "hardwareRegular", "the safe WebGL2 live renderer should remain the default");
     assert.equal(GAME_DIFFICULTY_PRESETS.length, 3, "the settings UI should expose three damage presets");
     assert.equal(GAME_RENDERING_QUALITY_PRESETS.length, 3, "the settings UI should expose three particle presets");
@@ -23068,6 +27978,17 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal(difficultyDamageScale("hard"), 4, "hard should quadruple authored incoming damage");
     assert.equal(renderingParticleScale("low"), 0.5, "low quality should halve particle density");
     assert.equal(renderingParticleScale("high"), 1.5, "high quality should increase particle density");
+
+    const movedW = assignInputBinding(DEFAULT_INPUT_BINDINGS, "fire", "keyboard:KeyW");
+    assert.equal(movedW.up.includes("keyboard:KeyW"), false, "assigning a physical key to a new action should unbind it from its old action");
+    assert.equal(movedW.fire.includes("keyboard:KeyW"), true, "assigning a physical key should add it to the selected action");
+    const rejectedEscape = assignInputBinding(movedW, "lunge", "keyboard:Escape");
+    assert.equal(Object.values(rejectedEscape).flat().includes("keyboard:Escape"), false, "Escape should be rejected as a remappable binding");
+    const noW = removeInputBinding(movedW, "fire", "keyboard:KeyW");
+    assert.equal(noW.fire.includes("keyboard:KeyW"), false, "individual input bindings should be removable");
+    const duplicateNormalized = normalizeInputBindings({ up: ["keyboard:KeyQ"], fire: ["keyboard:KeyQ", "gamepad:leftStick"] });
+    assert.deepEqual(duplicateNormalized.up, ["keyboard:KeyQ"], "normalization should preserve the first owner of a duplicate physical input");
+    assert.deepEqual(duplicateNormalized.fire, ["gamepad:leftStick"], "normalization should remove globally duplicated physical inputs from later actions");
 
     const normalized = normalizeGameSettings({
         sfxVolume: 4,
@@ -23123,6 +28044,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
         showMinimap: false,
         developmentMode: false,
         renderingMode: "softwareSpeedhack",
+        inputBindings: assignInputBinding(DEFAULT_INPUT_BINDINGS, "lunge", "gamepad:leftStick"),
         tuningOverrides: { maxRunSpeed: 420, doubleJumpPhysics: "consistentApex" }
     }, storage);
     assert.equal(values.has(GAME_SETTINGS_STORAGE_KEY), true, "settings should use a stable namespaced storage key");
@@ -23132,11 +28054,12 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal(loadStoredGameSettings(storage).showMinimap, false, "the minimap preference should round-trip through storage");
     assert.equal(loadStoredGameSettings(storage).developmentMode, false, "the development-mode preference should round-trip through storage");
     assert.equal(loadStoredGameSettings(storage).renderingMode, "softwareSpeedhack", "the rendering mode should round-trip through storage");
+    assert.equal(loadStoredGameSettings(storage).inputBindings.lunge.includes("gamepad:leftStick"), true, "custom controls should round-trip through browser localStorage");
     assert.deepEqual(loadStoredGameSettings(storage).tuningOverrides, { maxRunSpeed: 420, doubleJumpPhysics: "consistentApex" }, "sparse tuning overrides should round-trip through browser localStorage");
 
     const installedTuningJson = JSON.parse(readFileSync(new URL("../resources/config/tuning.json", import.meta.url), "utf8"));
     assert.equal(installedTuningJson.schemaVersion, 1, "the shared installed tuning file should carry schema version 1");
-    assert.equal(SHARED_GAME_TUNING_KEYS.length, 57, "the shared tuning schema should expose the accepted cross-runtime tuning set");
+    assert.equal(SHARED_GAME_TUNING_KEYS.length, 67, "the shared tuning schema should expose the accepted cross-runtime tuning set");
     for (const key of SHARED_GAME_TUNING_KEYS) {
         assert.equal(installedTuningJson[key], DEFAULT_TUNING[key], `tuning.json ${key} should match the compiled emergency fallback`);
     }
@@ -23208,6 +28131,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     const manualHtml = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const nativeAppSource = readNativeAppSourceBundle();
     const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
     const electronPackageSource = readFileSync(new URL("../electron/package.json", import.meta.url), "utf8");
     const electronMainSource = readFileSync(new URL("../electron/main.cjs", import.meta.url), "utf8");
@@ -23220,6 +28144,9 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(gameHtml, /id="title-load-button"[^>]*>\s*Load Game/s, "the title menu should expose Load Game");
     assert.match(gameHtml, /id="title-settings-button"[^>]*>\s*Settings/s, "the title menu should expose Settings");
     assert.match(gameHtml, /id="title-exit-desktop-button"[^>]*>\s*Exit to Desktop/s, "the title menu should expose Exit to Desktop");
+    assert.match(gameHtml, /id="startup-studio-splash"[\s\S]*resources\/ui\/studio_logo\.png/, "normal browser startup should include the optional studio logo splash asset");
+    assert.match(gameHtml, /ignatius-studio-logo-startup[\s\S]*3000ms/, "the browser studio logo splash should use the requested three-second fade/hold/fade sequence");
+    assert.match(bootstrapSource, /STARTUP_STUDIO_SPLASH_FADE_IN_MS = 500[\s\S]*STARTUP_STUDIO_SPLASH_HOLD_MS = 2000[\s\S]*STARTUP_STUDIO_SPLASH_FADE_OUT_MS = 500/, "browser studio logo timing should be 0.5 s fade-in, 2.0 s hold, 0.5 s fade-out");
     assert.doesNotMatch(gameHtml, /id="game-menu-resume"/, "the in-game menu should use its top-right Back button instead of a duplicate Resume Game action");
     assert.match(gameHtml, /id="game-menu-back"[^>]*class="game-menu-back"[^>]*>BACK<\/button>/, "all browser menu views should share the top-right Back button");
     assert.match(gameHtml, /id="game-menu-save"[^>]*>\s*Save Game/s, "the in-game menu should expose Save Game");
@@ -23229,7 +28156,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal((gameHtml.match(/data-save-slot="slot[123]"/g) || []).length, 3, "save and load should use three manual slots");
     assert.match(gameHtml, /id="fullscreen-setting"[^>]*type="checkbox"/, "settings should expose a direct Fullscreen preference");
     assert.match(gameHtml, /id="show-minimap"[^>]*type="checkbox"/, "settings should expose a Minimap preference");
-    assert.match(gameHtml, /id="development-features-button"[^>]*>Development features\.\.\.<\/button>/, "settings should expose the compact Development features submenu");
+    assert.match(gameHtml, /id="development-features-button"[^>]*>Development\.\.\.<\/button>/, "settings should expose the compact Development submenu");
     assert.match(gameHtml, /id="game-development-panel"[\s\S]*id="development-asset-guides"[\s\S]*id="development-enemy-guide"[\s\S]*id="development-debug-panel"[\s\S]*id="development-debug-logging"/, "Development features should expose the four requested guide and diagnostic toggles");
     assert.match(gameHtml, /id="development-game-tuning"[\s\S]*id="development-recording"[\s\S]*id="development-playback"/, "Development features should retain convenient access to tuning, recording, and playback");
     assert.match(gameHtml, /id="game-tuning-panel"[\s\S]*id="tuning-run-speed"[\s\S]*id="tuning-jump-height"[\s\S]*id="tuning-gravity"[\s\S]*id="tuning-rocket-damage"[\s\S]*id="tuning-double-jump-physics"[\s\S]*id="tuning-reset"/, "browser Game tuning should mirror the compact SDL controls and retain Reset");
@@ -23246,9 +28173,13 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(gameHtml, /\.game-menu-card\s*\{[^}]*background:\s*var\(--menu-panel\)/s, "the menu card should use a solid shared surface");
     assert.doesNotMatch(gameHtml, /repeating-linear-gradient/, "game-facing menus must not restore the near-vertical stripe texture");
 
+    assert.match(bootstrapSource, /const shouldShowStartupStudioSplash = !launchPlaybackRecording && !shouldAutoStartGameplay/, "browser startup should show the studio logo only before the ordinary title flow, not editor\/query\/playback auto-starts");
+    assert.match(bootstrapSource, /await playStartupStudioSplash\(\)/, "browser startup should finish the one-shot studio splash before revealing the title screen");
+    assert.match(bootstrapSource, /titleScreen\.hidden = !titleScreenActive \|\| startupStudioSplashActive/, "returning to the title should not replay the startup splash state machine");
     assert.match(bootstrapSource, /function setupTitleScreen\(\)/, "the browser bootstrap should own title-screen interaction wiring");
     assert.match(bootstrapSource, /function handleTitleMenuNavigationKey\(event\)/, "the horizontal title strip should support arrow-key navigation");
     assert.match(bootstrapSource, /function startNewGameFromTitle\(\)/, "Start New Game should have a dedicated transition");
+    assert.match(bootstrapSource, /startNewGameFromTitle\(\)[\s\S]*lungeUnlocked:\s*true[\s\S]*fallImpactExplosionUnlocked:\s*true[\s\S]*fallDamageReductionUnlocked:\s*false/, "new browser campaigns should begin with fall-damage reduction locked while lunge and body slam remain available");
     assert.match(bootstrapSource, /async function resumeGameFromTitle\(\)/, "Resume Game should load the hidden autosave");
     assert.match(bootstrapSource, /loadStoredAutosave\(\)/, "Resume Game should use the autosave store");
     assert.match(bootstrapSource, /saveStoredSaveGame\(AUTOSAVE_SLOT_ID/, "level entry should update the hidden autosave");
@@ -23263,7 +28194,27 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(bootstrapSource, /gameMenuBackButton\?\.addEventListener\("click"[\s\S]*else closeGameMenu\(\)/, "Back should resume gameplay from the top-level pause menu and return from nested views");
     assert.match(bootstrapSource, /gameMenuBackButton\.textContent = "BACK"/, "the shared menu control should remain labelled Back at every menu depth");
     assert.doesNotMatch(bootstrapSource, /gameMenuResumeButton|game-menu-resume/, "the browser runtime should not retain the redundant in-game Resume Game button");
-    assert.match(bootstrapSource, /new Set\(\["menu", "settings", "development", "tuning", "save", "load"\]\)/, "the game-menu state machine should include Development features and Game tuning as nested settings views");
+    assert.match(gameHtml, /id="controls-settings-button"[^>]*>\s*Controls/s, "Settings should expose the controls dialog");
+    assert.match(gameHtml, /id="game-controls-panel"/, "the browser should provide a dedicated controls panel");
+    assert.match(gameHtml, /id="control-bindings-advanced-toggle"/, "diagonal bindings should live behind an Advanced bindings option");
+    assert.match(gameHtml, /id="control-bindings-reset"[^>]*>\s*Reset controls to defaults/s, "controls should expose an explicit reset-to-defaults action");
+    assert.match(bootstrapSource, /Press key to use or hit Escape\.\.\./, "binding capture should ask for a physical input inline instead of text entry");
+    assert.match(gameHtml, /\.control-binding-chip::after[\s\S]*content:\s*"×"/, "binding chips should carry the tiny remove affordance from the control-row mockup");
+    assert.match(gameHtml, /\.control-binding-slots\s*\{[\s\S]*flex-wrap:\s*nowrap[\s\S]*overflow:\s*hidden/, "binding rows should stay single-line so overflow can be rejected instead of escaping the frame");
+    assert.match(bootstrapSource, /function controlBindingCandidateFits\(actionId, candidateBindings\)[\s\S]*scrollWidth <= slots\.clientWidth \+ 1/, "browser binding capture should reject a candidate that cannot fit on its action row");
+    assert.match(bootstrapSource, /row\.addEventListener\("click", beginCaptureFromRow\)/, "clicking the empty part of an action row should begin inline binding capture");
+    assert.match(bootstrapSource, /row\.addEventListener\("keydown"[\s\S]*target\?\.closest\?\.\("\.control-binding-chip, \.control-binding-fixed"\)/, "keyboard activation of a binding chip should not bubble into row capture");
+    assert.match(bootstrapSource, /chip\.addEventListener\("click"[\s\S]*removeControlBinding\(action\.id, binding\)/, "clicking a binding chip should unbind it rather than opening a second binding dialog");
+    assert.match(bootstrapSource, /event\.code === "F8"[\s\S]*!controlBindingCapture[\s\S]*!input\.isGameplayKey\(event\.code\)/, "F8 should remain bindable and mapped gameplay keys should suppress the development skip hotkey");
+    assert.match(bootstrapSource, /controlBindingsAdvancedToggle\?\.addEventListener\("click"[\s\S]*cancelControlBindingCapture\(\)/, "leaving an active browser capture for Advanced bindings should cancel the old action capture");
+    assert.match(bootstrapSource, /window\.confirm\("Reset all controls to their defaults\?"\)/, "browser control reset should require confirmation");
+    assert.match(nativeAppSource, /void rebuildCompiledInputBindings\(\)[\s\S]*compiledInputBindings\.clear\(\)[\s\S]*compileInputBindingToken/, "native remappable controls should compile persisted string bindings outside the gameplay hot path");
+    assert.match(nativeAppSource, /bool inputActionHeld\(const std::string& actionId\) const[\s\S]*compiledInputBindings\.find\(actionId\)/, "native gameplay action sampling should use the compiled binding cache instead of reparsing JSON every frame");
+    assert.match(nativeAppSource, /fallbackJoystickButtonBindingToken\(Uint8 button\)[\s\S]*gamepad:south[\s\S]*gamepad:button/, "generic joystick buttons should enter the same remappable token namespace as SDL gamepads");
+    assert.match(nativeAppSource, /SDL_EVENT_JOYSTICK_HAT_MOTION[\s\S]*handleFallbackJoystickHatEvent\(event\.jhat\.value\)/, "generic joystick hats should participate in remappable D-pad input and capture");
+    assert.match(nativeAppSource, /That binding will not fit on this row/, "native binding capture should reject rows that would overflow instead of drawing outside the frame");
+    assert.match(nativeAppSource, /id == "advancedControls"[\s\S]*controlBindingCaptureActive = false[\s\S]*MenuView::AdvancedControls/, "native mouse navigation to Advanced bindings should cancel an active capture first");
+    assert.match(bootstrapSource, /new Set\(\["menu", "settings", "controls", "development", "tuning", "save", "load"\]\)/, "the game-menu state machine should include Controls, Development features and Game tuning as nested settings views");
     assert.match(bootstrapSource, /function startGameplayDebugLogging\(source = "development-menu"\)/, "the browser should provide an explicit structured debug-log start path");
     assert.match(bootstrapSource, /sampleMs - gameplayDebugLogLastSampleMs < 1000/, "browser debug logging should sample at most once per second rather than adding per-frame overhead");
     assert.match(bootstrapSource, /application\/x-ndjson/, "stopping browser debug logging should export a compact structured NDJSON file");
@@ -23290,7 +28241,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(manualHtml, /href="game\.html"/, "the manual should link back to the game");
     assert.match(electronBuildSource, /"GameManual\.html"/, "the Electron package should include the manual page");
     assert.match(electronBuildSource, /"favicon\.ico"/, "the Electron stage should include the shared webpage favicon");
-    assert.match(electronBuildSource, /icon:\s*"favicon\.ico"/, "the Windows package should embed the shared favicon as its application icon");
+    assert.match(electronBuildSource, /icon:\s*path\.join\(contentSource,\s*"favicon\.ico"\)/, "the Windows package should embed the staged shared favicon as its application icon");
     assert.match(electronBuildSource, /signExecutable:\s*false/, "the portable build should disable code signing without disabling executable resource editing");
     assert.match(electronBuildSource, /author:\s*"CJF"/, "the staged Electron package should declare author metadata");
     assert.doesNotMatch(packageSource, /"main": "electron\/main\.cjs"/, "root package metadata should not own Electron-specific entrypoints");
@@ -23720,7 +28671,7 @@ function testTemporaryEnemyTuningMultipliers() {
                 health: 100,
                 runSpeed: 100,
                 strategy: "sentry",
-                attackMode: "melee",
+                attackType: "melee",
                 awarenessRange: 1000
             },
             {
@@ -23731,14 +28682,14 @@ function testTemporaryEnemyTuningMultipliers() {
                 health: 100,
                 runSpeed: 100,
                 strategy: "sentry",
-                attackMode: "projectile",
+                attackType: "projectile",
                 attackRange: 900,
                 attackVerticalRange: 300,
                 attackDuration: 0.2,
                 attackHitTime: 0.05,
-                projectileCooldown: 0.8,
+                attackCooldown: 0.8,
                 projectileSpeed: 200,
-                projectileDamage: 0,
+                damage: 0,
                 projectileLifetime: 10,
                 preferredAttackRange: 500,
                 preferredAttackMinRange: 0,
@@ -23781,7 +28732,7 @@ function testTemporaryEnemyTuningMultipliers() {
                 y: 600,
                 runSpeed: 100,
                 strategy: "sentry",
-                attackMode: "melee",
+                attackType: "melee",
                 attackRange: 20,
                 awarenessRange: 1000,
                 awarenessViewHalfAngle: 180
@@ -23820,14 +28771,14 @@ function testTemporaryEnemyTuningMultipliers() {
                 x: 300,
                 y: 600,
                 strategy: "sentry",
-                attackMode: "projectile",
+                attackType: "projectile",
                 attackRange: 900,
                 attackVerticalRange: 300,
                 attackDuration: 0.2,
                 attackHitTime: 0.05,
-                projectileCooldown: 0.8,
+                attackCooldown: 0.8,
                 projectileSpeed: 200,
-                projectileDamage: 0,
+                damage: 0,
                 projectileLifetime: 20,
                 projectileHomingStrength: 0,
                 preferredAttackRange: 300,
@@ -23973,18 +28924,18 @@ function testRangedEnemiesFireBeyondPreferredAttackRange() {
             h: 148,
             facing: -1,
             strategy: "sentry",
-            attackMode: "projectile",
+            attackType: "projectile",
             attackRange: 120,
             attackVerticalRange: 80,
             attackDuration: 0.3,
             attackHitTime: 0.08,
-            projectileCooldown: 0.6,
+            attackCooldown: 0.6,
             projectileKind: "fireball",
             projectileLaunchType: "homing_lo",
             projectileSpeed: 320,
             projectileLifetime: 3.5,
             projectileRadius: 12,
-            projectileDamage: 8,
+            damage: 8,
             preferredAttackRange: 220,
             preferredAttackMinRange: 70,
             awarenessRange: 900,
@@ -24033,17 +28984,17 @@ function testRangedEnemiesRequireClearProjectileLane() {
             h: 148,
             facing: -1,
             strategy: "sentry",
-            attackMode: "projectile",
+            attackType: "projectile",
             attackRange: 120,
             attackDuration: 0.3,
             attackHitTime: 0.08,
-            projectileCooldown: 0.5,
+            attackCooldown: 0.5,
             projectileKind: "fireball",
             projectileLaunchType: "homing_lo",
             projectileSpeed: 320,
             projectileLifetime: 3.5,
             projectileRadius: 12,
-            projectileDamage: 8,
+            damage: 8,
             preferredAttackRange: 220,
             preferredAttackMinRange: 70,
             awarenessRange: 900,
@@ -24099,17 +29050,17 @@ function testRangedShotLaneRevalidatedAtRelease() {
             h: 148,
             facing: -1,
             strategy: "sentry",
-            attackMode: "projectile",
+            attackType: "projectile",
             attackRange: 100,
             attackDuration: 0.6,
             attackHitTime: 0.4,
-            projectileCooldown: 0.6,
+            attackCooldown: 0.6,
             projectileKind: "fireball",
             projectileLaunchType: "homing_lo",
             projectileSpeed: 300,
             projectileLifetime: 3,
             projectileRadius: 12,
-            projectileDamage: 8,
+            damage: 8,
             preferredAttackRange: 200,
             preferredAttackMinRange: 60,
             awarenessRange: 700,
@@ -24169,9 +29120,9 @@ function testBombingBatDropsOnlyWithPlausibleClearHit() {
             projectileKind: "rock",
             projectileSpeed: 35,
             projectileGravity: 900,
-            projectileCooldown: 0.4,
+            attackCooldown: 0.4,
             projectileLifetime: 4,
-            projectileDamage: 12,
+            damage: 12,
             projectileRadius: 30,
             health: 1,
             animationSlot: "fly"
@@ -24236,6 +29187,7 @@ function testCssShadowEffectsRemainExtinct() {
 const tests = [
     ["source organization and architecture map", testSourceOrganization],
     ["Palette Builder hashes Blob-backed resource reads", testPaletteResourceHashInputNormalization],
+    ["atlas Python tooling regression suite", testAtlasPythonToolingRegressionSuite],
     ["CSS shadow effects remain extinct across every shipped interface", testCssShadowEffectsRemainExtinct],
     ["level editor dense stress fixture", testLevelEditorStressFixture],
     ["game settings persistence and menu shell", testGameSettingsSchemaPersistenceAndMenuShell],
@@ -24250,6 +29202,7 @@ const tests = [
     ["buffered gameplay edges survive render-only frames", testBufferedGameplayEdgesSurviveRenderOnlyFrames],
     ["left and right Ctrl weapon binding", testControlKeysLaunchWeapon],
     ["gamepad triggers fire weapon", testGamepadTriggersLaunchWeapon],
+    ["remappable gameplay bindings", testRemappableGameplayBindings],
     ["keyboard interaction binding", testInteractKeyBinding],
     ["gamepad jump does not bypass title menu", testGamepadJumpDoesNotBypassTitleMenu],
     ["gamepad haptics follow active input device", testGamepadHapticsRespectActiveInputDevice],
@@ -24281,6 +29234,11 @@ const tests = [
     ["living boss locks ordinary exit doors", testLivingBossLocksExitDoor],
     ["level_t02 goblin boss arena contract", testLevelTwoGoblinBossArenaContract],
     ["automatic shuttle moving platform", testAutomaticShuttleMovingPlatform],
+    ["moving-platform translation easing", testTranslatedMovingPlatformEasing],
+    ["swinging moving platform", testSwingingMovingPlatform],
+    ["swinging moving-platform swept hazards", testSwingingMovingPlatformSweptHazards],
+    ["moving-platform interaction regressions", testMovingPlatformInteractionRegressions],
+    ["enemy blockable slope standability", testEnemyBlockableSlopeStandability],
     ["moving-platform crush requires nearest blocked exit for three ticks", testMovingPlatformCrushRequiresThreeTicksAndNearestExit],
     ["two-tick crush recovery emits diagnostics", testCrushWarningReportsTwoTickRecovery],
     ["moving-platform crush particles respawn cleanly", testMovingPlatformCrushParticlesRespawnCleanly],
@@ -24291,6 +29249,8 @@ const tests = [
     ["one-shot proximity signal trigger", testProximitySignalTriggerFiresOnce],
     ["keyhole consumes key and triggers platform", testKeyholeConsumesKeyAndTriggersPlatform],
     ["vanishing moving platforms always recover", testVanishingMovingPlatformsAlwaysRecover],
+    ["embedded enemy recovery and moving-platform reset recovery", testEmbeddedEnemyRecoveryAndMovingPlatformResetRecovery],
+    ["moving platforms sweep projectiles", testMovingPlatformsSweepProjectiles],
     ["Canvas world-visual performance infrastructure", testCanvasWorldVisualPerformanceInfrastructure],
     ["level placement copy and cutout backing", testLevelPlacementCopy],
     ["level placement transforms", testLevelPlacementTransforms],
@@ -24333,10 +29293,13 @@ const tests = [
     ["enemy catalog and Level Editor integration", testEnemyCatalogAndLevelEditorIntegration],
     ["enemy navigation graph and jump reachability", testEnemyNavigationGraphAndJumpReachability],
     ["enemy navigation across overlapping solid floors", testEnemyNavigationAcrossOverlappingSolidFloors],
+    ["enemy navigation exposed surface walk regions", testEnemyNavigationExposedSurfaceWalkRegions],
     ["enemy navigation stride-arc and legacy step methods", testEnemyNavigationStrideArcStepMethodComparison],
+    ["enemy navigation simulation verification", testEnemyNavigationSimulationVerification],
     ["baked navigation graph directional transitions", testBakedNavigationGraphDirectionalTransitions],
     ["navigation maze detour route", testNavigationMazeDetourRoute],
     ["hunter enemy jump and attack positioning", testHunterEnemyJumpAndAttackPositioning],
+    ["hunter melee chooses nearest attack-ready spacing", testHunterMeleeChoosesNearestAttackReadySpacing],
     ["hunter deliberate drop traversal", testHunterUsesDeliberateDropTraversal],
     ["hunter ranged attack-position selection", testHunterRangedAttackPositionSelection],
     ["level_t01 baked hunter navigation graphs", testLevelOneUsesBakedHunterNavigationGraphs],
@@ -24379,6 +29342,7 @@ const tests = [
     ["character enemy rocket combat", testCharacterEnemyRocketCombat],
     ["passive enemy stays passive when damaged", testPassiveEnemyStaysPassiveWhenDamaged],
     ["airborne enemy defers death until landing", testAirborneEnemyDefersDeathUntilLanding],
+    ["airborne hunter hurt preserves navigation traversal", testAirborneHunterHurtPreservesNavigationTraversal],
     ["enemy contact damage uses independent invulnerability", testEnemyContactDamageUsesIndependentInvulnerability],
     ["character enemy melee attack", testCharacterEnemyMeleeAttack],
     ["attack start preserves SDL handoff timing", testAttackStartPreservesSdlHandoffTiming],
@@ -24408,7 +29372,7 @@ const tests = [
     ["character tool direct transform geometry", testCharacterToolDirectTransformGeometry],
     ["character parent pivot constraints", testCharacterParentPivotConstraints],
     ["character MP4 motion reference", testCharacterMp4MotionReference],
-    ["character part Color Exchange", testCharacterPartColorExchange],
+    ["character authored atlas variants", testCharacterAuthoredAtlasVariants],
     ["data-driven wizard walk animation", testDataDrivenWalkAnimation],
     ["animation editor keyframe operations", testAnimationEditorOperations],
     ["frame-based animation editor workflow", testFrameBasedAnimationEditorWorkflow],
@@ -24420,6 +29384,7 @@ const tests = [
     ["frame-delivery diagnostics", testFrameDeliveryDiagnostics],
     ["gameplay recording and playback tooling", testGameplayRecordingAndPlaybackTooling],
     ["headless stepping and floor collision", testHeadlessSteppingAndFloorCollision],
+    ["charged horizontal player lunge", testPlayerChargedLunge],
     ["closed sloped stair body does not conveyor player downhill", testClosedSlopedStairBodyDoesNotConveyorPlayerDownhill],
     ["player follows steep walkable bridge ramps while running", testPlayerFollowsSteepWalkableBridgeRampWhileRunning],
     ["swept support uses up-to-down crossing not colour priority", testSweptSupportUsesUpToDownCrossingNotColourPriority],

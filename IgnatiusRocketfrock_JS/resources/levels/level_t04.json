@@ -267,7 +267,7 @@
             "collisionFromManifest": true,
             "editorLocked": false,
             "movement": {
-                "version": 1,
+                "version": 2,
                 "pattern": "shuttle",
                 "activation": "automatic",
                 "signalChannel": "A",
@@ -279,7 +279,9 @@
                 "startPause": 0.75,
                 "endPause": 0.75,
                 "fadeDuration": 0.2,
-                "hiddenDuration": 1.25
+                "hiddenDuration": 1.25,
+                "motionType": "translate",
+                "easing": "linear"
             },
             "order": 4
         },

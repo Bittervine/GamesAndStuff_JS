@@ -5139,3 +5139,116 @@ Revision 440 makes root `BUILD_REVISION.txt` the single authored source of the p
 - [x] Report `max RSS` through `process.resourceUsage()` when current RSS is unavailable, or `RSS unavailable` when neither source works.
 - [x] Add a synthetic native parent-constraint draw regression using one in-memory texture and no extra character project load.
 - [x] Verify the browser release/stress gates, optimized native suite, and navigation audit before packaging revision 450.
+
+## Revision 463 Level Editor WebView2 resource-pressure reduction
+
+- [x] Stop constructing the embedded production renderer's enemy-character URL set from every enemy catalog definition.
+- [x] Derive required runtime character projects only from `characterEnemy` entities in the current level and resynchronize when enemies are added, removed, changed, or a different level is loaded.
+- [x] Use `ensureCharacterProjects()` for synchronization so no-longer-required renderer projects are released rather than accumulated.
+- [x] Reuse renderer-owned current-level character projects for Level Editor overlay previews instead of preparing a duplicate editor-local copy of every current-level enemy.
+- [x] Keep the separate editor-local project cache only for fallback/selected-unplaced enemy previews and release obsolete local projects on level changes.
+- [x] Share decoded character-atlas images, immutable cropped frame canvases, and pixmap pyramids across character projects that use the same atlas while keeping per-project maps independent.
+- [x] Share immutable hit-flash presentation canvases when projects use the same prepared source frame.
+- [x] Release full editor atlas images no longer referenced after switching levels when the compact thumbnail palette is available; preserve the full-library compatibility fallback when thumbnails are unavailable.
+- [x] Add regressions for selective Level Editor runtime loading and different character projects sharing one prepared atlas.
+- [x] Keep the change in the shared browser Level Editor used both by Chrome and `IgnatiusDevTool.exe`/WebView2; no WebView2 memory-limit override is introduced.
+
+## Revision 464 Level Editor environment-atlas deduplication
+
+- [x] Let the embedded Canvas renderer resolve environment/item atlas sources from already-loaded Level Editor atlas records.
+- [x] Reuse the exact decoded source image object while keeping independent editor and renderer atlas wrappers and mutable colour/render caches.
+- [x] Rebind an already-resident renderer atlas when Reload atlas library supplies a newer decoded source for the same manifest URL.
+- [x] Keep level-switch eviction effective; do not add a process-global decoded-image cache that pins unused atlases.
+- [x] Seed editor-only character preview atlas sharing from renderer-owned current-level projects as well as editor-local preview projects.
+- [x] Add regression coverage for prepared environment-atlas wrapping and the Level Editor resolver/source-sharing contract.
+
+
+## Revision 465 atlas reforging verifier
+
+- [x] Add a Python verifier for original versus rebuilt atlas JSON/PNG pairs.
+- [x] Check every JSON-defined frame regardless of whether current game/editor data references it.
+- [x] Require the complete frame-name set and identical frame width/height while allowing repacked `x`/`y` coordinates.
+- [x] Require exact alpha for every logical frame pixel and exact RGB wherever either corresponding pixel is visible.
+- [x] Permit RGB changes only where both pixels remain fully transparent, enabling later alpha-safe RGB dilation.
+- [x] Support mirrored directory-tree verification across environment, character, and item atlases.
+- [x] Preserve comparison semantics for legacy frame rectangles that slightly cross PNG boundaries.
+- [x] Add focused regression tests and verify the current 59 atlas manifests / 856 frames against themselves.
+
+## Revision 466 atlas reforger
+
+- [x] Add deterministic single-atlas and mirrored-tree reforging for environment, character, and item atlases.
+- [x] Preserve every JSON-defined frame, including currently unused future assets, without changing frame name or dimensions.
+- [x] Alias exact duplicate rectangles and keep every positive-area overlap-connected group in one source-relative cluster.
+- [x] Preserve deliberate contained blend frames and legacy glancing overlaps without duplicate overlap storage.
+- [x] Discard source pixels outside all defined frame rectangles.
+- [x] Add configurable transparent cluster padding and nearest-visible RGB dilation that never changes alpha or visible RGB.
+- [x] Keep default reforging decoded-memory monotonic by falling back to cropped/source-relative layouts when padded packing would grow an atlas.
+- [x] Automatically run the Revision 465 frame-pixel verifier on generated output; stage `--in-place` output before replacement.
+- [x] Add focused regressions for unused frames, duplicate aliases, containment, partial overlap clusters, padding/dilation, out-of-bounds legacy frames, deterministic output, directory mode, and no-growth fallback.
+- [x] Reforge the current 59-atlas set into a disposable mirrored tree and verify all 856 frames / 51,458,035 visible pixels exactly; projected decoded RGBA decreases from about 463.1 MiB to 329.9 MiB (28.8%).
+- [x] Do not commit rebuilt production atlas PNG/JSON resources yet; Revision 466 delivers the verified tool first.
+
+## Revision 467 atlas reforger rollout
+
+- [x] Run the verified atlas reforger in staged `--in-place` mode across `reference/resources/atlases`, `reference/resources/characters`, and `reference/resources/items`.
+- [x] Commit the rebuilt production atlas PNG/JSON resources after verifier success.
+- [x] Re-run `verify_atlas_rect_pixels.py` against the committed atlas set versus the Revision 462 baseline resources.
+- [x] Update browser tests so atlas-compaction rollout assertions depend on preserved frame dimensions/behaviour rather than hard-coded relocatable `x`/`y` atlas coordinates.
+- [x] Re-run the browser release gate and native Linux build/tests after the committed atlas replacement.
+
+## Revision 468 moving-platform motion types
+
+- [x] Add schema-version-2 `motionType` dispatch with mutually exclusive `translate` and `swing` behavior in browser and SDL.
+- [x] Migrate every existing shipped moving-platform placement to explicit `motionType: "translate"` and `easing: "linear"`.
+- [x] Add translation easing choices Linear, Ease in, Ease out, and Ease in/out while preserving `distance / speed` endpoint duration.
+- [x] Add swing amplitude, initial angle, period, and external-capable local pivot coordinates with sinusoidal pendulum motion.
+- [x] Make positive/negative swing starts move toward the centre and zero start counter-clockwise.
+- [x] Preserve automatic/rider/signal activation plus initial and trigger delays for swing.
+- [x] Rotate platform-owned visual, segment, polygon, damaging, and killable geometry from immutable base geometry in both ports.
+- [x] Carry supported player/enemy actors along the angular arc without rotating actor presentation.
+- [x] Add conditional Level Editor controls and swing pivot/arc guides while retaining the translation END handle.
+- [x] Add matched browser/native regressions for translation easing and swing phase/geometry behavior.
+
+## Revision 469 delta-review fixes
+
+- [x] Sweep-test swinging damaging/killable lines between simulation poses in browser and SDL runtimes.
+- [x] Sweep-test filled damaging/killable polygons and explicitly retain closed orange/red loop semantics as first-class hazard areas.
+- [x] Evaluate swing-platform crush motion at the player/contact location rather than using the sprite top-left translation delta.
+- [x] Make Level Editor swing hit testing and selection use the authored initial swing pose.
+- [x] Include the full pendulum envelope in editor culling and Fit-to-Content bounds.
+- [x] Refresh palette thumbnail source hashes/digest and relocated frame metadata after atlas reforging.
+- [x] Make the resource audit fail on stale palette source hashes, digest, or cached frame coordinates.
+- [x] Replace self-referential post-reforge atlas coordinate assertions with stable frame-dimension and semantic wiring checks.
+
+## Revision 470 second delta-review fixes
+
+- [x] Record per-tick swing elapsed start/duration and reconstruct swept hazards from the actual sinusoidal phase rather than endpoint-angle interpolation.
+- [x] Cover the extremum-reversal case where a pendulum begins and ends a tick at the same angle after moving out to ±amplitude and back.
+- [x] Sweep against interpolated player motion from pre-platform-update to end-of-tick in both JS and SDL.
+- [x] Include the external swing pivot itself in Level Editor placement/content bounds.
+- [x] Restrict metadata-only palette refresh to verified pixel-equivalent atlas changes with an exact prior resource tree.
+- [x] Make palette resource audit independently require every `resources.json` asset atlas, image source, and frame entry.
+- [x] Add cache-refresh safety regressions and curated frame-local visible-artwork fingerprints.
+- [x] Run atlas Python tooling tests as part of the ordinary release gate.
+
+## Revision 471 third delta-review fixes
+
+- [x] Advance swing platforms through adaptive collision-safe angular substeps instead of endpoint movement plus a separate hazard reconstruction pass.
+- [x] Use the same sampled poses for player rider carry, closed blockable-polygon collision, and damaging/killable contact.
+- [x] Prevent same-platform rider/hazard false positives through rigid substep carry.
+- [x] Cover fast closed blockable polygons that cross the player between endpoint poses.
+- [x] Remove the fixed 512-sample swing-hazard ceiling and cover an extreme 10,000-pixel-radius valid pendulum.
+- [x] Keep crush candidate accounting tick-based while intermediate swing depenetration suppresses repeated substep crush advancement/events.
+- [x] Include production atlas PNG bytes in release-resume source fingerprints without hashing unrelated development PNGs.
+- [x] Add matching JS and SDL regressions for rider separation, swept blockable polygons, and uncapped long-radius hazards.
+
+
+## Revision 472 bounded pendulum collision cleanup
+
+- [x] Clamp swing periods to a minimum of 2.0 seconds in shared JS/C++ normalization and expose the same minimum in the Level Editor.
+- [x] Clamp the local swing pivot vector to at most 800 px in shared JS/C++ normalization and expose the authoring range in the Level Editor.
+- [x] Replace the Revision 471 ultra-fast/10,000-pixel-radius stress fixture with realistic bounded swing regressions.
+- [x] Collision-sweep a carried player against world geometry other than the supporting swing platform.
+- [x] Let sampled open green walkable and yellow/solid segment contacts catch/push a non-rider player.
+- [x] Let sampled swing solids push/catch non-rider character enemies in browser and native simulation.
+- [x] Keep the actor response deliberately approximate and translation-like between angular platform poses rather than introducing continuous rigid-body physics.

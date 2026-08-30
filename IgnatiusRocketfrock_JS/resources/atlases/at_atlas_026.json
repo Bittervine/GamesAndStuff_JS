@@ -7,110 +7,110 @@
     "image": "at_atlas_026.png",
     "frames": {
         "foul_mushroom_platform_026_a": {
-            "x": 4,
-            "y": 4,
+            "x": 290,
+            "y": 692,
             "w": 280,
             "h": 238
         },
         "foul_mushroom_platform_026_b": {
-            "x": 309,
-            "y": 3,
+            "x": 327,
+            "y": 1,
             "w": 309,
             "h": 243
         },
         "foul_mushroom_platform_026_c": {
-            "x": 713,
-            "y": 23,
+            "x": 1,
+            "y": 965,
             "w": 239,
             "h": 224
         },
         "foul_mushroom_platform_026_d": {
-            "x": 1041,
-            "y": 19,
+            "x": 572,
+            "y": 692,
             "w": 273,
             "h": 243
         },
         "foul_mushroom_platform_026_e": {
-            "x": 1349,
-            "y": 34,
+            "x": 585,
+            "y": 467,
             "w": 191,
             "h": 204
         },
         "foul_mushroom_platform_026_f": {
-            "x": 10,
-            "y": 271,
+            "x": 1,
+            "y": 729,
             "w": 280,
             "h": 234
         },
         "foul_mushroom_platform_026_g": {
-            "x": 314,
-            "y": 282,
+            "x": 632,
+            "y": 246,
             "w": 217,
             "h": 205
         },
         "foul_mushroom_platform_026_h": {
-            "x": 565,
-            "y": 267,
+            "x": 1,
+            "y": 1,
             "w": 324,
             "h": 253
         },
         "foul_mushroom_platform_026_i": {
-            "x": 908,
-            "y": 283,
+            "x": 1,
+            "y": 486,
             "w": 287,
             "h": 241
         },
         "foul_mushroom_platform_026_j": {
-            "x": 1235,
-            "y": 271,
+            "x": 1,
+            "y": 256,
             "w": 291,
             "h": 228
         },
         "foul_mushroom_platform_026_k": {
-            "x": 5,
-            "y": 522,
+            "x": 327,
+            "y": 246,
             "w": 303,
             "h": 219
         },
         "foul_mushroom_platform_026_l": {
-            "x": 338,
-            "y": 558,
+            "x": 294,
+            "y": 467,
             "w": 289,
             "h": 223
         },
         "foul_mushroom_platform_026_m": {
-            "x": 653,
-            "y": 544,
+            "x": 283,
+            "y": 932,
             "w": 245,
             "h": 252
         },
         "foul_mushroom_platform_026_n": {
-            "x": 946,
-            "y": 556,
+            "x": 638,
+            "y": 1,
             "w": 184,
             "h": 168
         },
         "foul_mushroom_platform_026_o": {
-            "x": 1148,
-            "y": 651,
+            "x": 530,
+            "y": 937,
             "w": 130,
             "h": 158
         },
         "foul_mushroom_platform_026_p": {
-            "x": 1177,
-            "y": 538,
+            "x": 752,
+            "y": 1036,
             "w": 84,
             "h": 94
         },
         "foul_mushroom_platform_026_q": {
-            "x": 1317,
-            "y": 655,
+            "x": 662,
+            "y": 937,
             "w": 88,
             "h": 120
         },
         "foul_mushroom_platform_026_r": {
-            "x": 1326,
-            "y": 529,
+            "x": 752,
+            "y": 937,
             "w": 87,
             "h": 97
         }

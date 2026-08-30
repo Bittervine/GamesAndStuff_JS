@@ -1,11 +1,11 @@
 {
     "meta": {
-        "version": 3,
-        "note": "Revision 180 tunes the smaller blue bomber to use full-range GIMP-style Color Exchange so the shared atlas shifts cleanly toward the supplied blue swatch without blotchy partial replacement."
+        "version": 4,
+        "note": "Revision 493 gives the Blue Bombing Bat its own pre-baked blue atlas; per-part runtime Color Exchange is no longer used."
     },
     "rigId": "ct_rig_enemy_021",
-    "atlasId": "ct_atlas_enemy_020",
-    "atlasManifest": "ct_atlas_enemy_020.json",
+    "atlasId": "ct_atlas_enemy_021",
+    "atlasManifest": "ct_atlas_enemy_021.json",
     "drawOrder": [
         "frame_01",
         "frame_02",
@@ -144,14 +144,7 @@
             },
             "scale": 1,
             "targetHeight": 147,
-            "alpha": 1,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 1
         },
         "frame_02": {
             "frame": "frame_02",
@@ -167,14 +160,7 @@
             },
             "scale": 1,
             "targetHeight": 147,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_03": {
             "frame": "frame_03",
@@ -190,14 +176,7 @@
             },
             "scale": 1,
             "targetHeight": 141,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_04": {
             "frame": "frame_04",
@@ -213,14 +192,7 @@
             },
             "scale": 1,
             "targetHeight": 126,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_05": {
             "frame": "frame_05",
@@ -236,14 +208,7 @@
             },
             "scale": 1,
             "targetHeight": 106,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_06": {
             "frame": "frame_06",
@@ -259,14 +224,7 @@
             },
             "scale": 1,
             "targetHeight": 88,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_07": {
             "frame": "frame_07",
@@ -282,14 +240,7 @@
             },
             "scale": 1,
             "targetHeight": 88,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_08": {
             "frame": "frame_08",
@@ -305,14 +256,7 @@
             },
             "scale": 1,
             "targetHeight": 107,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_09": {
             "frame": "frame_09",
@@ -328,14 +272,7 @@
             },
             "scale": 1,
             "targetHeight": 139,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_10": {
             "frame": "frame_10",
@@ -351,14 +288,7 @@
             },
             "scale": 1,
             "targetHeight": 167,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_11": {
             "frame": "frame_11",
@@ -374,14 +304,7 @@
             },
             "scale": 1,
             "targetHeight": 178,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_12": {
             "frame": "frame_12",
@@ -397,14 +320,7 @@
             },
             "scale": 1,
             "targetHeight": 182,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_13": {
             "frame": "frame_13",
@@ -420,14 +336,7 @@
             },
             "scale": 1,
             "targetHeight": 174,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_14": {
             "frame": "frame_14",
@@ -443,14 +352,7 @@
             },
             "scale": 1,
             "targetHeight": 164,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_15": {
             "frame": "frame_15",
@@ -466,14 +368,7 @@
             },
             "scale": 1,
             "targetHeight": 160,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_16": {
             "frame": "frame_16",
@@ -489,14 +384,7 @@
             },
             "scale": 1,
             "targetHeight": 159,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_17": {
             "frame": "frame_17",
@@ -512,14 +400,7 @@
             },
             "scale": 1,
             "targetHeight": 150,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_18": {
             "frame": "frame_18",
@@ -535,14 +416,7 @@
             },
             "scale": 1,
             "targetHeight": 132,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_19": {
             "frame": "frame_19",
@@ -558,14 +432,7 @@
             },
             "scale": 1,
             "targetHeight": 101,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_20": {
             "frame": "frame_20",
@@ -581,14 +448,7 @@
             },
             "scale": 1,
             "targetHeight": 91,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_21": {
             "frame": "frame_21",
@@ -604,14 +464,7 @@
             },
             "scale": 1,
             "targetHeight": 101,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         },
         "frame_22": {
             "frame": "frame_22",
@@ -627,14 +480,7 @@
             },
             "scale": 1,
             "targetHeight": 114,
-            "alpha": 0,
-            "colorExchange": {
-                "fromColor": "#5f2483",
-                "toColor": "#34348f",
-                "redThreshold": 1.0,
-                "greenThreshold": 1.0,
-                "blueThreshold": 1.0
-            }
+            "alpha": 0
         }
     }
 }

@@ -7,14 +7,14 @@
     "image": "at_atlas_021.png",
     "frames": {
         "forest_rock_cliff_021_a": {
-            "x": 32,
-            "y": 31,
+            "x": 1,
+            "y": 1,
             "w": 1485,
             "h": 431
         },
         "forest_rock_cliff_021_b": {
-            "x": 33,
-            "y": 531,
+            "x": 1,
+            "y": 434,
             "w": 1470,
             "h": 414
         }

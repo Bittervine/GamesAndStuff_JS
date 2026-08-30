@@ -876,7 +876,7 @@
             "generatorId": "layered-safety-network-traversal-v6",
             "editorLocked": false,
             "movement": {
-                "version": 1,
+                "version": 2,
                 "pattern": "shuttle",
                 "activation": "automatic",
                 "signalChannel": "A",
@@ -888,7 +888,9 @@
                 "startPause": 0.784,
                 "endPause": 0.774,
                 "fadeDuration": 0.2,
-                "hiddenDuration": 1.25
+                "hiddenDuration": 1.25,
+                "motionType": "translate",
+                "easing": "linear"
             },
             "order": 1022
         },
@@ -913,7 +915,7 @@
             "generatorId": "layered-safety-network-traversal-v6",
             "editorLocked": false,
             "movement": {
-                "version": 1,
+                "version": 2,
                 "pattern": "shuttle",
                 "activation": "automatic",
                 "signalChannel": "A",
@@ -925,7 +927,9 @@
                 "startPause": 0.792,
                 "endPause": 0.874,
                 "fadeDuration": 0.2,
-                "hiddenDuration": 1.25
+                "hiddenDuration": 1.25,
+                "motionType": "translate",
+                "easing": "linear"
             },
             "order": 1023
         },

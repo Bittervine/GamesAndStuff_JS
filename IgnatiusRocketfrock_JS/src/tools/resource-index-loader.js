@@ -87,7 +87,15 @@ export async function loadImageResourceWithRetry(requestPath, options = {}) {
         return await new Promise((resolve, reject) => {
             const image = new Image();
             image.onload = () => resolve(image);
-            image.onerror = () => reject(new Error(`Could not decode ${resourceUrl(requestPath)} as an image.`));
+            image.onerror = () => {
+                console.error("Ignatius image decode failed", {
+                    requestPath: String(requestPath || ""),
+                    resolvedUrl: resourceUrl(requestPath),
+                    blobType: blob.type || "",
+                    blobSize: blob.size
+                });
+                reject(new Error(`Could not decode ${resourceUrl(requestPath)} as an image.`));
+            };
             image.src = objectUrl;
         });
     } finally {

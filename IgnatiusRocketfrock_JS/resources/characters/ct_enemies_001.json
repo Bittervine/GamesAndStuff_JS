@@ -1,8 +1,8 @@
 {
     "meta": {
-        "version": 135,
-        "note": "Revision 182 adds Human Crossbow enemies 034-035 and rapier-wielding Human Pirates 036-037. Revision 232 gives both Human Crossbow variants a data-driven three-handoff burst and 2.5-second recovery cooldown. Revision 234 adds weapon-free Human Boxer enemy_038 using body_05/head_16. Revision 235 corrects Axethrowers 090-093 with open left hands and axe_copy spinning-projectile handoffs. Revision 236 preserves the final user-authored Axethrower 090-093 rig and animation refinements. Revision 348 gives Hobgoblins explosive musketMortar ammunition with Skeleton Caster damage and makes Porker, Crocker, and Ogre default to 1.5 enemy scale. Revision 349 sets Big Red Rocket blast radius to 2 wizard heights and Hobgoblin musketMortar blast radius to 3 wizard heights, gives the mortar the Big Red Rocket expanding blastwave presentation, and increases Raptor hunter run speed from 200 to 800 (4x). Revision 350 fixes the Hobgoblin runtime rig handoff so its musketMortar catalog default survives character combat-profile synchronization. Revision 352 makes deployed enemies inherit live catalog defaults, introduces animation-timed generic attack handoffs for melee and projectiles, and makes projectile spread, rotation, presentation, effects, and AoE data-driven. Revision 418 adds enemy_901 as an ordinary passive Training Dummy-derived cutscene speaker whose generic visualized flag suppresses rendering without special enemy code. Revision 421 raises enemy_901 health to 1,000,000,000 so it remains normally hittable without being practically killable. Revision 432 replaces the old short melee tracking nudge with data-driven committed lunges for Skeleton Guard, Human Raiders, and Human Pirates; stock-rocket interception simulation sets their initial lunge envelope. Revision 434 makes Puppet Forge lunge controls live, reduces the committed-lunge envelope for additional rocket counterplay, slows lunges for reactable evasion, and holds the authored impact pose during the physical burst. Revision 435 preserves the user-authored Skeleton Guard and Human Pirate enemy_036 melee attack/handoff refinements, and adapts enemy_036's thrust attack timing and motion to Human Raiders 030-031 and Human Pirate II 037. Revision 436 standardizes all currently lunge-capable enemies at lungeRangeMax 600 and lungeSpeed 2000 after playtesting.",
-        "revision": 436
+        "version": 157,
+        "note": "Revision 182 adds Human Crossbow enemies 034-035 and rapier-wielding Human Pirates 036-037. Revision 232 gives both Human Crossbow variants a data-driven three-handoff burst and 2.5-second recovery cooldown. Revision 234 adds weapon-free Human Boxer enemy_038 using body_05/head_16. Revision 235 corrects Axethrowers 090-093 with open left hands and axe_copy spinning-projectile handoffs. Revision 236 preserves the final user-authored Axethrower 090-093 rig and animation refinements. Revision 348 gives Hobgoblins explosive musketMortar ammunition with Skeleton Caster damage and makes Porker, Crocker, and Ogre default to 1.5 enemy scale. Revision 349 sets Big Red Rocket blast radius to 2 wizard heights and Hobgoblin musketMortar blast radius to 3 wizard heights, gives the mortar the Big Red Rocket expanding blastwave presentation, and increases Raptor hunter run speed from 200 to 800 (4x). Revision 350 fixes the Hobgoblin runtime rig handoff so its musketMortar catalog default survives character combat-profile synchronization. Revision 352 makes deployed enemies inherit live catalog defaults, introduces animation-timed generic attack handoffs for melee and projectiles, and makes projectile spread, rotation, presentation, effects, and AoE data-driven. Revision 418 adds enemy_901 as an ordinary passive Training Dummy-derived cutscene speaker whose generic visualized flag suppresses rendering without special enemy code. Revision 421 raises enemy_901 health to 1,000,000,000 so it remains normally hittable without being practically killable. Revision 432 replaces the old short melee tracking nudge with data-driven committed lunges for Skeleton Guard, Human Raiders, and Human Pirates; stock-rocket interception simulation sets their initial lunge envelope. Revision 434 makes Puppet Forge lunge controls live, reduces the committed-lunge envelope for additional rocket counterplay, slows lunges for reactable evasion, and holds the authored impact pose during the physical burst. Revision 435 preserves the user-authored Skeleton Guard and Human Pirate enemy_036 melee attack/handoff refinements, and adapts enemy_036's thrust attack timing and motion to Human Raiders 030-031 and Human Pirate II 037. Revision 436 standardizes all currently lunge-capable enemies at lungeRangeMax 600 and lungeSpeed 2000 after playtesting. Revision 459 redefines positive meleeHitRange as horizontal reach from the enemy grounded base position and converts the five lunge-capable weapon enemies to measured visible weapon-tip reach; user-authored lunge/interrupt tuning is preserved.",
+        "revision": 459
     },
     "catalogId": "ct_enemies_001",
     "enemies": {
@@ -24,14 +24,13 @@
                 "maxStepHeight": 26,
                 "maxDropDistance": 34,
                 "renderScale": 1.2,
-                "health": 120,
+                "health": 150,
                 "animationSlot": "idle",
                 "targetAnchor": {
                     "x": 0.5,
                     "y": 0.4
                 },
                 "showTargetMarker": false,
-                "attackRange": 66,
                 "attackVerticalRange": 104,
                 "attackDuration": 0.44,
                 "attackCooldown": 0.12,
@@ -43,7 +42,7 @@
                 "runSpeed": 165,
                 "jumpHeight": 190,
                 "unreachableGlareDuration": 5,
-                "awarenessViewHalfAngle": 60,
+                "awarenessViewHalfAngle": 180,
                 "renderOffsetX": 0,
                 "renderOffsetY": 0,
                 "locomotion": "ground",
@@ -55,12 +54,12 @@
                 "damage": 49,
                 "spreadCount": 1,
                 "spreadAngle": 0,
-                "meleeHitRange": 66,
+                "meleeHitRange": 181,
                 "lungeTargetDist": 50,
                 "lungeRangeMin": 145,
                 "lungeRangeMax": 600,
                 "lungeSpeed": 2000,
-                "meleeHitRadius": 33
+                "immuneToInterrupts": true
             },
             "description": ""
         },
@@ -82,27 +81,27 @@
                 "maxStepHeight": 26,
                 "maxDropDistance": 34,
                 "renderScale": 1.2,
-                "health": 120,
+                "health": 150,
                 "animationSlot": "idle",
                 "targetAnchor": {
                     "x": 0.5,
                     "y": 0.4
                 },
                 "showTargetMarker": false,
-                "attackRange": 420,
+                "attackRange": 600,
                 "attackVerticalRange": 220,
                 "attackDuration": 0.62,
-                "attackCooldown": 3,
+                "attackCooldown": 2,
                 "projectileKind": "undeathOrb",
-                "projectileSpeed": 285,
+                "projectileSpeed": 500,
                 "projectileGravity": 0,
                 "projectileLifetime": 7.2,
                 "projectileRadius": 24,
-                "projectileHomingStrength": 2.61,
+                "projectileHomingStrength": 3.5,
                 "projectileKnockbackX": 165,
                 "projectileKnockbackY": -120,
                 "projectilePathMargin": 100,
-                "preferredAttackRange": 250,
+                "preferredAttackRange": 600,
                 "preferredAttackMinRange": 120,
                 "awarenessRange": 800,
                 "awarenessHoldDuration": 1.35,
@@ -115,7 +114,7 @@
                 "unreachableGlareDuration": 5,
                 "routeRepathInterval": 0.3,
                 "homeRetryInterval": 4,
-                "awarenessViewHalfAngle": 60,
+                "awarenessViewHalfAngle": 180,
                 "renderOffsetX": 0,
                 "renderOffsetY": 0,
                 "locomotion": "ground",
@@ -123,7 +122,8 @@
                 "attackType": "projectile",
                 "damage": 49,
                 "spreadCount": 1,
-                "spreadAngle": 0
+                "spreadAngle": 0,
+                "immuneToInterrupts": true
             },
             "description": "A hunter skeleton that pursues Ignatius across terrain and casts an obstacle-aware orb of undeath."
         },
@@ -286,7 +286,7 @@
                 "projectileHomingStrength": 0,
                 "projectileKnockbackX": 150,
                 "projectileKnockbackY": -110,
-                "preferredAttackRange": 220,
+                "preferredAttackRange": 600,
                 "preferredAttackMinRange": 110,
                 "awarenessRange": 1000,
                 "awarenessHoldDuration": 1.5,
@@ -548,7 +548,6 @@
                     "y": 0.38
                 },
                 "showTargetMarker": false,
-                "attackRange": 72,
                 "attackVerticalRange": 108,
                 "attackDuration": 0.46,
                 "attackCooldown": 0.14,
@@ -572,12 +571,11 @@
                 "damage": 24,
                 "spreadCount": 1,
                 "spreadAngle": 0,
-                "meleeHitRange": 72,
+                "meleeHitRange": 143,
                 "lungeTargetDist": 54,
-                "lungeRangeMin": 200,
-                "lungeRangeMax": 300,
-                "lungeSpeed": 2000,
-                "meleeHitRadius": 36
+                "lungeRangeMin": 250,
+                "lungeRangeMax": 450,
+                "lungeSpeed": 2000
             },
             "description": "A modular human sword enemy using body_00/head_00 with the fully articulated split-limb rig and refined animation set."
         },
@@ -606,7 +604,6 @@
                     "y": 0.38
                 },
                 "showTargetMarker": false,
-                "attackRange": 72,
                 "attackVerticalRange": 108,
                 "attackDuration": 0.46,
                 "attackCooldown": 0.14,
@@ -630,12 +627,11 @@
                 "damage": 24,
                 "spreadCount": 1,
                 "spreadAngle": 0,
-                "meleeHitRange": 72,
+                "meleeHitRange": 143,
                 "lungeTargetDist": 54,
-                "lungeRangeMin": 200,
-                "lungeRangeMax": 300,
-                "lungeSpeed": 2000,
-                "meleeHitRadius": 36
+                "lungeRangeMin": 250,
+                "lungeRangeMax": 450,
+                "lungeSpeed": 2000
             },
             "description": "A modular human sword enemy using body_01/head_01 with an exact articulated copy of the refined sword animation set."
         },
@@ -814,7 +810,7 @@
                 "maxFallDistance": 600,
                 "routeRepathInterval": 0.34,
                 "homeRetryInterval": 4,
-                "preferredAttackRange": 340,
+                "preferredAttackRange": 600,
                 "preferredAttackMinRange": 150,
                 "projectileKind": "crossbowBolt",
                 "projectileLaunchType": "straight",
@@ -879,7 +875,7 @@
                 "maxFallDistance": 600,
                 "routeRepathInterval": 0.34,
                 "homeRetryInterval": 4,
-                "preferredAttackRange": 340,
+                "preferredAttackRange": 600,
                 "preferredAttackMinRange": 150,
                 "projectileKind": "crossbowBolt",
                 "projectileLaunchType": "straight",
@@ -924,7 +920,6 @@
                     "y": 0.38
                 },
                 "showTargetMarker": false,
-                "attackRange": 78,
                 "attackVerticalRange": 108,
                 "attackDuration": 0.46,
                 "attackCooldown": 0.14,
@@ -948,12 +943,11 @@
                 "damage": 24,
                 "spreadCount": 1,
                 "spreadAngle": 0,
-                "meleeHitRange": 78,
+                "meleeHitRange": 135,
                 "lungeTargetDist": 58,
-                "lungeRangeMin": 300,
+                "lungeRangeMin": 250,
                 "lungeRangeMax": 600,
-                "lungeSpeed": 2000,
-                "meleeHitRadius": 39
+                "lungeSpeed": 2000
             },
             "description": "Human Pirate using the shared modular-human atlas and a rapier. He reuses the articulated Raider lunge and slash timing."
         },
@@ -982,7 +976,6 @@
                     "y": 0.38
                 },
                 "showTargetMarker": false,
-                "attackRange": 78,
                 "attackVerticalRange": 108,
                 "attackDuration": 0.46,
                 "attackCooldown": 0.14,
@@ -1006,12 +999,11 @@
                 "damage": 24,
                 "spreadCount": 1,
                 "spreadAngle": 0,
-                "meleeHitRange": 78,
+                "meleeHitRange": 138,
                 "lungeTargetDist": 58,
-                "lungeRangeMin": 300,
+                "lungeRangeMin": 250,
                 "lungeRangeMax": 600,
-                "lungeSpeed": 2000,
-                "meleeHitRadius": 39
+                "lungeSpeed": 2000
             },
             "description": "Human Pirate II using the shared modular-human atlas and a rapier. He reuses the articulated Raider lunge and slash timing."
         },
@@ -1040,7 +1032,6 @@
                     "y": 0.38
                 },
                 "showTargetMarker": false,
-                "attackRange": 72,
                 "attackVerticalRange": 108,
                 "attackDuration": 0.46,
                 "attackCooldown": 0.14,
@@ -1064,8 +1055,7 @@
                 "damage": 24,
                 "spreadCount": 1,
                 "spreadAngle": 0,
-                "meleeHitRadius": 30,
-                "meleeHitRange": 0,
+                "meleeHitRange": 49,
                 "lungeRangeMin": 0,
                 "lungeRangeMax": 0,
                 "lungeSpeed": 0,
@@ -1098,7 +1088,6 @@
                     "y": 0.42
                 },
                 "showTargetMarker": false,
-                "attackRange": 72,
                 "attackVerticalRange": 108,
                 "attackDuration": 0.46,
                 "attackCooldown": 0.14,
@@ -1122,7 +1111,7 @@
                 "damage": 24,
                 "spreadCount": 1,
                 "spreadAngle": 0,
-                "meleeHitRadius": 36
+                "meleeHitRange": 82
             },
             "description": "A fast ground-hunting raptor assembled from a parent-constrained articulated rig."
         },
@@ -1151,7 +1140,6 @@
                     "y": 0.48
                 },
                 "showTargetMarker": false,
-                "attackRange": 64,
                 "attackVerticalRange": 64,
                 "attackDuration": 0.68,
                 "attackCooldown": 0.16,
@@ -1178,7 +1166,7 @@
                 "damage": 22,
                 "spreadCount": 1,
                 "spreadAngle": 0,
-                "meleeHitRadius": 34
+                "meleeHitRange": 124
             },
             "description": "A low-slung articulated snake assembled from repeated pattern-matched overlapping sections. It uses an organic slither, a raised-head bite, and a dramatic belly-up death."
         },
@@ -1645,7 +1633,6 @@
                     "y": 0.5
                 },
                 "showTargetMarker": false,
-                "attackRange": 0,
                 "attackVerticalRange": 0,
                 "attackDuration": 0,
                 "attackCooldown": 0,
@@ -1669,8 +1656,7 @@
                 "attackType": "melee",
                 "damage": 0,
                 "spreadCount": 1,
-                "spreadAngle": 0,
-                "meleeHitRadius": 24
+                "spreadAngle": 0
             },
             "description": "A stationary training dummy that uses the ordinary enemy pipeline but never attacks or deals contact damage."
         },
@@ -1699,7 +1685,6 @@
                     "y": 0.5
                 },
                 "showTargetMarker": false,
-                "attackRange": 0,
                 "attackVerticalRange": 0,
                 "attackDuration": 0,
                 "attackCooldown": 0,
@@ -1724,7 +1709,6 @@
                 "damage": 0,
                 "spreadCount": 1,
                 "spreadAngle": 0,
-                "meleeHitRadius": 24,
                 "visualized": true
             },
             "description": "An invisible, stationary passive enemy intended as a cutscene speech-bubble anchor for off-screen or hidden speakers."

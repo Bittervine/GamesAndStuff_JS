@@ -80,6 +80,43 @@
             transition: opacity 180ms ease;
         }
 
+        #startup-studio-splash {
+            position: fixed;
+            inset: 0;
+            z-index: 9990;
+            display: grid;
+            place-items: center;
+            padding: clamp(24px, 6vw, 72px);
+            background: #000;
+            pointer-events: none;
+        }
+
+        #startup-studio-splash[hidden] {
+            display: none !important;
+        }
+
+        #startup-studio-logo {
+            display: block;
+            width: min(76vw, 900px);
+            max-width: 100%;
+            max-height: 72vh;
+            object-fit: contain;
+            opacity: 0;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        #startup-studio-splash.active #startup-studio-logo {
+            animation: ignatius-studio-logo-startup 3000ms linear both;
+        }
+
+        @keyframes ignatius-studio-logo-startup {
+            0% { opacity: 0; }
+            16.6667% { opacity: 1; }
+            83.3333% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
         #loading-card {
             width: min(430px, calc(100vw - 48px));
             border: 1px solid var(--line);
@@ -943,6 +980,117 @@ font-size: 14px;
             grid-column: 1 / -1;
         }
 
+
+        #game-controls-panel {
+            grid-template-columns: 1fr;
+        }
+
+        .control-binding-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .control-binding-row {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-height: 48px;
+            padding: 8px 10px 8px 13px;
+            border: 1px solid var(--menu-line);
+            border-radius: 0;
+            background: var(--menu-panel-raised);
+            cursor: pointer;
+        }
+
+        .control-binding-row:hover,
+        .control-binding-row:focus-within {
+            border-color: rgba(225, 209, 255, 0.7);
+            background: rgba(67, 49, 92, 0.88);
+        }
+
+        .control-binding-row.advanced {
+            min-height: 44px;
+            font-size: 12px;
+            opacity: 0.94;
+        }
+
+        .control-binding-name {
+            flex: 0 0 auto;
+            color: var(--ink);
+            font-size: 16px;
+            font-weight: 760;
+            pointer-events: none;
+        }
+
+        .control-binding-row.advanced .control-binding-name {
+            font-size: 13px;
+        }
+
+        .control-binding-slots {
+            display: flex;
+            flex: 1 1 auto;
+            min-width: 0;
+            flex-wrap: nowrap;
+            overflow: hidden;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .control-binding-chip,
+        .control-binding-fixed {
+            position: relative;
+            flex: 0 0 auto;
+            min-height: 30px;
+            border: 1px solid rgba(201, 167, 255, 0.52);
+            border-radius: 0;
+            background: rgba(92, 65, 126, 0.78);
+            color: #fbf8ff;
+            font-size: 12px;
+            font-weight: 720;
+            line-height: 1;
+        }
+
+        .control-binding-chip {
+            padding: 6px 14px 6px 10px;
+            cursor: pointer;
+        }
+
+        .control-binding-chip::after {
+            content: "×";
+            position: absolute;
+            top: 1px;
+            right: 2px;
+            font-size: 9px;
+            line-height: 1;
+            color: rgba(251, 248, 255, 0.72);
+            pointer-events: none;
+        }
+
+        .control-binding-chip:hover {
+            border-color: rgba(238, 226, 255, 0.9);
+            background: rgba(116, 82, 157, 0.9);
+        }
+
+        .control-binding-fixed {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            border-color: rgba(201, 167, 255, 0.24);
+            color: var(--menu-muted);
+            background: rgba(22, 18, 30, 0.66);
+        }
+
+        .control-binding-capture-message {
+            flex: 1 1 auto;
+            color: rgba(251, 248, 255, 0.9);
+            font-size: 12px;
+            font-weight: 690;
+            text-align: right;
+            pointer-events: none;
+        }
+
         .save-slot-list {
             display: grid;
             gap: 10px;
@@ -1015,6 +1163,9 @@ font-size: 14px;
     </style>
 </head>
 <body>
+    <section id="startup-studio-splash" hidden aria-hidden="true">
+        <img id="startup-studio-logo" src="resources/ui/studio_logo.png" alt="">
+    </section>
     <section id="credits-screen" hidden aria-label="Credits" tabindex="-1">
         <div id="credits-track" aria-live="off"></div>
     </section>
@@ -1159,7 +1310,15 @@ font-size: 14px;
                     <div id="rendering-mode-status" class="settings-note">Renderer changes take effect after reloading the game.</div>
                 </div>
 
-                <button id="development-features-button" class="game-menu-action settings-wide" type="button">Development features...</button>
+                <button id="controls-settings-button" class="game-menu-action settings-wide" type="button">Controls...</button>
+                <button id="development-features-button" class="game-menu-action settings-wide" type="button">Development...</button>
+            </section>
+
+            <section id="game-controls-panel" class="game-menu-view" hidden>
+                <div id="control-bindings-main" class="control-binding-list settings-wide" aria-label="Controls"></div>
+                <button id="control-bindings-advanced-toggle" class="game-menu-action settings-wide" type="button" aria-expanded="false">Advanced bindings...</button>
+                <div id="control-bindings-advanced" class="control-binding-list settings-wide" hidden aria-label="Advanced controls"></div>
+                <button id="control-bindings-reset" class="game-menu-action settings-wide danger" type="button">Reset controls to defaults</button>
             </section>
 
             <section id="game-development-panel" class="game-menu-view" hidden>

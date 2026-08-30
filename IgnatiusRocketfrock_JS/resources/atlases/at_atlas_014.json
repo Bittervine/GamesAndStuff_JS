@@ -7,158 +7,158 @@
     "image": "at_atlas_014.png",
     "frames": {
         "forest_tree_oak_wide": {
-            "x": 20,
-            "y": 20,
+            "x": 1,
+            "y": 347,
             "w": 370,
             "h": 392
         },
         "forest_tree_oak_round": {
-            "x": 422,
-            "y": 20,
+            "x": 576,
+            "y": 347,
             "w": 290,
             "h": 332
         },
         "forest_tree_pine": {
-            "x": 744,
-            "y": 20,
+            "x": 373,
+            "y": 347,
             "w": 201,
             "h": 359
         },
         "forest_tree_birch": {
-            "x": 977,
-            "y": 20,
+            "x": 1569,
+            "y": 1,
             "w": 174,
             "h": 383
         },
         "forest_tree_slender": {
-            "x": 1183,
-            "y": 20,
+            "x": 868,
+            "y": 355,
             "w": 237,
             "h": 298
         },
         "forest_sapling": {
-            "x": 1452,
-            "y": 20,
+            "x": 1674,
+            "y": 386,
             "w": 75,
             "h": 97
         },
         "forest_tree_stump": {
-            "x": 1559,
-            "y": 20,
+            "x": 576,
+            "y": 681,
             "w": 179,
             "h": 105
         },
         "forest_shrub_leafy": {
-            "x": 1770,
-            "y": 20,
+            "x": 868,
+            "y": 655,
             "w": 213,
             "h": 122
         },
         "forest_bush_white_flowers": {
-            "x": 20,
-            "y": 444,
+            "x": 1,
+            "y": 741,
             "w": 176,
             "h": 121
         },
         "forest_bush_red_berries": {
-            "x": 228,
-            "y": 444,
+            "x": 373,
+            "y": 708,
             "w": 178,
             "h": 123
         },
         "forest_bush_pink_flowers": {
-            "x": 438,
-            "y": 444,
+            "x": 179,
+            "y": 741,
             "w": 175,
             "h": 116
         },
         "forest_fern_small": {
-            "x": 645,
-            "y": 444,
+            "x": 1608,
+            "y": 527,
             "w": 145,
             "h": 105
         },
         "forest_wildflowers_daisies": {
-            "x": 822,
-            "y": 444,
+            "x": 1518,
+            "y": 734,
             "w": 110,
             "h": 111
         },
         "forest_grass_clump": {
-            "x": 964,
-            "y": 444,
+            "x": 757,
+            "y": 768,
             "w": 77,
             "h": 78
         },
         "forest_mushrooms": {
-            "x": 1073,
-            "y": 444,
+            "x": 1426,
+            "y": 1,
             "w": 130,
             "h": 86
         },
         "forest_grass_ground_block": {
-            "x": 16,
-            "y": 597,
+            "x": 1,
+            "y": 1,
             "w": 1423,
             "h": 162
         },
         "forest_crate_large_blockable": {
-            "x": 1470,
-            "y": 599,
+            "x": 1358,
+            "y": 527,
             "w": 248,
             "h": 149
         },
         "forest_crate_medium_blockable": {
-            "x": 1750,
-            "y": 599,
+            "x": 1358,
+            "y": 678,
             "w": 158,
             "h": 120
         },
         "forest_crate_small_blockable": {
-            "x": 20,
-            "y": 791,
+            "x": 1608,
+            "y": 634,
             "w": 118,
             "h": 98
         },
         "forest_crate_tiny_blockable": {
-            "x": 170,
-            "y": 791,
+            "x": 757,
+            "y": 681,
             "w": 107,
             "h": 85
         },
         "forest_hay_bale_rect_blockable": {
-            "x": 308,
-            "y": 789,
+            "x": 1107,
+            "y": 355,
             "w": 295,
             "h": 144
         },
         "forest_hay_bale_round_blockable": {
-            "x": 635,
-            "y": 791,
+            "x": 1404,
+            "y": 386,
             "w": 268,
             "h": 139
         },
         "forest_rock_cave_entrance": {
-            "x": 935,
-            "y": 791,
+            "x": 1,
+            "y": 165,
             "w": 1082,
             "h": 180
         },
         "full_moon": {
-            "x": 1215,
-            "y": 354,
+            "x": 1107,
+            "y": 501,
             "w": 249,
             "h": 242
         },
         "dark_cloud_1": {
-            "x": 1524,
-            "y": 363,
+            "x": 1085,
+            "y": 165,
             "w": 482,
             "h": 188
         },
         "forrest_ground_blend_1": {
-            "x": 775,
-            "y": 597,
+            "x": 760,
+            "y": 1,
             "w": 307,
             "h": 162
         }

@@ -304,17 +304,65 @@
                         "xMax": 2880,
                         "sourcePolygonId": "campaign_scaffold_floor_016_area_0",
                         "obstacleXMin": -160,
-                        "obstacleXMax": 2880
+                        "obstacleXMax": 2880,
+                        "strideBoundaryXMin": null,
+                        "strideBoundaryXMax": null,
+                        "sourceVisualId": "campaign_scaffold_floor_016",
+                        "sourceAssetId": "horizontal_blocker",
+                        "sourceAtlasId": "at_atlas_001",
+                        "geometryDependencyIds": [
+                            "visual:campaign_scaffold_floor_016"
+                        ],
+                        "walkRegionId": "walk_region_001"
                     }
                 ],
-                "supportSignature": "campaign_scaffold_floor_016_blockable_1:-160:640:2880:640:campaign_scaffold_floor_016_area_0",
+                "walkRegions": [
+                    {
+                        "id": "walk_region_001",
+                        "supportIds": [
+                            "campaign_scaffold_floor_016_blockable_1"
+                        ],
+                        "geometryDependencyIds": [
+                            "visual:campaign_scaffold_floor_016"
+                        ],
+                        "verification": "verified",
+                        "verificationInputHash": "navwalkproof-v3-8c500c52526d1247"
+                    }
+                ],
+                "supportSignature": "campaign_scaffold_floor_016_blockable_1:-160:640:2880:640:::campaign_scaffold_floor_016_area_0",
                 "edges": [],
                 "dynamicCostRules": [],
                 "build": {
-                    "method": "ballistic_graph_with_run_up",
+                    "method": "walk_regions_with_ballistic_transitions",
                     "stepTransitionMethod": "stride_arc",
                     "samplesPerSecond": 60,
-                    "generatedBy": "Ignatius Rocketfrock Level Editor"
+                    "generatedBy": "Ignatius Rocketfrock Level Editor",
+                    "advisoryHeuristicSchema": 6,
+                    "advisoryHeuristics": [
+                        "intervening_walkable_support",
+                        "intervening_walkable_support_body_span",
+                        "source_support_recapture",
+                        "source_support_return",
+                        "run_up_first_step_blocked"
+                    ],
+                    "verificationInputSignature": "navverify-v3-bfdbcd50bd2310be",
+                    "simulationCheck": {
+                        "enabled": true,
+                        "fixedStep": 0.016666666666666666,
+                        "verifiedTypes": [
+                            "step",
+                            "jump",
+                            "drop"
+                        ],
+                        "checkedEdges": 0,
+                        "simulatedEdges": 0,
+                        "reusedEdges": 0,
+                        "rejectedEdges": 0,
+                        "failedEdges": 0,
+                        "unverifiedEdges": 0,
+                        "salvageProofChecks": 0,
+                        "salvagedEdges": 0
+                    }
                 }
             }
         ]

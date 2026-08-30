@@ -9,13 +9,9 @@ const appDir = path.join(buildRoot, "app");
 const distDir = path.join(electronDir, "dist");
 const buildDirOnly = process.argv.includes("--dir");
 
-const runtimeEntries = [
-    "game.html",
-    "GameManual.html",
-    "favicon.ico",
-    "resources",
-    "src"
-];
+const nativeBuildDir = path.resolve(projectRoot, "..", "build", "Release");
+const nativeContentSource = path.join(nativeBuildDir, "content");
+const contentSource = path.join(buildRoot, "content");
 
 function removePath(target) {
     fs.rmSync(target, { recursive: true, force: true });
@@ -79,10 +75,14 @@ const electronVersion = readInstalledElectronVersion();
 removePath(buildRoot);
 removePath(distDir);
 ensureDir(appDir);
-for (const entry of runtimeEntries) {
-    copyRequiredEntry(entry);
+if (!fs.existsSync(nativeContentSource)) {
+    throw new Error(`Native packaged content was not found at ${nativeContentSource}. Build the Release configuration first.`);
 }
-copyRecursive(path.resolve(projectRoot, "..", "BUILD_REVISION.txt"), path.join(appDir, "BUILD_REVISION.txt"));
+copyRecursive(nativeContentSource, contentSource);
+for (const entry of ["game.html", "GameManual.html", "favicon.ico", "src", "resources"]) {
+    copyRecursive(path.join(projectRoot, entry), path.join(contentSource, entry));
+}
+copyRecursive(path.resolve(projectRoot, "..", "BUILD_REVISION.txt"), path.join(contentSource, "BUILD_REVISION.txt"));
 copyRecursive(path.join(electronDir, "main.cjs"), path.join(appDir, "main.cjs"));
 copyRecursive(path.join(electronDir, "preload.cjs"), path.join(appDir, "preload.cjs"));
 
@@ -104,19 +104,19 @@ const stagedPackage = {
         files: [
             "main.cjs",
             "preload.cjs",
-            "BUILD_REVISION.txt",
-            "game.html",
-            "GameManual.html",
-            "favicon.ico",
-            "resources/**/*",
-            "src/**/*",
             "package.json"
+        ],
+        extraResources: [
+            {
+                from: contentSource,
+                to: "../content"
+            }
         ],
         win: {
             target: [
                 buildDirOnly ? "dir" : "portable"
             ],
-            icon: "favicon.ico",
+            icon: path.join(contentSource, "favicon.ico"),
             signExecutable: false,
             artifactName: "${productName}-${version}-${arch}.${ext}"
         },

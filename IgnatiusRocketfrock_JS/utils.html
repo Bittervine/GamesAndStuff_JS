@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <title>Ignatius Utils - BUILD</title>
+    <style>
+        :root { color-scheme: dark; --bg: #0d0b15; --panel: #171221; --panel2: #211a30; --border: #51406f; --text: #eee8ff; --muted: #b7abc9; --accent: #a481df; --ok: #88d8a0; --warn: #ffd27a; --error: #ff8f9b; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, sans-serif; }
+        body { padding: 22px; }
+        main { width: min(980px, 100%); margin: 0 auto; }
+        h1 { margin: 0 0 8px; font-size: 22px; }
+        p { color: var(--muted); margin: 0 0 16px; }
+        .panel { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 18px; }
+        .button-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        button { width: 100%; min-height: 48px; color: var(--text); border: 1px solid var(--accent); border-radius: 9px; background: #34274d; padding: 10px 14px; font: 600 14px/1.3 system-ui, sans-serif; cursor: pointer; }
+        button:hover { background: #41315d; }
+        button:disabled { cursor: default; opacity: 0.55; }
+        #status { margin-top: 14px; color: var(--muted); }
+        #status.ok { color: var(--ok); }
+        #status.warn { color: var(--warn); }
+        #status.error { color: var(--error); }
+        progress { width: 100%; height: 16px; margin-top: 12px; }
+        pre { min-height: 180px; max-height: 52vh; overflow: auto; margin: 14px 0 0; padding: 12px; border: 1px solid var(--border); border-radius: 9px; background: #0b0910; color: #ddd4ee; white-space: pre-wrap; word-break: break-word; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    </style>
+    <script src="./src/tools/ignatius-project-host.js"></script>
+    <script type="module">import { applyBuildRevisionToDocument } from "./src/shared/build-revision.js"; await applyBuildRevisionToDocument();</script>
+</head>
+<body>
+<main>
+    <h1>Utils</h1>
+    <p>Long-running project maintenance jobs live here. Navigation baking is explicit and never runs as part of Playtest.</p>
+    <section class="panel">
+        <div class="button-row">
+            <button id="rebake-navigation-incremental" type="button">Incremental rebake + verify all levels</button>
+            <button id="rebake-navigation-clean" type="button">Clean rebake + verify all levels</button>
+        </div>
+        <progress id="progress" value="0" max="1"></progress>
+        <div id="status">Ready.</div>
+        <pre id="log" aria-live="polite">No utility job has run yet.</pre>
+    </section>
+</main>
+<script type="module">
+const projectHost = window.IgnatiusProjectHost.get();
+const incrementalButton = document.getElementById("rebake-navigation-incremental");
+const cleanButton = document.getElementById("rebake-navigation-clean");
+const progress = document.getElementById("progress");
+const status = document.getElementById("status");
+const log = document.getElementById("log");
+const INCREMENTAL_LABEL = "Incremental rebake + verify all levels";
+const CLEAN_LABEL = "Clean rebake + verify all levels";
+let activeJob = null;
+
+function setStatus(text, kind = "") {
+    status.textContent = text;
+    status.className = kind;
+}
+
+function setLog(lines) {
+    log.textContent = lines.length ? lines.join("\n") : "";
+    log.scrollTop = log.scrollHeight;
+}
+
+function failureReasonSummary(failures = []) {
+    const counts = new Map();
+    for (const failure of failures || []) {
+        const reason = String(failure?.reason || "unknown");
+        counts.set(reason, (counts.get(reason) || 0) + 1);
+    }
+    return [...counts.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([reason, count]) => `${reason}=${count}`)
+        .join(", ");
+}
+
+async function readJson(relativePath) {
+    const text = await projectHost.readResourceText(relativePath, { prompt: false });
+    if (text === null) throw new Error(`Could not read resources/${relativePath}.`);
+    try {
+        return JSON.parse(text);
+    } catch (error) {
+        throw new Error(`Could not parse resources/${relativePath}: ${error?.message || error}`);
+    }
+}
+
+function productionLevelIds(resourceIndex) {
+    return (resourceIndex?.levelIds || [])
+        .map((id) => String(id || ""))
+        .filter((id) => /^level_\d+$/.test(id))
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}
+
+async function manifestsForLevel(levelDocument, cache) {
+    const level = levelDocument?.level && typeof levelDocument.level === "object" ? levelDocument.level : levelDocument;
+    const refByAtlasId = new Map((level?.atlasRefs || []).map((ref) => [String(ref?.atlasId || ""), String(ref?.manifest || "")]));
+    const atlasIds = [...new Set((level?.placements || [])
+        .filter((placement) => placement?.kind === "atlasAsset" && placement?.collisionFromManifest !== false)
+        .map((placement) => String(placement.atlasId || "at_atlas_001").trim())
+        .filter(Boolean))];
+    const result = {};
+    for (const atlasId of atlasIds) {
+        const manifestPath = (refByAtlasId.get(atlasId) || `atlases/${atlasId}.json`).replace(/^resources\//, "");
+        if (!cache.has(manifestPath)) cache.set(manifestPath, await readJson(manifestPath));
+        result[atlasId] = cache.get(manifestPath);
+    }
+    return result;
+}
+
+function runLevelWorker(job, payload, onProgress) {
+    return new Promise((resolve, reject) => {
+        const worker = new Worker(new URL("./src/tools/navigation-rebake-worker.js", import.meta.url), { type: "module" });
+        let settled = false;
+        const finish = (callback, value) => {
+            if (settled) return;
+            settled = true;
+            if (job.worker === worker) job.worker = null;
+            if (job.cancelCurrent === cancelCurrent) job.cancelCurrent = null;
+            try { worker.terminate(); } catch (_) {}
+            callback(value);
+        };
+        const cancelCurrent = () => {
+            const error = new Error("Navigation batch cancelled.");
+            error.name = "AbortError";
+            finish(reject, error);
+        };
+        job.worker = worker;
+        job.cancelCurrent = cancelCurrent;
+        worker.addEventListener("message", (event) => {
+            const message = event.data || {};
+            if (message.jobId !== payload.jobId) return;
+            if (message.type === "navigation-rebake-progress") {
+                onProgress(message);
+                return;
+            }
+            if (message.type === "navigation-rebake-error") {
+                const error = new Error(message.message || "Navigation batch worker failed.");
+                error.stack = message.stack || error.stack;
+                finish(reject, error);
+                return;
+            }
+            if (message.type === "navigation-rebake-complete") finish(resolve, message);
+        });
+        worker.addEventListener("error", (event) => finish(reject, event.error || new Error(event.message || "Navigation batch worker crashed.")));
+        worker.postMessage({ type: "rebake-navigation", ...payload });
+    });
+}
+
+function cancelActiveJob() {
+    if (!activeJob) return false;
+    activeJob.cancelled = true;
+    activeJob.cancelCurrent?.();
+    return true;
+}
+
+async function runNavigationBatch(options = {}) {
+    const cleanBuild = options.cleanBuild === true;
+    if (activeJob) {
+        cancelActiveJob();
+        return;
+    }
+    if (!await projectHost.ensureConnected({ prompt: true })) return;
+
+    const projectSnapshot = projectHost.snapshot();
+    const job = { cancelled: false, worker: null, cancelCurrent: null, selectionVersion: projectSnapshot.selectionVersion };
+    activeJob = job;
+    const activeButton = cleanBuild ? cleanButton : incrementalButton;
+    const inactiveButton = cleanBuild ? incrementalButton : cleanButton;
+    activeButton.textContent = "Cancel navigation rebake";
+    inactiveButton.disabled = true;
+    progress.value = 0;
+    progress.max = 1;
+    const lines = [];
+    setLog(lines);
+
+    let completed = 0;
+    let totalFailedEdges = 0;
+    let totalSimulatedEdges = 0;
+    let totalReusedEdges = 0;
+    let levelsWithErrors = 0;
+    const manifestCache = new Map();
+
+    try {
+        setStatus("Loading project catalogs…");
+        const [resourceIndex, enemyCatalog, tuning] = await Promise.all([
+            readJson("resources.json"),
+            readJson("characters/ct_enemies_001.json"),
+            readJson("config/tuning.json")
+        ]);
+        const levelIds = productionLevelIds(resourceIndex);
+        if (!levelIds.length) throw new Error("resources.json contains no authored level_### levels.");
+        progress.max = levelIds.length;
+        lines.push(`Found ${levelIds.length} authored level(s). Test fixtures level_tNN are excluded.`);
+        lines.push(cleanBuild
+            ? "Mode: CLEAN. Every jump/drop candidate will be simulated again."
+            : "Mode: INCREMENTAL. Candidate graphs are rebuilt, then matching local simulation proofs are reused.");
+        setLog(lines);
+
+        for (let levelIndex = 0; levelIndex < levelIds.length; levelIndex += 1) {
+            if (job.cancelled) break;
+            const levelId = levelIds[levelIndex];
+            try {
+                setStatus(`Loading ${levelId} (${levelIndex + 1}/${levelIds.length})…`);
+                const level = await readJson(`levels/${levelId}.json`);
+                const levelTextAtRequest = JSON.stringify(level);
+                const manifestByAtlasId = await manifestsForLevel(level, manifestCache);
+                if (job.cancelled) break;
+                const workerJobId = `utils_nav_${levelId}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+                const result = await runLevelWorker(job, {
+                    jobId: workerJobId,
+                    level,
+                    context: { manifestByAtlasId, enemyCatalog, tuning },
+                    verifyBySimulation: true,
+                    stepTransitionMethod: "stride_arc",
+                    includeWizard: true,
+                    preserveMatchingVerification: false,
+                    reuseSimulationProofs: !cleanBuild,
+                    compareStepMethods: false
+                }, (message) => {
+                    const profileNumber = Math.min((message.profileIndex || 0) + 1, message.profileCount || 1);
+                    setStatus(
+                        `${levelId} (${levelIndex + 1}/${levelIds.length}), profile ${profileNumber}/${message.profileCount || 1}: ` +
+                        `${message.checkedEdges || 0}/${message.totalEdges || 0} jump/drop transitions simulated, ${message.reusedEdges || 0} proof(s) reused, ${message.failedEdges || 0} failed.`
+                    );
+                });
+                if (job.cancelled) break;
+                const currentLevel = await readJson(`levels/${levelId}.json`);
+                if (JSON.stringify(currentLevel) !== levelTextAtRequest) {
+                    throw new Error(`${levelId} changed while navigation verification was running; stale verified graphs were not saved.`);
+                }
+                const saveResult = await projectHost.saveJson("level", `${levelId}.json`, result.level, { prompt: false });
+                if (saveResult !== "project") throw new Error(`Save returned '${saveResult}'.`);
+                const summary = result.summary || {};
+                const failed = Number(summary.failedEdges) || 0;
+                const checked = Number(summary.checkedEdges) || 0;
+                const salvageProofChecks = Number(summary.salvageProofChecks) || 0;
+                const simulated = Number(summary.simulatedEdges) || (checked + salvageProofChecks);
+                const reused = Number(summary.reusedSimulationEdges) || 0;
+                totalFailedEdges += failed;
+                totalSimulatedEdges += simulated;
+                totalReusedEdges += reused;
+                completed += 1;
+                progress.value = completed;
+                const reasonSummary = failureReasonSummary(result.failures);
+                lines.push(
+                    `${levelId}: ${summary.profiles || 0} profile(s), ${simulated} simulation run(s) (${checked} candidate + ${salvageProofChecks} salvage proof), ${reused} reused, ` +
+                    `${summary.verifiedEdges || 0} verified, ${failed} failed, ${(Number(summary.elapsedMs) / 1000 || 0).toFixed(1)} s simulation.` +
+                    (reasonSummary ? ` Failure reasons: ${reasonSummary}.` : "")
+                );
+                setLog(lines);
+            } catch (error) {
+                if (error?.name === "AbortError" || job.cancelled) break;
+                levelsWithErrors += 1;
+                completed += 1;
+                progress.value = completed;
+                lines.push(`${levelId}: ERROR: ${error?.message || error}`);
+                setLog(lines);
+                console.error(`[navigation batch] ${levelId} failed`, error);
+            }
+        }
+
+        if (job.cancelled) {
+            lines.push(`Cancelled after ${completed} completed level(s). Already-saved levels remain valid.`);
+            setLog(lines);
+            setStatus(`Cancelled after ${completed} completed level(s).`, "warn");
+        } else if (levelsWithErrors) {
+            lines.push(`Finished with ${levelsWithErrors} level error(s). ${totalFailedEdges} failed traversal(s) are preserved in successfully saved graphs.`);
+            setLog(lines);
+            setStatus(`Finished ${completed} level(s) with ${levelsWithErrors} level error(s); ${totalSimulatedEdges} simulation run(s), ${totalReusedEdges} reused, ${totalFailedEdges} failed.`, "warn");
+        } else {
+            lines.push(`Finished. Failed traversal records remain in the level graphs for later heuristic analysis.`);
+            setLog(lines);
+            setStatus(`Finished ${completed} level(s): ${totalSimulatedEdges} simulation run(s), ${totalReusedEdges} local proof(s) reused, ${totalFailedEdges} failed.`, "ok");
+        }
+    } catch (error) {
+        if (error?.name === "AbortError" || job.cancelled) {
+            setStatus(`Cancelled after ${completed} completed level(s).`, "warn");
+        } else {
+            lines.push(`FATAL: ${error?.message || error}`);
+            setLog(lines);
+            setStatus(error?.message || String(error), "error");
+            console.error("Navigation batch utility failed", error);
+        }
+    } finally {
+        try { job.worker?.terminate(); } catch (_) {}
+        if (activeJob === job) activeJob = null;
+        incrementalButton.textContent = INCREMENTAL_LABEL;
+        cleanButton.textContent = CLEAN_LABEL;
+        const finalSnapshot = projectHost.snapshot();
+        const unavailable = !finalSnapshot.connected && !finalSnapshot.canChooseDirectory;
+        incrementalButton.disabled = unavailable;
+        cleanButton.disabled = unavailable;
+    }
+}
+
+incrementalButton.addEventListener("click", () => runNavigationBatch({ cleanBuild: false }));
+cleanButton.addEventListener("click", () => runNavigationBatch({ cleanBuild: true }));
+projectHost.initialize().then((snapshot) => {
+    const unavailable = !snapshot.connected && !snapshot.canChooseDirectory;
+    incrementalButton.disabled = unavailable;
+    cleanButton.disabled = unavailable;
+    if (!snapshot.connected) setStatus("Select a resources folder in the Dev Tool shell before running utilities.", "warn");
+}).catch((error) => {
+    incrementalButton.disabled = true;
+    cleanButton.disabled = true;
+    setStatus(error?.message || String(error), "error");
+});
+projectHost.subscribe((snapshot) => {
+    if (activeJob && (!snapshot.connected || snapshot.selectionVersion !== activeJob.selectionVersion)) cancelActiveJob();
+    const unavailable = Boolean(!snapshot.connected && !snapshot.canChooseDirectory);
+    if (!activeJob) {
+        incrementalButton.disabled = unavailable;
+        cleanButton.disabled = unavailable;
+    }
+});
+</script>
+</body>
+</html>

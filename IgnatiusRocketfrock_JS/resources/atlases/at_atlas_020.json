@@ -7,14 +7,14 @@
     "image": "at_atlas_020.png",
     "frames": {
         "lunar_lander": {
-            "x": 19,
-            "y": 1137,
+            "x": 1,
+            "y": 821,
             "w": 953,
             "h": 900
         },
         "lunar_capsule_open": {
-            "x": 1028,
-            "y": 9,
+            "x": 1,
+            "y": 1,
             "w": 1021,
             "h": 818
         }

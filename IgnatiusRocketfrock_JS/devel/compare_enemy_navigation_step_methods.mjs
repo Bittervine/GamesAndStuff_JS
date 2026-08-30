@@ -4,23 +4,14 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import {
-    applyAtlasManifestsToWorld,
-    applyEditorLevelToWorld,
-    applyEnemyDefinitionCatalog,
-    createInitialGameState
-} from '../src/core/simulation.js';
-import {
-    bakeEnemyNavigationGraph,
-    enemyNavigationProfileKey,
-    normalizeEnemyNavigationProfile
-} from '../src/core/enemy-navigation.js';
+import { rebakeAndVerifyNavigation } from '../src/tools/navigation-rebake.js';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REFERENCE_ROOT = path.resolve(SCRIPT_DIR, '..');
 const RESOURCES_ROOT = path.join(REFERENCE_ROOT, 'resources');
 const LEVELS_ROOT = path.join(RESOURCES_ROOT, 'levels');
 const ENEMY_CATALOG_PATH = path.join(RESOURCES_ROOT, 'characters', 'ct_enemies_001.json');
+const TUNING_PATH = path.join(RESOURCES_ROOT, 'config', 'tuning.json');
 
 function parseArgs(argv) {
     const options = { levelNames: [], verbose: false };
@@ -49,32 +40,16 @@ async function readJson(filePath) {
     return JSON.parse(await fs.readFile(filePath, 'utf8'));
 }
 
-function navigationProfileForEnemy(enemy) {
-    const width = Math.max(8, Number(enemy?.width) || 48);
-    const height = Math.max(24, Number(enemy?.height) || 120);
-    return normalizeEnemyNavigationProfile({
-        bodyWidth: width,
-        bodyHeight: height,
-        runSpeed: Math.max(1, Number(enemy?.runSpeed) || 1),
-        groundAcceleration: Math.max(1, Number(enemy?.runAcceleration) || 1),
-        jumpHeight: Math.max(0, Number(enemy?.jumpHeight) || 0),
-        gravity: Math.max(1, Number(enemy?.jumpGravity) || 1),
-        maxFallDistance: Math.max(0, Number(enemy?.maxFallDistance) || 0),
-        maxStepHeight: Math.max(0, Number(enemy?.maxStepHeight) || 0),
-        maxStepGap: Math.max(10, Math.min(28, width * 0.32 || 18)),
-        edgeInset: Math.max(6, width * 0.22 || 10),
-        bodyClearance: Math.max(10, width * 0.34 || 12)
-    });
-}
-
-async function loadAtlasManifestsForWorld(world) {
-    const atlasIds = [...new Set((world?.visuals || [])
-        .filter((visual) => visual?.kind === 'atlasSprite' && !visual.entityId)
-        .map((visual) => String(visual.atlasId || '').trim())
+async function loadAtlasManifestsForLevel(level) {
+    const refByAtlasId = new Map((level?.atlasRefs || []).map((ref) => [String(ref?.atlasId || ''), String(ref?.manifest || '')]));
+    const atlasIds = [...new Set((level?.placements || [])
+        .filter((placement) => placement?.kind === 'atlasAsset' && placement?.collisionFromManifest !== false)
+        .map((placement) => String(placement.atlasId || 'at_atlas_001').trim())
         .filter(Boolean))].sort();
-    const manifests = new Map();
+    const manifests = {};
     for (const atlasId of atlasIds) {
-        manifests.set(atlasId, await readJson(path.join(RESOURCES_ROOT, 'atlases', `${atlasId}.json`)));
+        const manifestPath = (refByAtlasId.get(atlasId) || `atlases/${atlasId}.json`).replace(/^resources\//, '');
+        manifests[atlasId] = await readJson(path.join(RESOURCES_ROOT, manifestPath));
     }
     return manifests;
 }
@@ -174,35 +149,37 @@ function profileComparison(legacy, stride) {
     };
 }
 
-async function compareLevel(levelPath, enemyCatalog) {
+async function compareLevel(levelPath, enemyCatalog, tuning) {
     const document = await readJson(levelPath);
     const level = document?.level && typeof document.level === 'object' ? document.level : document;
-    const state = createInitialGameState();
-    applyEnemyDefinitionCatalog(state, enemyCatalog);
-    if (!applyEditorLevelToWorld(state, level)) throw new Error(`Could not load ${path.basename(levelPath)} into the portable simulation`);
-
-    state.world.visuals = (state.world.visuals || []).filter((visual) => !visual?.entityId);
-    applyAtlasManifestsToWorld(state, await loadAtlasManifestsForWorld(state.world));
-
-    const profilesById = new Map();
-    for (const enemy of state.enemies || []) {
-        if (String(enemy?.strategy || 'simple_patrol') !== 'hunter') continue;
-        const profile = navigationProfileForEnemy(enemy);
-        profilesById.set(enemyNavigationProfileKey(profile), profile);
-    }
-
-    const navigationWorld = {
-        segments: state.world.segments || [],
-        collisionPolygons: state.world.collisionPolygons || [],
-        solids: [],
-        navigationBlockers: Array.isArray(level.navigationBlockers) ? level.navigationBlockers : []
+    const context = {
+        manifestByAtlasId: await loadAtlasManifestsForLevel(level),
+        enemyCatalog,
+        tuning
     };
+    const commonOptions = {
+        verifyBySimulation: false,
+        preserveMatchingVerification: false,
+        includeWizard: false,
+        compareStepMethods: false
+    };
+    const legacyResult = rebakeAndVerifyNavigation(document, context, {
+        ...commonOptions,
+        stepTransitionMethod: 'legacy'
+    });
+    const strideResult = rebakeAndVerifyNavigation(document, context, {
+        ...commonOptions,
+        stepTransitionMethod: 'stride_arc'
+    });
+    const legacyById = new Map((legacyResult.profiles || []).map((graph) => [String(graph.id || ''), graph]));
+    const strideById = new Map((strideResult.profiles || []).map((graph) => [String(graph.id || ''), graph]));
+    const profileIds = [...new Set([...legacyById.keys(), ...strideById.keys()])].sort();
     const comparisons = [];
-    for (const [id, profile] of profilesById.entries()) {
-        const metadata = { id, label: `Run ${profile.runSpeed}, jump ${profile.jumpHeight}, body ${profile.bodyWidth}×${profile.bodyHeight}` };
-        const legacy = bakeEnemyNavigationGraph(navigationWorld, profile, { ...metadata, stepTransitionMethod: 'legacy' });
-        const stride = bakeEnemyNavigationGraph(navigationWorld, profile, { ...metadata, stepTransitionMethod: 'stride_arc' });
-        comparisons.push({ id, profile, legacy, stride, ...profileComparison(legacy, stride) });
+    for (const id of profileIds) {
+        const legacy = legacyById.get(id);
+        const stride = strideById.get(id);
+        if (!legacy || !stride) throw new Error(`Canonical navigation comparison lost mobility profile ${id}.`);
+        comparisons.push({ id, profile: stride.profile || legacy.profile || {}, legacy, stride, ...profileComparison(legacy, stride) });
     }
     return comparisons;
 }
@@ -219,7 +196,7 @@ async function main() {
         usage();
         return;
     }
-    const enemyCatalog = await readJson(ENEMY_CATALOG_PATH);
+    const [enemyCatalog, tuning] = await Promise.all([readJson(ENEMY_CATALOG_PATH), readJson(TUNING_PATH)]);
     const allNames = (await fs.readdir(LEVELS_ROOT)).filter((name) => /^level_[A-Za-z0-9_]+\.json$/.test(name) && name !== 'level_temp.json').sort();
     const names = options.levelNames.length ? options.levelNames : allNames;
     const totals = {
@@ -239,7 +216,7 @@ async function main() {
     };
 
     for (const name of names) {
-        const comparisons = await compareLevel(path.join(LEVELS_ROOT, name), enemyCatalog);
+        const comparisons = await compareLevel(path.join(LEVELS_ROOT, name), enemyCatalog, tuning);
         if (comparisons.length) totals.levelsWithHunters += 1;
         const levelLegacyOnly = comparisons.reduce((sum, item) => sum + item.legacyOnly.length, 0);
         const levelStrideOnly = comparisons.reduce((sum, item) => sum + item.strideOnly.length, 0);

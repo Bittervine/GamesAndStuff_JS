@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 4,
-        "note": "Revision 182 Human Pirate rig using head_07, body_08, and the shared rapier artwork. The articulated Raider animation topology is retained."
+        "version": 5,
+        "note": "Revision 182 Human Pirate rig using head_07, body_08, and the shared rapier artwork. The articulated Raider animation topology is retained. Revision 493 bakes this human variant’s articulated arm treatment into ct_atlas_enemy_030 and removes runtime arm recoloring."
     },
     "rigId": "ct_rig_enemy_036",
     "atlasId": "ct_atlas_enemy_030",
@@ -109,8 +109,8 @@
             "y": 0.5
         },
         "rightUpperArm": {
-            "x": 0.6,
-            "y": 0.225
+            "x": 0.62,
+            "y": 0.2
         },
         "rightLowerArm": {
             "x": 0.21,
@@ -119,7 +119,7 @@
     },
     "parts": {
         "leftUpperArm": {
-            "frame": "arm_upper_01",
+            "frame": "arm_upper_01_body_08",
             "role": "leftUpperArm",
             "tags": [
                 "arm",
@@ -133,21 +133,6 @@
             "scale": 1,
             "targetHeight": 91,
             "alpha": 1,
-            "colorExchange": {
-                "fromColor": [
-                    221,
-                    139,
-                    83
-                ],
-                "toColor": [
-                    196,
-                    111,
-                    36
-                ],
-                "redThreshold": 1,
-                "greenThreshold": 1,
-                "blueThreshold": 1
-            },
             "parentConstraint": {
                 "parentPart": "torso",
                 "parentPoint": {
@@ -157,7 +142,7 @@
             }
         },
         "leftLowerArm": {
-            "frame": "arm_lower_01",
+            "frame": "arm_lower_01_body_08",
             "role": "leftLowerArm",
             "tags": [
                 "arm",
@@ -177,21 +162,6 @@
                     "x": 0.54,
                     "y": 0.95
                 }
-            },
-            "colorExchange": {
-                "fromColor": [
-                    221,
-                    139,
-                    82
-                ],
-                "toColor": [
-                    196,
-                    111,
-                    36
-                ],
-                "redThreshold": 1,
-                "greenThreshold": 1,
-                "blueThreshold": 1
             }
         },
         "rightUpperLeg": {
@@ -400,7 +370,7 @@
             }
         },
         "rightUpperArm": {
-            "frame": "arm_upper_00",
+            "frame": "arm_upper_00_body_08",
             "role": "rightUpperArm",
             "tags": [
                 "arm",
@@ -415,31 +385,16 @@
             "scale": 1,
             "targetHeight": 92,
             "alpha": 1,
-            "colorExchange": {
-                "fromColor": [
-                    221,
-                    139,
-                    82
-                ],
-                "toColor": [
-                    196,
-                    111,
-                    36
-                ],
-                "redThreshold": 1,
-                "greenThreshold": 1,
-                "blueThreshold": 1
-            },
             "parentConstraint": {
                 "parentPart": "torso",
                 "parentPoint": {
-                    "x": 0.19473682848208912,
-                    "y": 0.26861596322176584
+                    "x": 0.205,
+                    "y": 0.255
                 }
             }
         },
         "rightLowerArm": {
-            "frame": "arm_lower_00",
+            "frame": "arm_lower_00_body_08",
             "role": "rightLowerArm",
             "tags": [
                 "arm",
@@ -455,21 +410,6 @@
             "scale": 1.3,
             "targetHeight": 112,
             "alpha": 1,
-            "colorExchange": {
-                "fromColor": [
-                    221,
-                    139,
-                    82
-                ],
-                "toColor": [
-                    196,
-                    111,
-                    36
-                ],
-                "redThreshold": 1,
-                "greenThreshold": 1,
-                "blueThreshold": 1
-            },
             "parentConstraint": {
                 "parentPart": "rightUpperArm",
                 "parentPoint": {

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "version": 7,
-    "note": "Revision 234 records the weapon-free body_05/head_16 Human Boxer assembly for enemy_038."
+    "version": 8,
+    "note": "Revision 234 records the weapon-free body_05/head_16 Human Boxer assembly for enemy_038. Revision 493 records baked articulated arm frame selections for the darker-skinned human variants and removes armColorExchange metadata."
   },
   "partsManifestId": "ct_human_parts_030",
   "atlasId": "ct_atlas_enemy_030",
@@ -397,20 +397,6 @@
         "note": "The original top-right head was dropped from the shared-pivot variant list because it remained the least cooperative alignment subject during preprocessing review."
       }
     },
-    "limbs": {
-      "rearArm": {
-        "frame": "arm_00"
-      },
-      "frontArm": {
-        "frame": "arm_01"
-      },
-      "rearLeg": {
-        "frame": "leg_00"
-      },
-      "frontLeg": {
-        "frame": "leg_01"
-      }
-    },
     "weapons": [
       {
         "frame": "dagger"
@@ -478,17 +464,24 @@
   "firstAssembly": {
     "body": "body_00",
     "head": "head_00",
-    "rearArm": "arm_00",
-    "frontArm": "arm_01",
-    "rearLeg": "leg_00",
-    "frontLeg": "leg_01",
+    "leftArmUpper": "arm_upper_01",
+    "leftArmLower": "arm_lower_01",
+    "rightArmUpper": "arm_upper_00",
+    "rightArmLower": "arm_lower_00",
+    "leftLegUpper": "leg_upper_01",
+    "leftLegLower": "leg_lower_01",
+    "leftFoot": "foot_01",
+    "rightLegUpper": "leg_upper_00",
+    "rightLegLower": "leg_lower_00",
+    "rightFoot": "foot_00",
     "weapon": "sword"
   },
   "notes": [
     "Shoulder/neck anchors are a first-pass common placement for the shared limb rig. Fine-tuning per enemy can happen in later rig revisions.",
     "Heads use a common neck pivot. Bodies share one common extraction cell and one common first-pass shoulder/neck placement.",
     "This file is intended to be the future source for swapping body/head variants over the same shared limb rig.",
-    "Revision 394 replaces Enemy 032 rear/front assembly aliases with corrected anatomical left/right names; no legacy aliases are retained."
+    "Revision 394 replaces Enemy 032 rear/front assembly aliases with corrected anatomical left/right names; no legacy aliases are retained.",
+    "Revision 493 removes deprecated unsplit human limb aliases; articulated upper/lower limbs and feet are now the only supported modular limb definitions."
   ],
   "assemblies": {
     "enemy_030": {
@@ -509,32 +502,17 @@
     "enemy_031": {
       "body": "body_01",
       "head": "head_01",
-      "leftArmUpper": "arm_upper_01",
-      "leftArmLower": "arm_lower_01",
-      "rightArmUpper": "arm_upper_00",
-      "rightArmLower": "arm_lower_00",
+      "leftArmUpper": "arm_upper_01_body_01",
+      "leftArmLower": "arm_lower_01_body_01",
+      "rightArmUpper": "arm_upper_00_body_01",
+      "rightArmLower": "arm_lower_00_body_01",
       "leftLegUpper": "leg_upper_01",
       "leftLegLower": "leg_lower_01",
       "leftFoot": "foot_01",
       "rightLegUpper": "leg_upper_00",
       "rightLegLower": "leg_lower_00",
       "rightFoot": "foot_00",
-      "weapon": "sword",
-      "armColorExchange": {
-        "fromColor": [
-          224,
-          148,
-          94
-        ],
-        "toColor": [
-          140,
-          81,
-          38
-        ],
-        "redThreshold": 1,
-        "greenThreshold": 1,
-        "blueThreshold": 1
-      }
+      "weapon": "sword"
     },
     "enemy_032": {
       "body": "body_02",
@@ -601,10 +579,10 @@
     "enemy_036": {
       "body": "body_08",
       "head": "head_07",
-      "leftArmUpper": "arm_upper_01",
-      "leftArmLower": "arm_lower_01",
-      "rightArmUpper": "arm_upper_00",
-      "rightArmLower": "arm_lower_00",
+      "leftArmUpper": "arm_upper_01_body_08",
+      "leftArmLower": "arm_lower_01_body_08",
+      "rightArmUpper": "arm_upper_00_body_08",
+      "rightArmLower": "arm_lower_00_body_08",
       "leftLegUpper": "leg_upper_01",
       "leftLegLower": "leg_lower_01",
       "leftFoot": "foot_01",
@@ -616,10 +594,10 @@
     "enemy_037": {
       "body": "body_09",
       "head": "head_15",
-      "leftArmUpper": "arm_upper_01",
-      "leftArmLower": "arm_lower_01",
-      "rightArmUpper": "arm_upper_00",
-      "rightArmLower": "arm_lower_00",
+      "leftArmUpper": "arm_upper_01_body_09",
+      "leftArmLower": "arm_lower_01_body_09",
+      "rightArmUpper": "arm_upper_00_body_09",
+      "rightArmLower": "arm_lower_00_body_09",
       "leftLegUpper": "leg_upper_01",
       "leftLegLower": "leg_lower_01",
       "leftFoot": "foot_01",

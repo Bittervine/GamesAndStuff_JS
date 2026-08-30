@@ -5725,12 +5725,14 @@ function buildStandardTraversal({
         const placement = placements.find((candidate) => candidate.id === support.placementId);
         if (!placement) throw new Error(`Vertical edge “${edge.id}” lost its moving-platform placement.`);
         placement.movement = {
-            version: 1,
+            version: 2,
+            motionType: "translate",
             pattern: "shuttle",
             activation: "automatic",
             endOffsetX: 0,
             endOffsetY: roundCoordinate(endSupport.surfaceY - startSupport.surfaceY),
             speed: roundCoordinate(clamp(Math.abs(endSupport.surfaceY - startSupport.surfaceY) * 0.34, 126, 215)),
+            easing: "linear",
             initialDelay: roundCoordinate(rng.range(0, 0.5)),
             triggerDelay: 0,
             startPause: roundCoordinate(rng.range(0.55, 0.9)),
@@ -6397,12 +6399,14 @@ function buildStandardTraversal({
         support.recoveryReturnLift = true;
         const placement = placements.find((candidate) => candidate.id === support.placementId);
         placement.movement = {
-            version: 1,
+            version: 2,
+            motionType: "translate",
             pattern: "shuttle",
             activation: "automatic",
             endOffsetX: roundCoordinate(chosen.endCenterX - support.centerX),
             endOffsetY: roundCoordinate(upperSupport.surfaceY - lowerSupport.surfaceY),
             speed: roundCoordinate(clamp(Math.abs(upperSupport.surfaceY - lowerSupport.surfaceY) * 0.34, 126, 215)),
+            easing: "linear",
             initialDelay: roundCoordinate(rng.range(0, 0.5)),
             triggerDelay: 0,
             startPause: roundCoordinate(rng.range(0.55, 0.9)),

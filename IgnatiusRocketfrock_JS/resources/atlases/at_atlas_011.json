@@ -7,8 +7,8 @@
     "image": "at_atlas_011.png",
     "frames": {
         "castle_stone_ground_ledge": {
-            "x": 15,
-            "y": 18,
+            "x": 1,
+            "y": 1,
             "w": 1456,
             "h": 78
         }

@@ -657,6 +657,10 @@ async function buildEntityEntries(cache, cellSize, sourceFiles, atlasStore, prog
     const enemyCatalog = await cache.resourceJson(ENEMY_CATALOG);
     sourceFiles.add(ENEMY_CATALOG);
     const enemyDefinitions = Object.entries(enemyCatalog.enemies || {}).filter(([, value]) => value && typeof value === "object");
+    // Many character variants share the same atlas. Reuse the prepared atlas
+    // frames across the whole palette build just as the gameplay renderer does,
+    // rather than repeatedly decoding and slicing the same large source image.
+    const preparedAtlasCache = new Map();
     let processedEnemies = 0;
     for (const [enemyId, rawDefinition] of enemyDefinitions) {
         const characterId = String(rawDefinition.characterId || "");
@@ -669,6 +673,7 @@ async function buildEntityEntries(cache, cellSize, sourceFiles, atlasStore, prog
             try {
                 const project = await loadRuntimeCharacterProject(characterPath, {
                     usePixmapPyramids: false,
+                    preparedAtlasCache,
                     loadJson: (url) => cache.resourceJson(String(url).replace(/^resources\//, "")),
                     loadImage: (url) => cache.resourceImage(String(url).replace(/^resources\//, ""))
                 });
@@ -696,8 +701,7 @@ async function buildEntityEntries(cache, cellSize, sourceFiles, atlasStore, prog
                 preview = renderCharacterCommands(commands) || preview;
                 renderInfo = {
                     renderer: "runtime-character-project",
-                    animationSlot: requestedSlot,
-                    colorExchangeApplied: [...(project.assets?.values?.() || [])].some((asset) => asset?.colorExchange)
+                    animationSlot: requestedSlot
                 };
             } catch (error) {
                 appendLog(`Warning: could not compose ${enemyId} from ${characterPath}: ${error.message || error}`);
@@ -755,10 +759,8 @@ async function buildOutputs({ cellSize, maxSize, progress }) {
         "src/tools/resource-hash.js",
         "src/presentation/character-runtime.js",
         "src/presentation/pixmap-pyramid.js",
-        "src/presentation/sprite-color-exchange.js",
         "src/shared/animation-data.js",
         "src/shared/character-sound-data.js",
-        "src/shared/color-exchange-data.js",
         "src/shared/enemy-drop-data.js",
         "src/shared/enemy-scale-data.js",
         "src/shared/presentation-transform-data.js",

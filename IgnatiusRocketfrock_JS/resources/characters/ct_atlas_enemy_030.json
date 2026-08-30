@@ -1,298 +1,346 @@
 {
   "meta": {
-    "version": 5,
-    "note": "Revision 406 modular human atlas. Enemy 033 now consumes the existing body_03/head_03 frames; no new bitmap data is required. Enemies 032/033 share the side-facing dagger frame."
+    "version": 6,
+    "note": "Revision 406 modular human atlas. Enemy 033 now consumes the existing body_03/head_03 frames; no new bitmap data is required. Enemies 032/033 share the side-facing dagger frame. Revision 493 removes deprecated full-limb frame definitions and bakes the articulated arm skin treatments for bodies 01, 08, and 09 into authored atlas frames."
   },
   "atlasId": "ct_atlas_enemy_030",
   "image": "ct_atlas_enemy_030.png",
   "frames": {
     "body_00": {
-      "x": 20,
-      "y": 19,
+      "x": 1,
+      "y": 1,
       "w": 555,
       "h": 1155
     },
     "body_01": {
-      "x": 604,
-      "y": 2,
+      "x": 558,
+      "y": 1,
       "w": 555,
       "h": 1155
     },
     "body_02": {
-      "x": 1185,
-      "y": 6,
+      "x": 1115,
+      "y": 1,
       "w": 555,
       "h": 1155
     },
     "body_03": {
-      "x": 1766,
-      "y": 5,
+      "x": 1672,
+      "y": 1,
       "w": 555,
       "h": 1155
     },
     "body_04": {
-      "x": 2343,
-      "y": 8,
+      "x": 2229,
+      "y": 1,
       "w": 555,
       "h": 1155
     },
     "body_05": {
-      "x": 30,
-      "y": 1187,
+      "x": 2786,
+      "y": 1,
       "w": 555,
       "h": 1155
     },
     "body_06": {
-      "x": 604,
-      "y": 1192,
+      "x": 1,
+      "y": 1158,
       "w": 555,
       "h": 1155
     },
     "body_07": {
-      "x": 1185,
-      "y": 1208,
+      "x": 558,
+      "y": 1158,
       "w": 555,
       "h": 1155
     },
     "body_08": {
-      "x": 1757,
-      "y": 1212,
+      "x": 1115,
+      "y": 1158,
       "w": 555,
       "h": 1155
     },
     "body_09": {
-      "x": 2331,
-      "y": 1200,
+      "x": 1672,
+      "y": 1158,
       "w": 555,
       "h": 1155
     },
     "head_00": {
-      "x": 57,
-      "y": 2374,
+      "x": 2736,
+      "y": 2840,
       "w": 416,
       "h": 393
     },
     "head_01": {
-      "x": 556,
-      "y": 2375,
+      "x": 2736,
+      "y": 3235,
       "w": 416,
       "h": 393
     },
     "head_02": {
-      "x": 1063,
-      "y": 2375,
+      "x": 374,
+      "y": 2781,
       "w": 416,
       "h": 393
     },
     "head_03": {
-      "x": 1536,
-      "y": 2374,
+      "x": 792,
+      "y": 2781,
       "w": 416,
       "h": 393
     },
     "head_04": {
-      "x": 2035,
-      "y": 2374,
+      "x": 1210,
+      "y": 2781,
       "w": 416,
       "h": 393
     },
     "head_05": {
-      "x": 52,
-      "y": 2832,
+      "x": 1628,
+      "y": 2863,
       "w": 416,
       "h": 393
     },
     "head_06": {
-      "x": 553,
-      "y": 2834,
+      "x": 1,
+      "y": 3176,
       "w": 416,
       "h": 393
     },
     "head_07": {
-      "x": 1042,
-      "y": 2833,
+      "x": 419,
+      "y": 3176,
       "w": 416,
       "h": 393
     },
     "head_08": {
-      "x": 1550,
-      "y": 2833,
+      "x": 837,
+      "y": 3176,
       "w": 416,
       "h": 393
     },
     "head_09": {
-      "x": 2034,
-      "y": 2832,
+      "x": 1255,
+      "y": 3258,
       "w": 416,
       "h": 393
     },
     "head_10": {
-      "x": 2530,
-      "y": 2832,
+      "x": 1673,
+      "y": 3258,
       "w": 416,
       "h": 393
     },
     "head_11": {
-      "x": 55,
-      "y": 3292,
+      "x": 2091,
+      "y": 3264,
       "w": 416,
       "h": 393
     },
     "head_12": {
-      "x": 545,
-      "y": 3292,
+      "x": 2509,
+      "y": 3630,
       "w": 416,
       "h": 393
     },
     "head_13": {
-      "x": 1044,
-      "y": 3292,
+      "x": 2927,
+      "y": 3630,
       "w": 416,
       "h": 393
     },
     "head_14": {
-      "x": 1542,
-      "y": 3292,
+      "x": 1,
+      "y": 3571,
       "w": 416,
       "h": 393
     },
     "head_15": {
-      "x": 2032,
-      "y": 3292,
+      "x": 419,
+      "y": 3571,
       "w": 416,
       "h": 393
     },
     "head_16": {
-      "x": 2536,
-      "y": 3292,
+      "x": 837,
+      "y": 3571,
       "w": 416,
       "h": 393
     },
-    "arm_00": {
-      "x": 3055,
-      "y": 69,
-      "w": 366,
-      "h": 773
-    },
-    "arm_01": {
-      "x": 3551,
-      "y": 70,
-      "w": 420,
-      "h": 744
-    },
-    "leg_00": {
-      "x": 3104,
-      "y": 1051,
-      "w": 386,
-      "h": 727
-    },
-    "leg_01": {
-      "x": 3646,
-      "y": 1026,
-      "w": 375,
-      "h": 758
-    },
     "dagger": {
-      "x": 3388,
-      "y": 2103,
+      "x": 1596,
+      "y": 4060,
       "w": 396,
       "h": 58
     },
     "throwingAxe": {
-      "x": 3357,
-      "y": 2354,
+      "x": 1962,
+      "y": 2677,
       "w": 426,
       "h": 184
     },
     "bow": {
-      "x": 3239,
-      "y": 2676,
+      "x": 2229,
+      "y": 1526,
       "w": 736,
       "h": 143
     },
     "arrow": {
-      "x": 3488,
-      "y": 2991,
+      "x": 2628,
+      "y": 4025,
       "w": 383,
       "h": 63
     },
     "sword": {
-      "x": 3147,
-      "y": 3112,
+      "x": 2229,
+      "y": 1158,
       "w": 854,
       "h": 198
     },
     "rapier": {
-      "x": 3194,
-      "y": 3348,
+      "x": 2229,
+      "y": 1358,
       "w": 772,
       "h": 166
     },
     "crossbow": {
-      "x": 3382,
-      "y": 3560,
+      "x": 2229,
+      "y": 1671,
       "w": 563,
       "h": 512
     },
     "arm_upper_00": {
-      "x": 4116,
-      "y": 81,
+      "x": 3062,
+      "y": 1853,
       "w": 212,
       "h": 405
     },
     "arm_upper_01": {
-      "x": 4512,
-      "y": 90,
+      "x": 2046,
+      "y": 2863,
       "w": 166,
       "h": 386
     },
     "arm_lower_00": {
-      "x": 4109,
-      "y": 512,
+      "x": 2229,
+      "y": 2185,
       "w": 371,
       "h": 490
     },
     "arm_lower_01": {
-      "x": 4492,
-      "y": 522,
+      "x": 374,
+      "y": 2315,
       "w": 395,
       "h": 464
     },
     "leg_upper_00": {
-      "x": 4116,
-      "y": 1096,
+      "x": 2390,
+      "y": 2840,
       "w": 344,
       "h": 422
     },
     "leg_upper_01": {
-      "x": 4522,
-      "y": 1104,
+      "x": 1255,
+      "y": 3653,
       "w": 339,
       "h": 407
     },
     "leg_lower_00": {
-      "x": 4167,
-      "y": 1553,
+      "x": 3003,
+      "y": 1358,
       "w": 271,
       "h": 493
     },
     "leg_lower_01": {
-      "x": 4582,
-      "y": 1572,
+      "x": 2794,
+      "y": 1853,
       "w": 266,
       "h": 493
     },
     "foot_00": {
-      "x": 4119,
-      "y": 2100,
+      "x": 2628,
+      "y": 4090,
       "w": 376,
       "h": 300
     },
     "foot_01": {
-      "x": 4558,
-      "y": 2119,
+      "x": 2238,
+      "y": 4025,
       "w": 388,
       "h": 293
+    },
+    "arm_upper_00_body_01": {
+      "x": 1596,
+      "y": 3653,
+      "w": 212,
+      "h": 405
+    },
+    "arm_upper_01_body_01": {
+      "x": 2214,
+      "y": 2863,
+      "w": 166,
+      "h": 386
+    },
+    "arm_lower_00_body_01": {
+      "x": 2602,
+      "y": 2348,
+      "w": 371,
+      "h": 490
+    },
+    "arm_lower_01_body_01": {
+      "x": 771,
+      "y": 2315,
+      "w": 395,
+      "h": 464
+    },
+    "arm_upper_00_body_08": {
+      "x": 1810,
+      "y": 3653,
+      "w": 212,
+      "h": 405
+    },
+    "arm_upper_01_body_08": {
+      "x": 3154,
+      "y": 2840,
+      "w": 166,
+      "h": 386
+    },
+    "arm_lower_00_body_08": {
+      "x": 2975,
+      "y": 2348,
+      "w": 371,
+      "h": 490
+    },
+    "arm_lower_01_body_08": {
+      "x": 1168,
+      "y": 2315,
+      "w": 395,
+      "h": 464
+    },
+    "arm_upper_00_body_09": {
+      "x": 2024,
+      "y": 3659,
+      "w": 212,
+      "h": 405
+    },
+    "arm_upper_01_body_09": {
+      "x": 3154,
+      "y": 3228,
+      "w": 166,
+      "h": 386
+    },
+    "arm_lower_00_body_09": {
+      "x": 1,
+      "y": 2315,
+      "w": 371,
+      "h": 490
+    },
+    "arm_lower_01_body_09": {
+      "x": 1565,
+      "y": 2315,
+      "w": 395,
+      "h": 464
     }
   },
   "objects": {
@@ -603,52 +651,6 @@
         "humanVariant"
       ]
     },
-    "arm_00": {
-      "id": "arm_00",
-      "frame": "arm_00",
-      "type": "characterPart",
-      "layer": "character",
-      "mirrorable": true,
-      "tags": [
-        "arm",
-        "rear",
-        "closedHand"
-      ]
-    },
-    "arm_01": {
-      "id": "arm_01",
-      "frame": "arm_01",
-      "type": "characterPart",
-      "layer": "character",
-      "mirrorable": true,
-      "tags": [
-        "arm",
-        "front",
-        "openHand"
-      ]
-    },
-    "leg_00": {
-      "id": "leg_00",
-      "frame": "leg_00",
-      "type": "characterPart",
-      "layer": "character",
-      "mirrorable": true,
-      "tags": [
-        "leg",
-        "rear"
-      ]
-    },
-    "leg_01": {
-      "id": "leg_01",
-      "frame": "leg_01",
-      "type": "characterPart",
-      "layer": "character",
-      "mirrorable": true,
-      "tags": [
-        "leg",
-        "front"
-      ]
-    },
     "dagger": {
       "id": "dagger",
       "frame": "dagger",
@@ -854,6 +856,162 @@
       "tags": [
         "foot",
         "front"
+      ]
+    },
+    "arm_upper_00_body_01": {
+      "id": "arm_upper_00_body_01",
+      "frame": "arm_upper_00_body_01",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "upper",
+        "closedHandSide",
+        "bakedSkinTone"
+      ]
+    },
+    "arm_upper_01_body_01": {
+      "id": "arm_upper_01_body_01",
+      "frame": "arm_upper_01_body_01",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "upper",
+        "openHandSide",
+        "bakedSkinTone"
+      ]
+    },
+    "arm_lower_00_body_01": {
+      "id": "arm_lower_00_body_01",
+      "frame": "arm_lower_00_body_01",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "lower",
+        "closedHand",
+        "bakedSkinTone"
+      ]
+    },
+    "arm_lower_01_body_01": {
+      "id": "arm_lower_01_body_01",
+      "frame": "arm_lower_01_body_01",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "lower",
+        "openHand",
+        "bakedSkinTone"
+      ]
+    },
+    "arm_upper_00_body_08": {
+      "id": "arm_upper_00_body_08",
+      "frame": "arm_upper_00_body_08",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "upper",
+        "closedHandSide",
+        "bakedSkinTone"
+      ]
+    },
+    "arm_upper_01_body_08": {
+      "id": "arm_upper_01_body_08",
+      "frame": "arm_upper_01_body_08",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "upper",
+        "openHandSide",
+        "bakedSkinTone"
+      ]
+    },
+    "arm_lower_00_body_08": {
+      "id": "arm_lower_00_body_08",
+      "frame": "arm_lower_00_body_08",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "lower",
+        "closedHand",
+        "bakedSkinTone"
+      ]
+    },
+    "arm_lower_01_body_08": {
+      "id": "arm_lower_01_body_08",
+      "frame": "arm_lower_01_body_08",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "lower",
+        "openHand",
+        "bakedSkinTone"
+      ]
+    },
+    "arm_upper_00_body_09": {
+      "id": "arm_upper_00_body_09",
+      "frame": "arm_upper_00_body_09",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "upper",
+        "closedHandSide",
+        "bakedSkinTone"
+      ]
+    },
+    "arm_upper_01_body_09": {
+      "id": "arm_upper_01_body_09",
+      "frame": "arm_upper_01_body_09",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "upper",
+        "openHandSide",
+        "bakedSkinTone"
+      ]
+    },
+    "arm_lower_00_body_09": {
+      "id": "arm_lower_00_body_09",
+      "frame": "arm_lower_00_body_09",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "lower",
+        "closedHand",
+        "bakedSkinTone"
+      ]
+    },
+    "arm_lower_01_body_09": {
+      "id": "arm_lower_01_body_09",
+      "frame": "arm_lower_01_body_09",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": true,
+      "tags": [
+        "arm",
+        "lower",
+        "openHand",
+        "bakedSkinTone"
       ]
     }
   }

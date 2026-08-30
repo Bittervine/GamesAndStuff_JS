@@ -7,56 +7,56 @@
     "image": "at_atlas_005.png",
     "frames": {
         "castle_stone_cottage_small": {
-            "x": 20,
-            "y": 20,
+            "x": 1,
+            "y": 885,
             "w": 386,
             "h": 316
         },
         "castle_stone_cottage_large": {
-            "x": 438,
-            "y": 20,
+            "x": 1,
+            "y": 550,
             "w": 464,
             "h": 333
         },
         "castle_ruined_house_tower": {
-            "x": 934,
-            "y": 20,
+            "x": 588,
+            "y": 363,
             "w": 484,
             "h": 340
         },
         "castle_watchtower_flag": {
-            "x": 1450,
-            "y": 20,
+            "x": 928,
+            "y": 705,
             "w": 221,
             "h": 395
         },
         "castle_keep_gate": {
-            "x": 20,
-            "y": 447,
+            "x": 1,
+            "y": 156,
             "w": 585,
             "h": 392
         },
         "castle_ruined_wall_door": {
-            "x": 637,
-            "y": 447,
+            "x": 638,
+            "y": 1,
             "w": 509,
             "h": 360
         },
         "castle_stone_arch_bridge": {
-            "x": 1172,
-            "y": 440,
+            "x": 1,
+            "y": 1,
             "w": 635,
             "h": 153
         },
         "castle_roofed_well": {
-            "x": 20,
-            "y": 871,
+            "x": 389,
+            "y": 942,
             "w": 195,
             "h": 234
         },
         "castle_stable_barn": {
-            "x": 247,
-            "y": 871,
+            "x": 467,
+            "y": 705,
             "w": 459,
             "h": 235
         }

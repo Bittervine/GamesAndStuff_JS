@@ -7,73 +7,73 @@
     "image": "at_atlas_007.png",
     "frames": {
         "rope_bridge_long_walkable": {
-            "x": 4,
+            "x": 1,
             "y": 270,
             "w": 1537,
             "h": 227
         },
         "rope_bridge_rickety_decor": {
-            "x": 7,
+            "x": 4,
             "y": 1,
             "w": 1545,
             "h": 269
         },
         "ruined_church": {
-            "x": 1487,
+            "x": 1484,
             "y": 233,
             "w": 476,
             "h": 517
         },
         "grave_celtic_cross": {
-            "x": 20,
+            "x": 17,
             "y": 782,
             "w": 146,
             "h": 175
         },
         "grave_cross_headstone": {
-            "x": 198,
+            "x": 195,
             "y": 782,
             "w": 152,
             "h": 168
         },
         "grave_diamond_headstone": {
-            "x": 382,
+            "x": 379,
             "y": 782,
             "w": 165,
             "h": 183
         },
         "grave_round_headstone": {
-            "x": 579,
+            "x": 576,
             "y": 782,
             "w": 153,
             "h": 169
         },
         "grave_cracked_slab": {
-            "x": 764,
+            "x": 761,
             "y": 782,
             "w": 170,
             "h": 175
         },
         "rope_ladder_angled_walkable": {
-            "x": 966,
+            "x": 963,
             "y": 782,
             "w": 163,
             "h": 257
         },
         "catapult": {
-            "x": 1161,
+            "x": 1158,
             "y": 782,
             "w": 353,
             "h": 257
         },
         "black_cauldron_blockable": {
-            "x": 1534,
+            "x": 1531,
             "y": 777,
             "w": 351,
             "h": 223
         },
         "rope_bridge_long_top": {
-            "x": 33,
+            "x": 30,
             "y": 498,
             "w": 1450,
             "h": 199

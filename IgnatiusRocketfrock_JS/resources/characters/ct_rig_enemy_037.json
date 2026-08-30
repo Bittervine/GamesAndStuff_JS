@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 4,
-        "note": "Revision 182 Human Pirate rig using head_15, body_09, and the shared rapier artwork. The articulated Raider animation topology is retained. Revision 435 aligns the melee attack handoff timing with the user-authored enemy_036 thrust."
+        "version": 5,
+        "note": "Revision 182 Human Pirate rig using head_15, body_09, and the shared rapier artwork. The articulated Raider animation topology is retained. Revision 435 aligns the melee attack handoff timing with the user-authored enemy_036 thrust. Revision 493 bakes this human variant’s articulated arm treatment into ct_atlas_enemy_030 and removes runtime arm recoloring."
     },
     "rigId": "ct_rig_enemy_037",
     "atlasId": "ct_atlas_enemy_030",
@@ -109,8 +109,8 @@
             "y": 0.5
         },
         "rightUpperArm": {
-            "x": 0.6,
-            "y": 0.225
+            "x": 0.61,
+            "y": 0.175
         },
         "rightLowerArm": {
             "x": 0.21,
@@ -119,7 +119,7 @@
     },
     "parts": {
         "leftUpperArm": {
-            "frame": "arm_upper_01",
+            "frame": "arm_upper_01_body_09",
             "role": "leftUpperArm",
             "tags": [
                 "arm",
@@ -139,25 +139,10 @@
                     "x": 0.6569620785033716,
                     "y": 0.20864837588872165
                 }
-            },
-            "colorExchange": {
-                "fromColor": [
-                    215,
-                    135,
-                    75
-                ],
-                "toColor": [
-                    177,
-                    97,
-                    37
-                ],
-                "redThreshold": 1,
-                "greenThreshold": 1,
-                "blueThreshold": 1
             }
         },
         "leftLowerArm": {
-            "frame": "arm_lower_01",
+            "frame": "arm_lower_01_body_09",
             "role": "leftLowerArm",
             "tags": [
                 "arm",
@@ -177,21 +162,6 @@
                     "x": 0.54,
                     "y": 0.95
                 }
-            },
-            "colorExchange": {
-                "fromColor": [
-                    215,
-                    135,
-                    75
-                ],
-                "toColor": [
-                    177,
-                    97,
-                    37
-                ],
-                "redThreshold": 1,
-                "greenThreshold": 1,
-                "blueThreshold": 1
             }
         },
         "rightUpperLeg": {
@@ -400,7 +370,7 @@
             }
         },
         "rightUpperArm": {
-            "frame": "arm_upper_00",
+            "frame": "arm_upper_00_body_09",
             "role": "rightUpperArm",
             "tags": [
                 "arm",
@@ -415,31 +385,16 @@
             "scale": 1,
             "targetHeight": 92,
             "alpha": 1,
-            "colorExchange": {
-                "fromColor": [
-                    215,
-                    135,
-                    75
-                ],
-                "toColor": [
-                    177,
-                    97,
-                    37
-                ],
-                "redThreshold": 1,
-                "greenThreshold": 1,
-                "blueThreshold": 1
-            },
             "parentConstraint": {
                 "parentPart": "torso",
                 "parentPoint": {
-                    "x": 0.17510442171881413,
-                    "y": 0.2650359947589359
+                    "x": 0.19,
+                    "y": 0.23
                 }
             }
         },
         "rightLowerArm": {
-            "frame": "arm_lower_00",
+            "frame": "arm_lower_00_body_09",
             "role": "rightLowerArm",
             "tags": [
                 "arm",
@@ -461,21 +416,6 @@
                     "x": 0.33916713271610416,
                     "y": 0.9465818008718319
                 }
-            },
-            "colorExchange": {
-                "fromColor": [
-                    215,
-                    135,
-                    75
-                ],
-                "toColor": [
-                    170,
-                    97,
-                    37
-                ],
-                "redThreshold": 1,
-                "greenThreshold": 1,
-                "blueThreshold": 1
             }
         }
     }

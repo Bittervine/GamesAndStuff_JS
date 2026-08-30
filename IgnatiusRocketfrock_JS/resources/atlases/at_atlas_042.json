@@ -1,0 +1,1559 @@
+{
+    "meta": {
+        "version": 4,
+        "note": "Atlas 042. Haunted dead trees for cave and forest terrain. Platform-capable branches use one-way walkable lines; steep branches remain decorative."
+    },
+    "atlasId": "at_atlas_042",
+    "image": "at_atlas_042.png",
+    "frames": {
+        "haunted_tree_042_01": {
+            "x": 1,
+            "y": 1,
+            "w": 621,
+            "h": 443
+        },
+        "haunted_tree_042_02": {
+            "x": 1,
+            "y": 446,
+            "w": 369,
+            "h": 430
+        },
+        "haunted_tree_042_03": {
+            "x": 624,
+            "y": 419,
+            "w": 442,
+            "h": 432
+        },
+        "haunted_tree_042_04": {
+            "x": 1472,
+            "y": 430,
+            "w": 388,
+            "h": 418
+        },
+        "haunted_tree_042_05": {
+            "x": 1170,
+            "y": 1,
+            "w": 448,
+            "h": 427
+        },
+        "haunted_tree_042_06": {
+            "x": 1068,
+            "y": 430,
+            "w": 402,
+            "h": 421
+        },
+        "haunted_tree_042_07": {
+            "x": 624,
+            "y": 1,
+            "w": 544,
+            "h": 416
+        },
+        "haunted_tree_042_08": {
+            "x": 1620,
+            "y": 1,
+            "w": 311,
+            "h": 426
+        }
+    },
+    "objects": {
+        "haunted_tree_042_01": {
+            "id": "haunted_tree_042_01",
+            "frame": "haunted_tree_042_01",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "forest",
+                "haunted",
+                "dead",
+                "tree",
+                "decoration",
+                "walkable",
+                "platform"
+            ],
+            "notes": "Haunted dead tree for cave/forest terrain. Green one-way walkable lines are limited to branch sections that stay within the normal platform slope threshold.",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 99,
+                    "y": 135
+                },
+                {
+                    "id": "n2",
+                    "x": 263,
+                    "y": 149
+                },
+                {
+                    "id": "n6",
+                    "x": 139,
+                    "y": 265
+                },
+                {
+                    "id": "n7",
+                    "x": 203,
+                    "y": 249
+                },
+                {
+                    "id": "n8",
+                    "x": 516,
+                    "y": 212
+                },
+                {
+                    "id": "n9",
+                    "x": 66,
+                    "y": 252
+                },
+                {
+                    "id": "n10",
+                    "x": 344,
+                    "y": 210
+                },
+                {
+                    "id": "n11",
+                    "x": 385,
+                    "y": 221
+                },
+                {
+                    "id": "n12",
+                    "x": 430,
+                    "y": 213
+                },
+                {
+                    "id": "n13",
+                    "x": 473,
+                    "y": 229
+                },
+                {
+                    "id": "n14",
+                    "x": 160,
+                    "y": 119
+                },
+                {
+                    "id": "n15",
+                    "x": 594,
+                    "y": 242
+                },
+                {
+                    "id": "n16",
+                    "x": 344,
+                    "y": 161
+                },
+                {
+                    "id": "n17",
+                    "x": 393,
+                    "y": 159
+                },
+                {
+                    "id": "n18",
+                    "x": 280,
+                    "y": 224
+                },
+                {
+                    "id": "n19",
+                    "x": 229,
+                    "y": 230
+                },
+                {
+                    "id": "n20",
+                    "x": 168,
+                    "y": 253
+                },
+                {
+                    "id": "n21",
+                    "x": 106,
+                    "y": 251
+                },
+                {
+                    "id": "n22",
+                    "x": 82,
+                    "y": 248
+                },
+                {
+                    "id": "n23",
+                    "x": 214,
+                    "y": 131
+                },
+                {
+                    "id": "n24",
+                    "x": 236,
+                    "y": 135
+                },
+                {
+                    "id": "n25",
+                    "x": 188,
+                    "y": 122
+                },
+                {
+                    "id": "n26",
+                    "x": 125,
+                    "y": 132
+                },
+                {
+                    "id": "n27",
+                    "x": 235,
+                    "y": 212
+                },
+                {
+                    "id": "n28",
+                    "x": 202,
+                    "y": 212
+                },
+                {
+                    "id": "n29",
+                    "x": 160,
+                    "y": 180
+                },
+                {
+                    "id": "n30",
+                    "x": 106,
+                    "y": 187
+                },
+                {
+                    "id": "n31",
+                    "x": 79,
+                    "y": 207
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n26",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n7",
+                    "to": "n19",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n7",
+                    "to": "n20",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_5",
+                    "kind": "walkable",
+                    "from": "n9",
+                    "to": "n22",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_6",
+                    "kind": "walkable",
+                    "from": "n10",
+                    "to": "n11",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_7",
+                    "kind": "walkable",
+                    "from": "n11",
+                    "to": "n12",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_8",
+                    "kind": "walkable",
+                    "from": "n12",
+                    "to": "n13",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_9",
+                    "kind": "walkable",
+                    "from": "n13",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_10",
+                    "kind": "walkable",
+                    "from": "n14",
+                    "to": "n25",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_11",
+                    "kind": "walkable",
+                    "from": "n8",
+                    "to": "n15",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_12",
+                    "kind": "walkable",
+                    "from": "n16",
+                    "to": "n17",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_13",
+                    "kind": "walkable",
+                    "from": "n18",
+                    "to": "n10",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_14",
+                    "kind": "walkable",
+                    "from": "n19",
+                    "to": "n18",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_15",
+                    "kind": "walkable",
+                    "from": "n20",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_16",
+                    "kind": "walkable",
+                    "from": "n21",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_17",
+                    "kind": "walkable",
+                    "from": "n22",
+                    "to": "n21",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_18",
+                    "kind": "walkable",
+                    "from": "n23",
+                    "to": "n24",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_19",
+                    "kind": "walkable",
+                    "from": "n24",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_20",
+                    "kind": "walkable",
+                    "from": "n25",
+                    "to": "n23",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_21",
+                    "kind": "walkable",
+                    "from": "n26",
+                    "to": "n14",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_22",
+                    "kind": "walkable",
+                    "from": "n31",
+                    "to": "n30",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_23",
+                    "kind": "walkable",
+                    "from": "n30",
+                    "to": "n29",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_24",
+                    "kind": "walkable",
+                    "from": "n29",
+                    "to": "n28",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_25",
+                    "kind": "walkable",
+                    "from": "n28",
+                    "to": "n27",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "biome.forest",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "haunted_tree_042_02": {
+            "id": "haunted_tree_042_02",
+            "frame": "haunted_tree_042_02",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "forest",
+                "haunted",
+                "dead",
+                "tree",
+                "decoration",
+                "walkable",
+                "platform"
+            ],
+            "notes": "Haunted dead tree for cave/forest terrain. Green one-way walkable lines are limited to branch sections that stay within the normal platform slope threshold.",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 171,
+                    "y": 190
+                },
+                {
+                    "id": "n2",
+                    "x": 223,
+                    "y": 195
+                },
+                {
+                    "id": "n3",
+                    "x": 322,
+                    "y": 166
+                },
+                {
+                    "id": "n4",
+                    "x": 248,
+                    "y": 190
+                },
+                {
+                    "id": "n5",
+                    "x": 276,
+                    "y": 196
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n5",
+                    "to": "n3",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "biome.forest",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "haunted_tree_042_03": {
+            "id": "haunted_tree_042_03",
+            "frame": "haunted_tree_042_03",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "forest",
+                "haunted",
+                "dead",
+                "tree",
+                "decoration",
+                "walkable",
+                "platform"
+            ],
+            "notes": "Haunted dead tree for cave/forest terrain. Green one-way walkable lines are limited to branch sections that stay within the normal platform slope threshold.",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 105,
+                    "y": 200
+                },
+                {
+                    "id": "n2",
+                    "x": 172,
+                    "y": 201
+                },
+                {
+                    "id": "n3",
+                    "x": 277,
+                    "y": 173
+                },
+                {
+                    "id": "n4",
+                    "x": 330,
+                    "y": 183
+                },
+                {
+                    "id": "n5",
+                    "x": 37,
+                    "y": 178
+                },
+                {
+                    "id": "n6",
+                    "x": 385,
+                    "y": 219
+                },
+                {
+                    "id": "n7",
+                    "x": 302,
+                    "y": 164
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_5",
+                    "kind": "walkable",
+                    "from": "n7",
+                    "to": "n4",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "biome.forest",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "haunted_tree_042_04": {
+            "id": "haunted_tree_042_04",
+            "frame": "haunted_tree_042_04",
+            "type": "decor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "forest",
+                "haunted",
+                "dead",
+                "tree",
+                "decoration"
+            ],
+            "notes": "Haunted dead tree for cave/forest terrain. Decoration-only: the user-marked upper branch is too steep for the normal platform authoring threshold.",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 83,
+                    "y": 56
+                },
+                {
+                    "id": "n2",
+                    "x": 160,
+                    "y": 75
+                },
+                {
+                    "id": "n3",
+                    "x": 172,
+                    "y": 106
+                },
+                {
+                    "id": "n4",
+                    "x": 225,
+                    "y": 121
+                },
+                {
+                    "id": "n5",
+                    "x": 259,
+                    "y": 159
+                },
+                {
+                    "id": "n6",
+                    "x": 330,
+                    "y": 188
+                },
+                {
+                    "id": "n7",
+                    "x": 223,
+                    "y": 215
+                },
+                {
+                    "id": "n8",
+                    "x": 116,
+                    "y": 295
+                },
+                {
+                    "id": "n9",
+                    "x": 167,
+                    "y": 246
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n6",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n5",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_5",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n1",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_6",
+                    "kind": "walkable",
+                    "from": "n8",
+                    "to": "n9",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_7",
+                    "kind": "walkable",
+                    "from": "n9",
+                    "to": "n7",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "biome.forest",
+                "layer.terrain"
+            ]
+        },
+        "haunted_tree_042_05": {
+            "id": "haunted_tree_042_05",
+            "frame": "haunted_tree_042_05",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "forest",
+                "haunted",
+                "dead",
+                "tree",
+                "decoration",
+                "walkable",
+                "platform"
+            ],
+            "notes": "Haunted dead tree for cave/forest terrain. Green one-way walkable lines are limited to branch sections that stay within the normal platform slope threshold.",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 56,
+                    "y": 42
+                },
+                {
+                    "id": "n2",
+                    "x": 306,
+                    "y": 73
+                },
+                {
+                    "id": "n3",
+                    "x": 71,
+                    "y": 198
+                },
+                {
+                    "id": "n4",
+                    "x": 438,
+                    "y": 224
+                },
+                {
+                    "id": "n5",
+                    "x": 46,
+                    "y": 215
+                },
+                {
+                    "id": "n6",
+                    "x": 127,
+                    "y": 172
+                },
+                {
+                    "id": "n7",
+                    "x": 177,
+                    "y": 187
+                },
+                {
+                    "id": "n8",
+                    "x": 233,
+                    "y": 175
+                },
+                {
+                    "id": "n9",
+                    "x": 289,
+                    "y": 167
+                },
+                {
+                    "id": "n10",
+                    "x": 325,
+                    "y": 179
+                },
+                {
+                    "id": "n11",
+                    "x": 365,
+                    "y": 160
+                },
+                {
+                    "id": "n12",
+                    "x": 279,
+                    "y": 70
+                },
+                {
+                    "id": "n13",
+                    "x": 247,
+                    "y": 82
+                },
+                {
+                    "id": "n14",
+                    "x": 214,
+                    "y": 94
+                },
+                {
+                    "id": "n15",
+                    "x": 184,
+                    "y": 91
+                },
+                {
+                    "id": "n16",
+                    "x": 169,
+                    "y": 104
+                },
+                {
+                    "id": "n17",
+                    "x": 127,
+                    "y": 96
+                },
+                {
+                    "id": "n18",
+                    "x": 146,
+                    "y": 121
+                },
+                {
+                    "id": "n19",
+                    "x": 385,
+                    "y": 166
+                },
+                {
+                    "id": "n20",
+                    "x": 399,
+                    "y": 191
+                },
+                {
+                    "id": "n21",
+                    "x": 411,
+                    "y": 211
+                },
+                {
+                    "id": "n23",
+                    "x": 305,
+                    "y": 137
+                },
+                {
+                    "id": "n24",
+                    "x": 325,
+                    "y": 148
+                },
+                {
+                    "id": "n25",
+                    "x": 356,
+                    "y": 126
+                },
+                {
+                    "id": "n26",
+                    "x": 375,
+                    "y": 135
+                },
+                {
+                    "id": "n27",
+                    "x": 150,
+                    "y": 177
+                },
+                {
+                    "id": "n28",
+                    "x": 162,
+                    "y": 186
+                },
+                {
+                    "id": "n29",
+                    "x": 64,
+                    "y": 210
+                },
+                {
+                    "id": "n30",
+                    "x": 316,
+                    "y": 89
+                },
+                {
+                    "id": "n31",
+                    "x": 305,
+                    "y": 135
+                },
+                {
+                    "id": "n32",
+                    "x": 340,
+                    "y": 133
+                },
+                {
+                    "id": "n33",
+                    "x": 109,
+                    "y": 89
+                },
+                {
+                    "id": "n34",
+                    "x": 92,
+                    "y": 65
+                },
+                {
+                    "id": "n35",
+                    "x": 29,
+                    "y": 48
+                },
+                {
+                    "id": "n36",
+                    "x": 12,
+                    "y": 65
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n34",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n6",
+                    "to": "n27",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n7",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_5",
+                    "kind": "walkable",
+                    "from": "n8",
+                    "to": "n9",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_6",
+                    "kind": "walkable",
+                    "from": "n9",
+                    "to": "n10",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_7",
+                    "kind": "walkable",
+                    "from": "n10",
+                    "to": "n11",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_8",
+                    "kind": "walkable",
+                    "from": "n11",
+                    "to": "n19",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_9",
+                    "kind": "walkable",
+                    "from": "n12",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_10",
+                    "kind": "walkable",
+                    "from": "n13",
+                    "to": "n12",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_11",
+                    "kind": "walkable",
+                    "from": "n14",
+                    "to": "n13",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_12",
+                    "kind": "walkable",
+                    "from": "n15",
+                    "to": "n14",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_13",
+                    "kind": "walkable",
+                    "from": "n16",
+                    "to": "n15",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_14",
+                    "kind": "walkable",
+                    "from": "n17",
+                    "to": "n18",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_15",
+                    "kind": "walkable",
+                    "from": "n18",
+                    "to": "n16",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_16",
+                    "kind": "walkable",
+                    "from": "n19",
+                    "to": "n20",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_17",
+                    "kind": "walkable",
+                    "from": "n20",
+                    "to": "n21",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_18",
+                    "kind": "walkable",
+                    "from": "n21",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_19",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n30",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_21",
+                    "kind": "walkable",
+                    "from": "n23",
+                    "to": "n24",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_22",
+                    "kind": "walkable",
+                    "from": "n24",
+                    "to": "n32",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_23",
+                    "kind": "walkable",
+                    "from": "n25",
+                    "to": "n26",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_24",
+                    "kind": "walkable",
+                    "from": "n27",
+                    "to": "n28",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_25",
+                    "kind": "walkable",
+                    "from": "n28",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_26",
+                    "kind": "walkable",
+                    "from": "n5",
+                    "to": "n29",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_27",
+                    "kind": "walkable",
+                    "from": "n29",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_28",
+                    "kind": "walkable",
+                    "from": "n32",
+                    "to": "n25",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_29",
+                    "kind": "walkable",
+                    "from": "n33",
+                    "to": "n17",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_30",
+                    "kind": "walkable",
+                    "from": "n34",
+                    "to": "n33",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_31",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n35",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_32",
+                    "kind": "walkable",
+                    "from": "n35",
+                    "to": "n36",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "biome.forest",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "haunted_tree_042_06": {
+            "id": "haunted_tree_042_06",
+            "frame": "haunted_tree_042_06",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "forest",
+                "haunted",
+                "dead",
+                "tree",
+                "decoration",
+                "walkable",
+                "platform"
+            ],
+            "notes": "Haunted dead tree for cave/forest terrain. Green one-way walkable lines are limited to branch sections that stay within the normal platform slope threshold.",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 204,
+                    "y": 153
+                },
+                {
+                    "id": "n2",
+                    "x": 373,
+                    "y": 181
+                },
+                {
+                    "id": "n3",
+                    "x": 185,
+                    "y": 167
+                },
+                {
+                    "id": "n4",
+                    "x": 225,
+                    "y": 151
+                },
+                {
+                    "id": "n5",
+                    "x": 264,
+                    "y": 176
+                },
+                {
+                    "id": "n6",
+                    "x": 297,
+                    "y": 174
+                },
+                {
+                    "id": "n7",
+                    "x": 321,
+                    "y": 190
+                },
+                {
+                    "id": "n8",
+                    "x": 356,
+                    "y": 180
+                },
+                {
+                    "id": "n9",
+                    "x": 339,
+                    "y": 196
+                },
+                {
+                    "id": "n10",
+                    "x": 249,
+                    "y": 159
+                },
+                {
+                    "id": "n11",
+                    "x": 280,
+                    "y": 181
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n10",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n5",
+                    "to": "n11",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n6",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_5",
+                    "kind": "walkable",
+                    "from": "n7",
+                    "to": "n9",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_6",
+                    "kind": "walkable",
+                    "from": "n8",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_7",
+                    "kind": "walkable",
+                    "from": "n9",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_8",
+                    "kind": "walkable",
+                    "from": "n10",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_9",
+                    "kind": "walkable",
+                    "from": "n3",
+                    "to": "n1",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_10",
+                    "kind": "walkable",
+                    "from": "n11",
+                    "to": "n6",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "biome.forest",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "haunted_tree_042_07": {
+            "id": "haunted_tree_042_07",
+            "frame": "haunted_tree_042_07",
+            "type": "platform",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "forest",
+                "haunted",
+                "dead",
+                "tree",
+                "decoration",
+                "walkable",
+                "platform"
+            ],
+            "notes": "Haunted dead tree for cave/forest terrain. The flatter left branch is one-way walkable; the steeper right branch was intentionally left non-walkable.",
+            "nodes": [
+                {
+                    "id": "n1",
+                    "x": 61,
+                    "y": 169
+                },
+                {
+                    "id": "n2",
+                    "x": 190,
+                    "y": 159
+                },
+                {
+                    "id": "n3",
+                    "x": 213,
+                    "y": 195
+                },
+                {
+                    "id": "n4",
+                    "x": 121,
+                    "y": 151
+                },
+                {
+                    "id": "n5",
+                    "x": 162,
+                    "y": 146
+                },
+                {
+                    "id": "n6",
+                    "x": 256,
+                    "y": 212
+                },
+                {
+                    "id": "n7",
+                    "x": 318,
+                    "y": 216
+                },
+                {
+                    "id": "n8",
+                    "x": 357,
+                    "y": 175
+                },
+                {
+                    "id": "n9",
+                    "x": 401,
+                    "y": 158
+                },
+                {
+                    "id": "n10",
+                    "x": 435,
+                    "y": 138
+                },
+                {
+                    "id": "n11",
+                    "x": 488,
+                    "y": 170
+                },
+                {
+                    "id": "n12",
+                    "x": 523,
+                    "y": 187
+                }
+            ],
+            "lines": [
+                {
+                    "id": "walkable_1",
+                    "kind": "walkable",
+                    "from": "n1",
+                    "to": "n4",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_2",
+                    "kind": "walkable",
+                    "from": "n4",
+                    "to": "n5",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_3",
+                    "kind": "walkable",
+                    "from": "n5",
+                    "to": "n2",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_4",
+                    "kind": "walkable",
+                    "from": "n2",
+                    "to": "n3",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_5",
+                    "kind": "walkable",
+                    "from": "n12",
+                    "to": "n11",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_6",
+                    "kind": "walkable",
+                    "from": "n11",
+                    "to": "n10",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_7",
+                    "kind": "walkable",
+                    "from": "n10",
+                    "to": "n9",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_8",
+                    "kind": "walkable",
+                    "from": "n9",
+                    "to": "n8",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_9",
+                    "kind": "walkable",
+                    "from": "n8",
+                    "to": "n7",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_10",
+                    "kind": "walkable",
+                    "from": "n7",
+                    "to": "n6",
+                    "tags": []
+                },
+                {
+                    "id": "walkable_11",
+                    "kind": "walkable",
+                    "from": "n6",
+                    "to": "n3",
+                    "tags": []
+                }
+            ],
+            "generationTags": [
+                "biome.cave",
+                "biome.forest",
+                "layer.terrain",
+                "capability.platform"
+            ]
+        },
+        "haunted_tree_042_08": {
+            "id": "haunted_tree_042_08",
+            "frame": "haunted_tree_042_08",
+            "type": "decor",
+            "layer": "terrain",
+            "mirrorable": true,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 1
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "destroy": {
+                "hp": 1,
+                "explosionRadius": 64,
+                "fadeToBlackSeconds": 0.18,
+                "removeAfterSeconds": 0.22
+            },
+            "tags": [
+                "cave",
+                "forest",
+                "haunted",
+                "dead",
+                "tree",
+                "decoration"
+            ],
+            "notes": "Haunted dead tree for cave/forest terrain. No convincing horizontal branch surface; decoration-only.",
+            "nodes": [],
+            "lines": [],
+            "generationTags": [
+                "biome.cave",
+                "biome.forest",
+                "layer.terrain"
+            ]
+        }
+    }
+}

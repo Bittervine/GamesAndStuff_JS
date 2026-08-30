@@ -7,92 +7,92 @@
     "image": "at_atlas_008.png",
     "frames": {
         "wood_table_large": {
-            "x": 20,
-            "y": 17,
+            "x": 531,
+            "y": 123,
             "w": 427,
             "h": 266
         },
         "wood_chair_simple": {
-            "x": 485,
-            "y": 15,
+            "x": 725,
+            "y": 437,
             "w": 217,
             "h": 277
         },
         "wood_chair_arch_back": {
-            "x": 725,
-            "y": 20,
+            "x": 1,
+            "y": 467,
             "w": 190,
             "h": 258
         },
         "wood_chair_tall_back": {
-            "x": 941,
-            "y": 15,
+            "x": 531,
+            "y": 437,
             "w": 192,
             "h": 302
         },
         "wood_chair_low_back": {
-            "x": 1157,
-            "y": 13,
+            "x": 1308,
+            "y": 169,
             "w": 167,
             "h": 263
         },
         "wood_cupboard": {
-            "x": 1361,
-            "y": 7,
+            "x": 960,
+            "y": 169,
             "w": 346,
             "h": 381
         },
         "wood_bed": {
-            "x": 20,
-            "y": 412,
+            "x": 1,
+            "y": 123,
             "w": 528,
             "h": 342
         },
         "wood_chair_knocked_over": {
-            "x": 561,
-            "y": 417,
+            "x": 193,
+            "y": 467,
             "w": 252,
             "h": 178
         },
         "wood_plank_extra_long_straight": {
-            "x": 20,
-            "y": 779,
+            "x": 1,
+            "y": 1,
             "w": 1338,
             "h": 51
         },
         "wood_plank_extra_long_curved": {
-            "x": 20,
-            "y": 862,
+            "x": 1,
+            "y": 54,
             "w": 1334,
             "h": 67
         },
         "wood_plank_short_a": {
-            "x": 1386,
-            "y": 862,
+            "x": 960,
+            "y": 123,
             "w": 391,
             "h": 44
         },
         "wood_plank_short_b": {
-            "x": 20,
-            "y": 961,
+            "x": 531,
+            "y": 391,
             "w": 378,
             "h": 44
         },
         "wood_plank_tiny": {
-            "x": 430,
-            "y": 961,
+            "x": 1337,
+            "y": 54,
             "w": 104,
             "h": 43
         },
         "wood_plank_short_c": {
-            "x": 566,
-            "y": 961,
+            "x": 193,
+            "y": 647,
             "w": 186,
             "h": 43
         },
         "wood_plank_short_d": {
-            "x": 784,
-            "y": 961,
+            "x": 1308,
+            "y": 434,
             "w": 157,
             "h": 43
         }

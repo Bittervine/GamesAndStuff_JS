@@ -43,6 +43,15 @@ export function canvasToPreviewPoint(point, view) {
     };
 }
 
+export function canvasToCharacterWorldPoint(point, view, previewWorldScale = 1) {
+    const zoom = positiveFinite(view?.zoom, 1);
+    const scale = positiveFinite(previewWorldScale, 1);
+    return {
+        x: (Number(point.x) - Number(view?.originX || 0)) / (zoom * scale),
+        y: (Number(point.y) - Number(view?.originY || 0)) / (zoom * scale)
+    };
+}
+
 export function zoomCharacterViewAtCanvasPoint(viewState, canvasPoint, zoomFactor, options = {}) {
     const minZoom = positiveFinite(options.minZoom, 0.25);
     const maxZoom = Math.max(minZoom, positiveFinite(options.maxZoom, 6));

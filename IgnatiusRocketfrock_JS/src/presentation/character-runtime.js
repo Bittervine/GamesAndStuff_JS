@@ -4,8 +4,6 @@ import {
     normalizeAnimationClip,
     sampleAnimationClip
 } from "../shared/animation-data.js";
-import { normalizeColorExchange, colorExchangeCacheKey } from "../shared/color-exchange-data.js";
-import { createColorExchangedSpriteCanvas } from "./sprite-color-exchange.js";
 import { shownTransformOf } from "../shared/presentation-transform-data.js";
 import { normalizeCharacterSounds } from "../shared/character-sound-data.js";
 import { normalizeCharacterDropProfile } from "../shared/enemy-drop-data.js";
@@ -166,10 +164,12 @@ export function normalizeRuntimeCharacterRig(rawRig, label = "character rig") {
     const parts = {};
     for (const partName of drawOrder) {
         const rawPart = sourceParts[partName] || {};
+        if (Object.prototype.hasOwnProperty.call(rawPart, "colorExchange")) {
+            throw new Error(`${label} part "${partName}" uses removed character-part colorExchange. Bake variant pixels into the authored character atlas instead.`);
+        }
         const { parentConstraint: _rawParentConstraint, ...rawPartFields } = rawPart;
         const rawPivot = rawRig.pivots?.[partName] || {};
         const rawOffset = rawPart.offset || {};
-        const colorExchange = normalizeColorExchange(rawPart.colorExchange);
         const parentConstraint = normalizeParentConstraint(rawPart.parentConstraint);
         parts[partName] = {
             ...rawPartFields,
@@ -182,8 +182,7 @@ export function normalizeRuntimeCharacterRig(rawRig, label = "character rig") {
             scale: finiteOr(rawPart.scale, 1),
             targetHeight: Math.max(0.0001, finiteOr(rawPart.targetHeight, 1)),
             alpha: clamp(finiteOr(rawPart.alpha, 1), 0, 1),
-            ...(parentConstraint ? { parentConstraint } : {}),
-            ...(colorExchange ? { colorExchange } : {})
+            ...(parentConstraint ? { parentConstraint } : {})
         };
         pivots[partName] = {
             x: finiteOr(rawPivot.x, 0.5),
@@ -479,6 +478,7 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
     const loadJson = options.loadJson || defaultLoadJson;
     const loadImage = options.loadImage || defaultLoadImage;
     const createCanvas = options.createCanvas || defaultCreateCanvas;
+    const preparedAtlasCache = options.preparedAtlasCache instanceof Map ? options.preparedAtlasCache : null;
     const onProgress = typeof options.onProgress === "function" ? options.onProgress : () => {};
     const usePixmapPyramids = options.usePixmapPyramids !== false;
     const progressParts = {
@@ -558,86 +558,72 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
         reportProgress(`Loaded supplemental character atlas manifest ${supplementalManifestUrl}`);
     }
 
-    const imageUrl = resolveRelativeUrl(atlasManifestUrl, atlas.image);
-    const primaryImageJob = loadImage(imageUrl);
-    const supplementalImageJobs = supplementalAtlases.map((supplementalAtlas) =>
-        loadImage(resolveRelativeUrl(supplementalAtlas.sourceUrl, supplementalAtlas.image))
-    );
-    const [image, loadedAnimations, ...supplementalImages] = await Promise.all([
-        primaryImageJob,
+    async function prepareAtlasEntry(manifest, manifestUrl) {
+        const imageUrl = resolveRelativeUrl(manifestUrl, manifest.image);
+        const cacheKey = `${manifestUrl}|pixmapPyramids=${usePixmapPyramids ? 1 : 0}`;
+        if (preparedAtlasCache?.has(cacheKey)) {
+            return await preparedAtlasCache.get(cacheKey);
+        }
+        const pending = (async () => {
+            const image = await loadImage(imageUrl);
+            const frames = new Map();
+            for (const [frameId, frame] of Object.entries(manifest.frames)) {
+                const objectMeta = manifest.objects?.[frameId] || null;
+                frames.set(frameId, makeRuntimeAtlasFrameAsset(
+                    image,
+                    frame,
+                    frameId,
+                    frameId,
+                    imageUrl,
+                    manifest.atlasId,
+                    createCanvas,
+                    objectMeta,
+                    usePixmapPyramids
+                ));
+            }
+            return { cacheKey, manifestUrl, imageUrl, image, frames };
+        })();
+        preparedAtlasCache?.set(cacheKey, pending);
+        try {
+            const prepared = await pending;
+            preparedAtlasCache?.set(cacheKey, prepared);
+            return prepared;
+        } catch (error) {
+            if (preparedAtlasCache?.get(cacheKey) === pending) preparedAtlasCache.delete(cacheKey);
+            throw error;
+        }
+    }
+
+    const atlasSet = [
+        { manifest: atlas, manifestUrl: atlasManifestUrl },
+        ...supplementalAtlases.map((manifest) => ({ manifest, manifestUrl: manifest.sourceUrl }))
+    ];
+    const [loadedAnimations, preparedAtlasEntries] = await Promise.all([
         Promise.all(animationJobs),
-        ...supplementalImageJobs
+        Promise.all(atlasSet.map((entry) => prepareAtlasEntry(entry.manifest, entry.manifestUrl)))
     ]);
     progressParts.image = 1;
     reportProgress(`Decoded character atlas set for ${character.displayName || character.characterId || "character"}`);
 
+    const primaryPreparedAtlas = preparedAtlasEntries[0];
+    const imageUrl = primaryPreparedAtlas.imageUrl;
+    const image = primaryPreparedAtlas.image;
+    const supplementalImages = preparedAtlasEntries.slice(1).map((entry) => entry.image);
     const atlasAssets = new Map();
-    const atlasSet = [
-        { manifest: atlas, manifestUrl: atlasManifestUrl, imageUrl, image },
-        ...supplementalAtlases.map((manifest, index) => ({
-            manifest,
-            manifestUrl: manifest.sourceUrl,
-            imageUrl: resolveRelativeUrl(manifest.sourceUrl, manifest.image),
-            image: supplementalImages[index]
-        }))
-    ];
-    for (const atlasEntry of atlasSet) {
-        for (const [frameId, frame] of Object.entries(atlasEntry.manifest.frames)) {
-            const objectMeta = atlasEntry.manifest.objects?.[frameId] || null;
-            atlasAssets.set(frameId, makeRuntimeAtlasFrameAsset(
-                atlasEntry.image,
-                frame,
-                frameId,
-                frameId,
-                atlasEntry.imageUrl,
-                atlasEntry.manifest.atlasId,
-                createCanvas,
-                objectMeta,
-                usePixmapPyramids
-            ));
+    for (const preparedAtlas of preparedAtlasEntries) {
+        for (const [frameId, asset] of preparedAtlas.frames) {
+            atlasAssets.set(frameId, asset);
         }
     }
 
     const assets = new Map();
-    const colorExchangeCanvasCache = new Map();
     for (const partName of rig.drawOrder) {
         const part = rig.parts[partName];
         const atlasAsset = atlasAssets.get(part.frame);
         if (!atlasAsset) {
             throw new Error(`Character atlas ${atlasManifestUrl} is missing frame "${part.frame}" for rig part "${partName}".`);
         }
-        if (!part.colorExchange) {
-            assets.set(partName, { ...atlasAsset, name: partName });
-            continue;
-        }
-        const exchangeKey = `${atlasAsset.source}|${colorExchangeCacheKey(part.colorExchange)}`;
-        let exchanged = colorExchangeCanvasCache.get(exchangeKey);
-        if (!exchanged) {
-            exchanged = createColorExchangedSpriteCanvas(atlasAsset.canvas, part.colorExchange, {
-                createCanvas,
-                width: atlasAsset.width,
-                height: atlasAsset.height
-            });
-            colorExchangeCanvasCache.set(exchangeKey, exchanged);
-        }
-        assets.set(partName, {
-            ...atlasAsset,
-            name: partName,
-            image: null,
-            canvas: exchanged.canvas,
-            // The atlas asset pyramid contains the untreated source pixels.
-            // Build a replacement pyramid from the exchanged canvas so editor
-            // zoom levels and reduced runtime draws cannot resurrect the
-            // original colours.
-            pixmapPyramid: usePixmapPyramids ? createPixmapPyramid(exchanged.canvas, { createCanvas }) : null,
-            sourceX: 0,
-            sourceY: 0,
-            sourceWidth: atlasAsset.width,
-            sourceHeight: atlasAsset.height,
-            source: `${atlasAsset.source}|colorExchange=${exchanged.cacheKey}`,
-            colorExchange: exchanged.modifier,
-            colorExchangeChangedPixelCount: exchanged.changedPixelCount
-        });
+        assets.set(partName, { ...atlasAsset, name: partName });
     }
 
     const animations = new Map();
@@ -685,6 +671,7 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
             imageUrl: resolveRelativeUrl(manifest.sourceUrl, manifest.image),
             image: supplementalImages[index] || null
         })),
+        preparedAtlasEntries,
         image,
         assets,
         atlasAssets,

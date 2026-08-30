@@ -731,20 +731,61 @@ function missingEnvironmentManifestUrls(environmentAtlases, manifestUrls) {
         .filter((url) => !loadedUrls.has(url));
 }
 
+const runtimeCharacterPresentationCanvasCache = new WeakMap();
+
+function ensureRuntimeCharacterHitFlashCanvas(asset) {
+    if (!asset?.canvas) return null;
+    let cached = runtimeCharacterPresentationCanvasCache.get(asset.canvas);
+    if (!cached) {
+        cached = {};
+        runtimeCharacterPresentationCanvasCache.set(asset.canvas, cached);
+    }
+    if (!cached.hitFlashCanvas) {
+        cached.hitFlashCanvas = makeTintedSpriteCanvas(asset.canvas, "#ffffff");
+        pixmapPyramidFor(cached.hitFlashCanvas);
+    }
+    asset.hitFlashCanvas = cached.hitFlashCanvas;
+    return asset.hitFlashCanvas;
+}
+
 function prepareRuntimeCharacterProjectPresentation(project, isPlayer = false) {
     for (const asset of project?.assets?.values?.() || []) {
-        asset.hitFlashCanvas = makeTintedSpriteCanvas(asset.canvas, "#ffffff");
-        pixmapPyramidFor(asset.hitFlashCanvas);
+        let cached = runtimeCharacterPresentationCanvasCache.get(asset.canvas);
+        if (!cached) {
+            cached = {};
+            runtimeCharacterPresentationCanvasCache.set(asset.canvas, cached);
+        }
         if (isPlayer) {
-            asset.lowHealthCanvas = makeTintedSpriteCanvas(asset.canvas, "#f04b45");
-            asset.shieldCanvas = makeTintedSpriteCanvas(asset.canvas, "#008cff");
-            asset.magicRingCanvas = makeDarkenedSpriteCanvas(asset.canvas, MAGIC_RING_BRIGHTNESS);
-            pixmapPyramidFor(asset.lowHealthCanvas);
-            pixmapPyramidFor(asset.shieldCanvas);
-            pixmapPyramidFor(asset.magicRingCanvas);
+            ensureRuntimeCharacterHitFlashCanvas(asset);
+            if (!cached.lowHealthCanvas) {
+                cached.lowHealthCanvas = makeTintedSpriteCanvas(asset.canvas, "#f04b45");
+                pixmapPyramidFor(cached.lowHealthCanvas);
+            }
+            if (!cached.shieldCanvas) {
+                cached.shieldCanvas = makeTintedSpriteCanvas(asset.canvas, "#008cff");
+                pixmapPyramidFor(cached.shieldCanvas);
+            }
+            if (!cached.magicRingCanvas) {
+                cached.magicRingCanvas = makeDarkenedSpriteCanvas(asset.canvas, MAGIC_RING_BRIGHTNESS);
+                pixmapPyramidFor(cached.magicRingCanvas);
+            }
+            asset.lowHealthCanvas = cached.lowHealthCanvas;
+            asset.shieldCanvas = cached.shieldCanvas;
+            asset.magicRingCanvas = cached.magicRingCanvas;
         }
     }
     return project;
+}
+
+function runtimeCharacterPreparedAtlasCache(projects = []) {
+    const cache = new Map();
+    for (const project of projects || []) {
+        for (const prepared of project?.preparedAtlasEntries || []) {
+            if (!prepared?.cacheKey || !(prepared.frames instanceof Map)) continue;
+            cache.set(prepared.cacheKey, prepared);
+        }
+    }
+    return cache;
 }
 
 function runtimeCharacterProjectTextureSources(project) {
@@ -834,10 +875,12 @@ export async function createRenderer(canvas, options = {}) {
         });
     };
 
+    const preparedAtlasCache = new Map();
     const projectJobs = projectSpecs.map(async (spec) => {
         try {
             const project = await loadRuntimeCharacterProject(spec.url, {
                 usePixmapPyramids: pixmapPyramidsEnabled,
+                preparedAtlasCache,
                 onProgress: ({ progress, label }) => reportTaskProgress(spec.key, progress, label)
             });
             reportTaskProgress(spec.key, 1, `Prepared ${project.displayName}`);
@@ -860,6 +903,7 @@ export async function createRenderer(canvas, options = {}) {
     });
     const environmentJob = loadEnvironmentAtlases({
         candidates: environmentCandidates,
+        sourceResolver: options.environmentAtlasSourceResolver,
         onProgress: ({ url, progress, label }) => reportTaskProgress(`atlas:${url}`, progress, label)
     });
     const [projectResults, environmentAtlases] = await Promise.all([
@@ -895,7 +939,8 @@ export async function createRenderer(canvas, options = {}) {
             displayCanvas: canvas,
             webglBackend,
             onStaticBakeFailure: options.onStaticBakeFailure,
-            onRecoverableException: options.onRecoverableException
+            onRecoverableException: options.onRecoverableException,
+            environmentAtlasSourceResolver: options.environmentAtlasSourceResolver
         }
     );
     onProgress({ progress: 0.93, label: "Loading wizard powered-rocket atlas" });
@@ -936,6 +981,9 @@ class RocketfrockRenderer {
         this.renderBackend = this.webglBackend ? "webgl2-resident" : "canvas2d";
         this.onStaticBakeFailure = typeof options.onStaticBakeFailure === "function" ? options.onStaticBakeFailure : null;
         this.onRecoverableException = typeof options.onRecoverableException === "function" ? options.onRecoverableException : null;
+        this.environmentAtlasSourceResolver = typeof options.environmentAtlasSourceResolver === "function"
+            ? options.environmentAtlasSourceResolver
+            : null;
         this.playerProject = playerProject;
         this.assets = playerProject.assets;
         this.rigConfig = playerProject.rig;
@@ -1555,11 +1603,44 @@ class RocketfrockRenderer {
             .map(canonicalRuntimeResourceUrl)
             .filter(Boolean))];
         const requestedUrlSet = new Set(requestedUrls);
+        const sourceResolver = typeof options.environmentAtlasSourceResolver === "function"
+            ? options.environmentAtlasSourceResolver
+            : this.environmentAtlasSourceResolver;
+        let reboundCount = 0;
+        if (sourceResolver) {
+            const loadedByManifestUrl = new Map([...this.environmentAtlases].map(([atlasId, atlas]) => [
+                canonicalRuntimeResourceUrl(atlas?.manifestUrl),
+                { atlasId, atlas }
+            ]));
+            for (const url of requestedUrls) {
+                const existingEntry = loadedByManifestUrl.get(url);
+                if (!existingEntry) continue;
+                let preparedSource = null;
+                try {
+                    preparedSource = await sourceResolver(url, { url, required: true });
+                } catch (error) {
+                    console.warn(`Could not refresh prepared atlas source ${url}; keeping the current renderer atlas.`, error);
+                    continue;
+                }
+                const replacement = environmentAtlasRecordFromPreparedSource(preparedSource, url);
+                if (!replacement || replacement.image === existingEntry.atlas?.image) continue;
+                this.releaseEnvironmentAtlas(existingEntry.atlas);
+                this.environmentAtlases.delete(existingEntry.atlasId);
+                this.environmentAtlases.set(replacement.id, replacement);
+                reboundCount += 1;
+            }
+            if (reboundCount) {
+                this.environmentManifestUrls = new Set([...this.environmentAtlases.values()]
+                    .map((atlas) => canonicalRuntimeResourceUrl(atlas?.manifestUrl))
+                    .filter(Boolean));
+            }
+        }
         const missingUrls = requestedUrls.filter((url) => !this.environmentManifestUrls.has(url));
         let loadedCount = 0;
         if (missingUrls.length) {
             const loaded = await loadEnvironmentAtlases({
                 candidates: missingUrls.map((url) => ({ url, required: true })),
+                sourceResolver,
                 onProgress: ({ progress, label }) => options.onProgress?.({ progress, label })
             });
             const unresolvedLoadedUrls = missingEnvironmentManifestUrls(loaded, missingUrls);
@@ -1593,9 +1674,14 @@ class RocketfrockRenderer {
         }
 
         if (!missingUrls.length) {
-            options.onProgress?.({ progress: 1, label: unloadedCount ? "Released unused level atlases" : "Level atlases already loaded" });
+            const label = reboundCount
+                ? `Reused ${reboundCount} refreshed editor atlas source${reboundCount === 1 ? "" : "s"}`
+                : unloadedCount
+                    ? "Released unused level atlases"
+                    : "Level atlases already loaded";
+            options.onProgress?.({ progress: 1, label });
         }
-        if (!loadedCount && !unloadedCount) return false;
+        if (!loadedCount && !unloadedCount && !reboundCount) return false;
         this.environmentColorMapKey = "";
         for (const surface of this.foregroundSpriteCache.values()) this.webglBackend?.invalidateTexture(surface);
         this.foregroundSpriteCache.clear();
@@ -1625,6 +1711,7 @@ class RocketfrockRenderer {
             canonicalRuntimeResourceUrl(project?.sourceUrl),
             project
         ]));
+        const preparedAtlasCache = runtimeCharacterPreparedAtlasCache(this.characterProjects.values());
         const missingUrls = requestedUrls.filter((url) => !loadedByUrl.has(canonicalRuntimeResourceUrl(url)));
         let loadedCount = 0;
         for (let index = 0; index < missingUrls.length; index += 1) {
@@ -1632,6 +1719,7 @@ class RocketfrockRenderer {
             try {
                 const project = await loadRuntimeCharacterProject(url, {
                     usePixmapPyramids: pixmapPyramidsEnabled,
+                    preparedAtlasCache,
                     onProgress: ({ progress, label }) => options.onProgress?.({
                         progress: (index + clamp(Number(progress) || 0, 0, 1)) / Math.max(1, missingUrls.length),
                         label
@@ -1685,6 +1773,8 @@ class RocketfrockRenderer {
         project.attackHandoffs?.clear?.();
         project.projectiles?.clear?.();
         project.supplementalAtlases?.clear?.();
+        project.supplementalAtlases = [];
+        project.preparedAtlasEntries = [];
         project.image = null;
         return true;
     }
@@ -5807,19 +5897,27 @@ class RocketfrockRenderer {
                     blendMode: "additive"
                 });
             }
-            const overlayTintCanvas = asset[options.overlayTintCanvasKey];
-            if (overlayTintAlpha > 0 && overlayTintCanvas) {
-                backend.queueSprite({
-                    source: overlayTintCanvas,
-                    centerX: screenX + facing * localCenterX,
-                    centerY: screenGroundY + localCenterY,
-                    width: asset.width * spriteScale,
-                    height: asset.height * spriteScale,
-                    rotation,
-                    mirrorX: facing < 0,
-                    alpha: alpha * transform.alpha * overlayTintAlpha,
-                    blendMode: "additive"
-                });
+            if (overlayTintAlpha > 0) {
+                const overlayUsesBaseSource = options.overlayTintUseBaseSource === true;
+                const overlaySource = overlayUsesBaseSource ? source : asset[options.overlayTintCanvasKey];
+                if (overlaySource) {
+                    backend.queueSprite({
+                        source: overlaySource,
+                        sourceX: overlayUsesBaseSource && atlasBacked ? asset.sourceX : 0,
+                        sourceY: overlayUsesBaseSource && atlasBacked ? asset.sourceY : 0,
+                        sourceWidth: overlayUsesBaseSource && atlasBacked ? asset.sourceWidth : asset.width,
+                        sourceHeight: overlayUsesBaseSource && atlasBacked ? asset.sourceHeight : asset.height,
+                        centerX: screenX + facing * localCenterX,
+                        centerY: screenGroundY + localCenterY,
+                        width: asset.width * spriteScale,
+                        height: asset.height * spriteScale,
+                        rotation,
+                        mirrorX: facing < 0,
+                        alpha: alpha * transform.alpha * overlayTintAlpha,
+                        tint: overlayUsesBaseSource ? (options.overlayTintColor || [1, 1, 1, 1]) : [1, 1, 1, 1],
+                        blendMode: options.overlayTintBlendMode || "additive"
+                    });
+                }
             }
             const spriteBounds = transformedSpriteBounds(asset, pivot, transform, spriteScale);
             mergeBounds(bounds, spriteBounds, screenX, screenGroundY, facing);
@@ -5876,7 +5974,11 @@ class RocketfrockRenderer {
         this.queueCharacterProjectPoseWebGL(project, screen.x, screen.y, facing, transforms, bounds, {
             alpha: renderOpacity,
             overlayTintAlpha: flash * 0.72,
-            overlayTintCanvasKey: "hitFlashCanvas"
+            overlayTintUseBaseSource: true,
+            overlayTintColor: [1, 0.965, 0.84, 1],
+            // Match the native SDL_GPU enemy flash: redraw the authored atlas
+            // through the normal alpha pipeline with the same warm tint.
+            overlayTintBlendMode: "alpha"
         });
         this.drawEnemyHealthBarWebGL(enemy, view, actorScale);
         this.lastCharacterDraws.push({ actorId: enemy.id, characterId: project.characterId, animationSlot: sampled.slot, bounds: Number.isFinite(bounds.minX) ? { ...bounds } : null });
@@ -6172,6 +6274,9 @@ class RocketfrockRenderer {
         const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
         const flashDuration = Math.max(0.001, Number(enemy.hitFlashDuration) || state.tuning.enemyHitFlashSeconds || 0.16);
         const flash = clamp((Number(enemy.hitFlashTimer) || 0) / flashDuration, 0, 1);
+        if (flash > 0) {
+            for (const asset of project?.assets?.values?.() || []) ensureRuntimeCharacterHitFlashCanvas(asset);
+        }
         this.ctx.save();
         this.ctx.globalAlpha *= renderOpacity;
         this.drawShadow(
@@ -8966,6 +9071,31 @@ class RocketfrockRenderer {
                 transforms: animationPoseToRuntimeTransforms(localPose, this.rigConfig, zoom)
             };
         }
+        const lungeClip = this.animations.get("lunge");
+        const lunge2Clip = this.animations.get("lunge2");
+        if (state.player.lungeActive && lunge2Clip) {
+            const lungeDistance = Math.max(0, Number(state.tuning?.playerLungeDistance) || 0);
+            const lungeSpeed = Math.max(0.000001, Number(state.tuning?.playerLungeSpeed) || 0);
+            const distanceRemaining = Math.max(0, Number(state.player.lungeDistanceRemaining) || 0);
+            const poseTime = Math.min(lunge2Clip.duration, Math.max(0, (lungeDistance - distanceRemaining) / lungeSpeed));
+            const localPose = sampleAnimationClip(lunge2Clip, poseTime);
+            this.lastAnimationDiagnostics = { mode: "lunge2", clipId: lunge2Clip.animationId, available: true };
+            return {
+                poseMode: "lunge2",
+                transforms: animationPoseToRuntimeTransforms(localPose, this.rigConfig, zoom)
+            };
+        }
+        if ((state.player.lungeCharging || state.player.lungeActive) && lungeClip) {
+            const poseTime = state.player.lungeActive
+                ? lungeClip.duration
+                : Math.min(lungeClip.duration, Math.max(0, Number(state.player.lungeChargeTime) || 0));
+            const localPose = sampleAnimationClip(lungeClip, poseTime);
+            this.lastAnimationDiagnostics = { mode: "lunge", clipId: lungeClip.animationId, available: true };
+            return {
+                poseMode: "lunge",
+                transforms: animationPoseToRuntimeTransforms(localPose, this.rigConfig, zoom)
+            };
+        }
         const walkClip = this.animations.get("walk");
         if (state.player.onGround) {
             if (!walkClip) {
@@ -9413,7 +9543,8 @@ function getPlayerHitFlash(state) {
 }
 
 function getPlayerShieldTintAlpha(state) {
-    if (!activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SHIELD)) {
+    const slamShielded = Boolean(state?.player?.bodySlamCommitted) || (Number(state?.player?.bodySlamImmunityTimer) || 0) > 1e-9;
+    if (!state?.player?.lungeActive && !slamShielded && !activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SHIELD)) {
         return 0;
     }
     const pulse = 0.5 + 0.5 * Math.sin((Number(state?.clock?.time) || 0) * 22);
@@ -9444,6 +9575,21 @@ async function loadEnvironmentAtlases(options = {}) {
             }
             return null;
         };
+
+        const sourceResolver = typeof options.sourceResolver === "function" ? options.sourceResolver : null;
+        if (sourceResolver) {
+            let preparedSource = null;
+            try {
+                preparedSource = await sourceResolver(url, candidate);
+            } catch (error) {
+                console.warn(`Could not reuse prepared atlas source ${url}; loading it normally instead.`, error);
+            }
+            const sharedRecord = environmentAtlasRecordFromPreparedSource(preparedSource, url, candidate);
+            if (sharedRecord) {
+                onProgress({ url, progress: 1, label: `Reused decoded atlas ${sharedRecord.id}` });
+                return sharedRecord;
+            }
+        }
 
         onProgress({ url, progress: 0.02, label: `Loading atlas manifest ${url}` });
         let response = null;
@@ -9490,6 +9636,32 @@ async function loadEnvironmentAtlases(options = {}) {
     }));
 
     return environmentAtlasMapFromRecords(records);
+}
+
+export function environmentAtlasRecordFromPreparedSource(preparedSource, manifestUrl, candidate = {}) {
+    if (!preparedSource?.image || !preparedSource?.manifest) return null;
+    const url = assetUrl(manifestUrl || candidate.url || "");
+    if (!url) return null;
+    const manifest = normalizeEnvironmentManifest(
+        preparedSource.manifest,
+        candidate.forceAtlasId,
+        candidate.forceImage
+    );
+    if (!manifest?.atlasId || !manifest?.image) return null;
+    const imageUrl = preparedSource.imageUrl
+        ? assetUrl(preparedSource.imageUrl)
+        : resolveRelativeUrl(url, manifest.image);
+    return {
+        id: manifest.atlasId,
+        image: preparedSource.image,
+        renderImage: preparedSource.image,
+        colorMapCacheKey: "",
+        frames: manifest.frames || {},
+        source: imageUrl,
+        manifestUrl: url,
+        manifest,
+        missing: false
+    };
 }
 
 export function environmentAtlasMapFromRecords(records = []) {

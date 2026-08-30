@@ -7,314 +7,314 @@
     "image": "at_atlas_032.png",
     "frames": {
         "cave_floor_round_large_a": {
-            "x": 2,
-            "y": 2,
+            "x": 757,
+            "y": 1,
             "w": 257,
             "h": 93
         },
         "cave_floor_round_mossy": {
-            "x": 280,
-            "y": 2,
+            "x": 337,
+            "y": 289,
             "w": 334,
             "h": 95
         },
         "cave_floor_round_large_b": {
-            "x": 633,
-            "y": 0,
+            "x": 576,
+            "y": 453,
             "w": 270,
             "h": 85
         },
         "cave_floor_round_blue": {
-            "x": 922,
-            "y": 0,
+            "x": 757,
+            "y": 200,
             "w": 226,
             "h": 82
         },
         "cave_ledge_small_dark": {
-            "x": 1164,
-            "y": 0,
+            "x": 1,
+            "y": 992,
             "w": 136,
             "h": 78
         },
         "cave_ledge_small_brown": {
-            "x": 1361,
-            "y": 8,
+            "x": 841,
+            "y": 1094,
             "w": 95,
             "h": 53
         },
         "cave_ledge_left_mossy": {
-            "x": 4,
-            "y": 102,
+            "x": 294,
+            "y": 386,
             "w": 280,
             "h": 134
         },
         "cave_ledge_hanging_roots": {
-            "x": 296,
-            "y": 117,
+            "x": 673,
+            "y": 289,
             "w": 285,
             "h": 106
         },
         "cave_ledge_mossy_mid": {
-            "x": 604,
-            "y": 106,
+            "x": 548,
+            "y": 540,
             "w": 236,
             "h": 107
         },
         "cave_ledge_small_round": {
-            "x": 862,
-            "y": 98,
+            "x": 732,
+            "y": 1073,
             "w": 107,
             "h": 62
         },
         "cave_ledge_mossy_right": {
-            "x": 984,
-            "y": 107,
+            "x": 280,
+            "y": 522,
             "w": 266,
             "h": 134
         },
         "cave_stair_platform_mossy": {
-            "x": 1270,
-            "y": 113,
+            "x": 786,
+            "y": 540,
             "w": 214,
             "h": 138
         },
         "ruin_stairs_long": {
-            "x": 3,
-            "y": 242,
+            "x": 1,
+            "y": 511,
             "w": 277,
             "h": 131
         },
         "cave_floor_blue_medium": {
-            "x": 307,
-            "y": 243,
+            "x": 757,
+            "y": 96,
             "w": 245,
             "h": 102
         },
         "crystal_blue_cluster": {
-            "x": 650,
-            "y": 252,
+            "x": 1,
+            "y": 1072,
             "w": 110,
             "h": 112
         },
         "crystal_purple_cluster": {
-            "x": 780,
-            "y": 271,
+            "x": 504,
+            "y": 1017,
             "w": 113,
             "h": 93
         },
         "crystal_green_cluster": {
-            "x": 914,
-            "y": 260,
+            "x": 619,
+            "y": 1044,
             "w": 111,
             "h": 105
         },
         "lantern_gold_small_a": {
-            "x": 1049,
-            "y": 263,
+            "x": 968,
+            "y": 814,
             "w": 49,
             "h": 132
         },
         "lantern_gold_small_b": {
-            "x": 1133,
-            "y": 263,
+            "x": 139,
+            "y": 992,
             "w": 53,
             "h": 133
         },
         "lantern_teal_small": {
-            "x": 1219,
-            "y": 263,
+            "x": 968,
+            "y": 680,
             "w": 50,
             "h": 132
         },
         "lantern_purple_tall": {
-            "x": 1294,
-            "y": 266,
+            "x": 912,
+            "y": 817,
             "w": 53,
             "h": 141
         },
         "lantern_purple_small": {
-            "x": 1370,
-            "y": 276,
+            "x": 928,
+            "y": 960,
             "w": 56,
             "h": 132
         },
         "rubble_small_flat_a": {
-            "x": 19,
-            "y": 385,
+            "x": 848,
+            "y": 494,
             "w": 91,
             "h": 36
         },
         "rubble_small_block_a": {
-            "x": 124,
-            "y": 385,
+            "x": 960,
+            "y": 284,
             "w": 58,
             "h": 35
         },
         "rubble_small_chunk_a": {
-            "x": 198,
-            "y": 378,
+            "x": 941,
+            "y": 494,
             "w": 67,
             "h": 44
         },
         "rubble_small_shard": {
-            "x": 280,
-            "y": 379,
+            "x": 489,
+            "y": 802,
             "w": 36,
             "h": 41
         },
         "rubble_small_chunk_b": {
-            "x": 327,
-            "y": 373,
+            "x": 113,
+            "y": 1127,
             "w": 73,
             "h": 51
         },
         "roots_tangle_long": {
-            "x": 418,
-            "y": 371,
+            "x": 576,
+            "y": 397,
             "w": 272,
             "h": 54
         },
         "ruin_door_arch": {
-            "x": 7,
-            "y": 442,
+            "x": 239,
+            "y": 805,
             "w": 124,
             "h": 182
         },
         "ruin_wall_broken_left": {
-            "x": 151,
-            "y": 445,
+            "x": 365,
+            "y": 805,
             "w": 122,
             "h": 182
         },
         "chain_platform_small": {
-            "x": 278,
-            "y": 442,
+            "x": 489,
+            "y": 848,
             "w": 150,
             "h": 167
         },
         "arch_ruin_large": {
-            "x": 432,
-            "y": 432,
+            "x": 1,
+            "y": 331,
             "w": 291,
             "h": 178
         },
         "pillar_capital": {
-            "x": 734,
-            "y": 408,
+            "x": 123,
+            "y": 808,
             "w": 104,
             "h": 182
         },
         "pillar_plain": {
-            "x": 852,
-            "y": 423,
+            "x": 699,
+            "y": 680,
             "w": 101,
             "h": 168
         },
         "pillar_leaning": {
-            "x": 978,
-            "y": 409,
+            "x": 1,
+            "y": 808,
             "w": 120,
             "h": 182
         },
         "ruin_stairs_block_left": {
-            "x": 1101,
-            "y": 428,
+            "x": 1,
+            "y": 644,
             "w": 236,
             "h": 162
         },
         "ruin_gate_arch": {
-            "x": 1338,
-            "y": 429,
+            "x": 548,
+            "y": 649,
             "w": 149,
             "h": 197
         },
         "bridge_chain_long": {
-            "x": 434,
-            "y": 618,
+            "x": 1,
+            "y": 1,
             "w": 406,
             "h": 173
         },
         "bridge_stone_arch": {
-            "x": 0,
-            "y": 667,
+            "x": 1,
+            "y": 176,
             "w": 334,
             "h": 153
         },
         "floor_arch_support": {
-            "x": 903,
-            "y": 641,
+            "x": 409,
+            "y": 1,
             "w": 239,
             "h": 179
         },
         "cave_floor_purple_hanging": {
-            "x": 1152,
-            "y": 610,
+            "x": 239,
+            "y": 658,
             "w": 185,
             "h": 145
         },
         "cave_floor_purple_right": {
-            "x": 1348,
-            "y": 667,
+            "x": 641,
+            "y": 942,
             "w": 145,
             "h": 100
         },
         "stalagmites_cluster": {
-            "x": 446,
-            "y": 796,
+            "x": 802,
+            "y": 680,
             "w": 164,
             "h": 135
         },
         "sign_wooden": {
-            "x": 1141,
-            "y": 774,
+            "x": 647,
+            "y": 134,
             "w": 108,
             "h": 153
         },
         "banner_tattered": {
-            "x": 1283,
-            "y": 776,
+            "x": 802,
+            "y": 817,
             "w": 108,
             "h": 158
         },
         "brazier_fire": {
-            "x": 1408,
-            "y": 799,
+            "x": 426,
+            "y": 658,
             "w": 84,
             "h": 142
         },
         "rock_pile_large": {
-            "x": 7,
-            "y": 836,
+            "x": 788,
+            "y": 977,
             "w": 138,
             "h": 94
         },
         "rock_pile_medium": {
-            "x": 165,
-            "y": 854,
+            "x": 194,
+            "y": 1067,
             "w": 107,
             "h": 74
         },
         "rock_pile_flat": {
-            "x": 291,
-            "y": 835,
+            "x": 641,
+            "y": 850,
             "w": 147,
             "h": 90
         },
         "skeleton_corpse": {
-            "x": 633,
-            "y": 861,
+            "x": 368,
+            "y": 1017,
             "w": 134,
             "h": 65
         },
         "skull_bones_pile": {
-            "x": 790,
-            "y": 835,
+            "x": 850,
+            "y": 397,
             "w": 168,
             "h": 95
         },
         "pottery_pile": {
-            "x": 990,
-            "y": 851,
+            "x": 229,
+            "y": 989,
             "w": 137,
             "h": 76
         }

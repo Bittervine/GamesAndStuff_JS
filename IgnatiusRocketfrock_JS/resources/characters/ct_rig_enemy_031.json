@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 2,
-        "note": "Revision 405 articulated Human Raider 031. Split upper/lower arms, split upper/lower legs, separate feet, and the sword rig are backported from the refined Enemy 032 articulation set. Revision 435 aligns the melee attack handoff timing with the user-authored enemy_036 thrust."
+        "version": 3,
+        "note": "Revision 405 articulated Human Raider 031. Split upper/lower arms, split upper/lower legs, separate feet, and the sword rig are backported from the refined Enemy 032 articulation set. Revision 435 aligns the melee attack handoff timing with the user-authored enemy_036 thrust. Revision 493 bakes this human variant’s articulated arm treatment into ct_atlas_enemy_030 and removes runtime arm recoloring."
     },
     "rigId": "ct_rig_enemy_031",
     "atlasId": "ct_atlas_enemy_030",
@@ -110,7 +110,7 @@
         },
         "rightUpperArm": {
             "x": 0.6,
-            "y": 0.225
+            "y": 0.175
         },
         "rightLowerArm": {
             "x": 0.21,
@@ -119,7 +119,7 @@
     },
     "parts": {
         "leftUpperArm": {
-            "frame": "arm_upper_01",
+            "frame": "arm_upper_01_body_01",
             "role": "leftUpperArm",
             "tags": [
                 "arm",
@@ -133,21 +133,6 @@
             "scale": 1,
             "targetHeight": 91,
             "alpha": 1,
-            "colorExchange": {
-                "fromColor": [
-                    224,
-                    148,
-                    94
-                ],
-                "toColor": [
-                    140,
-                    81,
-                    38
-                ],
-                "redThreshold": 1,
-                "greenThreshold": 1,
-                "blueThreshold": 1
-            },
             "parentConstraint": {
                 "parentPart": "torso",
                 "parentPoint": {
@@ -157,7 +142,7 @@
             }
         },
         "leftLowerArm": {
-            "frame": "arm_lower_01",
+            "frame": "arm_lower_01_body_01",
             "role": "leftLowerArm",
             "tags": [
                 "arm",
@@ -177,21 +162,6 @@
                     "x": 0.54,
                     "y": 0.95
                 }
-            },
-            "colorExchange": {
-                "fromColor": [
-                    224,
-                    148,
-                    94
-                ],
-                "toColor": [
-                    140,
-                    81,
-                    38
-                ],
-                "redThreshold": 1,
-                "greenThreshold": 1,
-                "blueThreshold": 1
             }
         },
         "rightUpperLeg": {
@@ -400,7 +370,7 @@
             }
         },
         "rightUpperArm": {
-            "frame": "arm_upper_00",
+            "frame": "arm_upper_00_body_01",
             "role": "rightUpperArm",
             "tags": [
                 "arm",
@@ -415,31 +385,16 @@
             "scale": 1,
             "targetHeight": 92,
             "alpha": 1,
-            "colorExchange": {
-                "fromColor": [
-                    224,
-                    148,
-                    94
-                ],
-                "toColor": [
-                    140,
-                    81,
-                    38
-                ],
-                "redThreshold": 1,
-                "greenThreshold": 1,
-                "blueThreshold": 1
-            },
             "parentConstraint": {
                 "parentPart": "torso",
                 "parentPoint": {
                     "x": 0.175,
-                    "y": 0.24
+                    "y": 0.245
                 }
             }
         },
         "rightLowerArm": {
-            "frame": "arm_lower_00",
+            "frame": "arm_lower_00_body_01",
             "role": "rightLowerArm",
             "tags": [
                 "arm",
@@ -461,21 +416,6 @@
                     "x": 0.33916713271610416,
                     "y": 0.9465818008718319
                 }
-            },
-            "colorExchange": {
-                "fromColor": [
-                    224,
-                    148,
-                    94
-                ],
-                "toColor": [
-                    140,
-                    81,
-                    38
-                ],
-                "redThreshold": 1,
-                "greenThreshold": 1,
-                "blueThreshold": 1
             }
         }
     }

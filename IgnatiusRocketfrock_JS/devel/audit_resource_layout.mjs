@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { normalizeResourceIndex } from "../src/shared/resource-index-data.js";
@@ -114,6 +115,25 @@ function auditConfig() {
     }
 }
 
+
+function sha256File(filePath) {
+    return createHash("sha256").update(readFileSync(filePath)).digest("hex");
+}
+
+function paletteSourceFile(relativePath) {
+    const resourceCandidate = path.join(RESOURCE_ROOT, ...String(relativePath).split("/"));
+    if (existsSync(resourceCandidate) && statSync(resourceCandidate).isFile()) return resourceCandidate;
+    const referenceCandidate = path.join(REFERENCE_ROOT, ...String(relativePath).split("/"));
+    if (existsSync(referenceCandidate) && statSync(referenceCandidate).isFile()) return referenceCandidate;
+    return null;
+}
+
+function paletteSourceDigest(records, cellSize, maxSize) {
+    const lines = ["builder=browser-html-js", "version=3", `cell=${cellSize}`, `max=${maxSize}`];
+    for (const record of records) lines.push(`${record.path}${String.fromCharCode(0)}${record.sha256}`);
+    return createHash("sha256").update(lines.join("\n"), "utf8").digest("hex");
+}
+
 function auditPaletteThumbnailCache() {
     const directory = path.join(RESOURCE_ROOT, "palette");
     const catalogPath = path.join(directory, "thumbnails.json");
@@ -132,6 +152,19 @@ function auditPaletteThumbnailCache() {
     if (!Array.isArray(catalog.entries) || catalog.entries.length !== catalog.entryCount) {
         fail("palette thumbnail entryCount does not match entries.");
     }
+    if (!Array.isArray(catalog.sources) || !catalog.sources.length) fail("palette thumbnail cache has no source inventory.");
+    const sourceRecords = [...catalog.sources].sort((left, right) => String(left.path || "").localeCompare(String(right.path || "")));
+    const sourcePaths = new Set(sourceRecords.map((record) => String(record.path || "")));
+    for (const record of sourceRecords) {
+        const source = paletteSourceFile(record.path);
+        if (!source) fail(`palette thumbnail cache references missing source: ${record.path}`);
+        const digest = sha256File(source);
+        if (digest !== record.sha256) fail(`palette thumbnail cache is stale for source: ${record.path}`);
+    }
+    const digest = paletteSourceDigest(sourceRecords, catalog.cellSize, catalog.maxSize);
+    if (digest !== catalog.sourceDigest) fail("palette thumbnail sourceDigest is stale.");
+
+    const manifestCache = new Map();
     const keys = new Set();
     for (const entry of catalog.entries) {
         if (!entry || typeof entry !== "object" || typeof entry.key !== "string" || !entry.key) fail("palette thumbnail entry has no key.");
@@ -144,6 +177,37 @@ function auditPaletteThumbnailCache() {
         if (thumbnail.x < 0 || thumbnail.y < 0 || thumbnail.w <= 0 || thumbnail.h <= 0
             || thumbnail.x + thumbnail.w > catalog.width || thumbnail.y + thumbnail.h > catalog.height) {
             fail(`palette thumbnail ${entry.key} lies outside the image.`);
+        }
+        if (entry.kind === "asset" && entry.frame && entry.source?.manifest && entry.source?.assetId) {
+            let manifest = manifestCache.get(entry.source.manifest);
+            if (!manifest) {
+                manifest = readJson(path.join(RESOURCE_ROOT, ...String(entry.source.manifest).split("/")));
+                manifestCache.set(entry.source.manifest, manifest);
+            }
+            const object = manifest.objects?.[entry.source.assetId] || {};
+            const frameName = object.frame || entry.source.assetId;
+            const authored = manifest.frames?.[frameName];
+            if (!authored) fail(`palette thumbnail ${entry.key} references missing frame ${frameName}.`);
+            for (const field of ["x", "y", "w", "h"]) {
+                if (entry.frame[field] !== authored[field]) fail(`palette thumbnail ${entry.key} has stale frame ${field}.`);
+            }
+        }
+    }
+
+    // The cache must represent the complete asset-atlas inventory declared by
+    // resources.json, not merely be internally consistent with whatever old
+    // source/entry subset it already contains. This prevents a metadata-only
+    // hash refresh from blessing an incomplete cache after a new atlas is added.
+    const resourceIndex = readJson(path.join(RESOURCE_ROOT, "resources.json"));
+    for (const atlasId of Array.isArray(resourceIndex.assetAtlasIds) ? resourceIndex.assetAtlasIds.map(String) : []) {
+        const manifestRelative = `atlases/${atlasId}.json`;
+        if (!sourcePaths.has(manifestRelative)) fail(`palette thumbnail cache is missing atlas manifest source: ${manifestRelative}`);
+        const manifest = readJson(path.join(RESOURCE_ROOT, "atlases", `${atlasId}.json`));
+        const imageRelative = `atlases/${String(manifest.image || `${atlasId}.png`)}`;
+        if (!sourcePaths.has(imageRelative)) fail(`palette thumbnail cache is missing atlas image source: ${imageRelative}`);
+        for (const frameName of Object.keys(manifest.frames || {})) {
+            const key = `asset:${atlasId}:${frameName}`;
+            if (!keys.has(key)) fail(`palette thumbnail cache is missing asset entry: ${key}`);
         }
     }
 }

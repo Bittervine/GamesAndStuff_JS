@@ -7,290 +7,290 @@
     "image": "at_atlas_016.png",
     "frames": {
         "cave_background_alcove_016_01": {
-            "x": 9,
-            "y": 21,
+            "x": 1,
+            "y": 1,
             "w": 204,
             "h": 147
         },
         "cave_background_alcove_016_02": {
-            "x": 213,
-            "y": 21,
+            "x": 205,
+            "y": 1,
             "w": 196,
             "h": 147
         },
         "cave_background_alcove_016_03": {
-            "x": 409,
-            "y": 21,
+            "x": 401,
+            "y": 1,
             "w": 206,
             "h": 147
         },
         "cave_background_alcove_016_04": {
-            "x": 615,
-            "y": 21,
+            "x": 607,
+            "y": 1,
             "w": 209,
             "h": 147
         },
         "cave_background_alcove_016_05": {
-            "x": 824,
-            "y": 21,
+            "x": 816,
+            "y": 1,
             "w": 213,
             "h": 147
         },
         "cave_background_alcove_016_06": {
-            "x": 1037,
-            "y": 21,
+            "x": 1029,
+            "y": 1,
             "w": 244,
             "h": 147
         },
         "cave_background_alcove_016_07": {
-            "x": 1281,
-            "y": 21,
+            "x": 1273,
+            "y": 1,
             "w": 232,
             "h": 147
         },
         "cave_background_alcove_016_08": {
-            "x": 9,
-            "y": 168,
+            "x": 1,
+            "y": 148,
             "w": 216,
             "h": 141
         },
         "cave_background_alcove_016_09": {
-            "x": 225,
-            "y": 168,
+            "x": 217,
+            "y": 148,
             "w": 218,
             "h": 141
         },
         "cave_background_alcove_016_10": {
-            "x": 443,
-            "y": 168,
+            "x": 435,
+            "y": 148,
             "w": 224,
             "h": 141
         },
         "cave_background_alcove_016_11": {
-            "x": 667,
-            "y": 168,
+            "x": 659,
+            "y": 148,
             "w": 257,
             "h": 141
         },
         "cave_background_alcove_016_12": {
-            "x": 924,
-            "y": 168,
+            "x": 916,
+            "y": 148,
             "w": 267,
             "h": 141
         },
         "cave_background_alcove_016_13": {
-            "x": 1191,
-            "y": 168,
+            "x": 1183,
+            "y": 148,
             "w": 324,
             "h": 141
         },
         "cave_background_alcove_016_14": {
-            "x": 9,
-            "y": 309,
+            "x": 1,
+            "y": 289,
             "w": 179,
             "h": 138
         },
         "cave_background_alcove_016_15": {
-            "x": 188,
-            "y": 309,
+            "x": 180,
+            "y": 289,
             "w": 246,
             "h": 138
         },
         "cave_background_alcove_016_16": {
-            "x": 434,
-            "y": 309,
+            "x": 426,
+            "y": 289,
             "w": 220,
             "h": 138
         },
         "cave_background_alcove_016_17": {
-            "x": 654,
-            "y": 309,
+            "x": 646,
+            "y": 289,
             "w": 204,
             "h": 138
         },
         "cave_background_alcove_016_18": {
-            "x": 858,
-            "y": 309,
+            "x": 850,
+            "y": 289,
             "w": 247,
             "h": 138
         },
         "cave_background_alcove_016_19": {
-            "x": 1105,
-            "y": 309,
+            "x": 1097,
+            "y": 289,
             "w": 206,
             "h": 138
         },
         "cave_background_alcove_016_20": {
-            "x": 1311,
-            "y": 309,
+            "x": 1303,
+            "y": 289,
             "w": 220,
             "h": 138
         },
         "cave_background_alcove_016_21": {
-            "x": 9,
-            "y": 447,
+            "x": 1,
+            "y": 427,
             "w": 176,
             "h": 143
         },
         "cave_background_alcove_016_22": {
-            "x": 185,
-            "y": 447,
+            "x": 177,
+            "y": 427,
             "w": 237,
             "h": 143
         },
         "cave_background_alcove_016_23": {
-            "x": 422,
-            "y": 447,
+            "x": 414,
+            "y": 427,
             "w": 236,
             "h": 143
         },
         "cave_background_alcove_016_24": {
-            "x": 658,
-            "y": 447,
+            "x": 650,
+            "y": 427,
             "w": 170,
             "h": 143
         },
         "cave_background_alcove_016_25": {
-            "x": 828,
-            "y": 447,
+            "x": 820,
+            "y": 427,
             "w": 176,
             "h": 143
         },
         "cave_background_alcove_016_26": {
-            "x": 1004,
-            "y": 447,
+            "x": 996,
+            "y": 427,
             "w": 255,
             "h": 143
         },
         "cave_background_alcove_016_27": {
-            "x": 1259,
-            "y": 447,
+            "x": 1251,
+            "y": 427,
             "w": 271,
             "h": 143
         },
         "cave_background_alcove_016_28": {
-            "x": 9,
-            "y": 590,
+            "x": 1,
+            "y": 570,
             "w": 283,
             "h": 137
         },
         "cave_background_alcove_016_29": {
-            "x": 292,
-            "y": 590,
+            "x": 284,
+            "y": 570,
             "w": 240,
             "h": 137
         },
         "cave_background_alcove_016_30": {
-            "x": 532,
-            "y": 590,
+            "x": 524,
+            "y": 570,
             "w": 205,
             "h": 137
         },
         "cave_background_alcove_016_31": {
-            "x": 737,
-            "y": 590,
+            "x": 729,
+            "y": 570,
             "w": 234,
             "h": 137
         },
         "cave_background_alcove_016_32": {
-            "x": 971,
-            "y": 590,
+            "x": 963,
+            "y": 570,
             "w": 253,
             "h": 137
         },
         "cave_background_alcove_016_33": {
-            "x": 1224,
-            "y": 590,
+            "x": 1216,
+            "y": 570,
             "w": 295,
             "h": 137
         },
         "cave_background_alcove_016_34": {
-            "x": 9,
-            "y": 727,
+            "x": 1,
+            "y": 707,
             "w": 230,
             "h": 138
         },
         "cave_background_alcove_016_35": {
-            "x": 239,
-            "y": 727,
+            "x": 231,
+            "y": 707,
             "w": 175,
             "h": 138
         },
         "cave_background_alcove_016_36": {
-            "x": 414,
-            "y": 727,
+            "x": 406,
+            "y": 707,
             "w": 191,
             "h": 138
         },
         "cave_background_alcove_016_37": {
-            "x": 605,
-            "y": 727,
+            "x": 597,
+            "y": 707,
             "w": 208,
             "h": 138
         },
         "cave_background_alcove_016_38": {
-            "x": 813,
-            "y": 727,
+            "x": 805,
+            "y": 707,
             "w": 171,
             "h": 138
         },
         "cave_background_alcove_016_39": {
-            "x": 984,
-            "y": 727,
+            "x": 976,
+            "y": 707,
             "w": 153,
             "h": 138
         },
         "cave_background_alcove_016_40": {
-            "x": 1137,
-            "y": 727,
+            "x": 1129,
+            "y": 707,
             "w": 177,
             "h": 138
         },
         "cave_background_alcove_016_41": {
-            "x": 1314,
-            "y": 727,
+            "x": 1306,
+            "y": 707,
             "w": 212,
             "h": 138
         },
         "cave_background_alcove_016_42": {
-            "x": 9,
-            "y": 865,
+            "x": 1,
+            "y": 845,
             "w": 190,
             "h": 144
         },
         "cave_background_alcove_016_43": {
-            "x": 199,
-            "y": 865,
+            "x": 191,
+            "y": 845,
             "w": 264,
             "h": 142
         },
         "cave_background_alcove_016_44": {
-            "x": 463,
-            "y": 865,
+            "x": 455,
+            "y": 845,
             "w": 234,
             "h": 142
         },
         "cave_background_alcove_016_45": {
-            "x": 697,
-            "y": 865,
+            "x": 689,
+            "y": 845,
             "w": 158,
             "h": 146
         },
         "cave_background_alcove_016_46": {
-            "x": 855,
-            "y": 865,
+            "x": 847,
+            "y": 845,
             "w": 154,
             "h": 159
         },
         "cave_background_alcove_016_47": {
-            "x": 1009,
-            "y": 865,
+            "x": 1001,
+            "y": 845,
             "w": 224,
             "h": 147
         },
         "cave_background_alcove_016_48": {
-            "x": 1233,
-            "y": 865,
+            "x": 1225,
+            "y": 845,
             "w": 303,
             "h": 159
         }

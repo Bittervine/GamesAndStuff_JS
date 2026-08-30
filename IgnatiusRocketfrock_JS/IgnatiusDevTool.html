@@ -37,6 +37,7 @@
         <button class="tab" data-tool="asset" type="button">Asset Tool</button>
         <button class="tab" data-tool="character" type="button">Character Tool</button>
         <button class="tab" data-tool="palette" type="button">Palette Builder</button>
+        <button class="tab" data-tool="utils" type="button">Utils</button>
     </nav>
     <div class="project">
         <span id="project-status">Connecting…</span>
@@ -48,6 +49,7 @@
     <iframe data-tool="asset" data-src="./asset-editor.html" title="Asset Tool"></iframe>
     <iframe data-tool="character" data-src="./character-editor.html" title="Character Tool"></iframe>
     <iframe data-tool="palette" data-src="./palette-builder.html" title="Palette Builder"></iframe>
+    <iframe data-tool="utils" data-src="./utils.html" title="Utils"></iframe>
 </main>
 <script>
 (() => {
@@ -57,14 +59,18 @@
     const status = document.getElementById("project-status");
     const selectButton = document.getElementById("select-resources");
 
+    function devToolBridge() {
+        return window.IgnatiusProjectHost?.nativeBridge?.() || null;
+    }
+
     window.ignatiusDevToolReservePlaytestWindow = () => {
-        const bridge = window.chrome?.webview;
+        const bridge = devToolBridge();
         if (typeof bridge?.postMessage === "function") return null;
         return window.open("about:blank", "ignatius-level-playtest");
     };
 
     window.ignatiusDevToolLaunchPlaytest = (url, reservedWindow = null) => {
-        const bridge = window.chrome?.webview;
+        const bridge = devToolBridge();
         if (typeof bridge?.postMessage === "function") {
             bridge.postMessage("ignatius-playtest-request");
             return true;

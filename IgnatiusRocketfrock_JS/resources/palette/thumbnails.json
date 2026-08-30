@@ -7,152 +7,152 @@
   "maxSize": 8192,
   "width": 1664,
   "height": 1600,
-  "entryCount": 636,
-  "sourceDigest": "6dacb9bc320ceddce14b233db64a7dc8dc3b6c52ac79ceccca4662124f9a1015",
+  "entryCount": 644,
+  "sourceDigest": "3d7dbc3d1894a0b241a3b0a88f314998e3e9c1f74091e4f315001363cd801d67",
   "sources": [
     {
       "path": "atlases/at_atlas_001.json",
-      "sha256": "76733e1548e9de6447039e985b3929a28c38dbf44fafc5d309ed05142ad3b12b"
+      "sha256": "f6f29e3b37272b4349c6c7cd75e2615a7bea25f0eca7a3f025ea6f836dd0292f"
     },
     {
       "path": "atlases/at_atlas_001.png",
-      "sha256": "fda351c60ff97347e0d5b419bcf8b2c1c433e55dc1e30ba0d2e1ce0b527d0627"
+      "sha256": "25ce0a779f04b4cc075707d42c7fde7242c568b3b7f992b9bca22a99dca41da2"
     },
     {
       "path": "atlases/at_atlas_002.json",
-      "sha256": "bf596f559ea66d5d7a5da5d3c128080c604c4578778067fbf9ffa68adec2ac6d"
+      "sha256": "6159b7bda1f8eeae0dbd04cd8c813201dfe3d414e938e1a56c09f6fcb6caef63"
     },
     {
       "path": "atlases/at_atlas_002.png",
-      "sha256": "d6bfcd25beed8dd362a855ef717ad452fbd02a68723b323fa6a5a0707fb1c17a"
+      "sha256": "a847a28a5bffddc9acfd6c9ff98645d9c14475790b281342062dbfa30a4bf013"
     },
     {
       "path": "atlases/at_atlas_003.json",
-      "sha256": "39e13976d906a080c412bb28a8515032a8d198bda915b9a5b3ad14423a5bf6d5"
+      "sha256": "728f415af7295f33ad5eff87a1aa627d4721361efc693dd89e1f1b5e696b1c38"
     },
     {
       "path": "atlases/at_atlas_003.png",
-      "sha256": "36269d789c368cb19343fc12ae4b3eda62596bcc0711061b9115265cc98c7a57"
+      "sha256": "8a412d8e42d6c992b5fe745a54705171d7b044b7e031d2b95d7f2c8e6f955a80"
     },
     {
       "path": "atlases/at_atlas_004.json",
-      "sha256": "26593e4ec334f8d1b94c5c37995751dace0d02687577dcd725130476cd1e0ed6"
+      "sha256": "067b2dcdd0978eba13a98fdc068173dc99d43c2e4eef4b79a51b75043a76185f"
     },
     {
       "path": "atlases/at_atlas_004.png",
-      "sha256": "6be9835da70e4401c7f59bb327a9546c9c6fa6a795049c353efd7535fb5f97b6"
+      "sha256": "19042373174fac397da85cf857e6de9a6f28d96513f8896f5a211c26d976cfcc"
     },
     {
       "path": "atlases/at_atlas_005.json",
-      "sha256": "e174f67b49ef85123c48c84afcb5981d5d3251fd8087ead74b78a0da3a1ca168"
+      "sha256": "ac3c239bf959fd69686a9928804d38920a91fbea2dcf485cf23bc9bfe22578ab"
     },
     {
       "path": "atlases/at_atlas_005.png",
-      "sha256": "a7c89083517fbb1a6c0536d6fa3dde0c82aea494fcaab99b67140af43b455c09"
+      "sha256": "34cf1fb7d6433a2ffa4cd72021914be60ce7e042ecd779c719758c4b2c4f3006"
     },
     {
       "path": "atlases/at_atlas_006.json",
-      "sha256": "5af9084c58c20e4383615a9155c0089afdd3750ae2c03817334621103c724947"
+      "sha256": "c78c3d3cdcf5d498a395a00896a7f2d1367e084f24001ca04d608c948aabe34f"
     },
     {
       "path": "atlases/at_atlas_006.png",
-      "sha256": "8733a8d0ffb74b43df853e54ce0ae24fa26a3345923abd5ed2877562d3c39d52"
+      "sha256": "bb08c7c5e1d70fcb2d83e519daadb239c05f13f6aceff5551074fe85f664eac4"
     },
     {
       "path": "atlases/at_atlas_007.json",
-      "sha256": "af6366bc6feb8432538c9e399871d7fe3bfccc6f18ff986eaca5922d90576512"
+      "sha256": "f9ac4f765246bf4dd21f9d628624ae66ad76bbe42b09be82332ac8b28ded9341"
     },
     {
       "path": "atlases/at_atlas_007.png",
-      "sha256": "a77239c061ebf9dd3ce10ec53d99a174c629b9c17476f0abd58fe61c12b0bd3b"
+      "sha256": "dcd0e25ed64b535b3e3e6d141c7d2c264dec348342ef295d7e241e3b61d94a83"
     },
     {
       "path": "atlases/at_atlas_008.json",
-      "sha256": "99ef3f9782f2a84222196bb50b591197b10d80031f181ab8cc0fc6ba01873c46"
+      "sha256": "df46661fbbe0b272922b44e4702d08b46b3bbba743b203621a8e7225ced144c3"
     },
     {
       "path": "atlases/at_atlas_008.png",
-      "sha256": "9003433f66808d968bfe44ee435232867726b66de363fb780f2194fd410af0ed"
+      "sha256": "7ba5f9be1a38fba04822531679f2dfc90d888e0c967afb7e293e482ff44e47e9"
     },
     {
       "path": "atlases/at_atlas_009.json",
-      "sha256": "d88ca8947ac2e7740f23b4ef927b78f48529e5e744e367ebfd6b3ece26d52185"
+      "sha256": "81be7f379903f177b56edca09e8353822ac9b46cd05cf5f3d4851099e454826e"
     },
     {
       "path": "atlases/at_atlas_009.png",
-      "sha256": "ce5a080f7a67d053a9164fb7fd0489d0ff87b0edc04fc1e2b83046564d9336e2"
+      "sha256": "e63cb3baefb4be7a91700f6dcb151413dd5f10ae8e63acf8a67eb1c254263856"
     },
     {
       "path": "atlases/at_atlas_010.json",
-      "sha256": "be62cf9e4f55d13ad2e7e7387d8c803e1ee213762ef83eae1ac1b8dbd6251bb0"
+      "sha256": "b4abba66d06e2b6c9495a7adf587b46e1d9ec07121057a7c0ee2328ce0019f0b"
     },
     {
       "path": "atlases/at_atlas_010.png",
-      "sha256": "7754e29c9e2d422deed27f43aa9da648e96f31cad35efd85efd8d1dd5e3a72f1"
+      "sha256": "62d6e116ea180eda76b2dea8ff43578f5ce3301a4fb4debcc53d7b6735f3120e"
     },
     {
       "path": "atlases/at_atlas_011.json",
-      "sha256": "decc7e20e488821e8c6df4995a4cd71486f1e677dacdec0f602cde7a6a03ab3e"
+      "sha256": "867b9361c6115fb79fb71bba862dde1197b8e5b1c3a90630d892c38c6c66474a"
     },
     {
       "path": "atlases/at_atlas_011.png",
-      "sha256": "a7eaeab983dc359a77ff3518c54612d5ffcb673ef8f7bb58f885a7766753f65c"
+      "sha256": "767d534ed1a5ed4151421ed4108b309d9aa7d2555b272260b8b5ad67bd0a5209"
     },
     {
       "path": "atlases/at_atlas_012.json",
-      "sha256": "3a9fcbf8b1283e7e07a284c5a4a143d93f28f45d2b606261294d18711411dd74"
+      "sha256": "3c596deade0210dcaefe8749c3ddf72c5a34e00461de2d9539ae1530f9a5db7c"
     },
     {
       "path": "atlases/at_atlas_012.png",
-      "sha256": "e12ebef3c48b20e6c82024a0123ba640cf764712f10a2fc6b9cc39999a16b8d6"
+      "sha256": "0b5455098745091821e4d7e6a28dfbbe7ecac1ab2e6a9f8e0c6bd450fca31b1d"
     },
     {
       "path": "atlases/at_atlas_013.json",
-      "sha256": "b4b12f38e09d56670ed1beb11aa7fa92f41d656eea00ac1bbc2935d021599b49"
+      "sha256": "573ae28649acc35e7827050ddee8062208971b1fd6d038ec1fd55142b3f04e66"
     },
     {
       "path": "atlases/at_atlas_013.png",
-      "sha256": "e594a137bfdc61268784786a2b8202de1acde9dc9bffa1515cdfca8f36e688f9"
+      "sha256": "afc23807dddc9d3d5bbbf9b60126f8931922cd74ea31ab19416ab9e8a4fce7e9"
     },
     {
       "path": "atlases/at_atlas_014.json",
-      "sha256": "b6dee3ef183c90c6863a82787b133b2417809e1d8caa8db83bd117ca665eb925"
+      "sha256": "bed966b8984a3df969d8b53dea66d1b129c5297c7d9f84e260e1e913c2bb6e0d"
     },
     {
       "path": "atlases/at_atlas_014.png",
-      "sha256": "ab365f1da4635864222caf6cdffe57c4b2c147471f9b5178bb8f511f6a20fb91"
+      "sha256": "6882abbc2380a8714ea2ed441c24e57c5814a3212ae7fedeb5f6daf8cafd69b6"
     },
     {
       "path": "atlases/at_atlas_015.json",
-      "sha256": "a4d080158dc9bbd7f22dc5cbdbe7ff75fc1edd10f743dfdcf1ccd274207d60b3"
+      "sha256": "0e6351541cca230d3c3d0d0c100514886b8e5f3e4c61beaccba8b45af13b7a6e"
     },
     {
       "path": "atlases/at_atlas_015.png",
-      "sha256": "953dfc080a9322a2d90ae5354edbe42c31ebf6af8f918205c5424baf1ba27733"
+      "sha256": "5b6cb1d7441cf4505637267ae3d7bf7cefd03ce622d669ab7bf7cd8e47500ca5"
     },
     {
       "path": "atlases/at_atlas_016.json",
-      "sha256": "079aafb2ab6d89300e4e601cf8be35339e9497939e7d10a344bcd07cecb79c9b"
+      "sha256": "77199bb240c63279adf781bdee24dc209e4a55f34c9f2cdd0ab48a3cff3eaff4"
     },
     {
       "path": "atlases/at_atlas_016.png",
-      "sha256": "4732fff32686b1ea79d0d279a75d4e23103f0e369eaf567cec4ec033521a09ce"
+      "sha256": "78b5b081d7063e9b902d44d5908a41cb02feeba22b5a39cbc9eb42cafe00dcc9"
     },
     {
       "path": "atlases/at_atlas_017.json",
-      "sha256": "2004863796b3a191f9d58834d7d20141956fb890bda8649ed18392b4630bde42"
+      "sha256": "6f1fbdb24b62a7644a4639d55d106ab3263ca6a79b2ae6d7bda69879c6bcbc48"
     },
     {
       "path": "atlases/at_atlas_017.png",
-      "sha256": "b5d9cf47ab8d0e63288b2c7b32ed830d3aeb2c2af884516212dcd0d5f11e2263"
+      "sha256": "6805c471dfe69d65374db8dfbc0cb04e8b836fdf4690140c755bad41ee290df0"
     },
     {
       "path": "atlases/at_atlas_018.json",
-      "sha256": "bc2ed8302ed1707e1d3dac736d331b9591d81730767736bbf783d692f7182fbd"
+      "sha256": "1beacf42dc73f51c1b7124c1dca0c5f55d63f489bcb9ecdd1c9a8dfdd988072d"
     },
     {
       "path": "atlases/at_atlas_018.png",
-      "sha256": "bbaf5bb9fa0ab61d9a2e7ecd7469098e963d3d2c927f20961bc225954739d949"
+      "sha256": "01aaa5a081d4b39c4c3178d2a8d2bbe5d42310f900a781bb7691f262ca594574"
     },
     {
       "path": "atlases/at_atlas_019.json",
@@ -160,183 +160,191 @@
     },
     {
       "path": "atlases/at_atlas_019.png",
-      "sha256": "2f6776fded2aaa44851b893263f082683cce3ed4b52ceabe52cc4eba3d5dcec2"
+      "sha256": "e422bb30dd3cb1970f6e7f51c4bc7faaa3089e888a645567ada9d6996bcd08db"
     },
     {
       "path": "atlases/at_atlas_020.json",
-      "sha256": "550ec885d0f65dce757238eda6d0a22d9b38414b1aa729aa98e52fb1e7b5ad5c"
+      "sha256": "9e9e86ce69668b1eaf8e9a535336a7cb1f95f6c6aa482e1091e099daa9f6a62f"
     },
     {
       "path": "atlases/at_atlas_020.png",
-      "sha256": "80700ed52578d9cc3d2e48832fc556505fa094fbd50364b8ed64cb78420076b4"
+      "sha256": "beb732d7c2933d85cf6faeabc68c1cb3f187ae8084b23b3fea27d1b45fea2c4f"
     },
     {
       "path": "atlases/at_atlas_021.json",
-      "sha256": "b52556d9b6041601a006bf5cf95d2855729586b489fd19b9015dea59904022cf"
+      "sha256": "a491ed4dcc25ac65c75160e007b0419bfb31afef4b72aa1bdaa7fcf54d0dbe54"
     },
     {
       "path": "atlases/at_atlas_021.png",
-      "sha256": "8171d897dee88f42ad2dd33b159e746352118f5745ced02bbfb1a39b9bbd1ab9"
+      "sha256": "9746b690574463b176fc06221f94855e768f6c264cfc7ee49f81d0024e742033"
     },
     {
       "path": "atlases/at_atlas_022.json",
-      "sha256": "3a8d3eb843c85756b0c765ae628b4e57a5f5d39b6649898a6bd071054cc4dfd4"
+      "sha256": "03f28611c31d95359fdcac736ed3234af2e24ed2e696f0cc05ea59cb32bdc335"
     },
     {
       "path": "atlases/at_atlas_022.png",
-      "sha256": "2a9703044c41e6611bf659c949582cd2eddba7e1e3f48b4d54298d89cf7ce6a7"
+      "sha256": "70af108b1a5b78637a71cabfb8fe2449f6385ab77b02d8c31d84a083873e48d6"
     },
     {
       "path": "atlases/at_atlas_023.json",
-      "sha256": "a4e48d162717f99f123da8ce7768084cd2f62fae118b5c1a0644780100db17be"
+      "sha256": "48f24aef8535b757fd4aa4489c03d172f5bf9a923500a2035cdb31b2b2f86853"
     },
     {
       "path": "atlases/at_atlas_023.png",
-      "sha256": "77183fb04cccdf942b21ca1f09ac344b5f5a9aba6e57bab8fe50a5350539d65d"
+      "sha256": "abe0d730a50dcbc342bacb0190197221971582f5d652ad82ced6623e087e9910"
     },
     {
       "path": "atlases/at_atlas_024.json",
-      "sha256": "13008f118ff95c592919de9b767b1239c73b9129016baeaf8dc697b40794547a"
+      "sha256": "90da5a7d30761dddc3a6cd730f0cbb704362ede2c60369bb28b21575a21c4611"
     },
     {
       "path": "atlases/at_atlas_024.png",
-      "sha256": "09a4b6c0880a5d363350af0911e79df8982a7ad24d604a181e4f4b9ce4ce3c8d"
+      "sha256": "5d7855fbd43f9d3d5f3eddddaa0b86f5d3606f564f7d0b94cfe585153309ffd6"
     },
     {
       "path": "atlases/at_atlas_025.json",
-      "sha256": "88041694dda8d0dffe96079f2656f6f8bf9b6e18c0d3d112a7dbf91a6d506c2c"
+      "sha256": "eac114173f87a73d96ecc6ad9a4746b6762da7ba2f75be4af0b2233e3d2b7d2a"
     },
     {
       "path": "atlases/at_atlas_025.png",
-      "sha256": "f83324254991619a004cba62c69f6da850a1373dfe03f562cccc5d472c62df17"
+      "sha256": "c0b062076b523c096f1c6bf65d54b48c3b37538de8c8f4a3da24240a5d79e3bd"
     },
     {
       "path": "atlases/at_atlas_026.json",
-      "sha256": "1f340f9a8d677ec0d7acbf186dffa180cebce7fc4f349f17fb3528f6b495fdd8"
+      "sha256": "f50aef1ec9d0d344bec3c1515053be71630de7885f519f723f2d6f43875c8c9c"
     },
     {
       "path": "atlases/at_atlas_026.png",
-      "sha256": "371eecf50698d9fff2b8aa0e5bf95f534d363f532d5b0dcdfbb7e871a4b61d0e"
+      "sha256": "f819647e92349f30afa20f54d6f563d1f4c98518da86ac4f46462b68bc7df87d"
     },
     {
       "path": "atlases/at_atlas_027.json",
-      "sha256": "9ba2f4f641091896186b070570ca5098f1efbd7bffeff78a16e9f9f96afbbc86"
+      "sha256": "342c85fdbe444e246ff258eaea9964d1a99366d787f86c8698ccb066a1b8616c"
     },
     {
       "path": "atlases/at_atlas_027.png",
-      "sha256": "5463336ad78ca3dcb7e95cd26534e03f4e35b19c425bef3eaef3db997aa06aa3"
+      "sha256": "281b13afe02c9df1d3c80397b895aeb69dad3a36bb45317580ed72e028cad0e4"
     },
     {
       "path": "atlases/at_atlas_028.json",
-      "sha256": "12937e014841d95107db2f7e9db03644ff1c6943de7008e9acdb9b1cfc7d0ae5"
+      "sha256": "712dbd4085803ede6e7a94eef0abd6ad0ac2483540143a7a5ecfb346bb50694a"
     },
     {
       "path": "atlases/at_atlas_028.png",
-      "sha256": "1769ead6e14f9f0bdfb66f54dee718502cd7d9df27b0a35d83ccec7bf7979961"
+      "sha256": "4c6056b61126d3edc340d5b926009f803df545e6237fb3bb763f7c9e501f48b1"
     },
     {
       "path": "atlases/at_atlas_029.json",
-      "sha256": "24c5b60d65815876dc307aeeae5aecfd309df2b138c94f06736510c32f4eae2a"
+      "sha256": "65c62586ae54d2ad8a8729f7d3b69df075dbf122b0e18724c7da19ab5b37a66e"
     },
     {
       "path": "atlases/at_atlas_029.png",
-      "sha256": "ab0523c5e88d8398a65560590bd50380adff0b0f5e47f703d3fbd0cd7854a8a3"
+      "sha256": "921ff820f56f104a22c03ee650798585825b0d182c6f94cbdad671085c8d7f45"
     },
     {
       "path": "atlases/at_atlas_030.json",
-      "sha256": "d2357458d3d3a9429f07f2a6dc1fa85d6130430e1f3c6f12b999eb55841dcdd7"
+      "sha256": "b8d3da974f226f9ebe91aead94a00abf148e29838029199355c4e67f97934361"
     },
     {
       "path": "atlases/at_atlas_030.png",
-      "sha256": "2f6275492c998619c5aa77d057a38696e6c3748f3289204fa51dd19e0f4e02ca"
+      "sha256": "cad8d6202ee2e94e7522564852206f68d4def2f041869e3311a55c0336ab0e46"
     },
     {
       "path": "atlases/at_atlas_031.json",
-      "sha256": "edb1f8caff792f93137b7efc6f5ad00b473beb31c3f8bb2fe64bfede277d4bde"
+      "sha256": "669fe62e87367832bdd5e9e70103b6df3b9af5e514513b2f16ed58a9147e81e5"
     },
     {
       "path": "atlases/at_atlas_031.png",
-      "sha256": "c6c9a275bf1c489dbca5bc8296a4edecc3bfeceadab6d2ac88c5ec4577806ba5"
+      "sha256": "f94800abd87b9c78602f16ede18d2e325729627429378bb32777acc8d3a22828"
     },
     {
       "path": "atlases/at_atlas_032.json",
-      "sha256": "fbddd07c53353f9735b64b02ff999875c7182652664eee91df782067a07dce97"
+      "sha256": "9bd9f2dd7e45eb97d0ce67aa6f74a0c0d1bfc09db99c73f40a2efcc1ebfa31ee"
     },
     {
       "path": "atlases/at_atlas_032.png",
-      "sha256": "6938b1114fc8d218d823f7f58d8e2bb4521a32ac8ff067ab6ef0369dd89ea589"
+      "sha256": "18509ec911bae8366224747353b8fdb3135a3bab8fec2932c1bc57f6671f444a"
     },
     {
       "path": "atlases/at_atlas_033.json",
-      "sha256": "b191211fdc7de43fc58a58deddb6d6e122bfb5c67e2abf69d349d3a036d36648"
+      "sha256": "300a729dbe2d9c0be3efeab647fd7a84396d4d49f9aca148abb9043acfc71a4a"
     },
     {
       "path": "atlases/at_atlas_033.png",
-      "sha256": "05ce081cead6bde2441104b994dd9e41481d6ad64e74030d2c92055346652ba8"
+      "sha256": "98bf45b90a17d7efa83f9ceee82d15246987a8b63562b5fd4a53fb40e41cfc22"
     },
     {
       "path": "atlases/at_atlas_034.json",
-      "sha256": "d5075f61066b06264a5e3513e5beaf10dd12c9dbdbf098c6a2228125c85c057a"
+      "sha256": "8070dcd0b19e48e692132a7447a75a44047e3360f08b65b9ee0477210e64e0d9"
     },
     {
       "path": "atlases/at_atlas_034.png",
-      "sha256": "de100c55d611e9eff8b448acb037f0de13ba6118ff66975805dc2a72a1ee615d"
+      "sha256": "14a224c2c11ebd237842bf9db2ede88fdfd6e2c3b3ce4508e77364ea9577ed98"
     },
     {
       "path": "atlases/at_atlas_035.json",
-      "sha256": "c6bd3169e4ba9f38f0cb33a240cb36d59f880f765522e98e50a00e64a6973e9d"
+      "sha256": "cef047f0bc4d680dc5ff56d45f59b28aeea55d0c63d916563ffe30d3ee26b6a5"
     },
     {
       "path": "atlases/at_atlas_035.png",
-      "sha256": "e68f83d427f6e45aac85b029fc006698e09846bdb1f22f60968daa18edead0cb"
+      "sha256": "5c34969a4f871c48ee5615300f255d1650717aebc4de3dae57c11e3f758e8d3a"
     },
     {
       "path": "atlases/at_atlas_036.json",
-      "sha256": "a19c326464bce214bb70c1c58892f0bd055474cdef3e1fe2ce7fa35a99108696"
+      "sha256": "fb5e4c3d60830f37b98905da164e59312b34fd3ab0d7a0f87cec62a03e08fbf5"
     },
     {
       "path": "atlases/at_atlas_036.png",
-      "sha256": "d96c8139b91296c571672aaa960124df0d42a8760c2b73b07f0662e681acac8f"
+      "sha256": "50158f1b24fd3868ca2d7086cb05af8d0d4d0809afe9a0ba0363d53da99fe385"
     },
     {
       "path": "atlases/at_atlas_037.json",
-      "sha256": "9bf0f38f52cb6227671739f09fa850cb18f522d0686758073350751d60bce31c"
+      "sha256": "d0819c41502208f3979682502500f32d91a1f3eafc6f2cecc1cd87637ead9fc1"
     },
     {
       "path": "atlases/at_atlas_037.png",
-      "sha256": "967e69e582bc4622ee28badfaa575d39e34603dca9954f501fef83775fc515aa"
+      "sha256": "cc561241bda14df6033569e930dc3766c402b7fc6b562e3a92aea422d59c5824"
     },
     {
       "path": "atlases/at_atlas_038.json",
-      "sha256": "494b013c959a5b54e2c7b9fd98623b93a028b426e3870a776b3fbee69f780bd4"
+      "sha256": "81aaf1f568a84167674ba3eaf0b641a7595d609ca4c72664aae5b257cd386960"
     },
     {
       "path": "atlases/at_atlas_038.png",
-      "sha256": "5cf4e44bd88b3c9a97addf17da240c531f8f3256e20ba5b4b3f0ae4664c136db"
+      "sha256": "7fd60f5234ee98ffa0074da57cc7d573fa8a43687b9793adf6da3272ef6d969f"
     },
     {
       "path": "atlases/at_atlas_039.json",
-      "sha256": "a70864266fb960ef42552ecb33bb6c94b384260123e6440903b78b56682e9750"
+      "sha256": "6881d480bb0dc76db3a2048096a192bbeddf1d13020d73e1383bd38ebe19e82f"
     },
     {
       "path": "atlases/at_atlas_039.png",
-      "sha256": "ce959e09bf9a12492739d34ad4899f91c9c6a7696ba5ceab88777125eeed1c3d"
+      "sha256": "160cd272cf6258df83b92148e314bfc2e6ee03b35d111512acfa7800160bbb70"
     },
     {
       "path": "atlases/at_atlas_040.json",
-      "sha256": "1cda7355caf284b68d9b733d39b461b991f89a85a466e03d5cdf2bf713a8df5f"
+      "sha256": "e347768cd891347b94413cdb5388519aea343c7ca3d63b5fa572172af84793f6"
     },
     {
       "path": "atlases/at_atlas_040.png",
-      "sha256": "a49e6dc5b5bdd80104145368d5442981ad1f4b643967727b3ff87689e2782ea6"
+      "sha256": "2bfcd3888fe5d953305b78dfe7dbcf3aa71d26fbe844112ed1684465f6b96b7d"
     },
     {
       "path": "atlases/at_atlas_041.json",
-      "sha256": "3d8e3675f904becdf35bf3415fd7e04f5217043f15b2a4c2fdfe08320f2f6c3f"
+      "sha256": "642d4ff85f848f245dea66785d2f502d16f628bfc71b7826f9833039e8a60e28"
     },
     {
       "path": "atlases/at_atlas_041.png",
-      "sha256": "214076e633bbccda0fd0fee6afc745aa611c7928638c46a6ba08fa215549e53c"
+      "sha256": "4dc42c5ef6da53eb18a7b9a87c1ba1b931e46542b4e4edf0a043fb5f8ffb4106"
+    },
+    {
+      "path": "atlases/at_atlas_042.json",
+      "sha256": "1e50a28daf3b166643ded9bd6f39dee1c958ec146b0ffbda32743598871dfc41"
+    },
+    {
+      "path": "atlases/at_atlas_042.png",
+      "sha256": "819a917ae6962c664483879a0444fdb7aba231adb6d7fd27e40560bc8dae2d96"
     },
     {
       "path": "characters/ct_anim_enemy_001_attack.json",
@@ -484,7 +492,7 @@
     },
     {
       "path": "characters/ct_anim_enemy_031_attack.json",
-      "sha256": "f8c8b8ac601b8462f317966a3a6fae14d2dc3551cf4bc9e74ccdd259fbabe8d8"
+      "sha256": "1e660dc40f34ffeed768272a6183d3aaf808bafd71640c9a4d32778ae85af1d8"
     },
     {
       "path": "characters/ct_anim_enemy_031_death.json",
@@ -500,7 +508,7 @@
     },
     {
       "path": "characters/ct_anim_enemy_031_walk.json",
-      "sha256": "e92546f89aa77be99dc77b21f5ea3e7d83d78b8d2a0f87e7d509529476b9e37d"
+      "sha256": "0b71eab25ffe806aa55b2c31237e4a1277a7c908c95b0f0061a9648b178f27e7"
     },
     {
       "path": "characters/ct_anim_enemy_032_attack.json",
@@ -524,7 +532,7 @@
     },
     {
       "path": "characters/ct_anim_enemy_033_attack.json",
-      "sha256": "08c5a186aa3bb6c229dc3390a4939563e96b0da317fd302bdf571d0bdf95e9cb"
+      "sha256": "11577b7c6c2d252a861a412cbe1c24651c1c7b295613dfbefb72ee318aa7f4d9"
     },
     {
       "path": "characters/ct_anim_enemy_033_death.json",
@@ -544,7 +552,7 @@
     },
     {
       "path": "characters/ct_anim_enemy_034_attack.json",
-      "sha256": "38c3c8b13a70ea397fca6e590c40d7bf694cf7fb580ccf8f9b24ac5ad016e68d"
+      "sha256": "2b6347dc1fe560cdb571024306ff79996e99e553826615e12bb5e65686591e53"
     },
     {
       "path": "characters/ct_anim_enemy_034_death.json",
@@ -584,7 +592,7 @@
     },
     {
       "path": "characters/ct_anim_enemy_036_attack.json",
-      "sha256": "af7d95b0e2c7e46389c276f0ea9178c31bf4fb80a8116aa372a65a4f5cc02768"
+      "sha256": "47ef76db9f3ecc309fa83423105acc79576d95e564ecb3c1eeeb4b60f62bce18"
     },
     {
       "path": "characters/ct_anim_enemy_036_death.json",
@@ -604,7 +612,7 @@
     },
     {
       "path": "characters/ct_anim_enemy_037_attack.json",
-      "sha256": "4aa7f5b45e615868fb27c7d7d40f2fd753b71f147e1836be20fa191917319fbd"
+      "sha256": "5a5d2f807a2f240ab3fc1c0007a67620b79f4c181963abb2368c8d07c4db47a1"
     },
     {
       "path": "characters/ct_anim_enemy_037_death.json",
@@ -624,7 +632,7 @@
     },
     {
       "path": "characters/ct_anim_enemy_038_attack.json",
-      "sha256": "e170836750b276e29839cfb2b63f8fe477900a48c1b76b44dc0a79cbdc474d67"
+      "sha256": "458eaac97fc3ef269180607bebe9e184998207b1573a00288fa9fdafc3c33a1a"
     },
     {
       "path": "characters/ct_anim_enemy_038_death.json",
@@ -816,115 +824,123 @@
     },
     {
       "path": "characters/ct_atlas_enemy_001.json",
-      "sha256": "843080306ae949f71c924b976d64f8913fa62c1e3de6b9c808c9ec901fdc16bb"
+      "sha256": "e22ff4d1fb1a1282f92ad66631b00618d9dac66ce94609a0f7011db02396a05b"
     },
     {
       "path": "characters/ct_atlas_enemy_001.png",
-      "sha256": "829292bba746260b06a1b031033b6ad9c68a24e1264800c1ab72e83e122b9be1"
+      "sha256": "eae3f21be52a897f0b984e50ca7adaee4f89df17379fc09214d31e2933bd0bff"
     },
     {
       "path": "characters/ct_atlas_enemy_010.json",
-      "sha256": "ae316c295ea55b46ca42d538f28fac64d326975b261f2af8aaa2aa441c69bb47"
+      "sha256": "d813af475146e766d4b545b160bd76d24f526b660f97d04cbf05a0f179995bbd"
     },
     {
       "path": "characters/ct_atlas_enemy_010.png",
-      "sha256": "502f7451d536fbd0b14fdfaffd3fd0449c2fcb4498f0ec569f69ca336d3b54c6"
+      "sha256": "66a8cc22b4847d59198a6a21769d1e34496688bffbb50eeadc55baccb2fcf5dc"
     },
     {
       "path": "characters/ct_atlas_enemy_018.json",
-      "sha256": "017aad169ee352f6762e84f89b2b3d263639a65d89a1a30737b292108ec16965"
+      "sha256": "e3683525ac11c5c13801f40f5f9324b565f36b3f281c722a59654f9e2a13c9d9"
     },
     {
       "path": "characters/ct_atlas_enemy_018.png",
-      "sha256": "cfb75e028c6eba89a3b1c4461a5e102621c0bd876e692e054f1bbdfcf65e02d6"
+      "sha256": "25589e1c2537dcc3de5e4b348a6b4b0bbfaa81d1ec7afcaa0a4e39d866f5e3cb"
     },
     {
       "path": "characters/ct_atlas_enemy_020.json",
-      "sha256": "56ba35ca89dc932b6844fb166b71126b37f34e1f597857bc996b472bd9b39bab"
+      "sha256": "6a8627f69829e459d27cce6af3612507cd367e623c3d703df3ab9a2615198176"
     },
     {
       "path": "characters/ct_atlas_enemy_020.png",
-      "sha256": "b19b7be1be09a456d9550c1526df85ba59f4a7b4fdc9caed6dfb7fbac9cf29ef"
+      "sha256": "11184139545849edc71330c62c6624923f33b6d6806884e651e675e99f2274cc"
+    },
+    {
+      "path": "characters/ct_atlas_enemy_021.json",
+      "sha256": "2c91195379604dc129a0c37f5e01b200555acc4075172cdd0be639195b6c5997"
+    },
+    {
+      "path": "characters/ct_atlas_enemy_021.png",
+      "sha256": "85794c7a5e5ddf0fa1b3037867d77d44a61d41ab1fc80a07120c71def142dd9a"
     },
     {
       "path": "characters/ct_atlas_enemy_030.json",
-      "sha256": "8e2f99346dbd0719c7e457c2ec111514ae10b57711b13a23caa06bf4ebc5b1ca"
+      "sha256": "2ad9e588d0e3bb09a5f87ddd5de253270344dc9f52150057ec4b55c1cbb629e6"
     },
     {
       "path": "characters/ct_atlas_enemy_030.png",
-      "sha256": "b5618abdf3d0e70ca6c5abdcf73b4a71a1c4f9fb8d727f315176057af7af49e8"
+      "sha256": "ab8347f504830e088eef59f1ab6ea61c31bba57ea5c71bfdfd84758f9abe20f5"
     },
     {
       "path": "characters/ct_atlas_enemy_040.json",
-      "sha256": "dbfd57995828164fec41a8acdf2844816480a7462ecb9b34db706f9dde0e459b"
+      "sha256": "e19284238d4378ff07735b4afb668c74266ffb572ba9c4e9ae58b79bcaf3789d"
     },
     {
       "path": "characters/ct_atlas_enemy_040.png",
-      "sha256": "cb28151c377abbf0db5bf1d7491859fa3e4643f14a8198773995b0c787587096"
+      "sha256": "b803eb62a28b8775aa4782821cfc2b3ad851510ddcae450dac348314ba8d454a"
     },
     {
       "path": "characters/ct_atlas_enemy_050.json",
-      "sha256": "80e51aebbc7392fdeb7188713541adfa4dbe04096d70b97657e649248b0ec8c5"
+      "sha256": "5d247adf216985575d4ef86b4ae8c3eb276c03e1c65685d4f0c8f2b7bd10c379"
     },
     {
       "path": "characters/ct_atlas_enemy_050.png",
-      "sha256": "900cbc09bfd9ebc7d46652188354fe0f25f6673a1d5c72c4a5566a757b054ef0"
+      "sha256": "6af4b89dceb7ac0ba282d6824888331bf70fe13fa73639865c943e0ec80a6312"
     },
     {
       "path": "characters/ct_atlas_enemy_060.json",
-      "sha256": "ae8b82033621c2a5413922c3af1bf8e07ccada3b93442cdb43bc8a0c09a481a7"
+      "sha256": "835829361d8832c45222471a75bd1737bfc6e5419c42aee6b2a82a41ca88fabf"
     },
     {
       "path": "characters/ct_atlas_enemy_060.png",
-      "sha256": "77f23d389c6b9efd83dbbbca8c599a3ba884d452d39cf44943efea215a6e0f1f"
+      "sha256": "db14ca0ac5401ea9cfa3b270d7c87c2ccf2b8bc7f8dba11e6fa86398d8561d9b"
     },
     {
       "path": "characters/ct_atlas_enemy_070.json",
-      "sha256": "f1000605df23cb2ef85ff5b584b18965f635482a3320f064a944b0864ca998e6"
+      "sha256": "429d10969f47dc8769be586bcf407096f25319546a4326daec68085f520d705d"
     },
     {
       "path": "characters/ct_atlas_enemy_070.png",
-      "sha256": "704a7555e7f66d4f108f00ea4735d65bb933779fac6f97bb829426a713f83c4c"
+      "sha256": "cc9b1ebcdfa22439e79cd79c74b2e38b5c788113e917c5a7af29244b111c0cb1"
     },
     {
       "path": "characters/ct_atlas_enemy_080.json",
-      "sha256": "c72d3867091300978982198afbdb1789294c45c7008d3c810a8a91cded04c7db"
+      "sha256": "134ac7003d14440ace5eaa30df400f3dacf121c39c49f57c4d77860f4c70f227"
     },
     {
       "path": "characters/ct_atlas_enemy_080.png",
-      "sha256": "99c9d2d93b4ddef074eecc3c1d7494010a4891c5d6cdafeb7623853656ba6dd0"
+      "sha256": "f35ed6f19e828bad197932b2af66567086bf3fc61d4502e014cc428dfa29fce0"
     },
     {
       "path": "characters/ct_atlas_enemy_090.json",
-      "sha256": "533c4d3b388f8d740ac73b03e3ca14c634202e7e5bc27e63b006734a875423da"
+      "sha256": "4e416ae91468e7a2b51f8d2202051db0455192fe529a45da6ce147311e77899d"
     },
     {
       "path": "characters/ct_atlas_enemy_090.png",
-      "sha256": "3142ebfced164d1712570983716ad26685614108ffbc47a827cb00d2c96f0287"
+      "sha256": "0ed2a0d963f3d86ffb0c3cea32555535e41b9769a240dfb50d4466ccabd287c7"
     },
     {
       "path": "characters/ct_atlas_enemy_091.json",
-      "sha256": "0d090cd3d8e56baf0fc3f395770ec0f884b14c97b99ce4872c71452e6314c7c3"
+      "sha256": "cc233b707646d83b0cf6c8b23be40c4a339bd36d16cdc76e54ab0c19a1c7b0e1"
     },
     {
       "path": "characters/ct_atlas_enemy_091.png",
-      "sha256": "adb19c8adbe659b878d1cabab3f4f21465611ba6ef3942d2b2c1c498efba76bc"
+      "sha256": "346fbe7c2c1973cbf9ae06af445898b817b15e8cebe0c34631c7c46c780cc699"
     },
     {
       "path": "characters/ct_atlas_enemy_092.json",
-      "sha256": "d4fb8c1df26e235963f703eb869deeddc576e85d2673f8ed41ae9c4dccc3dae6"
+      "sha256": "4a41311bab13c6863ec346da829ae4aad99d432389a9ec9ef9102498fb2a8b19"
     },
     {
       "path": "characters/ct_atlas_enemy_092.png",
-      "sha256": "a251603c1e0a67000dc5eee7bf98c86f9f3d48ccc1ccf68381528003e3570445"
+      "sha256": "3e9b85a1532712b1564102a2455d8089aacf67065f89448761b15cc6c49fd4bb"
     },
     {
       "path": "characters/ct_atlas_enemy_093.json",
-      "sha256": "2a15cf7e40d771dc9f7577639072fcae2c8c716f1dcb55e7369279bcc2f49616"
+      "sha256": "a5d0e11b75271b956e847a069d10538b642b5cf9879565132fa2ccec53c0bb46"
     },
     {
       "path": "characters/ct_atlas_enemy_093.png",
-      "sha256": "fe8861f4b9413ed440a01e678dab5fb1c1c28e28332080ee4b4023d5eb4c5974"
+      "sha256": "91a816a5c4c64f24f370e742ebfc4b25bc63e2df90e6af28cdf96c3557da8274"
     },
     {
       "path": "characters/ct_char_enemy_001.json",
@@ -1036,7 +1052,7 @@
     },
     {
       "path": "characters/ct_enemies_001.json",
-      "sha256": "290e970a9742ad745d0f498798ba26c8a9048b6c96522b67cd93d364ddca0a81"
+      "sha256": "c0086a39a4c90055f2f90203fcac9a8ff1692d3b24e49cb47048d5ac65062009"
     },
     {
       "path": "characters/ct_rig_enemy_001.json",
@@ -1068,15 +1084,15 @@
     },
     {
       "path": "characters/ct_rig_enemy_021.json",
-      "sha256": "b3c3fbc62948d7bf1c5e67389b69b0dbf914acaa8d01725442e53c99e0cd9bf6"
+      "sha256": "144f453620af4046358d5ff6d3533ad035ef110a69a1ad487f660a1976e49d12"
     },
     {
       "path": "characters/ct_rig_enemy_030.json",
-      "sha256": "9118f988986945011ca3c7a33ada59374623d92fc2d9a219bbc464655349a380"
+      "sha256": "2c5f2a7153c791a8a9db22d90f1ecd17efa30bbd89ecea9f7e01f33a50c8969d"
     },
     {
       "path": "characters/ct_rig_enemy_031.json",
-      "sha256": "de1352a25ba7e449665291c347796fb56a234575d5d79bbf3cff2279bf043dc4"
+      "sha256": "984df86d751ff1ff50098297d4dadd872c56d733a8501b1a0509f5e0ccdf4c71"
     },
     {
       "path": "characters/ct_rig_enemy_032.json",
@@ -1084,27 +1100,27 @@
     },
     {
       "path": "characters/ct_rig_enemy_033.json",
-      "sha256": "cf3ea135c254a1d0cc830f78009e1aab06f4d1303fc9a7725aafaa963461c6b3"
+      "sha256": "53c1cbe606ca51cf37b2ed20f1d264bcbd886d50daf316a667ac56e22511fc49"
     },
     {
       "path": "characters/ct_rig_enemy_034.json",
-      "sha256": "daebda7dff2b598b75d373cb8bb2cb701917a92cbbfd8a1d65d588000dc10b8d"
+      "sha256": "b74f7642b0ba6804ca1df4b7e4c4a69f1f056430baee0d88510732fd0d69ed2c"
     },
     {
       "path": "characters/ct_rig_enemy_035.json",
-      "sha256": "abbcca69890328403994df1c9c64261f0ce3e2a45fcd01556248c629f78b2848"
+      "sha256": "cda8191f609abe497c2c98e200616a5caf3c554689388af047ff2ca1cb6b8915"
     },
     {
       "path": "characters/ct_rig_enemy_036.json",
-      "sha256": "832fc6177c16dd486dd99ba57b8bb3abea902475d649d5a7db1c4d5883dd36ec"
+      "sha256": "93e55fba1d22b5111a8e2810a4d976aa34e7d918e44b4d7527aa2c87c4442aff"
     },
     {
       "path": "characters/ct_rig_enemy_037.json",
-      "sha256": "3f4f04cb3533d162d89fadbf8c7c2805c2b080b4e63b6bd01e3926a5b06206af"
+      "sha256": "f5d975db4b30eda8d9a77ccc6b18f3928ac354b252209191bd7286831977000d"
     },
     {
       "path": "characters/ct_rig_enemy_038.json",
-      "sha256": "31a1be8937da00045fd7ea22ba5196e94159b4967851a82b8601b489381faf12"
+      "sha256": "a3c2c78789970b5975b822822d34ec6aa177da6166b3044fc054ab8c439e09db"
     },
     {
       "path": "characters/ct_rig_enemy_040.json",
@@ -1148,11 +1164,11 @@
     },
     {
       "path": "items/it_atlas_001.json",
-      "sha256": "d6144f7e6adb20041335c26cff7d757ca31d34d9c22e69bc7a4fbab72c41f452"
+      "sha256": "c7301f321134d0e0c6b2e191fe09aaea45c02750c17fd66dd85ffdaf7d0eee2f"
     },
     {
       "path": "items/it_atlas_001.png",
-      "sha256": "1588db89a022b93b7d71e5b2dffac2384404b542312ab17612c112e546c7a06e"
+      "sha256": "113ccfcc5dec16fdb2808630c2ce534e6acffd5afb181a44a1b5221e791da177"
     },
     {
       "path": "items/it_entities_001.json",
@@ -1164,19 +1180,15 @@
     },
     {
       "path": "resources.json",
-      "sha256": "7b4516b0e78531bc073da850008c5edde3b1a80b500cb0498d53aad48c886130"
+      "sha256": "e95ec69666be46d170f1f5b37037f69984fe6e8c2e53a3c921f3bd93fa1e8f01"
     },
     {
       "path": "src/presentation/character-runtime.js",
-      "sha256": "8a8401311956e508f0c6b6f5a85bc66daf97331febcfa245d48a4e24b36ed5ce"
+      "sha256": "1d4d423bc18332b9784c9b27caef1ecd70fcd38a391f4ef6f0139d93ffdc93ef"
     },
     {
       "path": "src/presentation/pixmap-pyramid.js",
       "sha256": "01586615c341313fb0267715ff2ba5e8787cc7638edb51c9bebb62688cb2336f"
-    },
-    {
-      "path": "src/presentation/sprite-color-exchange.js",
-      "sha256": "784d7961d3aed5503e967d6ea131afc5ae91c19501d4a29c9d2d425b29f17497"
     },
     {
       "path": "src/shared/animation-data.js",
@@ -1185,10 +1197,6 @@
     {
       "path": "src/shared/character-sound-data.js",
       "sha256": "21886e5078e18aa0c2e866c60f42cb05836393898fbda1314757a31398a95c8c"
-    },
-    {
-      "path": "src/shared/color-exchange-data.js",
-      "sha256": "3acb17a00a235a0675edd7b8855fde4e0f9ae166892419ae36b414b282357664"
     },
     {
       "path": "src/shared/enemy-drop-data.js",
@@ -1208,7 +1216,7 @@
     },
     {
       "path": "src/tools/palette-builder.js",
-      "sha256": "403621ffe36ecca1bed34c6b54abe445171f3ee6fbbc33142a34d0deebc42cfb"
+      "sha256": "63eb7c46aae8bbecdb3d5116c1dabf8bf7e487abf94b7e7743c5a93e50bc9371"
     },
     {
       "path": "src/tools/resource-hash.js",
@@ -1236,8 +1244,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 1216,
-        "y": 2,
+        "x": 1,
+        "y": 776,
         "w": 287,
         "h": 20
       },
@@ -1274,8 +1282,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 32,
-        "y": 0,
+        "x": 1010,
+        "y": 190,
         "w": 20,
         "h": 133
       },
@@ -1312,8 +1320,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 970,
-        "y": 566,
+        "x": 1,
+        "y": 389,
         "w": 407,
         "h": 206
       },
@@ -1347,8 +1355,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 43,
-        "y": 559,
+        "x": 676,
+        "y": 676,
         "w": 290,
         "h": 142
       },
@@ -1383,8 +1391,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 794,
-        "y": 789,
+        "x": 1,
+        "y": 597,
         "w": 336,
         "h": 85
       },
@@ -1418,8 +1426,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 1151,
-        "y": 788,
+        "x": 539,
+        "y": 338,
         "w": 351,
         "h": 121
       },
@@ -1453,8 +1461,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 35,
-        "y": 713,
+        "x": 1,
+        "y": 174,
         "w": 744,
         "h": 162
       },
@@ -1488,8 +1496,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 47,
-        "y": 889,
+        "x": 539,
+        "y": 586,
         "w": 342,
         "h": 88
       },
@@ -1523,8 +1531,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 1286,
-        "y": 363,
+        "x": 267,
+        "y": 975,
         "w": 196,
         "h": 134
       },
@@ -1558,8 +1566,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 652,
-        "y": 329,
+        "x": 829,
+        "y": 863,
         "w": 46,
         "h": 108
       },
@@ -1592,8 +1600,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 835,
-        "y": 337,
+        "x": 968,
+        "y": 676,
         "w": 50,
         "h": 117
       },
@@ -1626,8 +1634,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 927,
-        "y": 85,
+        "x": 1,
+        "y": 684,
         "w": 322,
         "h": 90
       },
@@ -1661,8 +1669,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 268,
-        "y": 84,
+        "x": 325,
+        "y": 767,
         "w": 290,
         "h": 88
       },
@@ -1696,8 +1704,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 576,
-        "y": 84,
+        "x": 339,
+        "y": 676,
         "w": 335,
         "h": 89
       },
@@ -1731,8 +1739,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 625,
-        "y": 210,
+        "x": 1,
+        "y": 900,
         "w": 264,
         "h": 94
       },
@@ -1766,8 +1774,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 328,
-        "y": 207,
+        "x": 1,
+        "y": 798,
         "w": 286,
         "h": 100
       },
@@ -1801,8 +1809,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 56,
-        "y": 60,
+        "x": 1,
+        "y": 996,
         "w": 191,
         "h": 124
       },
@@ -1836,8 +1844,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 43,
-        "y": 204,
+        "x": 289,
+        "y": 857,
         "w": 275,
         "h": 116
       },
@@ -1871,8 +1879,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 1148,
-        "y": 204,
+        "x": 539,
+        "y": 461,
         "w": 343,
         "h": 123
       },
@@ -1906,8 +1914,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 896,
-        "y": 208,
+        "x": 785,
+        "y": 1,
         "w": 238,
         "h": 103
       },
@@ -1941,8 +1949,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 1268,
-        "y": 52,
+        "x": 785,
+        "y": 190,
         "w": 223,
         "h": 136
       },
@@ -1976,8 +1984,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 179,
-        "y": 346,
+        "x": 465,
+        "y": 1055,
         "w": 156,
         "h": 59
       },
@@ -2011,8 +2019,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 50,
-        "y": 473,
+        "x": 465,
+        "y": 988,
         "w": 174,
         "h": 65
       },
@@ -2046,8 +2054,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 345,
-        "y": 344,
+        "x": 883,
+        "y": 586,
         "w": 140,
         "h": 88
       },
@@ -2080,8 +2088,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 495,
-        "y": 351,
+        "x": 884,
+        "y": 461,
         "w": 143,
         "h": 82
       },
@@ -2114,8 +2122,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 945,
-        "y": 475,
+        "x": 566,
+        "y": 932,
         "w": 247,
         "h": 54
       },
@@ -2149,8 +2157,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 1372,
-        "y": 515,
+        "x": 403,
+        "y": 338,
         "w": 134,
         "h": 245
       },
@@ -2184,8 +2192,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 498,
-        "y": 540,
+        "x": 464,
+        "y": 1,
         "w": 158,
         "h": 231
       },
@@ -2219,8 +2227,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 831,
-        "y": 541,
+        "x": 897,
+        "y": 820,
         "w": 126,
         "h": 225
       },
@@ -2254,8 +2262,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 663,
-        "y": 548,
+        "x": 629,
+        "y": 9,
         "w": 154,
         "h": 208
       },
@@ -2289,8 +2297,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 351,
-        "y": 552,
+        "x": 317,
+        "y": 13,
         "w": 131,
         "h": 207
       },
@@ -2324,8 +2332,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 648,
-        "y": 479,
+        "x": 617,
+        "y": 820,
         "w": 278,
         "h": 41
       },
@@ -2362,8 +2370,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 366,
-        "y": 459,
+        "x": 566,
+        "y": 863,
         "w": 261,
         "h": 67
       },
@@ -2396,8 +2404,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 1100,
-        "y": 333,
+        "x": 641,
+        "y": 988,
         "w": 160,
         "h": 112
       },
@@ -2431,8 +2439,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 950,
-        "y": 904,
+        "x": 892,
+        "y": 328,
         "w": 128,
         "h": 72
       },
@@ -2465,8 +2473,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 520,
-        "y": 898,
+        "x": 339,
+        "y": 597,
         "w": 174,
         "h": 77
       },
@@ -2499,8 +2507,8 @@
         "image": "atlases/at_atlas_001.png"
       },
       "frame": {
-        "x": 705,
-        "y": 893,
+        "x": 785,
+        "y": 106,
         "w": 227,
         "h": 82
       },
@@ -2533,8 +2541,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 209,
-        "y": 0,
+        "x": 597,
+        "y": 624,
         "w": 441,
         "h": 157
       },
@@ -2570,8 +2578,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 671,
-        "y": 6,
+        "x": 1,
+        "y": 537,
         "w": 594,
         "h": 153
       },
@@ -2607,8 +2615,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 65,
-        "y": 1195,
+        "x": 1,
+        "y": 196,
         "w": 331,
         "h": 339
       },
@@ -2645,8 +2653,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 1136,
-        "y": 1201,
+        "x": 1,
+        "y": 692,
         "w": 352,
         "h": 333
       },
@@ -2683,8 +2691,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 245,
-        "y": 893,
+        "x": 1,
+        "y": 1,
         "w": 1007,
         "h": 111
       },
@@ -2720,8 +2728,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 388,
-        "y": 1113,
+        "x": 324,
+        "y": 114,
         "w": 676,
         "h": 91
       },
@@ -2757,8 +2765,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 306,
-        "y": 1020,
+        "x": 597,
+        "y": 537,
         "w": 510,
         "h": 85
       },
@@ -2794,8 +2802,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 854,
-        "y": 1021,
+        "x": 355,
+        "y": 783,
         "w": 341,
         "h": 84
       },
@@ -2831,8 +2839,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 938,
-        "y": 1426,
+        "x": 899,
+        "y": 1113,
         "w": 100,
         "h": 136
       },
@@ -2868,8 +2876,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 1173,
-        "y": 475,
+        "x": 1040,
+        "y": 624,
         "w": 97,
         "h": 246
       },
@@ -2905,8 +2913,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 234,
-        "y": 739,
+        "x": 1,
+        "y": 1493,
         "w": 166,
         "h": 103
       },
@@ -2942,8 +2950,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 432,
-        "y": 724,
+        "x": 287,
+        "y": 1110,
         "w": 174,
         "h": 114
       },
@@ -2979,8 +2987,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 628,
-        "y": 735,
+        "x": 522,
+        "y": 1263,
         "w": 161,
         "h": 102
       },
@@ -3016,8 +3024,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 797,
-        "y": 735,
+        "x": 1001,
+        "y": 1247,
         "w": 134,
         "h": 93
       },
@@ -3053,8 +3061,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 946,
-        "y": 739,
+        "x": 1010,
+        "y": 1,
         "w": 134,
         "h": 99
       },
@@ -3090,8 +3098,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 1090,
-        "y": 754,
+        "x": 863,
+        "y": 783,
         "w": 147,
         "h": 87
       },
@@ -3127,8 +3135,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 431,
-        "y": 1254,
+        "x": 899,
+        "y": 1251,
         "w": 91,
         "h": 129
       },
@@ -3164,8 +3172,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 532,
-        "y": 1256,
+        "x": 463,
+        "y": 1110,
         "w": 73,
         "h": 108
       },
@@ -3201,8 +3209,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 616,
-        "y": 1275,
+        "x": 992,
+        "y": 1342,
         "w": 92,
         "h": 109
       },
@@ -3238,8 +3246,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 729,
-        "y": 1261,
+        "x": 209,
+        "y": 1453,
         "w": 181,
         "h": 121
       },
@@ -3275,8 +3283,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 926,
-        "y": 1249,
+        "x": 1001,
+        "y": 1113,
         "w": 134,
         "h": 132
       },
@@ -3312,8 +3320,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 240,
-        "y": 223,
+        "x": 734,
+        "y": 1028,
         "w": 123,
         "h": 204
       },
@@ -3349,8 +3357,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 394,
-        "y": 241,
+        "x": 294,
+        "y": 1263,
         "w": 97,
         "h": 185
       },
@@ -3386,8 +3394,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 507,
-        "y": 219,
+        "x": 725,
+        "y": 1421,
         "w": 78,
         "h": 143
       },
@@ -3423,8 +3431,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 609,
-        "y": 212,
+        "x": 807,
+        "y": 1234,
         "w": 89,
         "h": 139
       },
@@ -3460,8 +3468,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 711,
-        "y": 222,
+        "x": 209,
+        "y": 1263,
         "w": 83,
         "h": 188
       },
@@ -3497,8 +3505,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 815,
-        "y": 213,
+        "x": 725,
+        "y": 1263,
         "w": 80,
         "h": 156
       },
@@ -3534,8 +3542,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 915,
-        "y": 248,
+        "x": 393,
+        "y": 1395,
         "w": 91,
         "h": 165
       },
@@ -3571,8 +3579,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 1034,
-        "y": 233,
+        "x": 1074,
+        "y": 872,
         "w": 77,
         "h": 137
       },
@@ -3608,8 +3616,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 1179,
-        "y": 247,
+        "x": 187,
+        "y": 1027,
         "w": 98,
         "h": 209
       },
@@ -3645,8 +3653,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 301,
-        "y": 477,
+        "x": 486,
+        "y": 1395,
         "w": 105,
         "h": 163
       },
@@ -3682,8 +3690,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 437,
-        "y": 477,
+        "x": 393,
+        "y": 1226,
         "w": 127,
         "h": 167
       },
@@ -3719,8 +3727,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 586,
-        "y": 475,
+        "x": 1002,
+        "y": 351,
         "w": 106,
         "h": 169
       },
@@ -3756,8 +3764,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 715,
-        "y": 499,
+        "x": 805,
+        "y": 1421,
         "w": 92,
         "h": 142
       },
@@ -3793,8 +3801,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 818,
-        "y": 480,
+        "x": 552,
+        "y": 869,
         "w": 101,
         "h": 157
       },
@@ -3830,8 +3838,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 941,
-        "y": 485,
+        "x": 593,
+        "y": 1367,
         "w": 130,
         "h": 160
       },
@@ -3867,8 +3875,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 57,
-        "y": 323,
+        "x": 1002,
+        "y": 114,
         "w": 147,
         "h": 235
       },
@@ -3904,8 +3912,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 12,
-        "y": 887,
+        "x": 863,
+        "y": 872,
         "w": 209,
         "h": 239
       },
@@ -3941,8 +3949,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 1274,
-        "y": 922,
+        "x": 1,
+        "y": 1027,
         "w": 184,
         "h": 225
       },
@@ -3978,8 +3986,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 13,
-        "y": 615,
+        "x": 1,
+        "y": 1263,
         "w": 206,
         "h": 228
       },
@@ -4015,8 +4023,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 1302,
-        "y": 493,
+        "x": 552,
+        "y": 1028,
         "w": 180,
         "h": 233
       },
@@ -4052,8 +4060,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 0,
-        "y": 0,
+        "x": 355,
+        "y": 869,
         "w": 195,
         "h": 239
       },
@@ -4089,8 +4097,8 @@
         "image": "atlases/at_atlas_002.png"
       },
       "frame": {
-        "x": 1306,
-        "y": 9,
+        "x": 698,
+        "y": 783,
         "w": 163,
         "h": 243
       },
@@ -4126,8 +4134,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 384,
-        "y": 743,
+        "x": 564,
+        "y": 287,
         "w": 206,
         "h": 208
       },
@@ -4163,8 +4171,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 644,
-        "y": 713,
+        "x": 590,
+        "y": 763,
         "w": 180,
         "h": 202
       },
@@ -4200,8 +4208,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 888,
-        "y": 701,
+        "x": 1,
+        "y": 782,
         "w": 275,
         "h": 264
       },
@@ -4237,8 +4245,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 28,
-        "y": 365,
+        "x": 1,
+        "y": 1,
         "w": 784,
         "h": 279
       },
@@ -4274,8 +4282,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 903,
-        "y": 353,
+        "x": 787,
+        "y": 1,
         "w": 619,
         "h": 333
       },
@@ -4312,8 +4320,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 27,
-        "y": 1252,
+        "x": 772,
+        "y": 535,
         "w": 309,
         "h": 276
       },
@@ -4349,8 +4357,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 1259,
-        "y": 1280,
+        "x": 1083,
+        "y": 739,
         "w": 253,
         "h": 227
       },
@@ -4386,8 +4394,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 376,
-        "y": 1288,
+        "x": 1105,
+        "y": 336,
         "w": 328,
         "h": 225
       },
@@ -4423,8 +4431,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 813,
-        "y": 1293,
+        "x": 772,
+        "y": 336,
         "w": 331,
         "h": 197
       },
@@ -4460,8 +4468,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 480,
-        "y": 1038,
+        "x": 1083,
+        "y": 563,
         "w": 270,
         "h": 174
       },
@@ -4497,8 +4505,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 878,
-        "y": 1041,
+        "x": 298,
+        "y": 763,
         "w": 290,
         "h": 182
       },
@@ -4534,8 +4542,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 70,
-        "y": 52,
+        "x": 1355,
+        "y": 563,
         "w": 197,
         "h": 242
       },
@@ -4571,8 +4579,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 344,
-        "y": 69,
+        "x": 1435,
+        "y": 1,
         "w": 76,
         "h": 221
       },
@@ -4608,8 +4616,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 516,
-        "y": 83,
+        "x": 1513,
+        "y": 1,
         "w": 66,
         "h": 171
       },
@@ -4645,8 +4653,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 643,
-        "y": 95,
+        "x": 772,
+        "y": 813,
         "w": 120,
         "h": 145
       },
@@ -4682,8 +4690,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 802,
-        "y": 51,
+        "x": 1338,
+        "y": 807,
         "w": 153,
         "h": 200
       },
@@ -4720,8 +4728,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 1007,
-        "y": 70,
+        "x": 1435,
+        "y": 224,
         "w": 128,
         "h": 174
       },
@@ -4757,8 +4765,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 1209,
-        "y": 118,
+        "x": 1493,
+        "y": 807,
         "w": 66,
         "h": 95
       },
@@ -4794,8 +4802,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 1321,
-        "y": 55,
+        "x": 1435,
+        "y": 400,
         "w": 136,
         "h": 158
       },
@@ -4832,8 +4840,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 118,
-        "y": 738,
+        "x": 298,
+        "y": 282,
         "w": 297,
         "h": 479
       },
@@ -4869,8 +4877,8 @@
         "image": "atlases/at_atlas_003.png"
       },
       "frame": {
-        "x": 1222,
-        "y": 714,
+        "x": 1,
+        "y": 282,
         "w": 295,
         "h": 498
       },
@@ -4906,8 +4914,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 552,
-        "y": 624,
+        "x": 1,
+        "y": 307,
         "w": 1214,
         "h": 395
       },
@@ -4939,8 +4947,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 59,
-        "y": 624,
+        "x": 1217,
+        "y": 495,
         "w": 439,
         "h": 397
       },
@@ -4972,8 +4980,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 36,
-        "y": 40,
+        "x": 1,
+        "y": 1,
         "w": 1897,
         "h": 101
       },
@@ -5012,8 +5020,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 39,
-        "y": 144,
+        "x": 1,
+        "y": 104,
         "w": 1724,
         "h": 66
       },
@@ -5052,8 +5060,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 1787,
-        "y": 142,
+        "x": 1740,
+        "y": 371,
         "w": 198,
         "h": 60
       },
@@ -5091,8 +5099,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 39,
-        "y": 224,
+        "x": 1,
+        "y": 172,
         "w": 1493,
         "h": 66
       },
@@ -5130,8 +5138,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 1571,
-        "y": 231,
+        "x": 1,
+        "y": 843,
         "w": 365,
         "h": 61
       },
@@ -5169,8 +5177,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 34,
-        "y": 306,
+        "x": 1,
+        "y": 240,
         "w": 1305,
         "h": 65
       },
@@ -5209,8 +5217,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 1379,
-        "y": 311,
+        "x": 1687,
+        "y": 434,
         "w": 222,
         "h": 59
       },
@@ -5248,8 +5256,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 1640,
-        "y": 310,
+        "x": 1727,
+        "y": 104,
         "w": 220,
         "h": 60
       },
@@ -5287,8 +5295,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 35,
-        "y": 388,
+        "x": 1,
+        "y": 704,
         "w": 1119,
         "h": 69
       },
@@ -5326,8 +5334,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 1193,
-        "y": 398,
+        "x": 1217,
+        "y": 371,
         "w": 521,
         "h": 61
       },
@@ -5365,8 +5373,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 35,
-        "y": 468,
+        "x": 1,
+        "y": 775,
         "w": 947,
         "h": 66
       },
@@ -5404,8 +5412,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 1028,
-        "y": 475,
+        "x": 1496,
+        "y": 172,
         "w": 448,
         "h": 62
       },
@@ -5443,8 +5451,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 1513,
-        "y": 480,
+        "x": 1658,
+        "y": 495,
         "w": 284,
         "h": 60
       },
@@ -5482,8 +5490,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 29,
-        "y": 550,
+        "x": 1217,
+        "y": 307,
         "w": 741,
         "h": 62
       },
@@ -5521,8 +5529,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 801,
-        "y": 550,
+        "x": 1308,
+        "y": 240,
         "w": 594,
         "h": 60
       },
@@ -5560,8 +5568,8 @@
         "image": "atlases/at_atlas_004.png"
       },
       "frame": {
-        "x": 1413,
-        "y": 551,
+        "x": 1217,
+        "y": 434,
         "w": 468,
         "h": 59
       },
@@ -5599,8 +5607,8 @@
         "image": "atlases/at_atlas_005.png"
       },
       "frame": {
-        "x": 20,
-        "y": 447,
+        "x": 1,
+        "y": 156,
         "w": 585,
         "h": 392
       },
@@ -5641,8 +5649,8 @@
         "image": "atlases/at_atlas_005.png"
       },
       "frame": {
-        "x": 20,
-        "y": 871,
+        "x": 389,
+        "y": 942,
         "w": 195,
         "h": 234
       },
@@ -5682,8 +5690,8 @@
         "image": "atlases/at_atlas_005.png"
       },
       "frame": {
-        "x": 934,
-        "y": 20,
+        "x": 588,
+        "y": 363,
         "w": 484,
         "h": 340
       },
@@ -5726,8 +5734,8 @@
         "image": "atlases/at_atlas_005.png"
       },
       "frame": {
-        "x": 637,
-        "y": 447,
+        "x": 638,
+        "y": 1,
         "w": 509,
         "h": 360
       },
@@ -5768,8 +5776,8 @@
         "image": "atlases/at_atlas_005.png"
       },
       "frame": {
-        "x": 247,
-        "y": 871,
+        "x": 467,
+        "y": 705,
         "w": 459,
         "h": 235
       },
@@ -5813,8 +5821,8 @@
         "image": "atlases/at_atlas_005.png"
       },
       "frame": {
-        "x": 1172,
-        "y": 440,
+        "x": 1,
+        "y": 1,
         "w": 635,
         "h": 153
       },
@@ -5856,8 +5864,8 @@
         "image": "atlases/at_atlas_005.png"
       },
       "frame": {
-        "x": 438,
-        "y": 20,
+        "x": 1,
+        "y": 550,
         "w": 464,
         "h": 333
       },
@@ -5899,8 +5907,8 @@
         "image": "atlases/at_atlas_005.png"
       },
       "frame": {
-        "x": 20,
-        "y": 20,
+        "x": 1,
+        "y": 885,
         "w": 386,
         "h": 316
       },
@@ -5942,8 +5950,8 @@
         "image": "atlases/at_atlas_005.png"
       },
       "frame": {
-        "x": 1450,
-        "y": 20,
+        "x": 928,
+        "y": 705,
         "w": 221,
         "h": 395
       },
@@ -5984,8 +5992,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 381,
-        "y": 369,
+        "x": 362,
+        "y": 477,
         "w": 326,
         "h": 277
       },
@@ -6026,8 +6034,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 1066,
-        "y": 369,
+        "x": 316,
+        "y": 756,
         "w": 310,
         "h": 209
       },
@@ -6068,8 +6076,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 1455,
-        "y": 20,
+        "x": 411,
+        "y": 1,
         "w": 366,
         "h": 241
       },
@@ -6110,8 +6118,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 1438,
-        "y": 678,
+        "x": 628,
+        "y": 756,
         "w": 262,
         "h": 181
       },
@@ -6152,8 +6160,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 1184,
-        "y": 678,
+        "x": 690,
+        "y": 550,
         "w": 222,
         "h": 170
       },
@@ -6194,8 +6202,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 20,
-        "y": 369,
+        "x": 362,
+        "y": 244,
         "w": 329,
         "h": 231
       },
@@ -6236,8 +6244,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 20,
-        "y": 20,
+        "x": 1,
+        "y": 1,
         "w": 408,
         "h": 158
       },
@@ -6277,8 +6285,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 20,
-        "y": 678,
+        "x": 1,
+        "y": 1067,
         "w": 294,
         "h": 159
       },
@@ -6319,8 +6327,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 1098,
-        "y": 20,
+        "x": 1,
+        "y": 480,
         "w": 325,
         "h": 238
       },
@@ -6360,8 +6368,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 843,
-        "y": 678,
+        "x": 1,
+        "y": 946,
         "w": 309,
         "h": 119
       },
@@ -6401,8 +6409,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 739,
-        "y": 369,
+        "x": 312,
+        "y": 967,
         "w": 295,
         "h": 233
       },
@@ -6442,8 +6450,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 20,
-        "y": 935,
+        "x": 779,
+        "y": 1,
         "w": 141,
         "h": 214
       },
@@ -6483,8 +6491,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 1732,
-        "y": 678,
+        "x": 1,
+        "y": 1228,
         "w": 205,
         "h": 208
       },
@@ -6525,8 +6533,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 193,
-        "y": 935,
+        "x": 628,
+        "y": 939,
         "w": 193,
         "h": 252
       },
@@ -6566,8 +6574,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 851,
-        "y": 20,
+        "x": 693,
+        "y": 244,
         "w": 215,
         "h": 304
       },
@@ -6608,8 +6616,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 346,
-        "y": 678,
+        "x": 609,
+        "y": 1193,
         "w": 217,
         "h": 225
       },
@@ -6651,8 +6659,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 595,
-        "y": 678,
+        "x": 297,
+        "y": 1202,
         "w": 216,
         "h": 168
       },
@@ -6694,8 +6702,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 1408,
-        "y": 369,
+        "x": 1,
+        "y": 720,
         "w": 313,
         "h": 224
       },
@@ -6736,8 +6744,8 @@
         "image": "atlases/at_atlas_006.png"
       },
       "frame": {
-        "x": 460,
-        "y": 20,
+        "x": 1,
+        "y": 161,
         "w": 359,
         "h": 317
       },
@@ -6778,7 +6786,7 @@
         "image": "atlases/at_atlas_007.png"
       },
       "frame": {
-        "x": 1534,
+        "x": 1531,
         "y": 777,
         "w": 351,
         "h": 223
@@ -6819,7 +6827,7 @@
         "image": "atlases/at_atlas_007.png"
       },
       "frame": {
-        "x": 1161,
+        "x": 1158,
         "y": 782,
         "w": 353,
         "h": 257
@@ -6859,7 +6867,7 @@
         "image": "atlases/at_atlas_007.png"
       },
       "frame": {
-        "x": 20,
+        "x": 17,
         "y": 782,
         "w": 146,
         "h": 175
@@ -6899,7 +6907,7 @@
         "image": "atlases/at_atlas_007.png"
       },
       "frame": {
-        "x": 764,
+        "x": 761,
         "y": 782,
         "w": 170,
         "h": 175
@@ -6939,7 +6947,7 @@
         "image": "atlases/at_atlas_007.png"
       },
       "frame": {
-        "x": 198,
+        "x": 195,
         "y": 782,
         "w": 152,
         "h": 168
@@ -6979,7 +6987,7 @@
         "image": "atlases/at_atlas_007.png"
       },
       "frame": {
-        "x": 382,
+        "x": 379,
         "y": 782,
         "w": 165,
         "h": 183
@@ -7019,7 +7027,7 @@
         "image": "atlases/at_atlas_007.png"
       },
       "frame": {
-        "x": 579,
+        "x": 576,
         "y": 782,
         "w": 153,
         "h": 169
@@ -7059,7 +7067,7 @@
         "image": "atlases/at_atlas_007.png"
       },
       "frame": {
-        "x": 33,
+        "x": 30,
         "y": 498,
         "w": 1450,
         "h": 199
@@ -7090,7 +7098,7 @@
         "image": "atlases/at_atlas_007.png"
       },
       "frame": {
-        "x": 4,
+        "x": 1,
         "y": 270,
         "w": 1537,
         "h": 227
@@ -7133,7 +7141,7 @@
         "image": "atlases/at_atlas_007.png"
       },
       "frame": {
-        "x": 7,
+        "x": 4,
         "y": 1,
         "w": 1545,
         "h": 269
@@ -7176,7 +7184,7 @@
         "image": "atlases/at_atlas_007.png"
       },
       "frame": {
-        "x": 966,
+        "x": 963,
         "y": 782,
         "w": 163,
         "h": 257
@@ -7219,7 +7227,7 @@
         "image": "atlases/at_atlas_007.png"
       },
       "frame": {
-        "x": 1487,
+        "x": 1484,
         "y": 233,
         "w": 476,
         "h": 517
@@ -7261,8 +7269,8 @@
         "image": "atlases/at_atlas_008.png"
       },
       "frame": {
-        "x": 20,
-        "y": 412,
+        "x": 1,
+        "y": 123,
         "w": 528,
         "h": 342
       },
@@ -7301,8 +7309,8 @@
         "image": "atlases/at_atlas_008.png"
       },
       "frame": {
-        "x": 725,
-        "y": 20,
+        "x": 1,
+        "y": 467,
         "w": 190,
         "h": 258
       },
@@ -7341,8 +7349,8 @@
         "image": "atlases/at_atlas_008.png"
       },
       "frame": {
-        "x": 561,
-        "y": 417,
+        "x": 193,
+        "y": 467,
         "w": 252,
         "h": 178
       },
@@ -7382,8 +7390,8 @@
         "image": "atlases/at_atlas_008.png"
       },
       "frame": {
-        "x": 1157,
-        "y": 13,
+        "x": 1308,
+        "y": 169,
         "w": 167,
         "h": 263
       },
@@ -7423,8 +7431,8 @@
         "image": "atlases/at_atlas_008.png"
       },
       "frame": {
-        "x": 485,
-        "y": 15,
+        "x": 725,
+        "y": 437,
         "w": 217,
         "h": 277
       },
@@ -7463,8 +7471,8 @@
         "image": "atlases/at_atlas_008.png"
       },
       "frame": {
-        "x": 941,
-        "y": 15,
+        "x": 531,
+        "y": 437,
         "w": 192,
         "h": 302
       },
@@ -7503,8 +7511,8 @@
         "image": "atlases/at_atlas_008.png"
       },
       "frame": {
-        "x": 1361,
-        "y": 7,
+        "x": 960,
+        "y": 169,
         "w": 346,
         "h": 381
       },
@@ -7544,8 +7552,8 @@
         "image": "atlases/at_atlas_008.png"
       },
       "frame": {
-        "x": 20,
-        "y": 862,
+        "x": 1,
+        "y": 54,
         "w": 1334,
         "h": 67
       },
@@ -7588,8 +7596,8 @@
         "image": "atlases/at_atlas_008.png"
       },
       "frame": {
-        "x": 20,
-        "y": 779,
+        "x": 1,
+        "y": 1,
         "w": 1338,
         "h": 51
       },
@@ -7633,8 +7641,8 @@
         "image": "atlases/at_atlas_008.png"
       },
       "frame": {
-        "x": 1386,
-        "y": 862,
+        "x": 960,
+        "y": 123,
         "w": 391,
         "h": 44
       },
@@ -7677,8 +7685,8 @@
         "image": "atlases/at_atlas_008.png"
       },
       "frame": {
-        "x": 20,
-        "y": 961,
+        "x": 531,
+        "y": 391,
         "w": 378,
         "h": 44
       },
@@ -7721,8 +7729,8 @@
         "image": "atlases/at_atlas_008.png"
       },
       "frame": {
-        "x": 566,
-        "y": 961,
+        "x": 193,
+        "y": 647,
         "w": 186,
         "h": 43
       },
@@ -7765,8 +7773,8 @@
         "image": "atlases/at_atlas_008.png"
       },
       "frame": {
-        "x": 784,
-        "y": 961,
+        "x": 1308,
+        "y": 434,
         "w": 157,
         "h": 43
       },
@@ -7809,8 +7817,8 @@
         "image": "atlases/at_atlas_008.png"
       },
       "frame": {
-        "x": 430,
-        "y": 961,
+        "x": 1337,
+        "y": 54,
         "w": 104,
         "h": 43
       },
@@ -7853,8 +7861,8 @@
         "image": "atlases/at_atlas_008.png"
       },
       "frame": {
-        "x": 20,
-        "y": 17,
+        "x": 531,
+        "y": 123,
         "w": 427,
         "h": 266
       },
@@ -7933,8 +7941,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 609,
-        "y": 471,
+        "x": 380,
+        "y": 1,
         "w": 154,
         "h": 465
       },
@@ -7974,8 +7982,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 795,
-        "y": 471,
+        "x": 536,
+        "y": 1,
         "w": 151,
         "h": 464
       },
@@ -8015,8 +8023,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 20,
-        "y": 1016,
+        "x": 684,
+        "y": 956,
         "w": 141,
         "h": 223
       },
@@ -8056,8 +8064,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 1317,
-        "y": 471,
+        "x": 470,
+        "y": 1207,
         "w": 112,
         "h": 148
       },
@@ -8096,8 +8104,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 1202,
-        "y": 20,
+        "x": 1,
+        "y": 964,
         "w": 188,
         "h": 377
       },
@@ -8137,8 +8145,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 849,
-        "y": 20,
+        "x": 258,
+        "y": 728,
         "w": 187,
         "h": 381
       },
@@ -8177,8 +8185,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 307,
-        "y": 20,
+        "x": 447,
+        "y": 728,
         "w": 334,
         "h": 226
       },
@@ -8217,8 +8225,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 1748,
-        "y": 20,
+        "x": 191,
+        "y": 1298,
         "w": 132,
         "h": 152
       },
@@ -8258,8 +8266,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 1526,
-        "y": 20,
+        "x": 593,
+        "y": 1195,
         "w": 190,
         "h": 173
       },
@@ -8299,8 +8307,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 20,
-        "y": 471,
+        "x": 689,
+        "y": 326,
         "w": 129,
         "h": 135
       },
@@ -8339,8 +8347,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 20,
-        "y": 20,
+        "x": 1,
+        "y": 543,
         "w": 255,
         "h": 419
       },
@@ -8380,8 +8388,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 673,
-        "y": 20,
+        "x": 447,
+        "y": 956,
         "w": 144,
         "h": 249
       },
@@ -8421,8 +8429,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 1149,
-        "y": 471,
+        "x": 191,
+        "y": 1111,
         "w": 136,
         "h": 185
       },
@@ -8462,8 +8470,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 978,
-        "y": 471,
+        "x": 329,
+        "y": 1207,
         "w": 139,
         "h": 184
       },
@@ -8502,8 +8510,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 1068,
-        "y": 20,
+        "x": 689,
+        "y": 1,
         "w": 102,
         "h": 323
       },
@@ -8543,8 +8551,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 400,
-        "y": 455,
+        "x": 203,
+        "y": 1,
         "w": 175,
         "h": 502
       },
@@ -8583,8 +8591,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 181,
-        "y": 444,
+        "x": 1,
+        "y": 1,
         "w": 200,
         "h": 540
       },
@@ -8623,8 +8631,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 1461,
-        "y": 471,
+        "x": 380,
+        "y": 468,
         "w": 421,
         "h": 258
       },
@@ -8664,8 +8672,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 1914,
-        "y": 471,
+        "x": 593,
+        "y": 956,
         "w": 89,
         "h": 237
       },
@@ -8704,8 +8712,8 @@
         "image": "atlases/at_atlas_010.png"
       },
       "frame": {
-        "x": 1422,
-        "y": 20,
+        "x": 258,
+        "y": 505,
         "w": 72,
         "h": 218
       },
@@ -8745,8 +8753,8 @@
         "image": "atlases/at_atlas_011.png"
       },
       "frame": {
-        "x": 15,
-        "y": 18,
+        "x": 1,
+        "y": 1,
         "w": 1456,
         "h": 78
       },
@@ -8789,8 +8797,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 1097,
-        "y": 617,
+        "x": 52,
+        "y": 829,
         "w": 87,
         "h": 178
       },
@@ -8829,8 +8837,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 1216,
-        "y": 617,
+        "x": 141,
+        "y": 829,
         "w": 76,
         "h": 177
       },
@@ -8869,8 +8877,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 1324,
-        "y": 617,
+        "x": 351,
+        "y": 478,
         "w": 82,
         "h": 172
       },
@@ -8909,8 +8917,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 1799,
-        "y": 617,
+        "x": 219,
+        "y": 840,
         "w": 53,
         "h": 150
       },
@@ -8948,8 +8956,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 1884,
-        "y": 617,
+        "x": 378,
+        "y": 840,
         "w": 85,
         "h": 141
       },
@@ -8987,8 +8995,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 1438,
-        "y": 617,
+        "x": 925,
+        "y": 475,
         "w": 64,
         "h": 182
       },
@@ -9026,8 +9034,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 1534,
-        "y": 617,
+        "x": 1,
+        "y": 829,
         "w": 49,
         "h": 180
       },
@@ -9065,8 +9073,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 1615,
-        "y": 617,
+        "x": 478,
+        "y": 744,
         "w": 58,
         "h": 192
       },
@@ -9104,8 +9112,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 1705,
-        "y": 617,
+        "x": 435,
+        "y": 478,
         "w": 62,
         "h": 154
       },
@@ -9143,8 +9151,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 436,
-        "y": 20,
+        "x": 1,
+        "y": 1,
         "w": 1055,
         "h": 93
       },
@@ -9186,8 +9194,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 685,
-        "y": 360,
+        "x": 1,
+        "y": 190,
         "w": 839,
         "h": 90
       },
@@ -9228,8 +9236,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 1523,
-        "y": 20,
+        "x": 539,
+        "y": 387,
         "w": 431,
         "h": 86
       },
@@ -9269,8 +9277,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 20,
-        "y": 360,
+        "x": 1,
+        "y": 567,
         "w": 300,
         "h": 85
       },
@@ -9310,8 +9318,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 352,
-        "y": 360,
+        "x": 905,
+        "y": 96,
         "w": 150,
         "h": 75
       },
@@ -9351,8 +9359,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 534,
-        "y": 360,
+        "x": 538,
+        "y": 877,
         "w": 119,
         "h": 85
       },
@@ -9392,8 +9400,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 1556,
-        "y": 360,
+        "x": 842,
+        "y": 190,
         "w": 204,
         "h": 88
       },
@@ -9433,8 +9441,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 1317,
-        "y": 841,
+        "x": 925,
+        "y": 729,
         "w": 253,
         "h": 119
       },
@@ -9473,8 +9481,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 747,
-        "y": 840,
+        "x": 1,
+        "y": 282,
         "w": 536,
         "h": 194
       },
@@ -9513,8 +9521,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 20,
-        "y": 20,
+        "x": 539,
+        "y": 475,
         "w": 384,
         "h": 308
       },
@@ -9554,8 +9562,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 237,
-        "y": 841,
+        "x": 1144,
+        "y": 1,
         "w": 67,
         "h": 319
       },
@@ -9594,8 +9602,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 336,
-        "y": 841,
+        "x": 1144,
+        "y": 322,
         "w": 54,
         "h": 314
       },
@@ -9634,8 +9642,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 20,
-        "y": 841,
+        "x": 1058,
+        "y": 1,
         "w": 84,
         "h": 367
       },
@@ -9674,8 +9682,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 136,
-        "y": 841,
+        "x": 1000,
+        "y": 370,
         "w": 69,
         "h": 357
       },
@@ -9714,8 +9722,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 422,
-        "y": 841,
+        "x": 1071,
+        "y": 370,
         "w": 49,
         "h": 279
       },
@@ -9754,8 +9762,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 20,
-        "y": 482,
+        "x": 1,
+        "y": 96,
         "w": 902,
         "h": 92
       },
@@ -9796,8 +9804,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 1563,
-        "y": 482,
+        "x": 539,
+        "y": 282,
         "w": 459,
         "h": 103
       },
@@ -9837,8 +9845,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 954,
-        "y": 482,
+        "x": 1,
+        "y": 654,
         "w": 295,
         "h": 85
       },
@@ -9879,8 +9887,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 20,
-        "y": 617,
+        "x": 1,
+        "y": 478,
         "w": 348,
         "h": 87
       },
@@ -9921,8 +9929,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 1281,
-        "y": 482,
+        "x": 1,
+        "y": 741,
         "w": 250,
         "h": 86
       },
@@ -9963,8 +9971,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 400,
-        "y": 617,
+        "x": 298,
+        "y": 654,
         "w": 239,
         "h": 88
       },
@@ -10005,8 +10013,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 842,
-        "y": 617,
+        "x": 253,
+        "y": 744,
         "w": 223,
         "h": 94
       },
@@ -10047,8 +10055,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 671,
-        "y": 617,
+        "x": 538,
+        "y": 785,
         "w": 139,
         "h": 90
       },
@@ -10089,8 +10097,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 503,
-        "y": 841,
+        "x": 679,
+        "y": 785,
         "w": 49,
         "h": 138
       },
@@ -10128,8 +10136,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 584,
-        "y": 841,
+        "x": 327,
+        "y": 840,
         "w": 49,
         "h": 144
       },
@@ -10167,8 +10175,8 @@
         "image": "atlases/at_atlas_012.png"
       },
       "frame": {
-        "x": 665,
-        "y": 841,
+        "x": 274,
+        "y": 840,
         "w": 51,
         "h": 145
       },
@@ -10206,8 +10214,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 692,
-        "y": 1024,
+        "x": 1007,
+        "y": 143,
         "w": 367,
         "h": 163
       },
@@ -10240,8 +10248,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 1613,
-        "y": 1075,
+        "x": 1007,
+        "y": 1,
         "w": 430,
         "h": 140
       },
@@ -10274,8 +10282,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 1468,
-        "y": 748,
+        "x": 738,
+        "y": 1016,
         "w": 275,
         "h": 114
       },
@@ -10305,8 +10313,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 20,
-        "y": 572,
+        "x": 1,
+        "y": 1,
         "w": 838,
         "h": 210
       },
@@ -10347,8 +10355,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 1009,
-        "y": 880,
+        "x": 765,
+        "y": 213,
         "w": 61,
         "h": 84
       },
@@ -10385,8 +10393,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 1032,
-        "y": 572,
+        "x": 738,
+        "y": 735,
         "w": 86,
         "h": 202
       },
@@ -10423,8 +10431,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 1403,
-        "y": 880,
+        "x": 1296,
+        "y": 593,
         "w": 160,
         "h": 127
       },
@@ -10464,8 +10472,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 1194,
-        "y": 880,
+        "x": 826,
+        "y": 876,
         "w": 177,
         "h": 136
       },
@@ -10505,8 +10513,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 20,
-        "y": 20,
+        "x": 1,
+        "y": 735,
         "w": 735,
         "h": 496
       },
@@ -10547,8 +10555,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 1442,
-        "y": 572,
+        "x": 1007,
+        "y": 451,
         "w": 322,
         "h": 140
       },
@@ -10587,8 +10595,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 20,
-        "y": 880,
+        "x": 1007,
+        "y": 308,
         "w": 335,
         "h": 141
       },
@@ -10628,8 +10636,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 1805,
-        "y": 880,
+        "x": 1269,
+        "y": 985,
         "w": 160,
         "h": 99
       },
@@ -10668,8 +10676,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 20,
-        "y": 1053,
+        "x": 1007,
+        "y": 593,
         "w": 287,
         "h": 143
       },
@@ -10709,8 +10717,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 339,
-        "y": 1053,
+        "x": 1015,
+        "y": 1016,
         "w": 149,
         "h": 113
       },
@@ -10749,8 +10757,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 834,
-        "y": 880,
+        "x": 1331,
+        "y": 479,
         "w": 143,
         "h": 87
       },
@@ -10788,8 +10796,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 1102,
-        "y": 880,
+        "x": 738,
+        "y": 939,
         "w": 60,
         "h": 73
       },
@@ -10827,8 +10835,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 1595,
-        "y": 880,
+        "x": 826,
+        "y": 745,
         "w": 178,
         "h": 129
       },
@@ -10867,8 +10875,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 890,
-        "y": 572,
+        "x": 1344,
+        "y": 308,
         "w": 110,
         "h": 169
       },
@@ -10906,8 +10914,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 1152,
-        "y": 572,
+        "x": 1007,
+        "y": 738,
         "w": 260,
         "h": 276
       },
@@ -10945,8 +10953,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 787,
-        "y": 20,
+        "x": 1,
+        "y": 213,
         "w": 762,
         "h": 520
       },
@@ -10986,8 +10994,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 603,
-        "y": 880,
+        "x": 1269,
+        "y": 738,
         "w": 199,
         "h": 114
       },
@@ -11025,8 +11033,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 520,
-        "y": 1053,
+        "x": 1166,
+        "y": 1086,
         "w": 126,
         "h": 113
       },
@@ -11065,8 +11073,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 387,
-        "y": 880,
+        "x": 1269,
+        "y": 854,
         "w": 184,
         "h": 129
       },
@@ -11105,8 +11113,8 @@
         "image": "atlases/at_atlas_013.png"
       },
       "frame": {
-        "x": 1842,
-        "y": 26,
+        "x": 841,
+        "y": 1,
         "w": 164,
         "h": 742
       },
@@ -11136,8 +11144,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 1524,
-        "y": 363,
+        "x": 1085,
+        "y": 165,
         "w": 482,
         "h": 188
       },
@@ -11170,8 +11178,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 438,
-        "y": 444,
+        "x": 179,
+        "y": 741,
         "w": 175,
         "h": 116
       },
@@ -11211,8 +11219,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 228,
-        "y": 444,
+        "x": 373,
+        "y": 708,
         "w": 178,
         "h": 123
       },
@@ -11252,8 +11260,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 20,
-        "y": 444,
+        "x": 1,
+        "y": 741,
         "w": 176,
         "h": 121
       },
@@ -11293,8 +11301,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 1470,
-        "y": 599,
+        "x": 1358,
+        "y": 527,
         "w": 248,
         "h": 149
       },
@@ -11332,8 +11340,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 1750,
-        "y": 599,
+        "x": 1358,
+        "y": 678,
         "w": 158,
         "h": 120
       },
@@ -11371,8 +11379,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 20,
-        "y": 791,
+        "x": 1608,
+        "y": 634,
         "w": 118,
         "h": 98
       },
@@ -11410,8 +11418,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 170,
-        "y": 791,
+        "x": 757,
+        "y": 681,
         "w": 107,
         "h": 85
       },
@@ -11449,8 +11457,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 645,
-        "y": 444,
+        "x": 1608,
+        "y": 527,
         "w": 145,
         "h": 105
       },
@@ -11489,8 +11497,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 964,
-        "y": 444,
+        "x": 757,
+        "y": 768,
         "w": 77,
         "h": 78
       },
@@ -11529,8 +11537,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 16,
-        "y": 597,
+        "x": 1,
+        "y": 1,
         "w": 1423,
         "h": 162
       },
@@ -11572,8 +11580,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 308,
-        "y": 789,
+        "x": 1107,
+        "y": 355,
         "w": 295,
         "h": 144
       },
@@ -11611,8 +11619,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 635,
-        "y": 791,
+        "x": 1404,
+        "y": 386,
         "w": 268,
         "h": 139
       },
@@ -11650,8 +11658,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 1073,
-        "y": 444,
+        "x": 1426,
+        "y": 1,
         "w": 130,
         "h": 86
       },
@@ -11690,8 +11698,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 935,
-        "y": 791,
+        "x": 1,
+        "y": 165,
         "w": 1082,
         "h": 180
       },
@@ -11731,8 +11739,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 1452,
-        "y": 20,
+        "x": 1674,
+        "y": 386,
         "w": 75,
         "h": 97
       },
@@ -11771,8 +11779,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 1770,
-        "y": 20,
+        "x": 868,
+        "y": 655,
         "w": 213,
         "h": 122
       },
@@ -11811,8 +11819,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 977,
-        "y": 20,
+        "x": 1569,
+        "y": 1,
         "w": 174,
         "h": 383
       },
@@ -11851,8 +11859,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 422,
-        "y": 20,
+        "x": 576,
+        "y": 347,
         "w": 290,
         "h": 332
       },
@@ -11891,8 +11899,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 20,
-        "y": 20,
+        "x": 1,
+        "y": 347,
         "w": 370,
         "h": 392
       },
@@ -11931,8 +11939,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 744,
-        "y": 20,
+        "x": 373,
+        "y": 347,
         "w": 201,
         "h": 359
       },
@@ -11971,8 +11979,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 1183,
-        "y": 20,
+        "x": 868,
+        "y": 355,
         "w": 237,
         "h": 298
       },
@@ -12011,8 +12019,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 1559,
-        "y": 20,
+        "x": 576,
+        "y": 681,
         "w": 179,
         "h": 105
       },
@@ -12051,8 +12059,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 822,
-        "y": 444,
+        "x": 1518,
+        "y": 734,
         "w": 110,
         "h": 111
       },
@@ -12091,8 +12099,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 775,
-        "y": 597,
+        "x": 760,
+        "y": 1,
         "w": 307,
         "h": 162
       },
@@ -12122,8 +12130,8 @@
         "image": "atlases/at_atlas_014.png"
       },
       "frame": {
-        "x": 1215,
-        "y": 354,
+        "x": 1107,
+        "y": 501,
         "w": 249,
         "h": 242
       },
@@ -12155,8 +12163,8 @@
         "image": "atlases/at_atlas_015.png"
       },
       "frame": {
-        "x": 36,
-        "y": 26,
+        "x": 989,
+        "y": 1,
         "w": 466,
         "h": 265
       },
@@ -12194,8 +12202,8 @@
         "image": "atlases/at_atlas_015.png"
       },
       "frame": {
-        "x": 543,
-        "y": 26,
+        "x": 1,
+        "y": 751,
         "w": 434,
         "h": 265
       },
@@ -12233,8 +12241,8 @@
         "image": "atlases/at_atlas_015.png"
       },
       "frame": {
-        "x": 1013,
-        "y": 26,
+        "x": 518,
+        "y": 229,
         "w": 466,
         "h": 265
       },
@@ -12272,8 +12280,8 @@
         "image": "atlases/at_atlas_015.png"
       },
       "frame": {
-        "x": 36,
-        "y": 291,
+        "x": 1,
+        "y": 273,
         "w": 455,
         "h": 237
       },
@@ -12311,8 +12319,8 @@
         "image": "atlases/at_atlas_015.png"
       },
       "frame": {
-        "x": 533,
-        "y": 291,
+        "x": 913,
+        "y": 540,
         "w": 443,
         "h": 237
       },
@@ -12350,8 +12358,8 @@
         "image": "atlases/at_atlas_015.png"
       },
       "frame": {
-        "x": 1016,
-        "y": 291,
+        "x": 1,
+        "y": 512,
         "w": 447,
         "h": 237
       },
@@ -12389,8 +12397,8 @@
         "image": "atlases/at_atlas_015.png"
       },
       "frame": {
-        "x": 36,
-        "y": 528,
+        "x": 458,
+        "y": 496,
         "w": 453,
         "h": 226
       },
@@ -12428,8 +12436,8 @@
         "image": "atlases/at_atlas_015.png"
       },
       "frame": {
-        "x": 536,
-        "y": 528,
+        "x": 890,
+        "y": 779,
         "w": 407,
         "h": 226
       },
@@ -12467,8 +12475,8 @@
         "image": "atlases/at_atlas_015.png"
       },
       "frame": {
-        "x": 1003,
-        "y": 528,
+        "x": 518,
+        "y": 1,
         "w": 469,
         "h": 226
       },
@@ -12506,8 +12514,8 @@
         "image": "atlases/at_atlas_015.png"
       },
       "frame": {
-        "x": 36,
-        "y": 754,
+        "x": 986,
+        "y": 268,
         "w": 456,
         "h": 270
       },
@@ -12545,8 +12553,8 @@
         "image": "atlases/at_atlas_015.png"
       },
       "frame": {
-        "x": 528,
-        "y": 754,
+        "x": 450,
+        "y": 724,
         "w": 438,
         "h": 270
       },
@@ -12584,8 +12592,8 @@
         "image": "atlases/at_atlas_015.png"
       },
       "frame": {
-        "x": 1012,
-        "y": 754,
+        "x": 1,
+        "y": 1,
         "w": 515,
         "h": 270
       },
@@ -12623,8 +12631,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 9,
-        "y": 21,
+        "x": 1,
+        "y": 1,
         "w": 204,
         "h": 147
       },
@@ -12662,8 +12670,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 213,
-        "y": 21,
+        "x": 205,
+        "y": 1,
         "w": 196,
         "h": 147
       },
@@ -12701,8 +12709,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 409,
-        "y": 21,
+        "x": 401,
+        "y": 1,
         "w": 206,
         "h": 147
       },
@@ -12740,8 +12748,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 615,
-        "y": 21,
+        "x": 607,
+        "y": 1,
         "w": 209,
         "h": 147
       },
@@ -12779,8 +12787,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 824,
-        "y": 21,
+        "x": 816,
+        "y": 1,
         "w": 213,
         "h": 147
       },
@@ -12818,8 +12826,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 1037,
-        "y": 21,
+        "x": 1029,
+        "y": 1,
         "w": 244,
         "h": 147
       },
@@ -12857,8 +12865,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 1281,
-        "y": 21,
+        "x": 1273,
+        "y": 1,
         "w": 232,
         "h": 147
       },
@@ -12896,8 +12904,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 9,
-        "y": 168,
+        "x": 1,
+        "y": 148,
         "w": 216,
         "h": 141
       },
@@ -12935,8 +12943,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 225,
-        "y": 168,
+        "x": 217,
+        "y": 148,
         "w": 218,
         "h": 141
       },
@@ -12974,8 +12982,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 443,
-        "y": 168,
+        "x": 435,
+        "y": 148,
         "w": 224,
         "h": 141
       },
@@ -13013,8 +13021,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 667,
-        "y": 168,
+        "x": 659,
+        "y": 148,
         "w": 257,
         "h": 141
       },
@@ -13052,8 +13060,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 924,
-        "y": 168,
+        "x": 916,
+        "y": 148,
         "w": 267,
         "h": 141
       },
@@ -13091,8 +13099,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 1191,
-        "y": 168,
+        "x": 1183,
+        "y": 148,
         "w": 324,
         "h": 141
       },
@@ -13130,8 +13138,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 9,
-        "y": 309,
+        "x": 1,
+        "y": 289,
         "w": 179,
         "h": 138
       },
@@ -13169,8 +13177,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 188,
-        "y": 309,
+        "x": 180,
+        "y": 289,
         "w": 246,
         "h": 138
       },
@@ -13208,8 +13216,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 434,
-        "y": 309,
+        "x": 426,
+        "y": 289,
         "w": 220,
         "h": 138
       },
@@ -13247,8 +13255,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 654,
-        "y": 309,
+        "x": 646,
+        "y": 289,
         "w": 204,
         "h": 138
       },
@@ -13286,8 +13294,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 858,
-        "y": 309,
+        "x": 850,
+        "y": 289,
         "w": 247,
         "h": 138
       },
@@ -13325,8 +13333,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 1105,
-        "y": 309,
+        "x": 1097,
+        "y": 289,
         "w": 206,
         "h": 138
       },
@@ -13364,8 +13372,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 1311,
-        "y": 309,
+        "x": 1303,
+        "y": 289,
         "w": 220,
         "h": 138
       },
@@ -13403,8 +13411,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 9,
-        "y": 447,
+        "x": 1,
+        "y": 427,
         "w": 176,
         "h": 143
       },
@@ -13442,8 +13450,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 185,
-        "y": 447,
+        "x": 177,
+        "y": 427,
         "w": 237,
         "h": 143
       },
@@ -13481,8 +13489,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 422,
-        "y": 447,
+        "x": 414,
+        "y": 427,
         "w": 236,
         "h": 143
       },
@@ -13520,8 +13528,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 658,
-        "y": 447,
+        "x": 650,
+        "y": 427,
         "w": 170,
         "h": 143
       },
@@ -13559,8 +13567,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 828,
-        "y": 447,
+        "x": 820,
+        "y": 427,
         "w": 176,
         "h": 143
       },
@@ -13598,8 +13606,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 1004,
-        "y": 447,
+        "x": 996,
+        "y": 427,
         "w": 255,
         "h": 143
       },
@@ -13637,8 +13645,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 1259,
-        "y": 447,
+        "x": 1251,
+        "y": 427,
         "w": 271,
         "h": 143
       },
@@ -13676,8 +13684,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 9,
-        "y": 590,
+        "x": 1,
+        "y": 570,
         "w": 283,
         "h": 137
       },
@@ -13715,8 +13723,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 292,
-        "y": 590,
+        "x": 284,
+        "y": 570,
         "w": 240,
         "h": 137
       },
@@ -13754,8 +13762,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 532,
-        "y": 590,
+        "x": 524,
+        "y": 570,
         "w": 205,
         "h": 137
       },
@@ -13793,8 +13801,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 737,
-        "y": 590,
+        "x": 729,
+        "y": 570,
         "w": 234,
         "h": 137
       },
@@ -13832,8 +13840,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 971,
-        "y": 590,
+        "x": 963,
+        "y": 570,
         "w": 253,
         "h": 137
       },
@@ -13871,8 +13879,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 1224,
-        "y": 590,
+        "x": 1216,
+        "y": 570,
         "w": 295,
         "h": 137
       },
@@ -13910,8 +13918,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 9,
-        "y": 727,
+        "x": 1,
+        "y": 707,
         "w": 230,
         "h": 138
       },
@@ -13949,8 +13957,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 239,
-        "y": 727,
+        "x": 231,
+        "y": 707,
         "w": 175,
         "h": 138
       },
@@ -13988,8 +13996,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 414,
-        "y": 727,
+        "x": 406,
+        "y": 707,
         "w": 191,
         "h": 138
       },
@@ -14027,8 +14035,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 605,
-        "y": 727,
+        "x": 597,
+        "y": 707,
         "w": 208,
         "h": 138
       },
@@ -14066,8 +14074,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 813,
-        "y": 727,
+        "x": 805,
+        "y": 707,
         "w": 171,
         "h": 138
       },
@@ -14105,8 +14113,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 984,
-        "y": 727,
+        "x": 976,
+        "y": 707,
         "w": 153,
         "h": 138
       },
@@ -14144,8 +14152,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 1137,
-        "y": 727,
+        "x": 1129,
+        "y": 707,
         "w": 177,
         "h": 138
       },
@@ -14183,8 +14191,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 1314,
-        "y": 727,
+        "x": 1306,
+        "y": 707,
         "w": 212,
         "h": 138
       },
@@ -14222,8 +14230,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 9,
-        "y": 865,
+        "x": 1,
+        "y": 845,
         "w": 190,
         "h": 144
       },
@@ -14261,8 +14269,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 199,
-        "y": 865,
+        "x": 191,
+        "y": 845,
         "w": 264,
         "h": 142
       },
@@ -14300,8 +14308,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 463,
-        "y": 865,
+        "x": 455,
+        "y": 845,
         "w": 234,
         "h": 142
       },
@@ -14339,8 +14347,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 697,
-        "y": 865,
+        "x": 689,
+        "y": 845,
         "w": 158,
         "h": 146
       },
@@ -14378,8 +14386,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 855,
-        "y": 865,
+        "x": 847,
+        "y": 845,
         "w": 154,
         "h": 159
       },
@@ -14417,8 +14425,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 1009,
-        "y": 865,
+        "x": 1001,
+        "y": 845,
         "w": 224,
         "h": 147
       },
@@ -14456,8 +14464,8 @@
         "image": "atlases/at_atlas_016.png"
       },
       "frame": {
-        "x": 1233,
-        "y": 865,
+        "x": 1225,
+        "y": 845,
         "w": 303,
         "h": 159
       },
@@ -14495,8 +14503,8 @@
         "image": "atlases/at_atlas_017.png"
       },
       "frame": {
-        "x": 43,
-        "y": 32,
+        "x": 10,
+        "y": 1,
         "w": 796,
         "h": 261
       },
@@ -14534,8 +14542,8 @@
         "image": "atlases/at_atlas_017.png"
       },
       "frame": {
-        "x": 866,
-        "y": 32,
+        "x": 833,
+        "y": 1,
         "w": 218,
         "h": 246
       },
@@ -14573,8 +14581,8 @@
         "image": "atlases/at_atlas_017.png"
       },
       "frame": {
-        "x": 1104,
-        "y": 41,
+        "x": 1071,
+        "y": 10,
         "w": 183,
         "h": 234
       },
@@ -14612,8 +14620,8 @@
         "image": "atlases/at_atlas_017.png"
       },
       "frame": {
-        "x": 1307,
-        "y": 32,
+        "x": 1274,
+        "y": 1,
         "w": 203,
         "h": 260
       },
@@ -14651,8 +14659,8 @@
         "image": "atlases/at_atlas_017.png"
       },
       "frame": {
-        "x": 39,
-        "y": 309,
+        "x": 6,
+        "y": 278,
         "w": 349,
         "h": 210
       },
@@ -14690,8 +14698,8 @@
         "image": "atlases/at_atlas_017.png"
       },
       "frame": {
-        "x": 404,
-        "y": 306,
+        "x": 371,
+        "y": 275,
         "w": 498,
         "h": 198
       },
@@ -14729,8 +14737,8 @@
         "image": "atlases/at_atlas_017.png"
       },
       "frame": {
-        "x": 934,
-        "y": 300,
+        "x": 901,
+        "y": 269,
         "w": 561,
         "h": 252
       },
@@ -14768,8 +14776,8 @@
         "image": "atlases/at_atlas_017.png"
       },
       "frame": {
-        "x": 34,
-        "y": 533,
+        "x": 1,
+        "y": 502,
         "w": 533,
         "h": 194
       },
@@ -14807,8 +14815,8 @@
         "image": "atlases/at_atlas_017.png"
       },
       "frame": {
-        "x": 597,
-        "y": 511,
+        "x": 564,
+        "y": 480,
         "w": 390,
         "h": 223
       },
@@ -14846,8 +14854,8 @@
         "image": "atlases/at_atlas_017.png"
       },
       "frame": {
-        "x": 1011,
-        "y": 558,
+        "x": 978,
+        "y": 527,
         "w": 418,
         "h": 183
       },
@@ -14885,8 +14893,8 @@
         "image": "atlases/at_atlas_017.png"
       },
       "frame": {
-        "x": 34,
-        "y": 744,
+        "x": 1,
+        "y": 713,
         "w": 414,
         "h": 236
       },
@@ -14924,8 +14932,8 @@
         "image": "atlases/at_atlas_017.png"
       },
       "frame": {
-        "x": 459,
-        "y": 747,
+        "x": 426,
+        "y": 716,
         "w": 214,
         "h": 233
       },
@@ -14963,8 +14971,8 @@
         "image": "atlases/at_atlas_017.png"
       },
       "frame": {
-        "x": 703,
-        "y": 742,
+        "x": 670,
+        "y": 711,
         "w": 423,
         "h": 238
       },
@@ -15002,8 +15010,8 @@
         "image": "atlases/at_atlas_017.png"
       },
       "frame": {
-        "x": 1152,
-        "y": 748,
+        "x": 1119,
+        "y": 717,
         "w": 358,
         "h": 232
       },
@@ -15041,8 +15049,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 75,
-        "y": 53,
+        "x": 374,
+        "y": 904,
         "w": 183,
         "h": 176
       },
@@ -15080,8 +15088,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 357,
-        "y": 53,
+        "x": 1,
+        "y": 1245,
         "w": 177,
         "h": 175
       },
@@ -15119,8 +15127,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 624,
-        "y": 53,
+        "x": 206,
+        "y": 364,
         "w": 200,
         "h": 180
       },
@@ -15158,8 +15166,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 908,
-        "y": 53,
+        "x": 386,
+        "y": 551,
         "w": 188,
         "h": 173
       },
@@ -15197,8 +15205,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 1197,
-        "y": 53,
+        "x": 371,
+        "y": 1082,
         "w": 181,
         "h": 177
       },
@@ -15236,8 +15244,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 75,
-        "y": 248,
+        "x": 1,
+        "y": 881,
         "w": 183,
         "h": 182
       },
@@ -15275,8 +15283,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 347,
-        "y": 258,
+        "x": 194,
+        "y": 546,
         "w": 190,
         "h": 172
       },
@@ -15314,8 +15322,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 619,
-        "y": 248,
+        "x": 408,
+        "y": 364,
         "w": 194,
         "h": 185
       },
@@ -15353,8 +15361,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 902,
-        "y": 250,
+        "x": 211,
+        "y": 1,
         "w": 203,
         "h": 180
       },
@@ -15392,8 +15400,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 1192,
-        "y": 252,
+        "x": 377,
+        "y": 726,
         "w": 186,
         "h": 176
       },
@@ -15431,8 +15439,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 75,
-        "y": 464,
+        "x": 1,
+        "y": 691,
         "w": 184,
         "h": 188
       },
@@ -15470,8 +15478,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 337,
-        "y": 467,
+        "x": 1,
+        "y": 1,
         "w": 208,
         "h": 182
       },
@@ -15509,8 +15517,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 623,
-        "y": 465,
+        "x": 416,
+        "y": 1,
         "w": 191,
         "h": 183
       },
@@ -15548,8 +15556,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 900,
-        "y": 469,
+        "x": 211,
+        "y": 183,
         "w": 203,
         "h": 179
       },
@@ -15587,8 +15595,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 1187,
-        "y": 469,
+        "x": 1,
+        "y": 507,
         "w": 191,
         "h": 182
       },
@@ -15626,8 +15634,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 75,
-        "y": 674,
+        "x": 184,
+        "y": 1174,
         "w": 181,
         "h": 167
       },
@@ -15665,8 +15673,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 350,
-        "y": 674,
+        "x": 1,
+        "y": 1065,
         "w": 181,
         "h": 178
       },
@@ -15704,8 +15712,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 624,
-        "y": 675,
+        "x": 1,
+        "y": 185,
         "w": 203,
         "h": 165
       },
@@ -15743,8 +15751,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 901,
-        "y": 679,
+        "x": 1,
+        "y": 352,
         "w": 203,
         "h": 153
       },
@@ -15782,8 +15790,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 1193,
-        "y": 671,
+        "x": 187,
+        "y": 863,
         "w": 185,
         "h": 168
       },
@@ -15821,8 +15829,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 75,
-        "y": 855,
+        "x": 356,
+        "y": 1343,
         "w": 173,
         "h": 139
       },
@@ -15860,8 +15868,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 349,
-        "y": 853,
+        "x": 187,
+        "y": 720,
         "w": 188,
         "h": 141
       },
@@ -15899,8 +15907,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 629,
-        "y": 857,
+        "x": 416,
+        "y": 186,
         "w": 191,
         "h": 137
       },
@@ -15938,8 +15946,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 914,
-        "y": 855,
+        "x": 186,
+        "y": 1033,
         "w": 183,
         "h": 139
       },
@@ -15977,8 +15985,8 @@
         "image": "atlases/at_atlas_018.png"
       },
       "frame": {
-        "x": 1204,
-        "y": 852,
+        "x": 180,
+        "y": 1343,
         "w": 174,
         "h": 142
       },
@@ -16406,8 +16414,8 @@
         "image": "atlases/at_atlas_020.png"
       },
       "frame": {
-        "x": 1028,
-        "y": 9,
+        "x": 1,
+        "y": 1,
         "w": 1021,
         "h": 818
       },
@@ -16437,8 +16445,8 @@
         "image": "atlases/at_atlas_020.png"
       },
       "frame": {
-        "x": 19,
-        "y": 1137,
+        "x": 1,
+        "y": 821,
         "w": 953,
         "h": 900
       },
@@ -16468,8 +16476,8 @@
         "image": "atlases/at_atlas_021.png"
       },
       "frame": {
-        "x": 32,
-        "y": 31,
+        "x": 1,
+        "y": 1,
         "w": 1485,
         "h": 431
       },
@@ -16510,8 +16518,8 @@
         "image": "atlases/at_atlas_021.png"
       },
       "frame": {
-        "x": 33,
-        "y": 531,
+        "x": 1,
+        "y": 434,
         "w": 1470,
         "h": 414
       },
@@ -16552,8 +16560,8 @@
         "image": "atlases/at_atlas_022.png"
       },
       "frame": {
-        "x": 46,
-        "y": 5,
+        "x": 948,
+        "y": 1,
         "w": 542,
         "h": 194
       },
@@ -16594,8 +16602,8 @@
         "image": "atlases/at_atlas_022.png"
       },
       "frame": {
-        "x": 626,
-        "y": 10,
+        "x": 1,
+        "y": 591,
         "w": 810,
         "h": 195
       },
@@ -16636,8 +16644,8 @@
         "image": "atlases/at_atlas_022.png"
       },
       "frame": {
-        "x": 39,
-        "y": 281,
+        "x": 823,
+        "y": 539,
         "w": 523,
         "h": 274
       },
@@ -16678,8 +16686,8 @@
         "image": "atlases/at_atlas_022.png"
       },
       "frame": {
-        "x": 608,
-        "y": 301,
+        "x": 1,
+        "y": 339,
         "w": 820,
         "h": 250
       },
@@ -16720,8 +16728,8 @@
         "image": "atlases/at_atlas_022.png"
       },
       "frame": {
-        "x": 6,
-        "y": 607,
+        "x": 948,
+        "y": 197,
         "w": 531,
         "h": 340
       },
@@ -16762,8 +16770,8 @@
         "image": "atlases/at_atlas_022.png"
       },
       "frame": {
-        "x": 545,
-        "y": 607,
+        "x": 1,
+        "y": 1,
         "w": 945,
         "h": 336
       },
@@ -16804,8 +16812,8 @@
         "image": "atlases/at_atlas_023.png"
       },
       "frame": {
-        "x": 13,
-        "y": 5,
+        "x": 1,
+        "y": 379,
         "w": 1434,
         "h": 393
       },
@@ -16846,8 +16854,8 @@
         "image": "atlases/at_atlas_023.png"
       },
       "frame": {
-        "x": 6,
-        "y": 475,
+        "x": 1,
+        "y": 1,
         "w": 1443,
         "h": 376
       },
@@ -16888,8 +16896,8 @@
         "image": "atlases/at_atlas_024.png"
       },
       "frame": {
-        "x": 12,
-        "y": 5,
+        "x": 1,
+        "y": 416,
         "w": 1333,
         "h": 416
       },
@@ -16930,8 +16938,8 @@
         "image": "atlases/at_atlas_024.png"
       },
       "frame": {
-        "x": 5,
-        "y": 503,
+        "x": 1,
+        "y": 1,
         "w": 1348,
         "h": 413
       },
@@ -17144,8 +17152,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 4,
-        "y": 4,
+        "x": 290,
+        "y": 692,
         "w": 280,
         "h": 238
       },
@@ -17187,8 +17195,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 309,
-        "y": 3,
+        "x": 327,
+        "y": 1,
         "w": 309,
         "h": 243
       },
@@ -17230,8 +17238,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 713,
-        "y": 23,
+        "x": 1,
+        "y": 965,
         "w": 239,
         "h": 224
       },
@@ -17273,8 +17281,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 1041,
-        "y": 19,
+        "x": 572,
+        "y": 692,
         "w": 273,
         "h": 243
       },
@@ -17316,8 +17324,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 1349,
-        "y": 34,
+        "x": 585,
+        "y": 467,
         "w": 191,
         "h": 204
       },
@@ -17359,8 +17367,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 10,
-        "y": 271,
+        "x": 1,
+        "y": 729,
         "w": 280,
         "h": 234
       },
@@ -17402,8 +17410,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 314,
-        "y": 282,
+        "x": 632,
+        "y": 246,
         "w": 217,
         "h": 205
       },
@@ -17445,8 +17453,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 565,
-        "y": 267,
+        "x": 1,
+        "y": 1,
         "w": 324,
         "h": 253
       },
@@ -17488,8 +17496,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 908,
-        "y": 283,
+        "x": 1,
+        "y": 486,
         "w": 287,
         "h": 241
       },
@@ -17531,8 +17539,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 1235,
-        "y": 271,
+        "x": 1,
+        "y": 256,
         "w": 291,
         "h": 228
       },
@@ -17574,8 +17582,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 5,
-        "y": 522,
+        "x": 327,
+        "y": 246,
         "w": 303,
         "h": 219
       },
@@ -17617,8 +17625,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 338,
-        "y": 558,
+        "x": 294,
+        "y": 467,
         "w": 289,
         "h": 223
       },
@@ -17660,8 +17668,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 653,
-        "y": 544,
+        "x": 283,
+        "y": 932,
         "w": 245,
         "h": 252
       },
@@ -17703,8 +17711,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 946,
-        "y": 556,
+        "x": 638,
+        "y": 1,
         "w": 184,
         "h": 168
       },
@@ -17746,8 +17754,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 1148,
-        "y": 651,
+        "x": 530,
+        "y": 937,
         "w": 130,
         "h": 158
       },
@@ -17789,8 +17797,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 1177,
-        "y": 538,
+        "x": 752,
+        "y": 1036,
         "w": 84,
         "h": 94
       },
@@ -17832,8 +17840,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 1317,
-        "y": 655,
+        "x": 662,
+        "y": 937,
         "w": 88,
         "h": 120
       },
@@ -17875,8 +17883,8 @@
         "image": "atlases/at_atlas_026.png"
       },
       "frame": {
-        "x": 1326,
-        "y": 529,
+        "x": 752,
+        "y": 937,
         "w": 87,
         "h": 97
       },
@@ -17918,8 +17926,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 1,
-        "y": 0,
+        "x": 402,
+        "y": 1,
         "w": 384,
         "h": 305
       },
@@ -17961,8 +17969,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 429,
-        "y": 5,
+        "x": 1,
+        "y": 855,
         "w": 352,
         "h": 292
       },
@@ -18004,8 +18012,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 841,
-        "y": 0,
+        "x": 360,
+        "y": 599,
         "w": 353,
         "h": 294
       },
@@ -18047,8 +18055,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 1344,
-        "y": 13,
+        "x": 1,
+        "y": 1,
         "w": 399,
         "h": 259
       },
@@ -18090,8 +18098,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 1777,
-        "y": 35,
+        "x": 1155,
+        "y": 476,
         "w": 137,
         "h": 125
       },
@@ -18133,8 +18141,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 1362,
-        "y": 295,
+        "x": 1158,
+        "y": 190,
         "w": 127,
         "h": 142
       },
@@ -18176,8 +18184,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 1578,
-        "y": 294,
+        "x": 892,
+        "y": 901,
         "w": 161,
         "h": 172
       },
@@ -18219,8 +18227,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 1755,
-        "y": 213,
+        "x": 1155,
+        "y": 334,
         "w": 136,
         "h": 140
       },
@@ -18262,8 +18270,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 0,
-        "y": 332,
+        "x": 1,
+        "y": 262,
         "w": 372,
         "h": 295
       },
@@ -18305,8 +18313,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 410,
-        "y": 329,
+        "x": 1,
+        "y": 559,
         "w": 357,
         "h": 294
       },
@@ -18348,8 +18356,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 843,
-        "y": 325,
+        "x": 788,
+        "y": 306,
         "w": 365,
         "h": 295
       },
@@ -18391,8 +18399,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 1348,
-        "y": 475,
+        "x": 645,
+        "y": 901,
         "w": 245,
         "h": 218
       },
@@ -18434,8 +18442,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 1624,
-        "y": 483,
+        "x": 1067,
+        "y": 818,
         "w": 184,
         "h": 193
       },
@@ -18477,8 +18485,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 1833,
-        "y": 421,
+        "x": 1158,
+        "y": 1,
         "w": 143,
         "h": 187
       },
@@ -18520,8 +18528,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 0,
-        "y": 653,
+        "x": 788,
+        "y": 1,
         "w": 368,
         "h": 303
       },
@@ -18563,8 +18571,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 429,
-        "y": 656,
+        "x": 715,
+        "y": 603,
         "w": 350,
         "h": 296
       },
@@ -18606,8 +18614,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 844,
-        "y": 657,
+        "x": 375,
+        "y": 308,
         "w": 361,
         "h": 289
       },
@@ -18649,8 +18657,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 1333,
-        "y": 734,
+        "x": 1067,
+        "y": 603,
         "w": 211,
         "h": 213
       },
@@ -18692,8 +18700,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 1595,
-        "y": 719,
+        "x": 355,
+        "y": 895,
         "w": 288,
         "h": 231
       },
@@ -18735,8 +18743,8 @@
         "image": "atlases/at_atlas_027.png"
       },
       "frame": {
-        "x": 1912,
-        "y": 801,
+        "x": 1055,
+        "y": 1013,
         "w": 82,
         "h": 106
       },
@@ -18778,8 +18786,8 @@
         "image": "atlases/at_atlas_028.png"
       },
       "frame": {
-        "x": 222,
-        "y": 191,
+        "x": 1,
+        "y": 1,
         "w": 1150,
         "h": 484
       },
@@ -18811,8 +18819,8 @@
         "image": "atlases/at_atlas_029.png"
       },
       "frame": {
-        "x": 466,
-        "y": 68,
+        "x": 436,
+        "y": 1,
         "w": 327,
         "h": 2473
       },
@@ -18842,8 +18850,8 @@
         "image": "atlases/at_atlas_029.png"
       },
       "frame": {
-        "x": 7,
-        "y": 61,
+        "x": 1,
+        "y": 1,
         "w": 433,
         "h": 2486
       },
@@ -18873,8 +18881,8 @@
         "image": "atlases/at_atlas_030.png"
       },
       "frame": {
-        "x": 0,
-        "y": 4,
+        "x": 1,
+        "y": 51,
         "w": 401,
         "h": 247
       },
@@ -18904,8 +18912,8 @@
         "image": "atlases/at_atlas_030.png"
       },
       "frame": {
-        "x": 297,
-        "y": 516,
+        "x": 1,
+        "y": 300,
         "w": 237,
         "h": 193
       },
@@ -18935,8 +18943,8 @@
         "image": "atlases/at_atlas_030.png"
       },
       "frame": {
-        "x": 958,
-        "y": 252,
+        "x": 759,
+        "y": 1,
         "w": 156,
         "h": 260
       },
@@ -18966,8 +18974,8 @@
         "image": "atlases/at_atlas_030.png"
       },
       "frame": {
-        "x": 1153,
-        "y": 275,
+        "x": 588,
+        "y": 1,
         "w": 169,
         "h": 282
       },
@@ -18997,8 +19005,8 @@
         "image": "atlases/at_atlas_030.png"
       },
       "frame": {
-        "x": 1084,
-        "y": 88,
+        "x": 240,
+        "y": 333,
         "w": 236,
         "h": 157
       },
@@ -19028,8 +19036,8 @@
         "image": "atlases/at_atlas_030.png"
       },
       "frame": {
-        "x": 421,
-        "y": 79,
+        "x": 240,
+        "y": 492,
         "w": 224,
         "h": 157
       },
@@ -19059,8 +19067,8 @@
         "image": "atlases/at_atlas_030.png"
       },
       "frame": {
-        "x": 870,
-        "y": 80,
+        "x": 681,
+        "y": 508,
         "w": 205,
         "h": 156
       },
@@ -19090,8 +19098,8 @@
         "image": "atlases/at_atlas_030.png"
       },
       "frame": {
-        "x": 656,
-        "y": 81,
+        "x": 197,
+        "y": 651,
         "w": 206,
         "h": 154
       },
@@ -19121,8 +19129,8 @@
         "image": "atlases/at_atlas_030.png"
       },
       "frame": {
-        "x": 551,
-        "y": 286,
+        "x": 1,
+        "y": 495,
         "w": 194,
         "h": 219
       },
@@ -19152,8 +19160,8 @@
         "image": "atlases/at_atlas_030.png"
       },
       "frame": {
-        "x": 463,
-        "y": 20,
+        "x": 1,
+        "y": 1,
         "w": 585,
         "h": 48
       },
@@ -19185,8 +19193,8 @@
         "image": "atlases/at_atlas_030.png"
       },
       "frame": {
-        "x": 50,
-        "y": 492,
+        "x": 478,
+        "y": 333,
         "w": 234,
         "h": 164
       },
@@ -19216,8 +19224,8 @@
         "image": "atlases/at_atlas_030.png"
       },
       "frame": {
-        "x": 362,
-        "y": 259,
+        "x": 759,
+        "y": 263,
         "w": 175,
         "h": 243
       },
@@ -19247,8 +19255,8 @@
         "image": "atlases/at_atlas_030.png"
       },
       "frame": {
-        "x": 74,
-        "y": 265,
+        "x": 466,
+        "y": 499,
         "w": 213,
         "h": 196
       },
@@ -19278,8 +19286,8 @@
         "image": "atlases/at_atlas_030.png"
       },
       "frame": {
-        "x": 765,
-        "y": 245,
+        "x": 404,
+        "y": 51,
         "w": 172,
         "h": 280
       },
@@ -19310,7 +19318,7 @@
       },
       "frame": {
         "x": 1,
-        "y": 626,
+        "y": 307,
         "w": 1149,
         "h": 200
       },
@@ -19341,7 +19349,7 @@
       },
       "frame": {
         "x": 1,
-        "y": 418,
+        "y": 150,
         "w": 1151,
         "h": 155
       },
@@ -19371,8 +19379,8 @@
         "image": "atlases/at_atlas_031.png"
       },
       "frame": {
-        "x": 3,
-        "y": 205,
+        "x": 1,
+        "y": 509,
         "w": 1146,
         "h": 163
       },
@@ -19403,7 +19411,7 @@
       },
       "frame": {
         "x": 601,
-        "y": 418,
+        "y": 150,
         "w": 448,
         "h": 155
       },
@@ -19433,8 +19441,8 @@
         "image": "atlases/at_atlas_031.png"
       },
       "frame": {
-        "x": 39,
-        "y": 831,
+        "x": 1,
+        "y": 674,
         "w": 275,
         "h": 269
       },
@@ -19464,8 +19472,8 @@
         "image": "atlases/at_atlas_031.png"
       },
       "frame": {
-        "x": -1,
-        "y": 2,
+        "x": 1,
+        "y": 1,
         "w": 1166,
         "h": 147
       },
@@ -19495,8 +19503,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 432,
-        "y": 432,
+        "x": 1,
+        "y": 331,
         "w": 291,
         "h": 178
       },
@@ -19530,8 +19538,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 1283,
-        "y": 776,
+        "x": 802,
+        "y": 817,
         "w": 108,
         "h": 158
       },
@@ -19564,8 +19572,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 1408,
-        "y": 799,
+        "x": 426,
+        "y": 658,
         "w": 84,
         "h": 142
       },
@@ -19598,8 +19606,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 434,
-        "y": 618,
+        "x": 1,
+        "y": 1,
         "w": 406,
         "h": 173
       },
@@ -19633,8 +19641,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 0,
-        "y": 667,
+        "x": 1,
+        "y": 176,
         "w": 334,
         "h": 153
       },
@@ -19668,8 +19676,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 307,
-        "y": 243,
+        "x": 757,
+        "y": 96,
         "w": 245,
         "h": 102
       },
@@ -19703,8 +19711,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 1152,
-        "y": 610,
+        "x": 239,
+        "y": 658,
         "w": 185,
         "h": 145
       },
@@ -19738,8 +19746,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 1348,
-        "y": 667,
+        "x": 641,
+        "y": 942,
         "w": 145,
         "h": 100
       },
@@ -19773,8 +19781,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 922,
-        "y": 0,
+        "x": 757,
+        "y": 200,
         "w": 226,
         "h": 82
       },
@@ -19808,8 +19816,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 2,
-        "y": 2,
+        "x": 757,
+        "y": 1,
         "w": 257,
         "h": 93
       },
@@ -19843,8 +19851,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 633,
-        "y": 0,
+        "x": 576,
+        "y": 453,
         "w": 270,
         "h": 85
       },
@@ -19878,8 +19886,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 280,
-        "y": 2,
+        "x": 337,
+        "y": 289,
         "w": 334,
         "h": 95
       },
@@ -19913,8 +19921,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 296,
-        "y": 117,
+        "x": 673,
+        "y": 289,
         "w": 285,
         "h": 106
       },
@@ -19948,8 +19956,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 4,
-        "y": 102,
+        "x": 294,
+        "y": 386,
         "w": 280,
         "h": 134
       },
@@ -19983,8 +19991,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 604,
-        "y": 106,
+        "x": 548,
+        "y": 540,
         "w": 236,
         "h": 107
       },
@@ -20018,8 +20026,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 984,
-        "y": 107,
+        "x": 280,
+        "y": 522,
         "w": 266,
         "h": 134
       },
@@ -20053,8 +20061,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 1361,
-        "y": 8,
+        "x": 841,
+        "y": 1094,
         "w": 95,
         "h": 53
       },
@@ -20088,8 +20096,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 1164,
-        "y": 0,
+        "x": 1,
+        "y": 992,
         "w": 136,
         "h": 78
       },
@@ -20123,8 +20131,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 862,
-        "y": 98,
+        "x": 732,
+        "y": 1073,
         "w": 107,
         "h": 62
       },
@@ -20158,8 +20166,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 1270,
-        "y": 113,
+        "x": 786,
+        "y": 540,
         "w": 214,
         "h": 138
       },
@@ -20193,8 +20201,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 278,
-        "y": 442,
+        "x": 489,
+        "y": 848,
         "w": 150,
         "h": 167
       },
@@ -20228,8 +20236,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 650,
-        "y": 252,
+        "x": 1,
+        "y": 1072,
         "w": 110,
         "h": 112
       },
@@ -20262,8 +20270,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 914,
-        "y": 260,
+        "x": 619,
+        "y": 1044,
         "w": 111,
         "h": 105
       },
@@ -20296,8 +20304,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 780,
-        "y": 271,
+        "x": 504,
+        "y": 1017,
         "w": 113,
         "h": 93
       },
@@ -20330,8 +20338,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 903,
-        "y": 641,
+        "x": 409,
+        "y": 1,
         "w": 239,
         "h": 179
       },
@@ -20365,8 +20373,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 1049,
-        "y": 263,
+        "x": 968,
+        "y": 814,
         "w": 49,
         "h": 132
       },
@@ -20399,8 +20407,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 1133,
-        "y": 263,
+        "x": 139,
+        "y": 992,
         "w": 53,
         "h": 133
       },
@@ -20433,8 +20441,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 1370,
-        "y": 276,
+        "x": 928,
+        "y": 960,
         "w": 56,
         "h": 132
       },
@@ -20467,8 +20475,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 1294,
-        "y": 266,
+        "x": 912,
+        "y": 817,
         "w": 53,
         "h": 141
       },
@@ -20501,8 +20509,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 1219,
-        "y": 263,
+        "x": 968,
+        "y": 680,
         "w": 50,
         "h": 132
       },
@@ -20535,8 +20543,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 734,
-        "y": 408,
+        "x": 123,
+        "y": 808,
         "w": 104,
         "h": 182
       },
@@ -20570,8 +20578,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 978,
-        "y": 409,
+        "x": 1,
+        "y": 808,
         "w": 120,
         "h": 182
       },
@@ -20605,8 +20613,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 852,
-        "y": 423,
+        "x": 699,
+        "y": 680,
         "w": 101,
         "h": 168
       },
@@ -20640,8 +20648,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 990,
-        "y": 851,
+        "x": 229,
+        "y": 989,
         "w": 137,
         "h": 76
       },
@@ -20674,8 +20682,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 291,
-        "y": 835,
+        "x": 641,
+        "y": 850,
         "w": 147,
         "h": 90
       },
@@ -20708,8 +20716,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 7,
-        "y": 836,
+        "x": 788,
+        "y": 977,
         "w": 138,
         "h": 94
       },
@@ -20742,8 +20750,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 165,
-        "y": 854,
+        "x": 194,
+        "y": 1067,
         "w": 107,
         "h": 74
       },
@@ -20776,8 +20784,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 418,
-        "y": 371,
+        "x": 576,
+        "y": 397,
         "w": 272,
         "h": 54
       },
@@ -20810,8 +20818,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 124,
-        "y": 385,
+        "x": 960,
+        "y": 284,
         "w": 58,
         "h": 35
       },
@@ -20844,8 +20852,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 198,
-        "y": 378,
+        "x": 941,
+        "y": 494,
         "w": 67,
         "h": 44
       },
@@ -20878,8 +20886,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 327,
-        "y": 373,
+        "x": 113,
+        "y": 1127,
         "w": 73,
         "h": 51
       },
@@ -20912,8 +20920,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 19,
-        "y": 385,
+        "x": 848,
+        "y": 494,
         "w": 91,
         "h": 36
       },
@@ -20946,8 +20954,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 280,
-        "y": 379,
+        "x": 489,
+        "y": 802,
         "w": 36,
         "h": 41
       },
@@ -20980,8 +20988,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 7,
-        "y": 442,
+        "x": 239,
+        "y": 805,
         "w": 124,
         "h": 182
       },
@@ -21015,8 +21023,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 1338,
-        "y": 429,
+        "x": 548,
+        "y": 649,
         "w": 149,
         "h": 197
       },
@@ -21050,8 +21058,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 1101,
-        "y": 428,
+        "x": 1,
+        "y": 644,
         "w": 236,
         "h": 162
       },
@@ -21085,8 +21093,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 3,
-        "y": 242,
+        "x": 1,
+        "y": 511,
         "w": 277,
         "h": 131
       },
@@ -21120,8 +21128,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 151,
-        "y": 445,
+        "x": 365,
+        "y": 805,
         "w": 122,
         "h": 182
       },
@@ -21155,8 +21163,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 1141,
-        "y": 774,
+        "x": 647,
+        "y": 134,
         "w": 108,
         "h": 153
       },
@@ -21189,8 +21197,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 633,
-        "y": 861,
+        "x": 368,
+        "y": 1017,
         "w": 134,
         "h": 65
       },
@@ -21223,8 +21231,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 790,
-        "y": 835,
+        "x": 850,
+        "y": 397,
         "w": 168,
         "h": 95
       },
@@ -21257,8 +21265,8 @@
         "image": "atlases/at_atlas_032.png"
       },
       "frame": {
-        "x": 446,
-        "y": 796,
+        "x": 802,
+        "y": 680,
         "w": 164,
         "h": 135
       },
@@ -21291,8 +21299,8 @@
         "image": "atlases/at_atlas_033.png"
       },
       "frame": {
-        "x": 5,
-        "y": 0,
+        "x": 703,
+        "y": 219,
         "w": 686,
         "h": 215
       },
@@ -21330,8 +21338,8 @@
         "image": "atlases/at_atlas_033.png"
       },
       "frame": {
-        "x": 759,
-        "y": 0,
+        "x": 700,
+        "y": 439,
         "w": 695,
         "h": 224
       },
@@ -21369,8 +21377,8 @@
         "image": "atlases/at_atlas_033.png"
       },
       "frame": {
-        "x": 5,
-        "y": 238,
+        "x": 703,
+        "y": 1,
         "w": 691,
         "h": 216
       },
@@ -21408,8 +21416,8 @@
         "image": "atlases/at_atlas_033.png"
       },
       "frame": {
-        "x": 767,
-        "y": 241,
+        "x": 1,
+        "y": 668,
         "w": 676,
         "h": 216
       },
@@ -21447,8 +21455,8 @@
         "image": "atlases/at_atlas_033.png"
       },
       "frame": {
-        "x": 0,
-        "y": 477,
+        "x": 1,
+        "y": 1,
         "w": 700,
         "h": 220
       },
@@ -21486,8 +21494,8 @@
         "image": "atlases/at_atlas_033.png"
       },
       "frame": {
-        "x": 759,
-        "y": 479,
+        "x": 700,
+        "y": 665,
         "w": 694,
         "h": 230
       },
@@ -21525,8 +21533,8 @@
         "image": "atlases/at_atlas_033.png"
       },
       "frame": {
-        "x": 3,
-        "y": 717,
+        "x": 1,
+        "y": 439,
         "w": 697,
         "h": 227
       },
@@ -21564,8 +21572,8 @@
         "image": "atlases/at_atlas_033.png"
       },
       "frame": {
-        "x": 755,
-        "y": 731,
+        "x": 1,
+        "y": 223,
         "w": 699,
         "h": 214
       },
@@ -21603,8 +21611,8 @@
         "image": "atlases/at_atlas_034.png"
       },
       "frame": {
-        "x": 8,
-        "y": 0,
+        "x": 1,
+        "y": 328,
         "w": 1495,
         "h": 157
       },
@@ -21643,8 +21651,8 @@
         "image": "atlases/at_atlas_034.png"
       },
       "frame": {
-        "x": 0,
-        "y": 200,
+        "x": 1,
+        "y": 1,
         "w": 1506,
         "h": 163
       },
@@ -21683,8 +21691,8 @@
         "image": "atlases/at_atlas_034.png"
       },
       "frame": {
-        "x": 7,
-        "y": 406,
+        "x": 1,
+        "y": 658,
         "w": 1492,
         "h": 163
       },
@@ -21724,7 +21732,7 @@
       },
       "frame": {
         "x": 1,
-        "y": 597,
+        "y": 166,
         "w": 1498,
         "h": 160
       },
@@ -21763,8 +21771,8 @@
         "image": "atlases/at_atlas_034.png"
       },
       "frame": {
-        "x": 4,
-        "y": 798,
+        "x": 1,
+        "y": 487,
         "w": 1492,
         "h": 169
       },
@@ -21804,7 +21812,7 @@
       },
       "frame": {
         "x": 667,
-        "y": 597,
+        "y": 166,
         "w": 362,
         "h": 160
       },
@@ -21834,8 +21842,8 @@
         "image": "atlases/at_atlas_035.png"
       },
       "frame": {
-        "x": 0,
-        "y": 0,
+        "x": 1,
+        "y": 1,
         "w": 1439,
         "h": 165
       },
@@ -21875,8 +21883,8 @@
         "image": "atlases/at_atlas_035.png"
       },
       "frame": {
-        "x": 0,
-        "y": 197,
+        "x": 1,
+        "y": 168,
         "w": 1439,
         "h": 165
       },
@@ -21916,8 +21924,8 @@
         "image": "atlases/at_atlas_035.png"
       },
       "frame": {
-        "x": 0,
-        "y": 394,
+        "x": 1,
+        "y": 335,
         "w": 1439,
         "h": 165
       },
@@ -21957,8 +21965,8 @@
         "image": "atlases/at_atlas_035.png"
       },
       "frame": {
-        "x": -4,
-        "y": 591,
+        "x": 1,
+        "y": 502,
         "w": 1439,
         "h": 165
       },
@@ -21998,8 +22006,8 @@
         "image": "atlases/at_atlas_035.png"
       },
       "frame": {
-        "x": 0,
-        "y": 788,
+        "x": 1,
+        "y": 669,
         "w": 1439,
         "h": 165
       },
@@ -22039,8 +22047,8 @@
         "image": "atlases/at_atlas_035.png"
       },
       "frame": {
-        "x": 735,
-        "y": 591,
+        "x": 740,
+        "y": 502,
         "w": 262,
         "h": 165
       },
@@ -22070,8 +22078,8 @@
         "image": "atlases/at_atlas_036.png"
       },
       "frame": {
-        "x": 0,
-        "y": 0,
+        "x": 1,
+        "y": 1,
         "w": 1439,
         "h": 165
       },
@@ -22111,8 +22119,8 @@
         "image": "atlases/at_atlas_036.png"
       },
       "frame": {
-        "x": 0,
-        "y": 197,
+        "x": 1,
+        "y": 168,
         "w": 1439,
         "h": 165
       },
@@ -22152,8 +22160,8 @@
         "image": "atlases/at_atlas_036.png"
       },
       "frame": {
-        "x": 0,
-        "y": 394,
+        "x": 1,
+        "y": 335,
         "w": 1439,
         "h": 165
       },
@@ -22193,8 +22201,8 @@
         "image": "atlases/at_atlas_036.png"
       },
       "frame": {
-        "x": 0,
-        "y": 591,
+        "x": 1,
+        "y": 502,
         "w": 1439,
         "h": 165
       },
@@ -22234,8 +22242,8 @@
         "image": "atlases/at_atlas_036.png"
       },
       "frame": {
-        "x": 0,
-        "y": 788,
+        "x": 1,
+        "y": 669,
         "w": 1439,
         "h": 165
       },
@@ -22275,8 +22283,8 @@
         "image": "atlases/at_atlas_036.png"
       },
       "frame": {
-        "x": 534,
-        "y": 394,
+        "x": 535,
+        "y": 335,
         "w": 356,
         "h": 165
       },
@@ -22306,8 +22314,8 @@
         "image": "atlases/at_atlas_037.png"
       },
       "frame": {
-        "x": 0,
-        "y": 0,
+        "x": 1,
+        "y": 1,
         "w": 1439,
         "h": 165
       },
@@ -22347,8 +22355,8 @@
         "image": "atlases/at_atlas_037.png"
       },
       "frame": {
-        "x": 0,
-        "y": 197,
+        "x": 1,
+        "y": 168,
         "w": 1439,
         "h": 165
       },
@@ -22388,8 +22396,8 @@
         "image": "atlases/at_atlas_037.png"
       },
       "frame": {
-        "x": 0,
-        "y": 394,
+        "x": 1,
+        "y": 335,
         "w": 1439,
         "h": 165
       },
@@ -22429,8 +22437,8 @@
         "image": "atlases/at_atlas_037.png"
       },
       "frame": {
-        "x": 0,
-        "y": 591,
+        "x": 1,
+        "y": 502,
         "w": 1439,
         "h": 165
       },
@@ -22470,8 +22478,8 @@
         "image": "atlases/at_atlas_037.png"
       },
       "frame": {
-        "x": 0,
-        "y": 788,
+        "x": 1,
+        "y": 669,
         "w": 1439,
         "h": 165
       },
@@ -22511,8 +22519,8 @@
         "image": "atlases/at_atlas_037.png"
       },
       "frame": {
-        "x": 422,
-        "y": 394,
+        "x": 423,
+        "y": 335,
         "w": 439,
         "h": 165
       },
@@ -22542,8 +22550,8 @@
         "image": "atlases/at_atlas_038.png"
       },
       "frame": {
-        "x": 0,
-        "y": 0,
+        "x": 1,
+        "y": 1,
         "w": 1439,
         "h": 165
       },
@@ -22583,8 +22591,8 @@
         "image": "atlases/at_atlas_038.png"
       },
       "frame": {
-        "x": 0,
-        "y": 197,
+        "x": 1,
+        "y": 168,
         "w": 1439,
         "h": 165
       },
@@ -22624,8 +22632,8 @@
         "image": "atlases/at_atlas_038.png"
       },
       "frame": {
-        "x": 0,
-        "y": 394,
+        "x": 1,
+        "y": 335,
         "w": 1439,
         "h": 165
       },
@@ -22665,8 +22673,8 @@
         "image": "atlases/at_atlas_038.png"
       },
       "frame": {
-        "x": 0,
-        "y": 591,
+        "x": 1,
+        "y": 502,
         "w": 1439,
         "h": 165
       },
@@ -22706,8 +22714,8 @@
         "image": "atlases/at_atlas_038.png"
       },
       "frame": {
-        "x": 0,
-        "y": 788,
+        "x": 1,
+        "y": 669,
         "w": 1439,
         "h": 165
       },
@@ -22747,8 +22755,8 @@
         "image": "atlases/at_atlas_038.png"
       },
       "frame": {
-        "x": 466,
-        "y": 394,
+        "x": 467,
+        "y": 335,
         "w": 373,
         "h": 165
       },
@@ -22778,8 +22786,8 @@
         "image": "atlases/at_atlas_039.png"
       },
       "frame": {
-        "x": 0,
-        "y": 0,
+        "x": 1,
+        "y": 1,
         "w": 1439,
         "h": 165
       },
@@ -22818,8 +22826,8 @@
         "image": "atlases/at_atlas_039.png"
       },
       "frame": {
-        "x": 0,
-        "y": 197,
+        "x": 1,
+        "y": 168,
         "w": 1439,
         "h": 165
       },
@@ -22858,8 +22866,8 @@
         "image": "atlases/at_atlas_039.png"
       },
       "frame": {
-        "x": 0,
-        "y": 394,
+        "x": 1,
+        "y": 335,
         "w": 1439,
         "h": 165
       },
@@ -22898,8 +22906,8 @@
         "image": "atlases/at_atlas_039.png"
       },
       "frame": {
-        "x": 0,
-        "y": 591,
+        "x": 1,
+        "y": 502,
         "w": 1439,
         "h": 165
       },
@@ -22938,8 +22946,8 @@
         "image": "atlases/at_atlas_039.png"
       },
       "frame": {
-        "x": 0,
-        "y": 788,
+        "x": 1,
+        "y": 669,
         "w": 1439,
         "h": 165
       },
@@ -22978,8 +22986,8 @@
         "image": "atlases/at_atlas_039.png"
       },
       "frame": {
-        "x": 786,
-        "y": 591,
+        "x": 787,
+        "y": 502,
         "w": 321,
         "h": 165
       },
@@ -23009,8 +23017,8 @@
         "image": "atlases/at_atlas_040.png"
       },
       "frame": {
-        "x": 0,
-        "y": 0,
+        "x": 1,
+        "y": 1,
         "w": 1439,
         "h": 165
       },
@@ -23052,8 +23060,8 @@
         "image": "atlases/at_atlas_040.png"
       },
       "frame": {
-        "x": 0,
-        "y": 197,
+        "x": 1,
+        "y": 168,
         "w": 1439,
         "h": 165
       },
@@ -23095,8 +23103,8 @@
         "image": "atlases/at_atlas_040.png"
       },
       "frame": {
-        "x": 0,
-        "y": 394,
+        "x": 1,
+        "y": 335,
         "w": 1439,
         "h": 165
       },
@@ -23138,8 +23146,8 @@
         "image": "atlases/at_atlas_040.png"
       },
       "frame": {
-        "x": 0,
-        "y": 591,
+        "x": 1,
+        "y": 502,
         "w": 1439,
         "h": 165
       },
@@ -23181,8 +23189,8 @@
         "image": "atlases/at_atlas_040.png"
       },
       "frame": {
-        "x": 0,
-        "y": 788,
+        "x": 1,
+        "y": 669,
         "w": 1439,
         "h": 165
       },
@@ -23224,8 +23232,8 @@
         "image": "atlases/at_atlas_041.png"
       },
       "frame": {
-        "x": 0,
-        "y": 0,
+        "x": 1,
+        "y": 169,
         "w": 1439,
         "h": 165
       },
@@ -23264,8 +23272,8 @@
         "image": "atlases/at_atlas_041.png"
       },
       "frame": {
-        "x": 0,
-        "y": 197,
+        "x": 1,
+        "y": 336,
         "w": 1439,
         "h": 165
       },
@@ -23304,8 +23312,8 @@
         "image": "atlases/at_atlas_041.png"
       },
       "frame": {
-        "x": 0,
-        "y": 394,
+        "x": 1,
+        "y": 1,
         "w": 1439,
         "h": 165
       },
@@ -23344,8 +23352,8 @@
         "image": "atlases/at_atlas_041.png"
       },
       "frame": {
-        "x": 0,
-        "y": 591,
+        "x": 1,
+        "y": 503,
         "w": 1439,
         "h": 165
       },
@@ -23384,8 +23392,8 @@
         "image": "atlases/at_atlas_041.png"
       },
       "frame": {
-        "x": 0,
-        "y": 788,
+        "x": 1,
+        "y": 670,
         "w": 1439,
         "h": 165
       },
@@ -23424,14 +23432,368 @@
         "image": "atlases/at_atlas_041.png"
       },
       "frame": {
-        "x": 626,
-        "y": 394,
+        "x": 627,
+        "y": 1,
         "w": 242,
         "h": 166
       },
       "type": "decor",
       "tags": [],
       "generationTags": [],
+      "defaultScale": 1,
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_042:haunted_tree_042_01",
+      "kind": "asset",
+      "id": "at_atlas_042:haunted_tree_042_01",
+      "label": "haunted_tree_042_01",
+      "category": "platform",
+      "searchable": "at_atlas_042 haunted_tree_042_01 platform cave forest haunted dead tree decoration walkable platform",
+      "thumbnail": {
+        "x": 256,
+        "y": 1408,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_042",
+        "assetId": "haunted_tree_042_01",
+        "manifest": "atlases/at_atlas_042.json",
+        "image": "atlases/at_atlas_042.png"
+      },
+      "frame": {
+        "x": 1,
+        "y": 1,
+        "w": 621,
+        "h": 443
+      },
+      "type": "platform",
+      "tags": [
+        "cave",
+        "forest",
+        "haunted",
+        "dead",
+        "tree",
+        "decoration",
+        "walkable",
+        "platform"
+      ],
+      "generationTags": [
+        "biome.cave",
+        "biome.forest",
+        "layer.terrain",
+        "capability.platform"
+      ],
+      "defaultScale": 1,
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_042:haunted_tree_042_02",
+      "kind": "asset",
+      "id": "at_atlas_042:haunted_tree_042_02",
+      "label": "haunted_tree_042_02",
+      "category": "platform",
+      "searchable": "at_atlas_042 haunted_tree_042_02 platform cave forest haunted dead tree decoration walkable platform",
+      "thumbnail": {
+        "x": 320,
+        "y": 1408,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_042",
+        "assetId": "haunted_tree_042_02",
+        "manifest": "atlases/at_atlas_042.json",
+        "image": "atlases/at_atlas_042.png"
+      },
+      "frame": {
+        "x": 1,
+        "y": 446,
+        "w": 369,
+        "h": 430
+      },
+      "type": "platform",
+      "tags": [
+        "cave",
+        "forest",
+        "haunted",
+        "dead",
+        "tree",
+        "decoration",
+        "walkable",
+        "platform"
+      ],
+      "generationTags": [
+        "biome.cave",
+        "biome.forest",
+        "layer.terrain",
+        "capability.platform"
+      ],
+      "defaultScale": 1,
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_042:haunted_tree_042_03",
+      "kind": "asset",
+      "id": "at_atlas_042:haunted_tree_042_03",
+      "label": "haunted_tree_042_03",
+      "category": "platform",
+      "searchable": "at_atlas_042 haunted_tree_042_03 platform cave forest haunted dead tree decoration walkable platform",
+      "thumbnail": {
+        "x": 384,
+        "y": 1408,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_042",
+        "assetId": "haunted_tree_042_03",
+        "manifest": "atlases/at_atlas_042.json",
+        "image": "atlases/at_atlas_042.png"
+      },
+      "frame": {
+        "x": 624,
+        "y": 419,
+        "w": 442,
+        "h": 432
+      },
+      "type": "platform",
+      "tags": [
+        "cave",
+        "forest",
+        "haunted",
+        "dead",
+        "tree",
+        "decoration",
+        "walkable",
+        "platform"
+      ],
+      "generationTags": [
+        "biome.cave",
+        "biome.forest",
+        "layer.terrain",
+        "capability.platform"
+      ],
+      "defaultScale": 1,
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_042:haunted_tree_042_04",
+      "kind": "asset",
+      "id": "at_atlas_042:haunted_tree_042_04",
+      "label": "haunted_tree_042_04",
+      "category": "decor",
+      "searchable": "at_atlas_042 haunted_tree_042_04 decor cave forest haunted dead tree decoration",
+      "thumbnail": {
+        "x": 448,
+        "y": 1408,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_042",
+        "assetId": "haunted_tree_042_04",
+        "manifest": "atlases/at_atlas_042.json",
+        "image": "atlases/at_atlas_042.png"
+      },
+      "frame": {
+        "x": 1472,
+        "y": 430,
+        "w": 388,
+        "h": 418
+      },
+      "type": "decor",
+      "tags": [
+        "cave",
+        "forest",
+        "haunted",
+        "dead",
+        "tree",
+        "decoration"
+      ],
+      "generationTags": [
+        "biome.cave",
+        "biome.forest",
+        "layer.terrain"
+      ],
+      "defaultScale": 1,
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_042:haunted_tree_042_05",
+      "kind": "asset",
+      "id": "at_atlas_042:haunted_tree_042_05",
+      "label": "haunted_tree_042_05",
+      "category": "platform",
+      "searchable": "at_atlas_042 haunted_tree_042_05 platform cave forest haunted dead tree decoration walkable platform",
+      "thumbnail": {
+        "x": 512,
+        "y": 1408,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_042",
+        "assetId": "haunted_tree_042_05",
+        "manifest": "atlases/at_atlas_042.json",
+        "image": "atlases/at_atlas_042.png"
+      },
+      "frame": {
+        "x": 1170,
+        "y": 1,
+        "w": 448,
+        "h": 427
+      },
+      "type": "platform",
+      "tags": [
+        "cave",
+        "forest",
+        "haunted",
+        "dead",
+        "tree",
+        "decoration",
+        "walkable",
+        "platform"
+      ],
+      "generationTags": [
+        "biome.cave",
+        "biome.forest",
+        "layer.terrain",
+        "capability.platform"
+      ],
+      "defaultScale": 1,
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_042:haunted_tree_042_06",
+      "kind": "asset",
+      "id": "at_atlas_042:haunted_tree_042_06",
+      "label": "haunted_tree_042_06",
+      "category": "platform",
+      "searchable": "at_atlas_042 haunted_tree_042_06 platform cave forest haunted dead tree decoration walkable platform",
+      "thumbnail": {
+        "x": 576,
+        "y": 1408,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_042",
+        "assetId": "haunted_tree_042_06",
+        "manifest": "atlases/at_atlas_042.json",
+        "image": "atlases/at_atlas_042.png"
+      },
+      "frame": {
+        "x": 1068,
+        "y": 430,
+        "w": 402,
+        "h": 421
+      },
+      "type": "platform",
+      "tags": [
+        "cave",
+        "forest",
+        "haunted",
+        "dead",
+        "tree",
+        "decoration",
+        "walkable",
+        "platform"
+      ],
+      "generationTags": [
+        "biome.cave",
+        "biome.forest",
+        "layer.terrain",
+        "capability.platform"
+      ],
+      "defaultScale": 1,
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_042:haunted_tree_042_07",
+      "kind": "asset",
+      "id": "at_atlas_042:haunted_tree_042_07",
+      "label": "haunted_tree_042_07",
+      "category": "platform",
+      "searchable": "at_atlas_042 haunted_tree_042_07 platform cave forest haunted dead tree decoration walkable platform",
+      "thumbnail": {
+        "x": 640,
+        "y": 1408,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_042",
+        "assetId": "haunted_tree_042_07",
+        "manifest": "atlases/at_atlas_042.json",
+        "image": "atlases/at_atlas_042.png"
+      },
+      "frame": {
+        "x": 624,
+        "y": 1,
+        "w": 544,
+        "h": 416
+      },
+      "type": "platform",
+      "tags": [
+        "cave",
+        "forest",
+        "haunted",
+        "dead",
+        "tree",
+        "decoration",
+        "walkable",
+        "platform"
+      ],
+      "generationTags": [
+        "biome.cave",
+        "biome.forest",
+        "layer.terrain",
+        "capability.platform"
+      ],
+      "defaultScale": 1,
+      "paletteOrder": 0
+    },
+    {
+      "key": "asset:at_atlas_042:haunted_tree_042_08",
+      "kind": "asset",
+      "id": "at_atlas_042:haunted_tree_042_08",
+      "label": "haunted_tree_042_08",
+      "category": "decor",
+      "searchable": "at_atlas_042 haunted_tree_042_08 decor cave forest haunted dead tree decoration",
+      "thumbnail": {
+        "x": 704,
+        "y": 1408,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "atlasId": "at_atlas_042",
+        "assetId": "haunted_tree_042_08",
+        "manifest": "atlases/at_atlas_042.json",
+        "image": "atlases/at_atlas_042.png"
+      },
+      "frame": {
+        "x": 1620,
+        "y": 1,
+        "w": 311,
+        "h": 426
+      },
+      "type": "decor",
+      "tags": [
+        "cave",
+        "forest",
+        "haunted",
+        "dead",
+        "tree",
+        "decoration"
+      ],
+      "generationTags": [
+        "biome.cave",
+        "biome.forest",
+        "layer.terrain"
+      ],
       "defaultScale": 1,
       "paletteOrder": 0
     },
@@ -23443,7 +23805,7 @@
       "category": "Entity",
       "searchable": "enemySpawner Enemy spawner Invisible during play. While its authored area is on screen, it rolls once per second and teleports in one already-alert enemy on a successful roll.",
       "thumbnail": {
-        "x": 256,
+        "x": 768,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -23466,7 +23828,7 @@
       "category": "Entity",
       "searchable": "mailbox Editor's mailbox An editor-letter mailbox. Each placed mailbox owns its own trigger distance, letter, thought, and timing metadata, so a level can contain several tutorial letters.",
       "thumbnail": {
-        "x": 320,
+        "x": 832,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -23489,7 +23851,7 @@
       "category": "Entity",
       "searchable": "thoughtTrigger Location thought trigger Invisible one-shot region that pauses play and shows an Ignatius thought bubble when entered.",
       "thumbnail": {
-        "x": 384,
+        "x": 896,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -23512,7 +23874,7 @@
       "category": "Entity",
       "searchable": "cutsceneTrigger Scripted cutscene trigger Invisible one-shot proximity trigger that takes control of scripted characters and runs a modal GOTO/ANIM/SAY/THINK/DELAY sequence while background enemy AI is suspended and passive world motion continues.",
       "thumbnail": {
-        "x": 448,
+        "x": 960,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -23535,7 +23897,7 @@
       "category": "Entity",
       "searchable": "questionMarkTrigger Question mark trigger Invisible one-shot trigger that shows a question mark above Ignatius for two seconds.",
       "thumbnail": {
-        "x": 512,
+        "x": 1024,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -23558,7 +23920,7 @@
       "category": "Entity",
       "searchable": "exclamationMarkTrigger Exclamation mark trigger Invisible one-shot trigger that shows an exclamation mark above Ignatius for two seconds.",
       "thumbnail": {
-        "x": 576,
+        "x": 1088,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -23581,7 +23943,7 @@
       "category": "Entity",
       "searchable": "wizard_entry_door Wizard entry door The effective level start. It snaps to nearby ground, opens, lets Ignatius walk out behind the foreground door layer, then closes.",
       "thumbnail": {
-        "x": 640,
+        "x": 1152,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -23604,7 +23966,7 @@
       "category": "Entity",
       "searchable": "wizard_entry_point Wizard entry point Invisible immediate level start. Ignatius begins at this floor-anchored point with no doorway animation.",
       "thumbnail": {
-        "x": 704,
+        "x": 1216,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -23627,7 +23989,7 @@
       "category": "Entity",
       "searchable": "wizard_exit_door Wizard exit door The level exit. It is mirrored by default, snaps to nearby ground, opens when Ignatius approaches, and walks him through before loading its destination level.",
       "thumbnail": {
-        "x": 768,
+        "x": 1280,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -23650,7 +24012,7 @@
       "category": "Entity",
       "searchable": "wizard_exit_point Wizard exit point Invisible immediate level exit. Reaching this point loads its destination without a doorway animation.",
       "thumbnail": {
-        "x": 832,
+        "x": 1344,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -23673,7 +24035,7 @@
       "category": "Entity",
       "searchable": "treasureChest Treasure chest Automatic proximity treasure chest: begins open with loot, awards Score once, then remains open and empty.",
       "thumbnail": {
-        "x": 896,
+        "x": 1408,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -23696,7 +24058,7 @@
       "category": "Entity",
       "searchable": "breakableCrate Breakable crate A solid reactive crate that intercepts rockets, becomes damaged, then disappears when destroyed.",
       "thumbnail": {
-        "x": 960,
+        "x": 1472,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -23719,7 +24081,7 @@
       "category": "Entity",
       "searchable": "destructibleBarrier Breakable iron barrier A tall solid barrier that intercepts rockets, bends when damaged, and removes its collision when destroyed.",
       "thumbnail": {
-        "x": 1024,
+        "x": 1536,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -23742,7 +24104,7 @@
       "category": "Entity",
       "searchable": "leverSwitch Lever switch Nearby switch that toggles a named signal channel. Press Down, S, or Enter to operate it.",
       "thumbnail": {
-        "x": 1088,
+        "x": 1600,
         "y": 1408,
         "w": 64,
         "h": 64
@@ -23765,8 +24127,8 @@
       "category": "Entity",
       "searchable": "keyholeSwitch Keyhole switch Automatically consumes the configured key when Ignatius comes within one wizard width, emits its named signal once, then fades away over 0.75 seconds.",
       "thumbnail": {
-        "x": 1152,
-        "y": 1408,
+        "x": 0,
+        "y": 1472,
         "w": 64,
         "h": 64
       },
@@ -23788,8 +24150,8 @@
       "category": "Entity",
       "searchable": "proximitySignalTrigger Proximity signal trigger Invisible one-shot trigger that activates a named signal channel the first time Ignatius enters its radius.",
       "thumbnail": {
-        "x": 1216,
-        "y": 1408,
+        "x": 64,
+        "y": 1472,
         "w": 64,
         "h": 64
       },
@@ -23811,8 +24173,8 @@
       "category": "Entity",
       "searchable": "spikedGate Spiked gate Signal-controlled vertical gate that remains solid while fading away in place over 0.75 seconds, then disappears completely.",
       "thumbnail": {
-        "x": 1280,
-        "y": 1408,
+        "x": 128,
+        "y": 1472,
         "w": 64,
         "h": 64
       },
@@ -23834,8 +24196,8 @@
       "category": "Entity",
       "searchable": "hangingGate Hanging iron bars Alternative signal-controlled iron gate that remains solid while fading away in place over 0.75 seconds, then disappears completely.",
       "thumbnail": {
-        "x": 1344,
-        "y": 1408,
+        "x": 192,
+        "y": 1472,
         "w": 64,
         "h": 64
       },
@@ -23857,8 +24219,8 @@
       "category": "Entity",
       "searchable": "fuel Rocket fuel Thirty-second rocket flight power-up.",
       "thumbnail": {
-        "x": 1408,
-        "y": 1408,
+        "x": 256,
+        "y": 1472,
         "w": 64,
         "h": 64
       },
@@ -23880,8 +24242,8 @@
       "category": "Entity",
       "searchable": "fuelUpgrade UpgradeFuel Permanent maximum rocket-fuel upgrade. Currently shown as a blue herb.",
       "thumbnail": {
-        "x": 1472,
-        "y": 1408,
+        "x": 320,
+        "y": 1472,
         "w": 64,
         "h": 64
       },
@@ -23903,8 +24265,8 @@
       "category": "Entity",
       "searchable": "speedUpgrade UpgradeSpeed Permanent movement-speed upgrade. Currently shown as a red mushroom.",
       "thumbnail": {
-        "x": 1536,
-        "y": 1408,
+        "x": 384,
+        "y": 1472,
         "w": 64,
         "h": 64
       },
@@ -23926,8 +24288,8 @@
       "category": "Entity",
       "searchable": "healthUpgrade UpgradeHealth Permanent maximum-health upgrade. Currently shown as a purple herb.",
       "thumbnail": {
-        "x": 1600,
-        "y": 1408,
+        "x": 448,
+        "y": 1472,
         "w": 64,
         "h": 64
       },
@@ -23949,7 +24311,7 @@
       "category": "Entity",
       "searchable": "regenUpgrade UpgradeRegen Permanent health and rocket-fuel regeneration upgrade. Currently shown as a yellow herb.",
       "thumbnail": {
-        "x": 0,
+        "x": 512,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -23972,7 +24334,7 @@
       "category": "Entity",
       "searchable": "ornateKeyPickup Ornate key An ornate key collected into Ignatius’s inventory.",
       "thumbnail": {
-        "x": 64,
+        "x": 576,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -23995,7 +24357,7 @@
       "category": "Entity",
       "searchable": "ironKeyPickup Iron key An iron key collected into Ignatius’s inventory and usable by keyholes.",
       "thumbnail": {
-        "x": 128,
+        "x": 640,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -24018,7 +24380,7 @@
       "category": "Entity",
       "searchable": "magicRingPickup Magic Ring 30-second concealment pickup. Normal enemies cannot see Ignatius while it is active; enemies hit by him panic for 10 seconds.",
       "thumbnail": {
-        "x": 192,
+        "x": 704,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -24041,7 +24403,7 @@
       "category": "Entity",
       "searchable": "checkpointRune Rune checkpoint ",
       "thumbnail": {
-        "x": 256,
+        "x": 768,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -24064,7 +24426,7 @@
       "category": "Entity",
       "searchable": "spikedBallHazard Spiked ball hazard ",
       "thumbnail": {
-        "x": 320,
+        "x": 832,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -24087,7 +24449,7 @@
       "category": "Entity",
       "searchable": "overdrivePickup Overdrive Timed rocket overdrive: launches cost half fuel and passive recovery offsets 90% of hover drain, even while fuel is being spent.",
       "thumbnail": {
-        "x": 384,
+        "x": 896,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -24110,7 +24472,7 @@
       "category": "Entity",
       "searchable": "shieldPickup Shield Grants ten seconds of complete damage invulnerability and makes Ignatius flash blue.",
       "thumbnail": {
-        "x": 448,
+        "x": 960,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -24133,7 +24495,7 @@
       "category": "Entity",
       "searchable": "wrenchPickup Wrench powerup Grants the selected 20-second wrench rocket mode. If no wrench type is authored, it defaults to the cyan Dart wrench.",
       "thumbnail": {
-        "x": 512,
+        "x": 1024,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -24156,7 +24518,7 @@
       "category": "World",
       "searchable": "proximityText TEXT Bold world-space text that fades in once when Ignatius enters its independently positioned trigger radius.",
       "thumbnail": {
-        "x": 576,
+        "x": 1088,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -24179,7 +24541,7 @@
       "category": "Enemy",
       "searchable": "enemy_001 Skeleton Guard  ct_char_enemy_001",
       "thumbnail": {
-        "x": 640,
+        "x": 1152,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -24193,8 +24555,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 72,
@@ -24209,7 +24570,7 @@
       "category": "Enemy",
       "searchable": "enemy_002 Skeleton Caster A hunter skeleton that pursues Ignatius across terrain and casts an obstacle-aware orb of undeath. ct_char_enemy_002",
       "thumbnail": {
-        "x": 704,
+        "x": 1216,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -24223,8 +24584,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 72,
@@ -24239,7 +24599,7 @@
       "category": "Enemy",
       "searchable": "enemy_010 Fireball Goblin  ct_char_enemy_010",
       "thumbnail": {
-        "x": 768,
+        "x": 1280,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -24253,8 +24613,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 70,
@@ -24269,7 +24628,7 @@
       "category": "Enemy",
       "searchable": "enemy_011 Musket Goblin  ct_char_enemy_011",
       "thumbnail": {
-        "x": 832,
+        "x": 1344,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -24283,8 +24642,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 70,
@@ -24299,7 +24657,7 @@
       "category": "Enemy",
       "searchable": "enemy_012 Tri-fireball Goblin  ct_char_enemy_012",
       "thumbnail": {
-        "x": 896,
+        "x": 1408,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -24313,8 +24671,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 70,
@@ -24329,7 +24686,7 @@
       "category": "Enemy",
       "searchable": "enemy_018 Hobgoblin  ct_char_enemy_018",
       "thumbnail": {
-        "x": 960,
+        "x": 1472,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -24343,8 +24700,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 79,
@@ -24359,7 +24715,7 @@
       "category": "Enemy",
       "searchable": "enemy_020 Bombing Bat The retained bat enemy. It patrols a small area around its authored perch, activates only when Ignatius enters its normal awareness view, flies overhead, and drops atlas-authored rocks. ct_char_enemy_020",
       "thumbnail": {
-        "x": 1024,
+        "x": 1536,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -24373,8 +24729,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "fly",
-        "colorExchangeApplied": false
+        "animationSlot": "fly"
       },
       "originalSize": {
         "w": 55,
@@ -24389,7 +24744,7 @@
       "category": "Enemy",
       "searchable": "enemy_021 Blue Bombing Bat A smaller two-thirds-scale blue variant of the retained bombing bat. It patrols a small area around its authored perch, activates only when Ignatius enters its normal awareness view, flies overhead, and drops atlas-authored rocks. ct_char_enemy_021",
       "thumbnail": {
-        "x": 1088,
+        "x": 1600,
         "y": 1472,
         "w": 64,
         "h": 64
@@ -24403,8 +24758,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "fly",
-        "colorExchangeApplied": true
+        "animationSlot": "fly"
       },
       "originalSize": {
         "w": 36,
@@ -24419,8 +24773,8 @@
       "category": "Enemy",
       "searchable": "enemy_030 Human Raider A modular human sword enemy using body_00/head_00 with the fully articulated split-limb rig and refined animation set. ct_char_enemy_030",
       "thumbnail": {
-        "x": 1152,
-        "y": 1472,
+        "x": 0,
+        "y": 1536,
         "w": 64,
         "h": 64
       },
@@ -24433,8 +24787,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 60,
@@ -24449,8 +24802,8 @@
       "category": "Enemy",
       "searchable": "enemy_031 Human Raider II A modular human sword enemy using body_01/head_01 with an exact articulated copy of the refined sword animation set. ct_char_enemy_031",
       "thumbnail": {
-        "x": 1216,
-        "y": 1472,
+        "x": 64,
+        "y": 1536,
         "w": 64,
         "h": 64
       },
@@ -24463,8 +24816,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": true
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 60,
@@ -24479,8 +24831,8 @@
       "category": "Enemy",
       "searchable": "enemy_032 Human Knife Thrower A blonde human knife thrower using body_02/head_02. He performs the user-authored articulated throwing motion and releases three non-spinning, point-first daggers in a +/-5 degree fan. ct_char_enemy_032",
       "thumbnail": {
-        "x": 1280,
-        "y": 1472,
+        "x": 128,
+        "y": 1536,
         "w": 64,
         "h": 64
       },
@@ -24493,8 +24845,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 60,
@@ -24509,8 +24860,8 @@
       "category": "Enemy",
       "searchable": "enemy_033 Human Knife Thrower II A dark-haired human knife thrower using the fresh body_03/head_03 pair. He shares Enemy 032's user-authored articulated throw and releases three non-spinning, point-first daggers in a +/-5 degree fan. ct_char_enemy_033",
       "thumbnail": {
-        "x": 1344,
-        "y": 1472,
+        "x": 192,
+        "y": 1536,
         "w": 64,
         "h": 64
       },
@@ -24523,8 +24874,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 60,
@@ -24539,8 +24889,8 @@
       "category": "Enemy",
       "searchable": "enemy_034 Human Crossbow Human Crossbow using the shared modular-human atlas. He raises a two-handed crossbow, fires three separately aimed fast bolts at 0.4-second intervals with compact recoil/recovery beats, then lowers the weapon and reloads. ct_char_enemy_034",
       "thumbnail": {
-        "x": 1408,
-        "y": 1472,
+        "x": 256,
+        "y": 1536,
         "w": 64,
         "h": 64
       },
@@ -24553,8 +24903,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 60,
@@ -24569,8 +24918,8 @@
       "category": "Enemy",
       "searchable": "enemy_035 Human Crossbow II Human Crossbow II using the shared modular-human atlas. He raises a two-handed crossbow, fires three separately aimed fast bolts at 0.4-second intervals with compact recoil/recovery beats, then lowers the weapon and reloads. ct_char_enemy_035",
       "thumbnail": {
-        "x": 1472,
-        "y": 1472,
+        "x": 320,
+        "y": 1536,
         "w": 64,
         "h": 64
       },
@@ -24583,8 +24932,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 60,
@@ -24599,8 +24947,8 @@
       "category": "Enemy",
       "searchable": "enemy_036 Human Pirate Human Pirate using the shared modular-human atlas and a rapier. He reuses the articulated Raider lunge and slash timing. ct_char_enemy_036",
       "thumbnail": {
-        "x": 1536,
-        "y": 1472,
+        "x": 384,
+        "y": 1536,
         "w": 64,
         "h": 64
       },
@@ -24613,8 +24961,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": true
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 60,
@@ -24629,8 +24976,8 @@
       "category": "Enemy",
       "searchable": "enemy_037 Human Pirate II Human Pirate II using the shared modular-human atlas and a rapier. He reuses the articulated Raider lunge and slash timing. ct_char_enemy_037",
       "thumbnail": {
-        "x": 1600,
-        "y": 1472,
+        "x": 448,
+        "y": 1536,
         "w": 64,
         "h": 64
       },
@@ -24643,8 +24990,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": true
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 60,
@@ -24659,7 +25005,7 @@
       "category": "Enemy",
       "searchable": "enemy_038 Human Boxer A weapon-free modular human using body_05/head_16. He closes to melee range and attacks with the articulated bare-knuckle swing. ct_char_enemy_038",
       "thumbnail": {
-        "x": 0,
+        "x": 512,
         "y": 1536,
         "w": 64,
         "h": 64
@@ -24673,8 +25019,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 60,
@@ -24689,7 +25034,7 @@
       "category": "Enemy",
       "searchable": "enemy_040 Raptor A fast ground-hunting raptor assembled from a parent-constrained articulated rig. ct_char_enemy_040",
       "thumbnail": {
-        "x": 64,
+        "x": 576,
         "y": 1536,
         "w": 64,
         "h": 64
@@ -24703,8 +25048,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 159,
@@ -24719,7 +25063,7 @@
       "category": "Enemy",
       "searchable": "enemy_050 Snake A low-slung articulated snake assembled from repeated pattern-matched overlapping sections. It uses an organic slither, a raised-head bite, and a dramatic belly-up death. ct_char_enemy_050",
       "thumbnail": {
-        "x": 128,
+        "x": 640,
         "y": 1536,
         "w": 64,
         "h": 64
@@ -24733,8 +25077,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 248,
@@ -24749,7 +25092,7 @@
       "category": "Enemy",
       "searchable": "enemy_060 Porker  ct_char_enemy_060",
       "thumbnail": {
-        "x": 192,
+        "x": 704,
         "y": 1536,
         "w": 64,
         "h": 64
@@ -24763,8 +25106,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 92,
@@ -24779,7 +25121,7 @@
       "category": "Enemy",
       "searchable": "enemy_070 Crocker  ct_char_enemy_070",
       "thumbnail": {
-        "x": 256,
+        "x": 768,
         "y": 1536,
         "w": 64,
         "h": 64
@@ -24793,8 +25135,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 87,
@@ -24809,7 +25150,7 @@
       "category": "Enemy",
       "searchable": "enemy_080 Ogre  ct_char_enemy_080",
       "thumbnail": {
-        "x": 320,
+        "x": 832,
         "y": 1536,
         "w": 64,
         "h": 64
@@ -24823,8 +25164,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 99,
@@ -24839,7 +25179,7 @@
       "category": "Enemy",
       "searchable": "enemy_090 Greybeard Axethrower Greybeard Axethrower using the corrected open left hand. He hurls one independently authored, rapidly spinning double-headed axe from the axe_copy handoff at 0.339 seconds. ct_char_enemy_090",
       "thumbnail": {
-        "x": 384,
+        "x": 896,
         "y": 1536,
         "w": 64,
         "h": 64
@@ -24853,8 +25193,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 63,
@@ -24869,7 +25208,7 @@
       "category": "Enemy",
       "searchable": "enemy_091 Blackbeard Axethrower Blackbeard Axethrower using the corrected open left hand. He hurls one independently authored, rapidly spinning double-headed axe from the axe_copy handoff at 0.339 seconds. ct_char_enemy_091",
       "thumbnail": {
-        "x": 448,
+        "x": 960,
         "y": 1536,
         "w": 64,
         "h": 64
@@ -24883,8 +25222,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 87,
@@ -24899,7 +25237,7 @@
       "category": "Enemy",
       "searchable": "enemy_092 Redbeard Axethrower Redbeard Axethrower using the corrected open left hand. He hurls one independently authored, rapidly spinning double-headed axe from the axe_copy handoff at 0.339 seconds. ct_char_enemy_092",
       "thumbnail": {
-        "x": 512,
+        "x": 1024,
         "y": 1536,
         "w": 64,
         "h": 64
@@ -24913,8 +25251,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 99,
@@ -24929,7 +25266,7 @@
       "category": "Enemy",
       "searchable": "enemy_093 Copperbeard Axethrower Copperbeard Axethrower using the corrected open left hand. He hurls one independently authored, rapidly spinning double-headed axe from the axe_copy handoff at 0.339 seconds. ct_char_enemy_093",
       "thumbnail": {
-        "x": 576,
+        "x": 1088,
         "y": 1536,
         "w": 64,
         "h": 64
@@ -24943,8 +25280,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 99,
@@ -24959,7 +25295,7 @@
       "category": "Enemy",
       "searchable": "enemy_900 Training Dummy A stationary training dummy that uses the ordinary enemy pipeline but never attacks or deals contact damage. ct_char_enemy_900",
       "thumbnail": {
-        "x": 640,
+        "x": 1152,
         "y": 1536,
         "w": 64,
         "h": 64
@@ -24973,8 +25309,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 103,
@@ -24989,7 +25324,7 @@
       "category": "Enemy",
       "searchable": "enemy_901 Invisible Cutscene Speaker An invisible, stationary passive enemy intended as a cutscene speech-bubble anchor for off-screen or hidden speakers. ct_char_enemy_900",
       "thumbnail": {
-        "x": 704,
+        "x": 1216,
         "y": 1536,
         "w": 64,
         "h": 64
@@ -25003,8 +25338,7 @@
       "entityKind": "enemy",
       "thumbnailRender": {
         "renderer": "runtime-character-project",
-        "animationSlot": "idle",
-        "colorExchangeApplied": false
+        "animationSlot": "idle"
       },
       "originalSize": {
         "w": 103,

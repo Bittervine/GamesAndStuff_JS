@@ -4,18 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import {
-    applyAtlasManifestsToWorld,
-    applyEditorLevelToWorld,
-    applyEnemyDefinitionCatalog,
-    createInitialGameState,
-    DEFAULT_TUNING
-} from '../src/core/simulation.js';
-import {
-    bakeEnemyNavigationGraph,
-    enemyNavigationProfileKey,
-    normalizeEnemyNavigationProfile
-} from '../src/core/enemy-navigation.js';
+import { rebakeAndVerifyNavigation } from '../src/tools/navigation-rebake.js';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REFERENCE_ROOT = path.resolve(SCRIPT_DIR, '..');
@@ -55,61 +44,24 @@ function parseArgs(argv) {
 function usage() {
     console.log(`Usage: node reference/devel/rebake_navigation_graphs.mjs [--write|--check] [--verbose] [--level level_004]\n\n` +
         `Without --write, prints a deterministic dry-run summary.\n` +
-        `--write rewrites only levels whose navigationGraphs differ.\n` +
-        `--check exits non-zero if any authored level needs a rebake. level_temp.json is scratch playtest data and is skipped unless named explicitly with --level.`);
+        `--write rewrites only levels whose heuristic navigation graph differs; unchanged verified/failed evidence is preserved.\n` +
+        `--check ignores verification status metadata and exits non-zero only when an authored numeric level needs a heuristic rebake. level_tNN fixtures and level_temp.json are skipped unless named explicitly with --level.`);
 }
 
 async function readJson(filePath) {
     return JSON.parse(await fs.readFile(filePath, 'utf8'));
 }
 
-function wizardNavigationProfile(tuning = DEFAULT_TUNING) {
-    const width = Math.max(8, Number(tuning?.playerWidth) || DEFAULT_TUNING.playerWidth);
-    const height = Math.max(24, Number(tuning?.playerHeight) || DEFAULT_TUNING.playerHeight);
-    const gravity = Math.max(1, Number(tuning?.gravity) || DEFAULT_TUNING.gravity);
-    const safeImpactSpeed = Math.max(0, Number(tuning?.fallDamageSafeImpactSpeed) || DEFAULT_TUNING.fallDamageSafeImpactSpeed);
-    return normalizeEnemyNavigationProfile({
-        bodyWidth: width,
-        bodyHeight: height,
-        runSpeed: Math.max(1, Number(tuning?.maxRunSpeed) || DEFAULT_TUNING.maxRunSpeed),
-        groundAcceleration: Math.max(1, Number(tuning?.groundAcceleration) || DEFAULT_TUNING.groundAcceleration),
-        jumpHeight: Math.max(0, Number(tuning?.ordinaryJumpHeight) || DEFAULT_TUNING.ordinaryJumpHeight),
-        gravity,
-        maxFallDistance: safeImpactSpeed > 0 ? safeImpactSpeed * safeImpactSpeed / (2 * gravity) : 0,
-        maxStepHeight: height * 0.20,
-        maxStepGap: Math.max(10, Math.min(28, width * 0.32 || 18)),
-        edgeInset: Math.max(6, width * 0.22 || 10),
-        bodyClearance: Math.max(10, width * 0.34 || 12)
-    });
-}
-
-function navigationProfileForEnemy(enemy) {
-    const width = Math.max(8, Number(enemy?.width) || 48);
-    const height = Math.max(24, Number(enemy?.height) || 120);
-    return normalizeEnemyNavigationProfile({
-        bodyWidth: width,
-        bodyHeight: height,
-        runSpeed: Math.max(1, Number(enemy?.runSpeed) || 1),
-        groundAcceleration: Math.max(1, Number(enemy?.runAcceleration) || 1),
-        jumpHeight: Math.max(0, Number(enemy?.jumpHeight) || 0),
-        gravity: Math.max(1, Number(enemy?.jumpGravity) || 1),
-        maxFallDistance: Math.max(0, Number(enemy?.maxFallDistance) || 0),
-        maxStepHeight: Math.max(0, Number(enemy?.maxStepHeight) || 0),
-        maxStepGap: Math.max(10, Math.min(28, width * 0.32 || 18)),
-        edgeInset: Math.max(6, width * 0.22 || 10),
-        bodyClearance: Math.max(10, width * 0.34 || 12)
-    });
-}
-
-async function loadAtlasManifestsForWorld(world) {
-    const atlasIds = [...new Set((world?.visuals || [])
-        .filter((visual) => visual?.kind === 'atlasSprite' && !visual.entityId)
-        .map((visual) => String(visual.atlasId || '').trim())
+async function loadAtlasManifestsForLevel(level) {
+    const refByAtlasId = new Map((level?.atlasRefs || []).map((ref) => [String(ref?.atlasId || ''), String(ref?.manifest || '')]));
+    const atlasIds = [...new Set((level?.placements || [])
+        .filter((placement) => placement?.kind === 'atlasAsset' && placement?.collisionFromManifest !== false)
+        .map((placement) => String(placement.atlasId || 'at_atlas_001').trim())
         .filter(Boolean))].sort();
-    const manifests = new Map();
+    const manifests = {};
     for (const atlasId of atlasIds) {
-        const atlasPath = path.join(RESOURCES_ROOT, 'atlases', `${atlasId}.json`);
-        manifests.set(atlasId, await readJson(atlasPath));
+        const manifestPath = (refByAtlasId.get(atlasId) || `atlases/${atlasId}.json`).replace(/^resources\//, '');
+        manifests[atlasId] = await readJson(path.join(RESOURCES_ROOT, manifestPath));
     }
     return manifests;
 }
@@ -118,44 +70,50 @@ function stableJson(value) {
     return JSON.stringify(value);
 }
 
+function heuristicEdgeShape(edge) {
+    if (!edge || typeof edge !== 'object') return edge;
+    const { verification, verificationFailure, verificationDiagnostics, ...shape } = edge;
+    return shape;
+}
+
+function heuristicGraphShape(collection) {
+    const source = collection && typeof collection === 'object' ? collection : { version: 2, profiles: [] };
+    return {
+        ...source,
+        profiles: (Array.isArray(source.profiles) ? source.profiles : []).map((graph) => {
+            const build = graph?.build && typeof graph.build === 'object'
+                ? Object.fromEntries(Object.entries(graph.build).filter(([key]) => key !== 'simulationCheck' && key !== 'verificationInputSignature'))
+                : graph?.build;
+            return {
+                ...graph,
+                build,
+                edges: (graph?.edges || []).map(heuristicEdgeShape)
+            };
+        })
+    };
+}
+
 async function bakeLevel(levelPath, enemyCatalog, gameTuning) {
     const document = await readJson(levelPath);
     const level = document?.level && typeof document.level === 'object' ? document.level : document;
-    const state = createInitialGameState({ tuning: gameTuning });
-    applyEnemyDefinitionCatalog(state, enemyCatalog);
-    if (!applyEditorLevelToWorld(state, level)) {
-        throw new Error(`Could not load ${path.basename(levelPath)} into the portable simulation`);
-    }
-
-    // Level Editor navigation is based only on authored terrain placements.
-    // Entity artwork/collision is intentionally excluded from the static hunter graph.
-    state.world.visuals = (state.world.visuals || []).filter((visual) => !visual?.entityId);
-    const atlasManifests = await loadAtlasManifestsForWorld(state.world);
-    applyAtlasManifestsToWorld(state, atlasManifests);
-
-    const profilesById = new Map([["wizard", wizardNavigationProfile(state.tuning)]]);
-    for (const enemy of state.enemies || []) {
-        if (String(enemy?.strategy || 'simple_patrol') !== 'hunter') continue;
-        const profile = navigationProfileForEnemy(enemy);
-        profilesById.set(enemyNavigationProfileKey(profile), profile);
-    }
-
-    const navigationWorld = {
-        segments: state.world.segments || [],
-        collisionPolygons: state.world.collisionPolygons || [],
-        solids: [],
-        navigationBlockers: Array.isArray(level.navigationBlockers) ? level.navigationBlockers : []
-    };
-    const profiles = [...profilesById.entries()].map(([id, profile]) => bakeEnemyNavigationGraph(navigationWorld, profile, {
-        id,
-        label: id === "wizard"
-            ? `Wizard · body ${profile.bodyWidth}×${profile.bodyHeight} · stride ${profile.maxStepHeight}`
-            : `Run ${profile.runSpeed}, jump ${profile.jumpHeight}, body ${profile.bodyWidth}×${profile.bodyHeight}`
-    }));
-    const next = { version: 2, profiles };
+    const manifestByAtlasId = await loadAtlasManifestsForLevel(level);
+    const result = rebakeAndVerifyNavigation(document, {
+        manifestByAtlasId,
+        enemyCatalog,
+        tuning: gameTuning
+    }, {
+        verifyBySimulation: false,
+        preserveMatchingVerification: true,
+        includeWizard: true,
+        stepTransitionMethod: 'stride_arc',
+        compareStepMethods: false
+    });
+    const nextDocument = result.level;
+    const nextLevel = nextDocument?.level && typeof nextDocument.level === 'object' ? nextDocument.level : nextDocument;
     const previous = level.navigationGraphs && typeof level.navigationGraphs === 'object'
         ? level.navigationGraphs
         : { version: 2, profiles: [] };
+    const next = nextLevel.navigationGraphs || { version: 2, profiles: [] };
     return { document, level, previous, next };
 }
 
@@ -170,7 +128,7 @@ async function main() {
         readJson(TUNING_PATH)
     ]);
     const allNames = (await fs.readdir(LEVELS_ROOT))
-        .filter((name) => /^level_[A-Za-z0-9_]+\.json$/.test(name) && name !== 'level_temp.json')
+        .filter((name) => /^level_\d+\.json$/.test(name))
         .sort();
     const names = options.levelNames.length ? options.levelNames : allNames;
     let changed = 0;
@@ -179,7 +137,7 @@ async function main() {
     for (const name of names) {
         const levelPath = path.join(LEVELS_ROOT, name);
         const { document, level, previous, next } = await bakeLevel(levelPath, enemyCatalog, gameTuning);
-        const differs = stableJson(previous) !== stableJson(next);
+        const differs = stableJson(heuristicGraphShape(previous)) !== stableJson(heuristicGraphShape(next));
         totalProfiles += next.profiles.length;
         totalEdges += next.profiles.reduce((sum, graph) => sum + (graph.edges?.length || 0), 0);
         if (differs) changed += 1;
@@ -194,7 +152,9 @@ async function main() {
                 }
                 const supportNote = old.supportSignature === graph.supportSignature ? 'supports=same' : 'supports=DIFF';
                 const oldEdges = Array.isArray(old.edges) ? old.edges : [];
-                const edgeNote = stableJson(oldEdges) === stableJson(graph.edges) ? 'edges=same' : `edges=${oldEdges.length}->${graph.edges.length}`;
+                const edgeNote = stableJson(oldEdges.map(heuristicEdgeShape)) === stableJson((graph.edges || []).map(heuristicEdgeShape))
+                    ? 'edges=same'
+                    : `edges=${oldEdges.length}->${graph.edges.length}`;
                 console.log(`      ${graph.id}: ${supportNote}, ${edgeNote}`);
             }
             for (const old of oldProfiles) {

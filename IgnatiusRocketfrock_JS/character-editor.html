@@ -534,6 +534,18 @@
             margin-bottom: 4px;
         }
 
+        #quick-mouse-coordinates {
+            margin-left: auto;
+            padding: 0 5px;
+            min-width: 126px;
+            text-align: right;
+            white-space: nowrap;
+            color: var(--muted);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 12px;
+            font-variant-numeric: tabular-nums;
+        }
+
         .stage-toolbar button:not(.key-marker) {
             width: auto;
             min-width: 86px;
@@ -697,6 +709,7 @@
             <button id="quick-visibility" type="button" aria-pressed="false" title="Click to hide or show the selected part only in this editor. Double-click to show all parts.">Visible / Hidden</button>
             <button id="quick-to-back" type="button">To Bottom</button>
             <button id="quick-to-front" type="button">To Front</button>
+            <span id="quick-mouse-coordinates" title="Mouse position in runtime world units relative to the character ground/base. X is positive to the right and Y is positive downward, regardless of facing.">X:— Y:—</span>
         </nav>
         <canvas id="stage" width="1160" height="660" aria-label="Puppet Forge character preview"></canvas>
         <section id="animation-dock" class="stage-toolbar" aria-label="Animation timeline controls">
@@ -814,20 +827,20 @@
                 <label><span>Damage</span><input id="enemy-damage" type="number" min="0" step="1"></label>
                 <label><span>Cooldown (s)</span><input id="enemy-attack-cooldown" type="number" min="0" step="0.01"></label>
             </div>
+            <label class="check-row" title="While an attack is already in progress, non-lethal damage still applies and flashes the enemy but does not cancel the attack or committed lunge. Damage received outside an attack still uses the normal hurt reaction."><input id="enemy-immune-to-interrupts" type="checkbox"> Immune to interrupts</label>
             <div class="row">
-                <label title="Legacy close-attack reach and the ranged fallback/approach range when no preferred ranged distance is authored."><span>Attack reach</span><input id="enemy-attack-range" type="number" min="1" step="1"></label>
+                <label class="enemy-projectile-engagement-field" title="Ranged approach/range hint and fallback when no preferred ranged distance is authored."><span>Projectile attack reach</span><input id="enemy-attack-range" type="number" min="1" step="1"></label>
                 <label><span>Vertical reach</span><input id="enemy-attack-vertical-range" type="number" min="1" step="1"></label>
-                <label class="enemy-melee-field" title="Legacy handoff-centered hit radius used only when Melee hit range is zero."><span>Melee hit radius</span><input id="enemy-melee-hit-radius" type="number" min="1" step="1"></label>
             </div>
             <h3 class="enemy-melee-field">Committed melee lunge</h3>
             <div class="row enemy-melee-field">
-                <label title="Forward reach from the authored melee handoff point at the critical frame. A positive value takes precedence over the legacy handoff-centered hit radius."><span>Melee hit range</span><input id="enemy-melee-hit-range" type="number" min="0" step="1"></label>
-                <label title="Closest distance at which a committed lunge may begin. Closer enemies keep pursuing or swing normally when already inside melee hit range."><span>Lunge minimum range</span><input id="enemy-lunge-range-min" type="number" min="0" step="1"></label>
+                <label title="Horizontal forward reach in world pixels from the enemy grounded base position. This uses the same reference point as Lunge minimum/maximum range, so the values can be compared directly. The authored melee handoff supplies strike timing and height. Active melee enemies require a positive value."><span>Melee hit range</span><input id="enemy-melee-hit-range" type="number" min="0" step="1"></label>
+                <label title="Closest grounded-base-to-grounded-base horizontal distance at which a committed lunge may begin. If direct melee reach overlaps this distance, the enemy swings normally instead. Between attacks, hunters choose the nearest reachable direct-attack or lunge-ready position rather than retreating toward maximum lunge range."><span>Lunge minimum range</span><input id="enemy-lunge-range-min" type="number" min="0" step="1"></label>
                 <label title="Farthest distance at which a committed lunge may begin. Zero disables lunging. A positive maximum below Lunge minimum range is invalid and also disables lunging."><span>Lunge maximum range</span><input id="enemy-lunge-range-max" type="number" min="0" step="1"></label>
             </div>
             <div class="row enemy-melee-field">
                 <label title="World-space speed of the committed burst in pixels per second."><span>Lunge speed</span><input id="enemy-lunge-speed" type="number" min="0" step="25"></label>
-                <label title="Desired horizontal separation from Ignatius when the burst ends. Zero uses 75% of Melee hit range."><span>Lunge target distance</span><input id="enemy-lunge-target-dist" type="number" min="0" step="1"></label>
+                <label title="Desired horizontal separation from Ignatius when the burst ends. A positive value is required for lunging; zero disables the lunge together with the other lunge controls."><span>Lunge target distance</span><input id="enemy-lunge-target-dist" type="number" min="0" step="1"></label>
             </div>
             <h3>Awareness / engagement</h3>
             <div class="row">
@@ -835,6 +848,7 @@
                 <label title="Half-angle of the forward awareness cone. 60° means a 120° total field of view."><span>Awareness half-angle (°)</span><input id="enemy-awareness-view-half-angle" type="number" min="0" max="180" step="1"></label>
                 <label title="How long awareness memory persists after a fresh sighting is lost."><span>Awareness hold (s)</span><input id="enemy-awareness-hold-duration" type="number" min="0" step="0.05"></label>
             </div>
+            <label class="check-row" title="Deaf enemies do not become aware from nearby Ignatius rocket explosions or body-slam impacts. Ordinary visual awareness is unchanged."><input id="enemy-deaf" type="checkbox"> Deaf (ignore combat sounds)</label>
             <div class="row">
                 <label class="enemy-projectile-engagement-field" title="Preferred distance for projectile enemies. Attack reach remains the fallback when this is zero."><span>Preferred attack range</span><input id="enemy-preferred-attack-range" type="number" min="0" step="1"></label>
                 <label class="enemy-projectile-engagement-field" title="Projectile enemies try not to fire or settle closer than this distance when their strategy supports ranged spacing."><span>Preferred minimum range</span><input id="enemy-preferred-attack-min-range" type="number" min="0" step="1"></label>
@@ -1024,20 +1038,6 @@
                 <label><span>Base scale</span><input id="part-scale" type="number" step="0.01"></label>
                 <label><span>Target height</span><input id="target-height" type="number" step="1"></label>
             </div>
-            <h3>Color Exchange</h3>
-            <label class="check-row"><input id="color-exchange-enabled" type="checkbox"> Apply GIMP-compatible Color Exchange to this part</label>
-            <div id="color-exchange-fields">
-                <div class="row">
-                    <label><span>From color</span><input id="color-exchange-from" type="color" value="#ffffff"></label>
-                    <label><span>To color</span><input id="color-exchange-to" type="color" value="#000000"></label>
-                </div>
-                <div class="row three">
-                    <label><span>Red threshold</span><input id="color-exchange-red-threshold" type="number" min="0" max="1" step="0.001" value="1"></label>
-                    <label><span>Green threshold</span><input id="color-exchange-green-threshold" type="number" min="0" max="1" step="0.001" value="1"></label>
-                    <label><span>Blue threshold</span><input id="color-exchange-blue-threshold" type="number" min="0" max="1" step="0.001" value="1"></label>
-                </div>
-            </div>
-            <p id="color-exchange-help">Threshold 0.0 changes only an exact channel match. Threshold 1.0 accepts the complete channel range. Alpha is preserved, and the recolored sprite is generated once and cached.</p>
             <h3>Parent pivot constraint</h3>
             <label class="check-row"><input id="parent-constraint-enabled" type="checkbox"> Pin this part's pivot to a parent part</label>
             <div id="parent-constraint-fields">
@@ -1190,6 +1190,7 @@ import {
     addAtlasFrameToRig,
     addRigPartToAnimation,
     animationFilenameForCharacterSlot,
+    assertNoRemovedCharacterPartColorExchange,
     createBlankCharacterProject,
     inventoryCharacterProjectJson,
     moveRigPartToBack,
@@ -1225,14 +1226,9 @@ import {
     characterArtworkOffset
 } from "./src/presentation/character-runtime.js";
 import {
-    normalizeColorExchange,
-    normalizeRgbColor,
-    rgbColorToHex
-} from "./src/shared/color-exchange-data.js";
-import { createColorExchangedSpriteCanvas } from "./src/presentation/sprite-color-exchange.js";
-import {
     TRANSFORM_EDIT_PROPERTY,
     canvasPointFromClient,
+    canvasToCharacterWorldPoint,
     canvasToPreviewPoint,
     characterViewTransform,
     geometryToCanvas,
@@ -1315,6 +1311,7 @@ const els = {
     quickVisibility: document.getElementById("quick-visibility"),
     quickToBack: document.getElementById("quick-to-back"),
     quickToFront: document.getElementById("quick-to-front"),
+    quickMouseCoordinates: document.getElementById("quick-mouse-coordinates"),
     animationDock: document.getElementById("animation-dock"),
     referenceVideoFile: document.getElementById("reference-video-file"),
     clearReference: document.getElementById("clear-reference"),
@@ -1360,15 +1357,16 @@ const els = {
     enemyAttackType: document.getElementById("enemy-attack-type"),
     enemyDamage: document.getElementById("enemy-damage"),
     enemyAttackCooldown: document.getElementById("enemy-attack-cooldown"),
+    enemyImmuneToInterrupts: document.getElementById("enemy-immune-to-interrupts"),
     enemyAttackRange: document.getElementById("enemy-attack-range"),
     enemyAttackVerticalRange: document.getElementById("enemy-attack-vertical-range"),
-    enemyMeleeHitRadius: document.getElementById("enemy-melee-hit-radius"),
     enemyMeleeHitRange: document.getElementById("enemy-melee-hit-range"),
     enemyLungeRangeMin: document.getElementById("enemy-lunge-range-min"),
     enemyLungeRangeMax: document.getElementById("enemy-lunge-range-max"),
     enemyLungeSpeed: document.getElementById("enemy-lunge-speed"),
     enemyLungeTargetDist: document.getElementById("enemy-lunge-target-dist"),
     enemyAwarenessRange: document.getElementById("enemy-awareness-range"),
+    enemyDeaf: document.getElementById("enemy-deaf"),
     enemyAwarenessViewHalfAngle: document.getElementById("enemy-awareness-view-half-angle"),
     enemyAwarenessHoldDuration: document.getElementById("enemy-awareness-hold-duration"),
     enemyPreferredAttackRange: document.getElementById("enemy-preferred-attack-range"),
@@ -1487,14 +1485,6 @@ const els = {
     offsetY: document.getElementById("offset-y"),
     partScale: document.getElementById("part-scale"),
     targetHeight: document.getElementById("target-height"),
-    colorExchangeEnabled: document.getElementById("color-exchange-enabled"),
-    colorExchangeFields: document.getElementById("color-exchange-fields"),
-    colorExchangeFrom: document.getElementById("color-exchange-from"),
-    colorExchangeTo: document.getElementById("color-exchange-to"),
-    colorExchangeRedThreshold: document.getElementById("color-exchange-red-threshold"),
-    colorExchangeGreenThreshold: document.getElementById("color-exchange-green-threshold"),
-    colorExchangeBlueThreshold: document.getElementById("color-exchange-blue-threshold"),
-    colorExchangeHelp: document.getElementById("color-exchange-help"),
     parentConstraintEnabled: document.getElementById("parent-constraint-enabled"),
     parentConstraintFields: document.getElementById("parent-constraint-fields"),
     parentConstraintPart: document.getElementById("parent-constraint-part"),
@@ -2374,9 +2364,9 @@ function refreshEnemyTypeFields() {
         els.enemyLabel, els.enemyIcon, els.enemyDescription, els.enemyDefaultWidth, els.enemyDefaultHeight,
         els.enemyRenderScale, els.enemyRenderOffsetX, els.enemyRenderOffsetY, els.enemyHealth,
         els.enemyLocomotion, els.enemyStrategy, els.enemyWalkSpeed, els.enemyRunSpeed, els.enemyJumpHeight,
-        els.enemyAttackType, els.enemyDamage, els.enemyAttackCooldown, els.enemyAttackRange,
-        els.enemyAttackVerticalRange, els.enemyMeleeHitRadius, els.enemyMeleeHitRange,
-        els.enemyLungeRangeMin, els.enemyLungeRangeMax, els.enemyLungeSpeed, els.enemyLungeTargetDist, els.enemyAwarenessRange,
+        els.enemyAttackType, els.enemyDamage, els.enemyAttackCooldown, els.enemyImmuneToInterrupts, els.enemyAttackRange,
+        els.enemyAttackVerticalRange, els.enemyMeleeHitRange,
+        els.enemyLungeRangeMin, els.enemyLungeRangeMax, els.enemyLungeSpeed, els.enemyLungeTargetDist, els.enemyAwarenessRange, els.enemyDeaf,
         els.enemyAwarenessViewHalfAngle, els.enemyAwarenessHoldDuration, els.enemyPreferredAttackRange,
         els.enemyPreferredAttackMinRange, els.enemyProjectileKind,
         els.enemyProjectileLaunchType, els.enemyProjectileSpeed, els.enemyProjectileGravity,
@@ -2413,18 +2403,19 @@ function refreshEnemyTypeFields() {
     els.enemyWalkSpeed.value = Number.isFinite(Number(defaults.walkSpeed)) ? Number(defaults.walkSpeed) : 0;
     els.enemyRunSpeed.value = Number.isFinite(Number(defaults.runSpeed)) ? Number(defaults.runSpeed) : 0;
     els.enemyJumpHeight.value = Number.isFinite(Number(defaults.jumpHeight)) ? Number(defaults.jumpHeight) : 0;
-    els.enemyAttackType.value = String(defaults.attackType || defaults.attackMode || "melee") === "projectile" ? "projectile" : "melee";
-    els.enemyDamage.value = Number.isFinite(Number(defaults.damage)) ? Number(defaults.damage) : Number(defaults.projectileDamage ?? defaults.attackDamage ?? 0);
-    els.enemyAttackCooldown.value = Number.isFinite(Number(defaults.attackCooldown)) ? Number(defaults.attackCooldown) : Number(defaults.projectileCooldown ?? 0);
+    els.enemyAttackType.value = String(defaults.attackType || "melee") === "projectile" ? "projectile" : "melee";
+    els.enemyDamage.value = Number.isFinite(Number(defaults.damage)) ? Number(defaults.damage) : 0;
+    els.enemyAttackCooldown.value = Number.isFinite(Number(defaults.attackCooldown)) ? Number(defaults.attackCooldown) : 0;
+    els.enemyImmuneToInterrupts.checked = defaults.immuneToInterrupts === true;
     els.enemyAttackRange.value = Number.isFinite(Number(defaults.attackRange)) ? Number(defaults.attackRange) : 1;
     els.enemyAttackVerticalRange.value = Number.isFinite(Number(defaults.attackVerticalRange)) ? Number(defaults.attackVerticalRange) : 1;
-    els.enemyMeleeHitRadius.value = Number.isFinite(Number(defaults.meleeHitRadius)) ? Number(defaults.meleeHitRadius) : Math.max(12, Number(defaults.attackRange || 24) * 0.5);
     els.enemyMeleeHitRange.value = Number.isFinite(Number(defaults.meleeHitRange)) ? Number(defaults.meleeHitRange) : 0;
     els.enemyLungeRangeMin.value = Number.isFinite(Number(defaults.lungeRangeMin)) ? Number(defaults.lungeRangeMin) : 0;
     els.enemyLungeRangeMax.value = Number.isFinite(Number(defaults.lungeRangeMax)) ? Number(defaults.lungeRangeMax) : 0;
     els.enemyLungeSpeed.value = Number.isFinite(Number(defaults.lungeSpeed)) ? Number(defaults.lungeSpeed) : 0;
     els.enemyLungeTargetDist.value = Number.isFinite(Number(defaults.lungeTargetDist)) ? Number(defaults.lungeTargetDist) : 0;
     els.enemyAwarenessRange.value = Number.isFinite(Number(defaults.awarenessRange)) ? Number(defaults.awarenessRange) : 300;
+    els.enemyDeaf.checked = defaults.deaf === true;
     els.enemyAwarenessViewHalfAngle.value = Number.isFinite(Number(defaults.awarenessViewHalfAngle)) ? Number(defaults.awarenessViewHalfAngle) : 60;
     els.enemyAwarenessHoldDuration.value = Number.isFinite(Number(defaults.awarenessHoldDuration)) ? Number(defaults.awarenessHoldDuration) : 1.2;
     els.enemyPreferredAttackRange.value = Number.isFinite(Number(defaults.preferredAttackRange)) ? Number(defaults.preferredAttackRange) : 180;
@@ -2439,8 +2430,8 @@ function refreshEnemyTypeFields() {
     els.enemyProjectileLifetime.value = Number(defaults.projectileLifetime ?? 1);
     els.enemyProjectileRadius.value = Number(defaults.projectileRadius ?? 1);
     els.enemyProjectileHoming.value = Number(defaults.projectileHomingStrength ?? 0);
-    els.enemySpreadCount.value = Number(defaults.spreadCount ?? defaults.projectileVolleyCount ?? 1);
-    els.enemySpreadAngle.value = Number(defaults.spreadAngle ?? defaults.projectileVolleyHalfAngle ?? 0);
+    els.enemySpreadCount.value = Number(defaults.spreadCount ?? 1);
+    els.enemySpreadAngle.value = Number(defaults.spreadAngle ?? 0);
     els.enemyProjectileRotationSpeed.value = Number(enemyProjectilePresentationValue(defaults, "projectileRotationSpeedDegrees", "rotationSpeedDegrees", 0));
     refreshEnemyProjectileVisualControls(defaults);
     els.enemyProjectileVisualScale.value = Number(enemyProjectilePresentationValue(defaults, "projectileVisualScale", "visualScale", 1));
@@ -2472,13 +2463,16 @@ function writeEnemyStructuredFields(definition, defaults) {
     defaults.attackType = String(els.enemyAttackType.value || "melee") === "projectile" ? "projectile" : "melee";
     defaults.damage = Math.max(0, Number(els.enemyDamage.value) || 0);
     defaults.attackCooldown = Math.max(0, Number(els.enemyAttackCooldown.value) || 0);
-    defaults.attackRange = Math.max(1, Number(els.enemyAttackRange.value) || 1);
+    if (els.enemyImmuneToInterrupts.checked) defaults.immuneToInterrupts = true;
+    else delete defaults.immuneToInterrupts;
     defaults.attackVerticalRange = Math.max(1, Number(els.enemyAttackVerticalRange.value) || 1);
     defaults.awarenessRange = Math.max(0, Number(els.enemyAwarenessRange.value) || 0);
+    if (els.enemyDeaf.checked) defaults.deaf = true;
+    else delete defaults.deaf;
     defaults.awarenessViewHalfAngle = Math.max(0, Math.min(180, Number(els.enemyAwarenessViewHalfAngle.value) || 0));
     defaults.awarenessHoldDuration = Math.max(0, Number(els.enemyAwarenessHoldDuration.value) || 0);
     if (defaults.attackType === "melee") {
-        defaults.meleeHitRadius = Math.max(1, Number(els.enemyMeleeHitRadius.value) || 1);
+        delete defaults.attackRange;
         defaults.meleeHitRange = Math.max(0, Number(els.enemyMeleeHitRange.value) || 0);
         defaults.lungeRangeMin = Math.max(0, Number(els.enemyLungeRangeMin.value) || 0);
         defaults.lungeRangeMax = Math.max(0, Number(els.enemyLungeRangeMax.value) || 0);
@@ -2491,16 +2485,11 @@ function writeEnemyStructuredFields(definition, defaults) {
         delete defaults.lungeSpeed;
         delete defaults.lungeTargetDist;
     }
-    delete defaults.attackMode;
-    delete defaults.attackDamage;
-    delete defaults.projectileDamage;
     delete defaults.attackHitTime;
     delete defaults.projectileReleaseTime;
-    delete defaults.projectileVolleyCount;
-    delete defaults.projectileVolleyHalfAngle;
-    delete defaults.projectileCooldown;
 
     if (defaults.attackType === "projectile") {
+        defaults.attackRange = Math.max(1, Number(els.enemyAttackRange.value) || 1);
         defaults.projectileKind = String(els.enemyProjectileKind.value || "fireball");
         defaults.projectileLaunchType = String(els.enemyProjectileLaunchType.value || "straight");
         defaults.projectileSpeed = Math.max(1, Number(els.enemyProjectileSpeed.value) || 1);
@@ -2571,6 +2560,7 @@ async function loadCharacter() {
     await discoverCharacterWavs();
     state.rigUrl = resolveRelativeUrl(state.characterUrl, state.character.rig);
     state.rig = await loadJson(state.rigUrl);
+    assertNoRemovedCharacterPartColorExchange(state.rig, `Character rig (${state.rigUrl})`);
     state.atlasUrl = resolveRelativeUrl(state.rigUrl, state.rig.atlasManifest || `${state.rig.atlasId}.json`);
     state.atlas = await loadJson(state.atlasUrl);
     state.imageUrl = resolveRelativeUrl(state.atlasUrl, state.atlas.image);
@@ -2579,6 +2569,13 @@ async function loadCharacter() {
         state.image = await loadImage(state.imageUrl);
     } catch (error) {
         state.image = null;
+        console.error("Character editor atlas image load failed", {
+            characterId: state.character?.characterId || "",
+            atlasUrl: state.atlasUrl,
+            imageUrl: state.imageUrl,
+            projectMode: state.projectMode,
+            error: error?.stack || error?.message || String(error)
+        });
         imageWarning = `\nImage warning: ${error.message}`;
     }
     state.assets = buildAssetsFromAtlas(state.image, state.atlas, state.rig, state.imageUrl);
@@ -2612,6 +2609,7 @@ async function loadGeneratedProject(project) {
     await discoverCharacterWavs();
     state.rig = project.rig;
     state.rigUrl = project.filenames.rig;
+    assertNoRemovedCharacterPartColorExchange(state.rig, `Character rig (${state.rigUrl})`);
     state.atlas = project.atlas;
     state.atlasUrl = project.filenames.atlas;
     state.image = null;
@@ -2921,6 +2919,7 @@ function applyRigJson() {
         if (!parsed || !parsed.parts || !parsed.pivots || !Array.isArray(parsed.drawOrder)) {
             throw new Error("Rig JSON must contain drawOrder, parts, and pivots.");
         }
+        assertNoRemovedCharacterPartColorExchange(parsed, "Character rig JSON");
         const constraintErrors = validateParentConstraints(parsed);
         if (constraintErrors.length) {
             throw new Error(constraintErrors[0]);
@@ -2944,7 +2943,6 @@ function buildAssetsFromAtlas(image, atlas, rig, imageUrl) {
     if (!image || !atlas?.frames || !rig?.parts) {
         return result;
     }
-    const exchangeCache = new Map();
     for (const partName of drawOrder()) {
         const part = rig.parts[partName];
         const frameId = part.frame || partName;
@@ -2956,30 +2954,12 @@ function buildAssetsFromAtlas(image, atlas, rig, imageUrl) {
         canvasPart.width = frame.w;
         canvasPart.height = frame.h;
         canvasPart.getContext("2d").drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
-        const modifier = normalizeColorExchange(part.colorExchange);
-        let renderedCanvas = canvasPart;
-        let changedPixelCount = 0;
-        if (modifier) {
-            const key = `${frameId}|${JSON.stringify(modifier)}`;
-            let exchanged = exchangeCache.get(key);
-            if (!exchanged) {
-                exchanged = createColorExchangedSpriteCanvas(canvasPart, modifier, {
-                    width: frame.w,
-                    height: frame.h
-                });
-                exchangeCache.set(key, exchanged);
-            }
-            renderedCanvas = exchanged.canvas;
-            changedPixelCount = exchanged.changedPixelCount;
-        }
         result.set(partName, {
-            canvas: renderedCanvas,
+            canvas: canvasPart,
             width: frame.w,
             height: frame.h,
             frameId,
-            source: `${imageUrl}#${frameId}`,
-            colorExchange: modifier,
-            colorExchangeChangedPixelCount: changedPixelCount
+            source: `${imageUrl}#${frameId}`
         });
     }
     return result;
@@ -3645,6 +3625,30 @@ function clientPointOnCanvas(clientX, clientY) {
     return canvasPointFromClient(clientX, clientY, canvas.getBoundingClientRect(), canvas.width, canvas.height);
 }
 
+function formatSignedMouseCoordinate(value) {
+    const rounded = Math.round(Number(value) || 0);
+    return `${rounded >= 0 ? "+" : ""}${rounded}`;
+}
+
+function updateQuickMouseCoordinates(event) {
+    if (!els.quickMouseCoordinates || state.editorMode !== "animation") {
+        return;
+    }
+    const canvasPoint = clientPointOnCanvas(event.clientX, event.clientY);
+    const worldPoint = canvasToCharacterWorldPoint(
+        canvasPoint,
+        currentViewTransform(),
+        CHARACTER_EDITOR_WORLD_SCALE
+    );
+    els.quickMouseCoordinates.textContent = `X:${formatSignedMouseCoordinate(worldPoint.x)} Y:${formatSignedMouseCoordinate(worldPoint.y)}`;
+}
+
+function clearQuickMouseCoordinates() {
+    if (els.quickMouseCoordinates) {
+        els.quickMouseCoordinates.textContent = "X:— Y:—";
+    }
+}
+
 function updatePlayPauseButton() {
     const playing = !state.paused;
     els.pause.textContent = playing ? "PAUSE" : "PLAY";
@@ -3788,61 +3792,6 @@ function writeProjectilePartFromUi() {
     markDirty("rig");
 }
 
-
-function syncColorExchangeControls(partName = selectedPartName()) {
-    const part = state.rig?.parts?.[partName] || null;
-    const modifier = normalizeColorExchange(part?.colorExchange);
-    const enabled = Boolean(modifier);
-    state.syncing = true;
-    els.colorExchangeEnabled.checked = enabled;
-    els.colorExchangeEnabled.disabled = !part;
-    els.colorExchangeFields.hidden = !enabled;
-    els.colorExchangeFrom.disabled = !enabled;
-    els.colorExchangeTo.disabled = !enabled;
-    els.colorExchangeRedThreshold.disabled = !enabled;
-    els.colorExchangeGreenThreshold.disabled = !enabled;
-    els.colorExchangeBlueThreshold.disabled = !enabled;
-    els.colorExchangeFrom.value = rgbColorToHex(modifier?.fromColor || [255, 255, 255]);
-    els.colorExchangeTo.value = rgbColorToHex(modifier?.toColor || [0, 0, 0]);
-    els.colorExchangeRedThreshold.value = Number(modifier?.redThreshold ?? 1).toFixed(3);
-    els.colorExchangeGreenThreshold.value = Number(modifier?.greenThreshold ?? 1).toFixed(3);
-    els.colorExchangeBlueThreshold.value = Number(modifier?.blueThreshold ?? 1).toFixed(3);
-    const changedPixels = Number(state.assets?.get(partName)?.colorExchangeChangedPixelCount) || 0;
-    els.colorExchangeHelp.textContent = enabled
-        ? `GIMP-compatible channel exchange is active. ${changedPixels.toLocaleString()} source pixels matched. Threshold 0.0 means exact match; 1.0 accepts the complete channel range. Alpha is preserved.`
-        : "Threshold 0.0 changes only an exact channel match. Threshold 1.0 accepts the complete channel range. Alpha is preserved, and the recolored sprite is generated once and cached.";
-    state.syncing = false;
-}
-
-function writeColorExchangeFromUi() {
-    if (state.syncing || !state.rig) {
-        return;
-    }
-    const partName = selectedPartName();
-    const part = state.rig.parts?.[partName];
-    if (!part) {
-        return;
-    }
-    if (!els.colorExchangeEnabled.checked) {
-        delete part.colorExchange;
-    } else {
-        part.colorExchange = normalizeColorExchange({
-            fromColor: normalizeRgbColor(els.colorExchangeFrom.value),
-            toColor: normalizeRgbColor(els.colorExchangeTo.value),
-            redThreshold: Number(els.colorExchangeRedThreshold.value),
-            greenThreshold: Number(els.colorExchangeGreenThreshold.value),
-            blueThreshold: Number(els.colorExchangeBlueThreshold.value)
-        });
-    }
-    state.assets = buildAssetsFromAtlas(state.image, state.atlas, state.rig, state.imageUrl);
-    refreshRigJson();
-    markDirty("rig");
-    syncColorExchangeControls(partName);
-    updateReadouts();
-    setStatus(part.colorExchange
-        ? `${partName} Color Exchange preview rebuilt from ${els.colorExchangeFrom.value} to ${els.colorExchangeTo.value}.`
-        : `${partName} Color Exchange disabled.`);
-}
 
 
 function selectedPartParentConstraint(partName = selectedPartName()) {
@@ -4024,7 +3973,6 @@ function selectPart(name) {
     updateDrawOrderButtons();
     state.syncing = false;
     syncProjectilePartControls(name);
-    syncColorExchangeControls(name);
     syncParentConstraintControls(name);
     state.selectedKeyIndex = -1;
     state.selectedTransformTime = null;
@@ -6099,9 +6047,9 @@ const enemyStructuredControls = [
     els.enemyLabel, els.enemyIcon, els.enemyDescription, els.enemyDefaultWidth, els.enemyDefaultHeight,
     els.enemyRenderScale, els.enemyRenderOffsetX, els.enemyRenderOffsetY, els.enemyHealth,
     els.enemyLocomotion, els.enemyStrategy, els.enemyWalkSpeed, els.enemyRunSpeed, els.enemyJumpHeight,
-    els.enemyAttackType, els.enemyDamage, els.enemyAttackCooldown, els.enemyAttackRange,
-    els.enemyAttackVerticalRange, els.enemyMeleeHitRadius, els.enemyMeleeHitRange,
-    els.enemyLungeRangeMin, els.enemyLungeRangeMax, els.enemyLungeSpeed, els.enemyLungeTargetDist, els.enemyAwarenessRange,
+    els.enemyAttackType, els.enemyDamage, els.enemyAttackCooldown, els.enemyImmuneToInterrupts, els.enemyAttackRange,
+    els.enemyAttackVerticalRange, els.enemyMeleeHitRange,
+    els.enemyLungeRangeMin, els.enemyLungeRangeMax, els.enemyLungeSpeed, els.enemyLungeTargetDist, els.enemyAwarenessRange, els.enemyDeaf,
     els.enemyAwarenessViewHalfAngle, els.enemyAwarenessHoldDuration, els.enemyPreferredAttackRange,
     els.enemyPreferredAttackMinRange,
     els.enemyProjectileLaunchType, els.enemyProjectileSpeed, els.enemyProjectileGravity,
@@ -6288,16 +6236,6 @@ els.propertySelect.addEventListener("change", () => {
 for (const el of [els.pivotX, els.pivotY, els.offsetX, els.offsetY, els.partScale, els.targetHeight]) {
     el.addEventListener("input", writePartFromUi);
 }
-els.colorExchangeEnabled.addEventListener("change", writeColorExchangeFromUi);
-for (const el of [
-    els.colorExchangeFrom,
-    els.colorExchangeTo,
-    els.colorExchangeRedThreshold,
-    els.colorExchangeGreenThreshold,
-    els.colorExchangeBlueThreshold
-]) {
-    el.addEventListener("change", writeColorExchangeFromUi);
-}
 els.parentConstraintEnabled.addEventListener("change", writeParentConstraintFromUi);
 els.parentConstraintPart.addEventListener("change", writeParentConstraintFromUi);
 for (const el of [els.parentConstraintX, els.parentConstraintY]) {
@@ -6403,10 +6341,12 @@ canvas.addEventListener("pointermove", (event) => {
     if (state.editorMode === "atlas") {
         updateAtlasCursor(event);
     } else {
+        updateQuickMouseCoordinates(event);
         updateStageCursor(event);
     }
 });
 canvas.addEventListener("pointerleave", () => {
+    clearQuickMouseCoordinates();
     if (!state.partDrag && !state.atlasDrag && !state.previewPanDrag && !state.groundGuideDrag) {
         canvas.style.cursor = "default";
     }

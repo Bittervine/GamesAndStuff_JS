@@ -56,8 +56,15 @@
     const DIRECTORY_PICKER_ID = `ignatius-res-${scopeHash(PROJECT_SCOPE_PATH)}`;
 
     function nativeBridge() {
-        const bridge = window.chrome?.webview;
+        const bridge = window.chrome?.webview || window.electronDevTool?.webview;
         return typeof bridge?.postMessage === "function" ? bridge : null;
+    }
+
+    function nativeResourceBaseUrl() {
+        const candidate = window.electronDevTool?.resourceBaseUrl;
+        return typeof candidate === "string" && candidate.length > 0
+            ? candidate
+            : NATIVE_RESOURCE_BASE_URL;
     }
 
     function sameOriginParentHost() {
@@ -103,7 +110,7 @@
             .split("/")
             .map((part) => encodeURIComponent(part))
             .join("/");
-        const url = new URL(encodedPath, NATIVE_RESOURCE_BASE_URL);
+        const url = new URL(encodedPath, nativeResourceBaseUrl());
         url.searchParams.set("ignatius_project_root", String(selectionVersion));
         return url.href;
     }
@@ -458,6 +465,7 @@
     window.IgnatiusProjectHost = Object.freeze({
         create: () => new IgnatiusProjectHost(),
         get: getProjectHost,
+        nativeBridge,
         resourceDirectories: RESOURCE_DIRECTORIES,
         requiredDirectories: REQUIRED_DIRECTORIES,
         normalizeResourceRelativePath,

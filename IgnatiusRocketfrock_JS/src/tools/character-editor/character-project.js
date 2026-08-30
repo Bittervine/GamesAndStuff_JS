@@ -10,6 +10,18 @@ const FILE_KIND = Object.freeze({
 
 export const CHARACTER_PROJECT_FILE_KIND = FILE_KIND;
 
+export function assertNoRemovedCharacterPartColorExchange(rig, label = "Character rig") {
+    if (!rig || typeof rig !== "object" || Array.isArray(rig)) {
+        return;
+    }
+    for (const [partName, part] of Object.entries(rig.parts || {})) {
+        if (part && typeof part === "object" && !Array.isArray(part)
+            && Object.prototype.hasOwnProperty.call(part, "colorExchange")) {
+            throw new Error(`${label} part "${partName}" uses removed character-part colorExchange. Bake variant pixels into the authored character atlas instead.`);
+        }
+    }
+}
+
 export function normalizeCharacterSlug(value) {
     const slug = String(value || "")
         .trim()

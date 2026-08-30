@@ -7,86 +7,86 @@
     "image": "at_atlas_017.png",
     "frames": {
         "cave_background_scene_017_01": {
-            "x": 43,
-            "y": 32,
+            "x": 10,
+            "y": 1,
             "w": 796,
             "h": 261
         },
         "cave_background_scene_017_02": {
-            "x": 866,
-            "y": 32,
+            "x": 833,
+            "y": 1,
             "w": 218,
             "h": 246
         },
         "cave_background_scene_017_03": {
-            "x": 1104,
-            "y": 41,
+            "x": 1071,
+            "y": 10,
             "w": 183,
             "h": 234
         },
         "cave_background_scene_017_04": {
-            "x": 1307,
-            "y": 32,
+            "x": 1274,
+            "y": 1,
             "w": 203,
             "h": 260
         },
         "cave_background_scene_017_05": {
-            "x": 39,
-            "y": 309,
+            "x": 6,
+            "y": 278,
             "w": 349,
             "h": 210
         },
         "cave_background_scene_017_06": {
-            "x": 404,
-            "y": 306,
+            "x": 371,
+            "y": 275,
             "w": 498,
             "h": 198
         },
         "cave_background_scene_017_07": {
-            "x": 934,
-            "y": 300,
+            "x": 901,
+            "y": 269,
             "w": 561,
             "h": 252
         },
         "cave_background_scene_017_08": {
-            "x": 34,
-            "y": 533,
+            "x": 1,
+            "y": 502,
             "w": 533,
             "h": 194
         },
         "cave_background_scene_017_09": {
-            "x": 597,
-            "y": 511,
+            "x": 564,
+            "y": 480,
             "w": 390,
             "h": 223
         },
         "cave_background_scene_017_10": {
-            "x": 1011,
-            "y": 558,
+            "x": 978,
+            "y": 527,
             "w": 418,
             "h": 183
         },
         "cave_background_scene_017_11": {
-            "x": 34,
-            "y": 744,
+            "x": 1,
+            "y": 713,
             "w": 414,
             "h": 236
         },
         "cave_background_scene_017_12": {
-            "x": 459,
-            "y": 747,
+            "x": 426,
+            "y": 716,
             "w": 214,
             "h": 233
         },
         "cave_background_scene_017_13": {
-            "x": 703,
-            "y": 742,
+            "x": 670,
+            "y": 711,
             "w": 423,
             "h": 238
         },
         "cave_background_scene_017_14": {
-            "x": 1152,
-            "y": 748,
+            "x": 1119,
+            "y": 717,
             "w": 358,
             "h": 232
         }

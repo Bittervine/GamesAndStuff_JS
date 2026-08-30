@@ -47,8 +47,37 @@ function gameplayPerimeterPoints(world = {}, caveWindow = null) {
         : [];
 }
 
+export const MINIMAP_CHECKPOINT_SNAP_DISTANCE = 4000;
+
 export function minimapTeleportAllowed(development, editorPlaytest) {
     return Boolean(development || editorPlaytest);
+}
+
+function minimapCheckpointLike(entity) {
+    return entity && typeof entity === "object"
+        && (String(entity.type || "") === "checkpointRune" || String(entity.interaction || "") === "checkpoint");
+}
+
+export function minimapTeleportDestination(world = {}, point = null) {
+    const clickedX = Number(point?.x);
+    const clickedY = Number(point?.y);
+    if (!Number.isFinite(clickedX) || !Number.isFinite(clickedY)) return point;
+
+    let bestPoint = { x: clickedX, y: clickedY };
+    let bestDistance = Infinity;
+    for (const entity of Array.isArray(world?.entities) ? world.entities : []) {
+        if (!minimapCheckpointLike(entity)) continue;
+        if (entity.x == null || entity.y == null) continue;
+        const checkpointX = Number(entity.x);
+        const checkpointY = Number(entity.y);
+        if (!Number.isFinite(checkpointX) || !Number.isFinite(checkpointY)) continue;
+        const distance = Math.hypot(checkpointX - clickedX, checkpointY - clickedY);
+        if (distance <= MINIMAP_CHECKPOINT_SNAP_DISTANCE && distance < bestDistance) {
+            bestDistance = distance;
+            bestPoint = { x: checkpointX, y: checkpointY };
+        }
+    }
+    return bestPoint;
 }
 
 export function minimapPointInsideGameplayPerimeter(world = {}, caveWindow = null, point = null) {

@@ -1,3 +1,9 @@
+# SCOPE AND PRECEDENCE #
+
+This file contains reference-implementation-specific guidance inherited from the former standalone HTML/JS repository. Repository-wide workflow, SDL/C++ parity, baseline/update packaging, and current revision policy are governed by `../AGENTS.md`; if this file conflicts with the root file, the root file wins. Rules below remain useful for work inside `reference/`, especially browser/editor architecture and historical design constraints.
+
+Revision numbers mentioned below belong to the historical standalone HTML/JS lineage unless a paragraph explicitly says otherwise. They are documentation history, not the current SDL repository revision sequence. `PLAN.md` likewise remains a historical/reference planning record rather than the repository-wide current bug ledger.
+
 # INTRO #
 
 This is about a 2D platformer where a catoony wizard as protagonist for a 2D platformer game. 
@@ -15,7 +21,7 @@ Treat this repository as self-contained. Use the HTML/JS reference implementatio
 
 ## DOCUMENTATION AND PLAN RULE ##
 
-Whenever implementation work uncovers a bug, stale behavior, or deprecated field/code path, record it explicitly in `PLAN.md`, including whether it was fixed immediately or left for later. Any player-facing, editor-facing, or control change that is described in `GameManual.html` must update the manual in the same revision. Keep revision labels shown by game/editor surfaces synchronized with the packaged revision.
+`PLAN.md` is retained as the historical planning record for the standalone HTML/JS implementation; do not treat it as a second repository-wide bug ledger. Follow `../AGENTS.md` for current cross-port tracking and handoff requirements. Any player-facing, editor-facing, or control change that is described in `GameManual.html` must still update the manual in the same current repository revision. Keep visible game/editor revision labels synchronized with that current revision.
 
 ## TEST LEVEL FIXTURE RULE ##
 
@@ -44,9 +50,9 @@ The `level.caveWindow` perimeter is a presentation-only foreground mask and deco
 
 Wrench-modified projectile rockets carry their launch-time wrench effect ID and tint in portable projectile state. Runtime presentation must resolve the matching combined powered-rocket frame from the wizard's supplemental atlas and draw it as one ordinary sprite. Never restore alpha extraction, dilation, blur, tinting, temporary-canvas creation, or a runtime glow cache. `src/presentation/rocket-glow-baking.js` retains the separable silhouette-expansion and Gaussian-blur helpers only for offline atlas preparation and deterministic tests. Standard and Overdrive-only rockets continue to use the neutral projectile frame.
 
-## UPDATE ARCHIVE RULE ##
+## LEGACY REFERENCE UPDATE ARCHIVE RULE ##
 
-Use `devel/package_update.py` for revision handoffs. It verifies the visible game and Level Editor revision labels, checks required project files, excludes PNG, XCF, OGG, and EXE heavyweight files plus generated build directories, and tests the finished zip before reporting success.
+`devel/package_update.py` is retained for the historical standalone HTML/JS packaging workflow and its regression tests. Do not use it for current repository revision handoffs. Current cumulative update ZIPs, baseline handling, and verification follow `../AGENTS.md`.
 
 ## ROCKET IMPACT EFFECT PERFORMANCE RULE ##
 
@@ -442,3 +448,69 @@ Ordinary Linux builds default to optimized Release configuration; request Debug 
 ## REVISION 450 TEST-COVERAGE BOUNDARY RULE ##
 
 Supported generator input dimensions are release-gate coverage, not seed breadth: keep the complete theme x length x route x cavern cross-product in the ordinary compatibility regression. Put only additional deterministic seeds in the explicit stress tier. Native character tests may use synthetic in-memory projects for focused draw behavior, but retain exactly one representative real enemy load for the complete resource pipeline. Profiling must label a peak RSS fallback truthfully and report unavailable data explicitly instead of substituting zero.
+
+## Revision 461 character-enemy combat schema rule
+
+Authored enemy combat data uses `attackType`, `damage`, `attackCooldown`, `spreadCount`, and `spreadAngle`; do not restore loader/editor compatibility for `attackMode`, `attackDamage`, `projectileDamage`, `projectileCooldown`, `projectileVolleyCount`, or `projectileVolleyHalfAngle`. `attackRange` is projectile-only. Every non-passive melee catalog definition must author a positive `meleeHitRange`, measured horizontally from grounded-base X while the melee handoff owns timing and strike Y; there is no `meleeHitRadius` or `attackRange` fallback. Lunge eligibility additionally requires an explicit positive `lungeTargetDist`; do not infer it from melee reach. Keep browser/native schema, behavior, editors, and regressions matched.
+
+## REVISION 500 NAVIGATION VERIFICATION / UTILS BATCH RULE ##
+
+Fresh heuristic `jump` and `drop` edges are `verification: "unverified"`. The shared fixed-step (`dt = 1/60`) traversal verifier changes each attempted edge to `verified` or `failed`; a failed edge remains serialized with a compact `verificationFailure` reason instead of being deleted. Runtime navigation must never use failed jump/drop edges, should prefer fully verified routes, and may fall back to unverified transitions when necessary. Level files are therefore the durable record of verifier failures; logs are supplemental diagnostics. Keep browser/native semantics matched.
+
+All browser-side navigation graph production goes through `src/tools/navigation-rebake.js` and `rebakeAndVerifyNavigation(level, context, options)`. That canonical function owns static navigation-world construction, mobility-profile derivation, heuristic candidate baking, optional 60 Hz verification, verification-input signatures, and safe reuse/invalidation of existing verification states. Level Editor, Playtest, the CLI rebaker, and Utils are orchestration only and must not duplicate those semantics. Treat `NAVIGATION_VERIFICATION_INPUT_SCHEMA` as the verifier-semantics epoch and bump it whenever traversal/collision/verifier behavior changes enough to invalidate stored proof without a level/profile input change. Expensive verification runs through `src/tools/navigation-rebake-worker.js`, which is only a worker wrapper around the canonical function. Level Editor playtests still skip simulation for responsiveness, but their generated `level_temp` graph sets `build.enforceAdvisoryHeuristics: true`; browser and native playtests therefore exclude jump/drop edges carrying `heuristicRejectors` without rewriting simulation `verification`. Ordinary authored/runtime graphs leave this flag unset, so full-simulation game runs continue to treat heuristic opinions as advisory. The Dev Tool **Utils** tab's **Rebake and verify all navigation graphs in all levels** job is explicit maintenance work, never a Playtest side effect. Both heuristic baking and simulation run off the UI thread, progress is cancellable, numeric authored `level_###` levels are processed while `level_tNN` fixtures and scratch `level_temp` are excluded, and each completed level is saved immediately so a cancelled/overnight run preserves completed work.
+
+
+## REVISION 501 ADVISORY NAVIGATION-HEURISTIC CALIBRATION RULE ##
+
+New jump/drop rejection heuristics are advisory-only until they have been calibrated against runtime-equivalent simulation. Fresh jump/drop edges carry `heuristicRejectors`, an array of stable heuristic IDs, but runtime routing and traversal must ignore that array completely. `verification` remains the only simulation-proof state that may reject an edge at runtime. Graph build metadata records `advisoryHeuristicSchema` and the active `advisoryHeuristics` list so stored opinions are attributable to a specific heuristic epoch.
+
+Revision 501 introduces `intervening_walkable_support`: it warns when the ballistic feet trajectory descends through a different authored green one-way support before the intended destination. Sibling support segments belonging to the source or destination authored object are deliberately excluded because support segmentation/identity ambiguity is still under investigation. The heuristic must annotate, never cull, candidates during this calibration phase.
+
+Failed simulation edges retain compact `verificationDiagnostics` in the authored graph (`collisionId`, `landedSupportId`, `runUpTicks`, `airTicks`, `finalX`, `finalY`) in addition to the stable `verificationFailure` reason. These diagnostics are verification evidence, not heuristic graph shape: fast rebakes may preserve them only with still-valid verification, while heuristic-diff/check tooling must ignore them just as it ignores `verification` and `verificationFailure`.
+
+## REVISION 502 PHYSICAL LANDING / CONTACT-AWARE SUPPORT RULE ##
+
+Jump/drop verification must not reduce success to coordinate proximity alone, and must not reject a physically correct landing solely because a post-collision support probe chose a neighboring generated segment. Vertical sweep collision is the authoritative physical landing event. Carry its actual foot `contactX` into `findEnemyNavigationSupport()` and sample that coordinate before generic center/side probes, especially for steep authored supports.
+
+A landing is compatible with the intended destination when the physical collision maps to the intended authored support and the collision contact lies on the intended generated support geometry, or when the collision is on a same-authored-object support that directly shares the intended segment endpoint and the contact is at that shared endpoint within the small landing tolerance. Compatible landings normalize runtime navigation ownership to the intended destination segment; unrelated surfaces remain failures. Preserve raw collision/resolution IDs in verification diagnostics so segment-resolution behavior remains auditable rather than hidden by the normalization. Browser/native rules and tolerances must remain matched.
+
+`NAVIGATION_VERIFICATION_INPUT_SCHEMA` is 2 because these landing semantics invalidate Revision 501 proof. Advisory heuristic schema 2 also changes `intervening_walkable_support` to follow the same 60 Hz semi-implicit vertical integration used by runtime (`vy += g*dt`, then position integration) and only warn for an intervening one-way-support crossing that occurs before the target crossing. It remains advisory-only and must never cull or disable an edge.
+
+## REVISION 503 ADVISORY NAVIGATION DIAGNOSTICS / BODY-SPAN / RUN-UP RULE ##
+
+Advisory navigation warnings remain non-authoritative and must never remove, disable, or de-prioritize a jump/drop at runtime. Advisory heuristic schema 3 keeps the Revision 502 centre-foot `intervening_walkable_support` opinion unchanged and adds `intervening_walkable_support_body_span`, which evaluates the same 60 Hz semi-implicit one-way-support crossing with the runtime vertical-sweep foot samples at centre and `x +/- bodyWidth * 0.42`. Keep the two heuristic IDs separate during calibration even when both object to the same edge.
+
+Every advisory objection may serialize compact `heuristicDiagnostics` keyed by its stable heuristic ID. Intervening-support diagnostics record the predicted `supportId`, fixed-step `tick`, triggering `sample`, `contactX`, and `surfaceY`. These diagnostics are calibration evidence only; runtime routing ignores both `heuristicRejectors` and `heuristicDiagnostics`.
+
+The canonical browser rebake additionally evaluates `run_up_first_step_blocked`: one runtime-equivalent 60 Hz grounded run-up step from the authored `runUpX/runUpY`, using the same character walking/collision code as real traversal. This is intentionally a tiny early probe rather than a full jump simulation and records `tick`, start position, and attempted X. Native `bakeEnemyNavigationGraph()` performs the same probe. Keep this check advisory until repeated rebakes establish that the one-step result remains safely predictive.
+
+
+## REVISION 504 ADVISORY INTERCEPTION / SOURCE-RECAPTURE RULE ##
+
+Advisory heuristic schema 4 tightens `intervening_walkable_support_body_span` to the runtime vertical-sweep geometry instead of a forgiving analytic envelope. Foot samples must lie inside the authored support X domain with the same epsilon used by runtime; do not restore the old +/-0.25 px endpoint allowance. An incidental foot collision is not an interception failure when the intended destination support is already resolvable from that same snapped landing pose using the runtime preferred-support probes (`contactX`, centre, and `x +/- bodyWidth * 0.48` within the +/-5 px landing window). This keeps real overlapping/nearby target contacts from becoming heuristic false positives.
+
+Schema 4 also adds `source_support_recapture`. It warns only when the descending 60 Hz body-span foot probes are caught by a support belonging to the departure support's physical owner before the intended target, after applying the same temporary source-departure ignore window used by real jump/drop traversal. Source recapture is advisory evidence only and must not cull routes.
+
+A continuous swept-volume/tube remains a useful broad-phase research idea, but do not treat a mathematically continuous foot tube as runtime truth: enemy vertical collision intentionally samples centre/left/right feet, and Revision 503 calibration showed that a continuous foot span can flag contacts runtime never tests. Likewise, do not replace the cheap advisory layer with a near-complete per-edge collision simulation; expensive runtime-equivalent proof remains the separate verification stage.
+
+## REVISION 507 SIMULATION LANDING SALVAGE / PLAYTEST IMPORT RULE ##
+
+When authoritative jump/drop verification fails specifically with `landed_wrong_support`, the verifier may recover useful connectivity only by creating a separate simulation-proven edge to the support actually reached. Never rewrite the failed planned A→B candidate as successful. Consider A→C salvage only when C differs from the source, C can reach the intended B through at most two ordinary `step` edges, and C is not already reachable from A through currently usable graph connectivity. Re-run the traversal with C as the explicit target and retain the A→C edge only if that second simulation verifies it. Mark retained edges with `simulationSalvage.kind: "landed_wrong_support"`, the failed source edge id, intended target, actual landing support, and step-hop count. Browser/native behavior and naming should remain matched.
+
+Canonical heuristic-only rebakes must preserve previously proven simulation-salvage edges only when the verification-input signature and the underlying non-salvage candidate graph are unchanged and the associated source candidate still retains its `failed / landed_wrong_support` proof. Any changed navigation input or graph shape discards the stored salvage until simulation proves it again.
+
+Revision 506 moved Level Editor Play navigation baking into `navigation-rebake-worker.js` and sets `build.enforceAdvisoryHeuristics` on the generated `level_temp` graph. The browser simulation therefore must import and use `enemyNavigationEdgeRuntimeAllowed`; missing that import aborts the first gameplay tick while leaving music/HUD alive and the rendered stage black. Keep a regression covering this worker-backed playtest path.
+
+
+## REVISION 508 LOCAL SIMULATION-PROOF CACHE RULE ##
+
+Revision 508 supersedes Revision 507's whole-level-only preservation rule for simulation proof reuse. Every baked jump/drop edge carries a `verificationInputHash` (`navproof-v1-*`) derived from the navigation simulation schema, mobility profile, transition kinematics/source/target supports, and hashes of 512x512 static-collision chunks intersecting a conservative runtime-shaped influence region around that traversal. Failed proofs expand that region through their recorded final simulated position/air time, and the region includes the bounded actor penetration-recovery allowance. Presentation-only level data must not invalidate these hashes. Candidate graphs are still rebuilt from current authored geometry on every rebake; only the expensive 60 Hz verification result may be reused.
+
+Incremental verification may copy a stored `verified` or `failed` proof only when candidate identity still matches and the freshly recomputed local proof hash is identical. Stored `landed_wrong_support` salvage edges may be reused only when their own local hash still matches and their failed source proof remains valid. A matching legacy whole-level `verificationInputSignature` may bootstrap Revision-507 graphs once and retrofit local hashes without rerunning simulation; later edited levels should reuse proofs per edge. Any simulator/collision semantic change still bumps `NAVIGATION_VERIFICATION_INPUT_SCHEMA`, invalidating every local proof automatically.
+
+The Dev Tool Utils tab exposes two deliberate all-authored-level operations: **Incremental rebake + verify all levels** rebuilds candidates and reuses matching local proofs, while **Clean rebake + verify all levels** bypasses proof reuse and simulates every fresh jump/drop candidate. Both continue to exclude `level_tNN` and `level_temp`, save each completed authored `level_###` immediately, remain cancellable, and report simulated versus reused counts. The Level Editor's explicit simulation build uses incremental proof reuse by default; clearing its graphs first remains the local clean-rebuild path. Native graph loading must preserve the `verificationInputHash` field even though the browser/editor tooling owns cache evaluation.
+
+Revision 509 clarifies navigation simulation accounting: `simulatedEdges` / Utils "simulation run" totals include both freshly simulated base jump/drop candidates and the separate A→C salvage-proof simulations. `checkedEdges` remains the base-candidate count, while `salvageProofChecks` remains separately reported for diagnostics. This matters during the one-time Revision 506 whole-level-signature bootstrap, where all base proofs can be reused while a small number of newly introduced salvage proofs still need real simulation.
+
+
+Revision 509 also lengthens the normal-startup studio logo sequence in both browser and SDL runtimes to 0.5 s fade-in, 2.0 s fully visible, and 0.5 s fade-out. Editor playtests, explicit-level launches, and playback auto-starts continue to bypass the splash.

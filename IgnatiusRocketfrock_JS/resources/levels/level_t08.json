@@ -76,7 +76,7 @@
             "collisionFromManifest": true,
             "order": 2,
             "movement": {
-                "version": 1,
+                "version": 2,
                 "pattern": "shuttle",
                 "activation": "rider",
                 "signalChannel": "A",
@@ -88,7 +88,9 @@
                 "startPause": 0,
                 "endPause": 0.2,
                 "fadeDuration": 0.2,
-                "hiddenDuration": 1.25
+                "hiddenDuration": 1.25,
+                "motionType": "translate",
+                "easing": "linear"
             }
         }
     ],

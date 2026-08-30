@@ -419,7 +419,7 @@
         <a class="toplink" href="index.html">Back to main</a>
         <h1>Asset Tool</h1>
         <p>
-            Cyan boxes are visual islands/assets. Feature lines use shared nodes: green walkable, yellow blockable, blue water, orange damaging, red killable.
+            Cyan boxes are visual islands/assets. Feature lines use shared nodes: green walkable, yellow blockable, blue water, orange damaging, red killable. Closed yellow, orange, and red loops are filled blockable, damaging, and killable collision areas; green remains line-only walkable support.
         </p>
 
         <div class="box">
@@ -2041,7 +2041,7 @@ import { loadImageResourceWithRetry, loadJsonResourceWithRetry, loadResourceInde
     });
 
     function notifyDevToolResourceSaved(kind, id) {
-        const bridge = window.chrome?.webview;
+        const bridge = window.IgnatiusProjectHost?.nativeBridge?.();
         if (typeof bridge?.postMessage === "function") {
             bridge.postMessage(`ignatius-resource-saved|${kind}|${id}`);
         }

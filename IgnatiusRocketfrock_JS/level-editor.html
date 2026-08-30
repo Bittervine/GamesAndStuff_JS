@@ -1072,6 +1072,7 @@
             </div>
             <label>Preview profile<select id="navigation-profile-select"></select></label>
             <div class="inline"><input id="navigation-use-stride-arc" type="checkbox" checked><span class="small">Use stride-arc step test (new default)</span></div>
+            <div class="inline"><input id="navigation-check-by-simulation" type="checkbox"><span class="small">Check steps, jumps and drops by 60 Hz simulation when Build is pressed</span></div>
             <div class="inline"><input id="show-navigation-graph" type="checkbox"><span class="small">Show baked supports and directed transitions</span></div>
             <p id="navigation-graph-status" class="small">No baked navigation graph.</p>
         </div>
@@ -1151,11 +1152,10 @@
                 <div id="moving-platform-fields" style="display:none">
                     <label class="inline"><input id="inspect-moving-persistent" type="checkbox"> Persistent through respawn</label>
                     <div class="row">
-                        <label>Pattern
-                            <select id="inspect-moving-pattern">
-                                <option value="shuttle">Shuttle loop</option>
-                                <option value="loopRespawn">Move, vanish, respawn</option>
-                                <option value="vanishRespawn">Vanish trap, respawn</option>
+                        <label>Motion type
+                            <select id="inspect-moving-motion-type">
+                                <option value="translate">Translate</option>
+                                <option value="swing">Swing (pendulum)</option>
                             </select>
                         </label>
                         <label>Activation
@@ -1166,6 +1166,13 @@
                             </select>
                         </label>
                     </div>
+                    <label id="moving-pattern-label">Pattern
+                        <select id="inspect-moving-pattern">
+                            <option value="shuttle">Shuttle loop</option>
+                            <option value="loopRespawn">Move, vanish, respawn</option>
+                            <option value="vanishRespawn">Vanish trap, respawn</option>
+                        </select>
+                    </label>
                     <label id="moving-signal-channel-label" style="display:none">Signal channel<input id="inspect-moving-signal-channel" maxlength="64" value="A"></label>
                     <div id="moving-platform-end-fields">
                         <div class="row">
@@ -1174,7 +1181,28 @@
                         </div>
                         <div class="row">
                             <label>Speed px/s<input id="inspect-moving-speed" type="number" min="1" step="10"></label>
-                            <button id="inspect-moving-swap" type="button">Swap start and end</button>
+                            <label>Easing
+                                <select id="inspect-moving-easing">
+                                    <option value="linear">Linear</option>
+                                    <option value="easeIn">Ease in</option>
+                                    <option value="easeOut">Ease out</option>
+                                    <option value="easeInOut">Ease in/out</option>
+                                </select>
+                            </label>
+                        </div>
+                        <button id="inspect-moving-swap" type="button">Swap start and end</button>
+                    </div>
+                    <div id="moving-platform-swing-fields" style="display:none">
+                        <div class="row">
+                            <label>Amplitude °<input id="inspect-moving-angle-amplitude" type="number" min="0" max="180" step="1" title="Maximum 180°"></label>
+                            <label>Initial angle °<input id="inspect-moving-initial-angle" type="number" min="-180" max="180" step="1"></label>
+                        </div>
+                        <div class="row">
+                            <label>Swing period s<input id="inspect-moving-swing-period" type="number" min="2" step="0.1" title="Minimum 2.0 s"></label>
+                        </div>
+                        <div class="row">
+                            <label>Pivot X<input id="inspect-moving-pivot-x" type="number" min="-800" max="800" step="1" title="Pivot vector is limited to 800 px from local origin"></label>
+                            <label>Pivot Y<input id="inspect-moving-pivot-y" type="number" min="-800" max="800" step="1" title="Pivot vector is limited to 800 px from local origin"></label>
                         </div>
                     </div>
                     <div class="row">
@@ -1265,7 +1293,7 @@ SAY wizard "We should keep moving."
 THINK wizard "Something feels wrong."
 DELAY 1'></textarea>
                 </label>
-                <p class="small">Commands run from top to bottom and are modal: GOTO &lt;character&gt; &lt;x&gt; &lt;y&gt; [speed], ANIM &lt;character&gt; &lt;animation_name&gt;, SAY &lt;character&gt; &quot;text&quot;, THINK &lt;character&gt; &quot;text&quot;, DELAY &lt;seconds&gt;. GOTO moves directly in a straight line and intentionally ignores navigation/collision. ANIM switches immediately. A GOTO temporarily uses the character's walk/run animation, then restores the most recent ANIM override; another ANIM replaces that override, and it is cleared when the cutscene ends.</p>
+                <p class="small">Commands run from top to bottom and are modal: GOTO &lt;character&gt; &lt;x&gt;, GOTO &lt;character&gt; &lt;x&gt; &lt;y&gt; [speed], ANIM &lt;character&gt; &lt;animation_name&gt;, SAY &lt;character&gt; &quot;text&quot;, THINK &lt;character&gt; &quot;text&quot;, DELAY &lt;seconds&gt;. X-only GOTO walks a grounded character horizontally while snapping its feet to nearby walkable/blockable terrain; explicit X/Y GOTO keeps the existing authored straight-line motion and its Y coordinate is the character's feet/bottom-hitbox position. ANIM switches immediately. A GOTO temporarily uses the character's walk/run animation, then restores the most recent ANIM override; another ANIM replaces that override, and it is cleared when the cutscene ends.</p>
             </div>
             <div id="proximity-text-settings-row" style="display:none">
                 <h3>Proximity text</h3>
@@ -1363,18 +1391,18 @@ DELAY 1'></textarea>
                 </div>
                 <div class="row">
                     <label>Damage<input id="inspect-enemy-attack-damage" type="number" min="0" step="1"></label>
-                    <label>Attack reach<input id="inspect-enemy-attack-range" type="number" min="0" step="1"></label>
+                    <label id="inspect-enemy-attack-range-label" title="Ranged approach/range hint and fallback when no preferred ranged distance is authored.">Projectile attack reach<input id="inspect-enemy-attack-range" type="number" min="0" step="1"></label>
                 </div>
                 <div class="row">
-                    <label title="Forward reach from the authored melee handoff point at the critical frame; zero uses the legacy handoff-centered radius.">Melee hit range<input id="inspect-enemy-melee-hit-range" type="number" min="0" step="1"></label>
-                    <label>Lunge target distance<input id="inspect-enemy-lunge-target-dist" type="number" min="0" step="1"></label>
+                    <label id="inspect-enemy-melee-hit-range-label" title="Forward horizontal reach from the enemy grounded base at the critical attack handoff. Active melee enemies require a positive value.">Melee hit range<input id="inspect-enemy-melee-hit-range" type="number" min="0" step="1"></label>
+                    <label id="inspect-enemy-lunge-target-dist-label" title="Desired separation when a committed lunge ends. A positive value is required for lunging.">Lunge target distance<input id="inspect-enemy-lunge-target-dist" type="number" min="0" step="1"></label>
                 </div>
                 <div class="row">
-                    <label>Lunge minimum range<input id="inspect-enemy-lunge-range-min" type="number" min="0" step="1"></label>
-                    <label title="Zero disables lunging. A positive maximum below the minimum range is invalid and also disables lunging.">Lunge maximum range<input id="inspect-enemy-lunge-range-max" type="number" min="0" step="1"></label>
+                    <label id="inspect-enemy-lunge-range-min-label">Lunge minimum range<input id="inspect-enemy-lunge-range-min" type="number" min="0" step="1"></label>
+                    <label id="inspect-enemy-lunge-range-max-label" title="Zero disables lunging. A positive maximum below the minimum range is invalid and also disables lunging.">Lunge maximum range<input id="inspect-enemy-lunge-range-max" type="number" min="0" step="1"></label>
                 </div>
                 <div class="row">
-                    <label>Lunge speed<input id="inspect-enemy-lunge-speed" type="number" min="0" step="25"></label>
+                    <label id="inspect-enemy-lunge-speed-label">Lunge speed<input id="inspect-enemy-lunge-speed" type="number" min="0" step="25"></label>
                     <label>Attack cooldown seconds<input id="inspect-enemy-attack-cooldown" type="number" min="0" step="0.05"></label>
                 </div>
             </div>
@@ -1425,6 +1453,7 @@ import {
     atlasNodeToPlacementWorld,
     normalizeRotationRadians,
     placementCenter,
+    placementLocalToWorld,
     placementCorners,
     pointInPlacement
 } from "./src/shared/level-transform.js";
@@ -1535,12 +1564,11 @@ import {
     buildWorldVisualCache,
     queryWorldVisualEntries
 } from "./src/presentation/world-visual-cache.js";
+import { rebakeAndVerifyNavigation } from "./src/tools/navigation-rebake.js";
 import {
-    bakeEnemyNavigationGraph,
-    enemyNavigationProfileKey,
-    normalizeEnemyNavigationProfile
-} from "./src/core/enemy-navigation.js";
-import {
+    MAX_MOVING_PLATFORM_PIVOT_DISTANCE,
+    MAX_MOVING_PLATFORM_SWING_AMPLITUDE,
+    MIN_MOVING_PLATFORM_SWING_PERIOD,
     createDefaultMovingPlatform,
     movingPlatformEndPosition,
     movingPlatformHasEndpoint,
@@ -1846,6 +1874,7 @@ import {
         clearNavigationGraphs: document.getElementById("clear-navigation-graphs"),
         navigationProfileSelect: document.getElementById("navigation-profile-select"),
         navigationUseStrideArc: document.getElementById("navigation-use-stride-arc"),
+        navigationCheckBySimulation: document.getElementById("navigation-check-by-simulation"),
         showNavigationGraph: document.getElementById("show-navigation-graph"),
         navigationGraphStatus: document.getElementById("navigation-graph-status"),
         levelId: document.getElementById("level-id"),
@@ -1966,7 +1995,9 @@ import {
         movingPlatformRow: document.getElementById("moving-platform-row"),
         movingPlatformFields: document.getElementById("moving-platform-fields"),
         movingPlatformEndFields: document.getElementById("moving-platform-end-fields"),
+        movingPlatformSwingFields: document.getElementById("moving-platform-swing-fields"),
         movingPlatformFadeFields: document.getElementById("moving-platform-fade-fields"),
+        movingPatternLabel: document.getElementById("moving-pattern-label"),
         movingInitialDelayLabel: document.getElementById("moving-initial-delay-label"),
         movingTriggerDelayLabel: document.getElementById("moving-trigger-delay-label"),
         movingStartPauseLabel: document.getElementById("moving-start-pause-label"),
@@ -1975,11 +2006,19 @@ import {
         inspectMovingSignalChannel: document.getElementById("inspect-moving-signal-channel"),
         inspectMovingEnabled: document.getElementById("inspect-moving-enabled"),
         inspectMovingPersistent: document.getElementById("inspect-moving-persistent"),
+        inspectMovingMotionType: document.getElementById("inspect-moving-motion-type"),
         inspectMovingPattern: document.getElementById("inspect-moving-pattern"),
         inspectMovingActivation: document.getElementById("inspect-moving-activation"),
         inspectMovingEndX: document.getElementById("inspect-moving-end-x"),
         inspectMovingEndY: document.getElementById("inspect-moving-end-y"),
         inspectMovingSpeed: document.getElementById("inspect-moving-speed"),
+        inspectMovingEasing: document.getElementById("inspect-moving-easing"),
+        inspectMovingAngleAmplitude: document.getElementById("inspect-moving-angle-amplitude"),
+        inspectMovingInitialAngle: document.getElementById("inspect-moving-initial-angle"),
+        inspectMovingSwingPeriod: document.getElementById("inspect-moving-swing-period"),
+        inspectMovingPivotX: document.getElementById("inspect-moving-pivot-x"),
+        inspectMovingPivotY: document.getElementById("inspect-moving-pivot-y"),
+        movingPlatformLimits: { minSwingPeriod: MIN_MOVING_PLATFORM_SWING_PERIOD, maxPivotDistance: MAX_MOVING_PLATFORM_PIVOT_DISTANCE },
         inspectMovingSwap: document.getElementById("inspect-moving-swap"),
         inspectMovingInitialDelay: document.getElementById("inspect-moving-initial-delay"),
         inspectMovingTriggerDelay: document.getElementById("inspect-moving-trigger-delay"),
@@ -2065,11 +2104,17 @@ import {
         inspectEnemyRenderScale: document.getElementById("inspect-enemy-render-scale"),
         inspectEnemyAttackDamage: document.getElementById("inspect-enemy-attack-damage"),
         inspectEnemyAttackRange: document.getElementById("inspect-enemy-attack-range"),
+        inspectEnemyAttackRangeLabel: document.getElementById("inspect-enemy-attack-range-label"),
         inspectEnemyMeleeHitRange: document.getElementById("inspect-enemy-melee-hit-range"),
+        inspectEnemyMeleeHitRangeLabel: document.getElementById("inspect-enemy-melee-hit-range-label"),
         inspectEnemyLungeTargetDist: document.getElementById("inspect-enemy-lunge-target-dist"),
+        inspectEnemyLungeTargetDistLabel: document.getElementById("inspect-enemy-lunge-target-dist-label"),
         inspectEnemyLungeRangeMin: document.getElementById("inspect-enemy-lunge-range-min"),
+        inspectEnemyLungeRangeMinLabel: document.getElementById("inspect-enemy-lunge-range-min-label"),
         inspectEnemyLungeRangeMax: document.getElementById("inspect-enemy-lunge-range-max"),
+        inspectEnemyLungeRangeMaxLabel: document.getElementById("inspect-enemy-lunge-range-max-label"),
         inspectEnemyLungeSpeed: document.getElementById("inspect-enemy-lunge-speed"),
+        inspectEnemyLungeSpeedLabel: document.getElementById("inspect-enemy-lunge-speed-label"),
         inspectEnemyAttackCooldown: document.getElementById("inspect-enemy-attack-cooldown"),
         reactiveSettingsRow: document.getElementById("reactive-settings-row"),
         inspectReactiveHealth: document.getElementById("inspect-reactive-health"),
@@ -2140,6 +2185,9 @@ import {
         characterProjectLoads: new Map(),
         navigationPreviewGraphId: "",
         navigationLastComparison: null,
+        navigationSimulationFailures: [],
+        navigationSimulationJob: null,
+        playtestNavigationJob: null,
         placementDrawCache: null,
         placementBoundsCache: new WeakMap(),
         entityBoundsCache: new WeakMap(),
@@ -2149,6 +2197,10 @@ import {
         editorRuntimeState: null,
         editorRuntimeWorldDirty: true,
         editorRuntimeAtlasSignature: "",
+        editorRuntimeCharacterDesiredUrls: [],
+        editorRuntimeCharacterDesiredSignature: "",
+        editorRuntimeCharacterSyncedSignature: "",
+        editorRuntimeCharacterSyncPromise: null,
         editorPerformance: {
             frameMs: 0,
             syncMs: 0,
@@ -3779,6 +3831,16 @@ import {
         return atlasRecord(state.activeAtlasId);
     }
 
+    function editorRuntimeEnvironmentAtlasSource(manifestUrl) {
+        const resolvedManifestUrl = resourceUrl(manifestUrl);
+        for (const record of state.atlases.values()) {
+            if (!record?.image || !record?.manifest) continue;
+            if (resourceUrl(record.manifestUrl || atlasManifestUrl(record.atlasId)) !== resolvedManifestUrl) continue;
+            return record;
+        }
+        return null;
+    }
+
     function setActiveAtlas(atlasId, { redraw = true, renderPalette = true } = {}) {
         const record = atlasRecord(atlasId);
         if (!record) return false;
@@ -4099,6 +4161,7 @@ import {
         syncMetadataToUi();
         persistUi();
         resetEditHistory();
+        fitContentView();
         return level;
     }
 
@@ -4125,11 +4188,50 @@ import {
         await Promise.all(jobs);
     }
 
+    function releaseEditorAtlasesNotRequired(level) {
+        // When the compact palette cache is unavailable, the editor intentionally
+        // keeps the full atlas library resident as its compatibility fallback.
+        if (!state.paletteThumbnailCatalog) return 0;
+        const retainedAtlasIds = new Set([state.activeAtlasId, ...SPECIAL_ATLAS_IDS].filter(Boolean));
+        for (const ref of level?.atlasRefs || []) {
+            const atlasId = ref?.atlasId || inferAtlasIdFromName(ref?.manifest) || inferAtlasIdFromName(ref?.image);
+            if (atlasId) retainedAtlasIds.add(atlasId);
+        }
+        for (const placement of level?.placements || []) {
+            if (placement?.kind === "atlasAsset") retainedAtlasIds.add(placement.atlasId || DEFAULT_ATLAS_ID);
+        }
+        let released = 0;
+        for (const [atlasId, record] of [...state.atlases]) {
+            if (retainedAtlasIds.has(atlasId)) continue;
+            record.renderImage = null;
+            record.image = null;
+            state.atlases.delete(atlasId);
+            released += 1;
+        }
+        if (released) {
+            state.editorForegroundSpriteCache.clear();
+            state.colorTreatmentPreviewKey = "";
+            state.colorTreatmentPreviewFrames.clear();
+            state.editorWorldVisualCache = null;
+            invalidateEditorSceneCache({ caveForeground: true });
+            renderAssetList();
+        }
+        return released;
+    }
+
     async function ensureEditorResourcesForLevel(level) {
         await Promise.all([
             ensureAtlasesForLevel(level),
             ensureCharacterProjectsForLevel(level)
         ]);
+        releaseEditorAtlasesNotRequired(level);
+        await syncEditorRuntimeCharacterProjects(level);
+        const renderer = state.editorRuntimeRenderer;
+        if (renderer) {
+            const manifestUrls = editorRuntimeManifestUrls(level);
+            await renderer.ensureEnvironmentAtlases(manifestUrls);
+            state.editorRuntimeAtlasSignature = manifestUrls.slice().sort().join("|");
+        }
     }
 
     function frameFor(assetId, atlasId = state.activeAtlasId) {
@@ -4370,124 +4472,17 @@ import {
         return area * 0.5;
     }
 
-    function enemyNavigationProfileForEntity(entity) {
-        const resolvedEnemy = resolvedCharacterEnemy(entity);
-        const dimensions = scaledEnemyDimensions(resolvedEnemy, 72, 148);
-        const width = Math.max(8, dimensions.width);
-        const height = Math.max(24, dimensions.height);
-        return normalizeEnemyNavigationProfile({
-            bodyWidth: width,
-            bodyHeight: height,
-            runSpeed: Math.max(1, finiteEditorNumber(resolvedEnemy.runSpeed, 160)),
-            groundAcceleration: Math.max(1, finiteEditorNumber(resolvedEnemy.runAcceleration, 950)),
-            jumpHeight: Math.max(0, finiteEditorNumber(resolvedEnemy.jumpHeight, 120)),
-            gravity: Math.max(1, finiteEditorNumber(resolvedEnemy.jumpGravity, 1200)),
-            maxFallDistance: Math.max(0, finiteEditorNumber(resolvedEnemy.maxFallDistance, 320)),
-            maxStepHeight: Math.max(0, finiteEditorNumber(resolvedEnemy.maxStepHeight, 28)),
-            maxStepGap: Math.max(10, Math.min(28, width * 0.32 || 18)),
-            edgeInset: Math.max(6, width * 0.22 || 10),
-            bodyClearance: Math.max(10, width * 0.34 || 12)
-        });
-    }
-
-    function wizardNavigationProfile() {
-        const tuning = gameplayRulerTuning || DEFAULT_TUNING;
-        const width = Math.max(8, finiteEditorNumber(tuning.playerWidth, DEFAULT_TUNING.playerWidth));
-        const height = Math.max(24, finiteEditorNumber(tuning.playerHeight, DEFAULT_TUNING.playerHeight));
-        const gravity = Math.max(1, finiteEditorNumber(tuning.gravity, DEFAULT_TUNING.gravity));
-        const safeImpactSpeed = Math.max(0, finiteEditorNumber(tuning.fallDamageSafeImpactSpeed, DEFAULT_TUNING.fallDamageSafeImpactSpeed));
-        return normalizeEnemyNavigationProfile({
-            bodyWidth: width,
-            bodyHeight: height,
-            runSpeed: Math.max(1, finiteEditorNumber(tuning.maxRunSpeed, DEFAULT_TUNING.maxRunSpeed)),
-            groundAcceleration: Math.max(1, finiteEditorNumber(tuning.groundAcceleration, DEFAULT_TUNING.groundAcceleration)),
-            jumpHeight: Math.max(0, finiteEditorNumber(tuning.ordinaryJumpHeight, DEFAULT_TUNING.ordinaryJumpHeight)),
-            gravity,
-            maxFallDistance: safeImpactSpeed > 0 ? safeImpactSpeed * safeImpactSpeed / (2 * gravity) : 0,
-            maxStepHeight: height * 0.20,
-            maxStepGap: Math.max(10, Math.min(28, width * 0.32 || 18)),
-            edgeInset: Math.max(6, width * 0.22 || 10),
-            bodyClearance: Math.max(10, width * 0.34 || 12)
-        });
-    }
-
-    function editorNavigationWorld() {
-        const segments = [];
-        const collisionPolygons = [];
-        for (const placement of state.level?.placements || []) {
-            if (!placement || placement.kind !== "atlasAsset" || placement.collisionFromManifest === false) continue;
-            const atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
-            const assetId = placement.assetId;
-            const frame = frameFor(assetId, atlasId);
-            const object = objectFor(assetId, atlasId);
-            if (!frame || !object || !Array.isArray(object.nodes) || !Array.isArray(object.lines)) continue;
-            const nodes = new Map(object.nodes.map((node) => [node.id, node]));
-            for (const line of object.lines) {
-                if (!isSolidGuideLineKind(line.kind)) continue;
-                const a = nodes.get(line.from);
-                const b = nodes.get(line.to);
-                if (!a || !b) continue;
-                const p1 = assetNodeToWorld(placement, frame, a);
-                const p2 = assetNodeToWorld(placement, frame, b);
-                if (Math.hypot(p2.x - p1.x, p2.y - p1.y) < 1) continue;
-                segments.push({
-                    id: `${placement.id || assetId}_${line.id || segments.length}`,
-                    kind: line.kind,
-                    x1: p1.x,
-                    y1: p1.y,
-                    x2: p2.x,
-                    y2: p2.y,
-                    visualId: placement.id,
-                    movingPlatformId: placement.movement ? placement.id : undefined,
-                    assetId,
-                    lineId: line.id,
-                    tags: Array.isArray(line.tags) ? line.tags.slice() : []
-                });
-            }
-            for (const loop of findClosedCollisionLoops(object)) {
-                const points = loop.points.map((point) => assetNodeToWorld(placement, frame, point));
-                if (points.length < 3 || Math.abs(polygonArea(points)) < 4) continue;
-                collisionPolygons.push({
-                    id: `${placement.id || assetId}_area_${collisionPolygons.length}`,
-                    kind: loop.kind,
-                    points,
-                    visualId: placement.id,
-                    movingPlatformId: placement.movement ? placement.id : undefined,
-                    assetId,
-                    lineIds: loop.lineIds.slice()
-                });
-            }
-        }
-        return {
-            segments,
-            collisionPolygons,
-            solids: [],
-            navigationBlockers: cloneData(state.level?.navigationBlockers || [])
-        };
-    }
-
     function navigationStepMethodLabel(method) {
         return method === "legacy" ? "legacy height/gap" : "stride-arc";
     }
 
-    function navigationEdgeSemanticKey(profileId, edge) {
-        return `${String(profileId || "")}|${String(edge?.type || "")}|${String(edge?.from || "")}|${String(edge?.to || "")}|${String(edge?.direction || "")}`;
-    }
-
-    function compareNavigationGraphMethods(selectedProfiles, alternateProfiles, selectedMethod, alternateMethod) {
-        const selectedEdges = selectedProfiles.flatMap((graph) => (graph.edges || []).map((edge) => ({ profileId: graph.id, edge })));
-        const alternateEdges = alternateProfiles.flatMap((graph) => (graph.edges || []).map((edge) => ({ profileId: graph.id, edge })));
-        const selectedKeys = new Set(selectedEdges.map(({ profileId, edge }) => navigationEdgeSemanticKey(profileId, edge)));
-        const alternateKeys = new Set(alternateEdges.map(({ profileId, edge }) => navigationEdgeSemanticKey(profileId, edge)));
+    function navigationRebakeContext() {
         return {
-            selectedMethod,
-            alternateMethod,
-            selectedEdges: selectedEdges.length,
-            alternateEdges: alternateEdges.length,
-            selectedOnly: [...selectedKeys].filter((key) => !alternateKeys.has(key)).length,
-            alternateOnly: [...alternateKeys].filter((key) => !selectedKeys.has(key)).length,
-            selectedStepEdges: selectedEdges.filter(({ edge }) => edge.type === "step").length,
-            alternateStepEdges: alternateEdges.filter(({ edge }) => edge.type === "step").length
+            manifestByAtlasId: Object.fromEntries([...state.atlases.entries()]
+                .filter(([, record]) => record?.manifest)
+                .map(([atlasId, record]) => [atlasId, cloneData(record.manifest)])),
+            enemyCatalog: editorRuntimeEnemyCatalog(),
+            tuning: cloneData(gameplayRulerTuning || DEFAULT_TUNING)
         };
     }
 
@@ -4522,79 +4517,247 @@ import {
         const comparisonText = comparison
             ? ` A/B: ${navigationStepMethodLabel(comparison.selectedMethod)} ${comparison.selectedEdges} edges (${comparison.selectedStepEdges} step) vs ${navigationStepMethodLabel(comparison.alternateMethod)} ${comparison.alternateEdges} (${comparison.alternateStepEdges} step); ${comparison.selectedOnly} selected-only, ${comparison.alternateOnly} alternate-only.`
             : "";
-        els.navigationGraphStatus.textContent = `${profiles.length} baked mobility profile${profiles.length === 1 ? "" : "s"}, using ${navigationStepMethodLabel(method)} step transitions. Moving-platform collision geometry is excluded from hunter pathfinding; moving lifts remain player traversal only. Wizard is an editor-only preview profile; runtime hunters use an exact mobility-profile match and fall back to live graph construction otherwise.${comparisonText}`;
+        const simulationCheck = selected?.build?.simulationCheck;
+        const simulationText = simulationCheck?.enabled
+            ? ` Simulation has 60 Hz proof for ${simulationCheck.checkedEdges || 0} step/jump/drop transitions: ${(simulationCheck.checkedEdges || 0) - (simulationCheck.failedEdges ?? simulationCheck.rejectedEdges ?? 0)} verified and ${simulationCheck.failedEdges ?? simulationCheck.rejectedEdges ?? 0} failed.${Number.isFinite(Number(simulationCheck.simulatedEdges)) ? ` Last verification simulated ${simulationCheck.simulatedEdges || 0} and reused ${simulationCheck.reusedEdges || 0} stored proof(s).` : ""} Failed transitions remain stored for diagnostics but are ignored by runtime routing.`
+            : "";
+        els.navigationGraphStatus.textContent = `${profiles.length} baked mobility profile${profiles.length === 1 ? "" : "s"}, using ${navigationStepMethodLabel(method)} step transitions.${simulationText} Moving-platform collision geometry is excluded from hunter pathfinding; moving lifts remain player traversal only. Wizard is an editor-only preview profile; runtime hunters use an exact mobility-profile match and fall back to live graph construction otherwise.${comparisonText}`;
     }
 
-    function placedHunterNavigationProfiles(options = {}) {
-        const hunters = (state.level?.entities || []).filter((entity) => isCharacterEnemy(entity) && String(resolvedCharacterEnemy(entity).strategy || "simple_patrol") === "hunter");
-        const profilesById = new Map();
-        if (options.includeWizard !== false) profilesById.set("wizard", wizardNavigationProfile());
-        for (const enemy of hunters) {
-            const profile = enemyNavigationProfileForEntity(enemy);
-            profilesById.set(enemyNavigationProfileKey(profile), profile);
+    function applyNavigationRebakeResult(result, options = {}) {
+        const profiles = Array.isArray(result?.profiles) ? result.profiles : [];
+        const previousPreviewGraphId = options.previousPreviewGraphId ?? state.navigationPreviewGraphId;
+        state.navigationSimulationFailures = Array.isArray(result?.failures) ? result.failures : [];
+        state.navigationLastComparison = result?.comparison || null;
+        state.level.navigationGraphs = cloneData(result?.level?.navigationGraphs || { version: 2, profiles });
+        state.navigationPreviewGraphId = profiles.some((graph) => graph.id === previousPreviewGraphId)
+            ? previousPreviewGraphId
+            : (profiles[0]?.id || "");
+        if (options.refreshUi !== false) {
+            refreshNavigationGraphUi();
+            persistUi();
         }
-        return profilesById;
-    }
-
-    function bakePlacedHunterNavigationProfiles(options = {}) {
-        const profilesById = placedHunterNavigationProfiles(options);
-        const world = options.world || editorNavigationWorld();
-        const method = options.stepTransitionMethod || (els.navigationUseStrideArc.checked ? "stride_arc" : "legacy");
-        return [...profilesById.entries()].map(([id, profile]) => bakeEnemyNavigationGraph(world, profile, {
-            id,
-            label: id === "wizard"
-                ? `Wizard · body ${profile.bodyWidth}×${profile.bodyHeight} · stride ${profile.maxStepHeight}`
-                : `Run ${profile.runSpeed}, jump ${profile.jumpHeight}, body ${profile.bodyWidth}×${profile.bodyHeight}`,
-            stepTransitionMethod: method
-        }));
+        return result;
     }
 
     function buildPlacedHunterNavigationGraphs(options = {}) {
         const silent = options.silent === true;
         const refreshUi = options.refreshUi !== false;
-        const world = editorNavigationWorld();
         const stepTransitionMethod = options.stepTransitionMethod || (els.navigationUseStrideArc.checked ? "stride_arc" : "legacy");
-        const bakeProfiles = (method) => bakePlacedHunterNavigationProfiles({
-            world,
-            stepTransitionMethod: method,
-            includeWizard: true
-        });
         const previousPreviewGraphId = state.navigationPreviewGraphId;
-        const profiles = bakeProfiles(stepTransitionMethod);
-        state.level.navigationGraphs = {
-            version: 2,
-            profiles
-        };
-        if (!silent && options.compare !== false) {
-            const alternateMethod = stepTransitionMethod === "stride_arc" ? "legacy" : "stride_arc";
-            state.navigationLastComparison = compareNavigationGraphMethods(
-                profiles,
-                bakeProfiles(alternateMethod),
-                stepTransitionMethod,
-                alternateMethod
-            );
-        } else {
-            state.navigationLastComparison = null;
-        }
-        state.navigationPreviewGraphId = profiles.some((graph) => graph.id === previousPreviewGraphId)
-            ? previousPreviewGraphId
-            : (profiles[0]?.id || "");
-        if (refreshUi) refreshNavigationGraphUi();
-        const result = {
-            built: true,
-            profiles: profiles.length,
-            supports: profiles.reduce((sum, graph) => sum + graph.supports.length, 0),
-            edges: profiles.reduce((sum, graph) => sum + graph.edges.length, 0)
-        };
+        const result = rebakeAndVerifyNavigation(state.level, navigationRebakeContext(), {
+            verifyBySimulation: false,
+            preserveMatchingVerification: true,
+            includeWizard: options.includeWizard !== false,
+            stepTransitionMethod,
+            compareStepMethods: !silent && options.compare !== false
+        });
+        applyNavigationRebakeResult(result, { previousPreviewGraphId, refreshUi });
+        const summary = result.summary || {};
         if (!silent) {
-            const comparison = state.navigationLastComparison;
+            const comparison = result.comparison;
             const comparisonSummary = comparison
                 ? ` A/B vs ${navigationStepMethodLabel(comparison.alternateMethod)}: ${comparison.selectedOnly} selected-only and ${comparison.alternateOnly} alternate-only transitions.`
                 : "";
-            setStatus(`Built ${result.profiles} navigation graph${result.profiles === 1 ? "" : "s"} with ${navigationStepMethodLabel(stepTransitionMethod)} steps: ${result.supports} supports and ${result.edges} directed transitions.${comparisonSummary}`);
+            const retainedSummary = summary.reusedVerifiedProfiles
+                ? ` Preserved verification for ${summary.reusedVerifiedProfiles} unchanged profile${summary.reusedVerifiedProfiles === 1 ? "" : "s"}.`
+                : "";
+            setStatus(`Built ${summary.profiles || 0} navigation graph${summary.profiles === 1 ? "" : "s"} with ${navigationStepMethodLabel(stepTransitionMethod)} steps: ${summary.supports || 0} supports and ${summary.edges || 0} directed transitions.${retainedSummary}${comparisonSummary}`);
         }
-        if (refreshUi) persistUi();
-        return result;
+        return {
+            built: true,
+            profiles: summary.profiles || 0,
+            supports: summary.supports || 0,
+            edges: summary.edges || 0,
+            reusedVerifiedProfiles: summary.reusedVerifiedProfiles || 0,
+            simulation: null,
+            result
+        };
+    }
+
+
+    function buildPlacedHunterNavigationGraphsInWorker(options = {}) {
+        if (state.navigationSimulationJob) return { built: false, pending: true };
+        const stepTransitionMethod = options.stepTransitionMethod || (els.navigationUseStrideArc.checked ? "stride_arc" : "legacy");
+        const previousPreviewGraphId = state.navigationPreviewGraphId;
+        const levelAtRequest = state.level;
+        const levelTextAtRequest = JSON.stringify(state.level);
+        const jobId = `navigation_heuristic_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        let worker;
+        try {
+            worker = new Worker(new URL("./src/tools/navigation-rebake-worker.js", import.meta.url), { type: "module" });
+        } catch (error) {
+            console.error("Could not start navigation rebake worker.", error);
+            setStatus(`Could not start navigation rebake worker: ${error?.message || error}`, false);
+            return { built: false, pending: false, error: true };
+        }
+        state.navigationSimulationFailures = [];
+        state.navigationLastComparison = null;
+        state.navigationSimulationJob = { jobId, worker };
+        els.buildNavigationGraphs.textContent = "Cancel build";
+        els.navigationCheckBySimulation.disabled = true;
+        els.navigationUseStrideArc.disabled = true;
+        setStatus("Navigation worker is building heuristic navigation graphs…");
+
+        const finishJob = () => {
+            if (state.navigationSimulationJob?.jobId !== jobId) return false;
+            state.navigationSimulationJob = null;
+            try { worker.terminate(); } catch (_) {}
+            resetNavigationSimulationControls();
+            return true;
+        };
+
+        worker.addEventListener("message", (event) => {
+            const message = event.data || {};
+            if (message.jobId !== jobId || state.navigationSimulationJob?.jobId !== jobId) return;
+            if (message.type === "navigation-rebake-error") {
+                if (!finishJob()) return;
+                console.error("Navigation rebake worker failed.", message.message, message.stack || "");
+                setStatus(`Navigation rebake worker failed: ${message.message || "unknown error"}`, false);
+                return;
+            }
+            if (message.type !== "navigation-rebake-complete") return;
+            if (!finishJob()) return;
+            if (state.level !== levelAtRequest || JSON.stringify(state.level) !== levelTextAtRequest) {
+                setStatus("Navigation build finished, but the level changed while it was running. The stale graphs were discarded; build again for the current level.", false);
+                return;
+            }
+            applyNavigationRebakeResult(message, { previousPreviewGraphId, refreshUi: true });
+            const summary = message.summary || {};
+            const comparison = message.comparison;
+            const comparisonSummary = comparison
+                ? ` A/B vs ${navigationStepMethodLabel(comparison.alternateMethod)}: ${comparison.selectedOnly} selected-only and ${comparison.alternateOnly} alternate-only transitions.`
+                : "";
+            const retainedSummary = summary.reusedVerifiedProfiles
+                ? ` Preserved verification for ${summary.reusedVerifiedProfiles} unchanged profile${summary.reusedVerifiedProfiles === 1 ? "" : "s"}.`
+                : "";
+            setStatus(`Navigation worker built ${summary.profiles || 0} graph${summary.profiles === 1 ? "" : "s"} with ${navigationStepMethodLabel(stepTransitionMethod)} steps: ${summary.supports || 0} supports and ${summary.edges || 0} directed transitions.${retainedSummary}${comparisonSummary}`);
+        });
+        worker.addEventListener("error", (event) => {
+            if (state.navigationSimulationJob?.jobId !== jobId) return;
+            finishJob();
+            console.error("Navigation rebake worker crashed.", event.error || event.message || event);
+            setStatus(`Navigation rebake worker crashed: ${event.message || "unknown worker error"}`, false);
+        });
+        worker.postMessage({
+            type: "rebake-navigation",
+            jobId,
+            level: cloneData(state.level),
+            context: navigationRebakeContext(),
+            verifyBySimulation: false,
+            stepTransitionMethod,
+            includeWizard: options.includeWizard !== false,
+            compareStepMethods: options.compare !== false,
+            preserveMatchingVerification: true
+        });
+        return { built: false, pending: true };
+    }
+
+    function resetNavigationSimulationControls() {
+        els.buildNavigationGraphs.textContent = "Build placed hunter graphs";
+        els.navigationCheckBySimulation.disabled = false;
+        els.navigationUseStrideArc.disabled = false;
+    }
+
+    function cancelNavigationSimulation(message = "Navigation simulation verification cancelled.") {
+        const job = state.navigationSimulationJob;
+        if (!job) return false;
+        state.navigationSimulationJob = null;
+        try {
+            job.worker.terminate();
+        } catch (_) {}
+        resetNavigationSimulationControls();
+        if (message) setStatus(message);
+        return true;
+    }
+
+    function buildPlacedHunterNavigationGraphsBySimulation(options = {}) {
+        if (state.navigationSimulationJob) return { built: false, pending: true };
+        const stepTransitionMethod = options.stepTransitionMethod || (els.navigationUseStrideArc.checked ? "stride_arc" : "legacy");
+        const previousPreviewGraphId = state.navigationPreviewGraphId;
+        const levelAtRequest = state.level;
+        const levelTextAtRequest = JSON.stringify(state.level);
+        const jobId = `navigation_simulation_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        let worker;
+        try {
+            worker = new Worker(new URL("./src/tools/navigation-rebake-worker.js", import.meta.url), { type: "module" });
+        } catch (error) {
+            console.error("Could not start navigation rebake worker.", error);
+            setStatus(`Could not start navigation rebake worker: ${error?.message || error}`, false);
+            return { built: false, pending: false, error: true };
+        }
+        const startedAt = performance.now();
+        state.navigationSimulationFailures = [];
+        state.navigationLastComparison = null;
+        state.navigationSimulationJob = { jobId, worker };
+        els.buildNavigationGraphs.textContent = "Cancel verification";
+        els.navigationCheckBySimulation.disabled = true;
+        els.navigationUseStrideArc.disabled = true;
+        setStatus("Navigation worker is building the canonical candidate graphs before 60 Hz verification…");
+
+        const finishJob = () => {
+            if (state.navigationSimulationJob?.jobId !== jobId) return false;
+            state.navigationSimulationJob = null;
+            try {
+                worker.terminate();
+            } catch (_) {}
+            resetNavigationSimulationControls();
+            return true;
+        };
+
+        worker.addEventListener("message", (event) => {
+            const message = event.data || {};
+            if (message.jobId !== jobId || state.navigationSimulationJob?.jobId !== jobId) return;
+            if (message.type === "navigation-rebake-progress") {
+                const profileLabel = message.profileId ? ` (${message.profileId})` : "";
+                setStatus(
+                    `Navigation worker: profile ${Math.min((message.profileIndex || 0) + 1, message.profileCount || 1)} / ${message.profileCount || 1}${profileLabel}; simulated ${message.checkedEdges || 0} / ${message.totalEdges || 0} affected step/jump/drop transitions, reused ${message.reusedEdges || 0} proof(s), ${message.failedEdges || 0} failed. Build again to cancel.`
+                );
+                return;
+            }
+            if (message.type === "navigation-rebake-error") {
+                if (!finishJob()) return;
+                console.error("Navigation rebake worker failed.", message.message, message.stack || "");
+                setStatus(`Navigation rebake worker failed: ${message.message || "unknown error"}`, false);
+                return;
+            }
+            if (message.type !== "navigation-rebake-complete") return;
+            if (!finishJob()) return;
+            if (state.level !== levelAtRequest || JSON.stringify(state.level) !== levelTextAtRequest) {
+                setStatus("Navigation verification finished, but the level changed while it was running. The stale verified graphs were discarded; build again to verify the current level.", false);
+                return;
+            }
+            applyNavigationRebakeResult(message, { previousPreviewGraphId, refreshUi: true });
+            if (state.navigationSimulationFailures.length) {
+                console.warn(
+                    `[navigation verification worker] marked ${state.navigationSimulationFailures.length} step/jump/drop transition(s) as failed.`,
+                    state.navigationSimulationFailures
+                );
+            }
+            const summary = message.summary || {};
+            const wallElapsedMs = Math.max(0, performance.now() - startedAt);
+            setStatus(
+                `Verified ${summary.profiles || 0} navigation graph${summary.profiles === 1 ? "" : "s"} in the canonical Web Worker pipeline: ${summary.candidateSimulationEdges || 0} step/jump/drop candidates, ${summary.checkedEdges || 0} simulated now, ${summary.reusedSimulationEdges || 0} stored proof(s) reused, ${summary.failedEdges || 0} failed, and ${summary.edges || 0} directed transitions across ${summary.supports || 0} supports. Failed transitions are stored in the graph but ignored by runtime routing. Worker simulation time ${(Number(summary.elapsedMs) || 0).toFixed(1)} ms; wall time ${wallElapsedMs.toFixed(1)} ms. Failure details were written to the console.`
+            );
+        });
+        worker.addEventListener("error", (event) => {
+            if (state.navigationSimulationJob?.jobId !== jobId) return;
+            finishJob();
+            console.error("Navigation rebake worker crashed.", event.error || event.message || event);
+            setStatus(`Navigation rebake worker crashed: ${event.message || "unknown worker error"}`, false);
+        });
+        worker.postMessage({
+            type: "rebake-navigation",
+            jobId,
+            level: cloneData(state.level),
+            context: navigationRebakeContext(),
+            verifyBySimulation: true,
+            stepTransitionMethod,
+            includeWizard: true,
+            compareStepMethods: false,
+            preserveMatchingVerification: false
+        });
+        return { built: false, pending: true };
     }
 
     function selectedNavigationGraph() {
@@ -4653,6 +4816,20 @@ import {
         if (!graph) return;
         ctx.save();
         ctx.lineCap = "round";
+        const supportById = new Map((graph.supports || []).map((support) => [String(support.id || ""), support]));
+        const internalWalkRegionStep = (edge) => {
+            if (edge?.type !== "step") return false;
+            const from = supportById.get(String(edge.from || ""));
+            const to = supportById.get(String(edge.to || ""));
+            if (!from?.walkRegionId || from.walkRegionId !== to?.walkRegionId) return false;
+            // Cyan geometry represents standable support, not a stride chord.
+            // Hide only the essentially zero-length seam bookkeeping edges; a
+            // real circle-arc stride remains a directional green transition.
+            return Math.hypot(
+                Number(edge.landingX || 0) - Number(edge.launchX || 0),
+                Number(edge.landingY || 0) - Number(edge.launchY || 0)
+            ) <= 1.05;
+        };
         for (const support of graph.supports || []) {
             drawWorldLine(
                 { x: support.x1, y: support.y1 },
@@ -4661,12 +4838,26 @@ import {
                 4
             );
         }
+        // Exact seam bookkeeping edges need no directional arrow. Non-zero
+        // circle-arc strides are transitions, not extra floor, and remain green.
         for (const edge of graph.edges || []) {
-            const color = edge.type === "drop"
-                ? "rgba(255,184,88,0.92)"
-                : edge.type === "jump"
-                    ? "rgba(210,146,255,0.94)"
-                    : "rgba(124,255,164,0.86)";
+            if (!internalWalkRegionStep(edge)) continue;
+            drawWorldLine(
+                { x: edge.launchX, y: edge.launchY },
+                { x: edge.landingX, y: edge.landingY },
+                "rgba(82,238,255,0.88)",
+                5
+            );
+        }
+        for (const edge of graph.edges || []) {
+            if (internalWalkRegionStep(edge)) continue;
+            const color = String(edge.verification || "").trim().toLowerCase() === "failed"
+                ? "rgba(255,79,97,0.96)"
+                : edge.type === "drop"
+                    ? "rgba(255,184,88,0.92)"
+                    : edge.type === "jump"
+                        ? "rgba(210,146,255,0.94)"
+                        : "rgba(124,255,164,0.86)";
             drawNavigationArrow(edge, color);
         }
         ctx.restore();
@@ -4873,7 +5064,45 @@ import {
         return withExtension.includes("/") ? withExtension : `characters/${withExtension}`;
     }
 
-    async function ensureCharacterProjectForDefinition(definition) {
+    function editorCharacterPreparedAtlasCache() {
+        const cache = new Map();
+        const runtimeProjects = state.editorRuntimeRenderer?.getRuntimeCharacterProjects?.() || new Map();
+        for (const project of [...runtimeProjects.values(), ...state.characterProjects.values()]) {
+            for (const prepared of project?.preparedAtlasEntries || []) {
+                if (!prepared?.cacheKey || !(prepared.frames instanceof Map)) continue;
+                cache.set(prepared.cacheKey, prepared);
+            }
+        }
+        return cache;
+    }
+
+    function releaseEditorCharacterProject(project) {
+        if (!project) return false;
+        project.assets?.clear?.();
+        project.atlasAssets?.clear?.();
+        project.animations?.clear?.();
+        project.attackHandoffs?.clear?.();
+        project.projectiles?.clear?.();
+        project.supplementalAtlases = [];
+        project.preparedAtlasEntries = [];
+        project.image = null;
+        return true;
+    }
+
+    function releaseEditorCharacterProjectsOwnedByRenderer() {
+        const runtimeProjects = state.editorRuntimeRenderer?.getRuntimeCharacterProjects?.();
+        if (!(runtimeProjects instanceof Map) || !runtimeProjects.size) return 0;
+        let released = 0;
+        for (const [characterId, project] of [...state.characterProjects]) {
+            if (!runtimeProjects.has(characterId)) continue;
+            releaseEditorCharacterProject(project);
+            state.characterProjects.delete(characterId);
+            released += 1;
+        }
+        return released;
+    }
+
+    async function ensureCharacterProjectForDefinition(definition, options = {}) {
         const characterId = String(definition?.characterId || "");
         const characterUrl = characterProjectUrlForDefinition(definition);
         if (!characterId || !characterUrl) return null;
@@ -4881,7 +5110,8 @@ import {
         if (state.characterProjectLoads.has(characterId)) return state.characterProjectLoads.get(characterId);
         const pending = loadRuntimeCharacterProject(characterUrl, {
             loadJson: (url) => loadJsonResourceWithRetry(url),
-            loadImage: (url) => loadImageResourceWithRetry(url)
+            loadImage: (url) => loadImageResourceWithRetry(url),
+            preparedAtlasCache: options.preparedAtlasCache || editorCharacterPreparedAtlasCache()
         })
             .then((project) => {
                 state.characterProjects.set(project.characterId || characterId, project);
@@ -4899,20 +5129,38 @@ import {
     }
 
     async function ensureCharacterProjectsForLevel(level) {
-        const jobs = [];
-        const seen = new Set();
-        for (const entity of level?.entities || []) {
-            if (entity?.type !== "characterEnemy") continue;
-            const definition = enemyCatalogDefinition(entity.enemyCatalogId) || {
-                characterId: String(entity.characterId || entity.characterProject || ""),
-                characterUrl: String(entity.characterUrl || "")
-            };
-            const characterId = String(definition.characterId || "");
-            if (!characterId || seen.has(characterId)) continue;
-            seen.add(characterId);
-            jobs.push(ensureCharacterProjectForDefinition(definition));
+        const retainedLocalCharacterIds = new Set();
+
+        // Once the production renderer exists it owns the current level's
+        // character projects. The editor-local cache is only a fallback for
+        // pre-renderer use and for palette selections not yet placed in the level.
+        if (!state.editorRuntimeRenderer) {
+            const jobs = [];
+            const preparedAtlasCache = editorCharacterPreparedAtlasCache();
+            for (const entity of level?.entities || []) {
+                if (entity?.type !== "characterEnemy") continue;
+                const definition = enemyCatalogDefinition(entity.enemyCatalogId) || {
+                    characterId: String(entity.characterId || entity.characterProject || ""),
+                    characterUrl: String(entity.characterUrl || "")
+                };
+                const characterId = String(definition.characterId || "");
+                if (!characterId || retainedLocalCharacterIds.has(characterId)) continue;
+                retainedLocalCharacterIds.add(characterId);
+                jobs.push(ensureCharacterProjectForDefinition(definition, { preparedAtlasCache }));
+            }
+            await Promise.all(jobs);
         }
-        await Promise.all(jobs);
+
+        const selectedDefinition = enemyCatalogDefinition(state.selectedEntityType);
+        const selectedCharacterId = String(selectedDefinition?.characterId || "");
+        if (selectedCharacterId && state.characterProjects.has(selectedCharacterId)) {
+            retainedLocalCharacterIds.add(selectedCharacterId);
+        }
+        for (const [characterId, project] of [...state.characterProjects]) {
+            if (retainedLocalCharacterIds.has(characterId)) continue;
+            releaseEditorCharacterProject(project);
+            state.characterProjects.delete(characterId);
+        }
     }
 
     async function loadEnemyCatalog() {
@@ -5396,7 +5644,8 @@ import {
 
     function drawEnemyEntityThumbnail(canvas, definition) {
         const characterId = String(definition.characterId || "");
-        const project = state.characterProjects.get(characterId);
+        const runtimeProject = state.editorRuntimeRenderer?.getRuntimeCharacterProjects?.().get(characterId) || null;
+        const project = runtimeProject || state.characterProjects.get(characterId);
         if (!project) return false;
         const entity = {
             characterId,
@@ -5497,7 +5746,13 @@ import {
         state.selectedEntityType = nextType;
         updateEntityPalette();
         const enemyDefinition = enemyCatalogDefinition(nextType);
-        if (enemyDefinition) void ensureCharacterProjectForDefinition(enemyDefinition);
+        if (enemyDefinition) {
+            const characterId = String(enemyDefinition.characterId || "");
+            const runtimeProject = characterId
+                ? state.editorRuntimeRenderer?.getRuntimeCharacterProjects?.().get(characterId)
+                : null;
+            if (!runtimeProject) void ensureCharacterProjectForDefinition(enemyDefinition);
+        }
         if (activateTool) setTool("placeEntity");
     }
 
@@ -6163,6 +6418,63 @@ import {
         return true;
     }
 
+    function movingPlatformSwingPlacementAtAngle(placement, angleDegrees) {
+        const movement = normalizeMovingPlatform(placement?.movement);
+        if (!placement || movement?.motionType !== "swing") return placement;
+        const pivotWorld = placementLocalToWorld(placement, movement.pivotX, movement.pivotY);
+        const center = placementCenter(placement);
+        const radians = finiteEditorNumber(angleDegrees, 0) * Math.PI / 180;
+        const dx = center.x - pivotWorld.x;
+        const dy = center.y - pivotWorld.y;
+        const cosine = Math.cos(radians);
+        const sine = Math.sin(radians);
+        const rotatedCenter = {
+            x: pivotWorld.x + dx * cosine - dy * sine,
+            y: pivotWorld.y + dx * sine + dy * cosine
+        };
+        return {
+            ...placement,
+            x: rotatedCenter.x - finiteEditorNumber(placement.w, 0) * 0.5,
+            y: rotatedCenter.y - finiteEditorNumber(placement.h, 0) * 0.5,
+            rotation: normalizeRotationRadians(placement.rotation) + radians
+        };
+    }
+
+    function movingPlatformInitialPlacement(placement) {
+        const movement = normalizeMovingPlatform(placement?.movement);
+        return movement?.motionType === "swing"
+            ? movingPlatformSwingPlacementAtAngle(placement, movement.initialAngle)
+            : placement;
+    }
+
+    function movingPlatformPathCorners(placement) {
+        const movement = normalizeMovingPlatform(placement?.movement);
+        if (!movement) return placementCorners(placement);
+        if (movement.motionType === "swing") {
+            const amplitude = Math.max(0, finiteEditorNumber(movement.angleAmplitude, 0));
+            const sampleCount = Math.max(8, Math.ceil(amplitude * 2 / 5));
+            const corners = [];
+            for (let index = 0; index <= sampleCount; index += 1) {
+                const angle = -amplitude + amplitude * 2 * index / sampleCount;
+                corners.push(...placementCorners(movingPlatformSwingPlacementAtAngle(placement, angle)));
+            }
+            corners.push(...placementCorners(movingPlatformInitialPlacement(placement)));
+            // External pendulum pivots are authoring handles too. Include the
+            // pivot itself so Fit/culling never frames the swept object while
+            // leaving its hinge and guide line offscreen.
+            corners.push(placementLocalToWorld(placement, movement.pivotX, movement.pivotY));
+            return corners;
+        }
+        if (movingPlatformHasEndpoint(movement)) {
+            const endpoint = movingPlatformEndPosition(placement, movement);
+            return [
+                ...placementCorners(placement),
+                ...placementCorners({ ...placement, x: endpoint.x, y: endpoint.y })
+            ];
+        }
+        return placementCorners(placement);
+    }
+
     function objectRect(record, kind) {
         if (kind === "entity") {
             if (record.type === "fuel") return { x: record.x - 14, y: record.y - 14, w: 28, h: 28 };
@@ -6188,7 +6500,7 @@ import {
             const placement = placements[i];
             if (!editorPlacementVisible(placement)) continue;
             if (!generatedCavePlacementVisible(placement)) continue;
-            const displayedPlacement = displayedLayerPlacement(placement);
+            const displayedPlacement = displayedLayerPlacement(movingPlatformInitialPlacement(placement));
             const hit = placement.kind === "cutoutMask"
                 ? pointInRect(point, objectRect(displayedPlacement, "asset"))
                 : pointInPlacement(point, displayedPlacement);
@@ -6725,19 +7037,67 @@ import {
         };
     }
 
-    function editorRuntimeEnemyCharacterUrls() {
-        return [...new Set([...state.enemyCatalog.values()].map((definition) => {
-            const configured = String(definition?.characterUrl || definition?.characterId || "").trim();
-            if (!configured) return "";
-            const withExtension = configured.endsWith(".json") ? configured : `${configured}.json`;
-            return withExtension.includes("/") ? withExtension : `characters/${withExtension}`;
-        }).filter(Boolean))];
+    function editorRuntimeEnemyCharacterUrls(level = state.level) {
+        const urls = [];
+        for (const entity of level?.entities || []) {
+            if (entity?.type !== "characterEnemy") continue;
+            const definition = enemyCatalogDefinition(entity.enemyCatalogId) || {
+                characterId: String(entity.characterId || entity.characterProject || ""),
+                characterUrl: String(entity.characterUrl || "")
+            };
+            const url = characterProjectUrlForDefinition(definition);
+            if (url) urls.push(url);
+        }
+        return [...new Set(urls)];
     }
 
-    function editorRuntimeManifestUrls() {
-        return [...new Set([...state.atlases.values()]
-            .map((record) => String(record?.manifestUrl || "").trim())
+    function editorRuntimeManifestUrls(level = state.level) {
+        return [...new Set((level?.atlasRefs || [])
+            .map((ref) => String(ref?.manifest || "").trim())
             .filter(Boolean))];
+    }
+
+    function syncEditorRuntimeCharacterProjects(level = state.level) {
+        const renderer = state.editorRuntimeRenderer;
+        const urls = editorRuntimeEnemyCharacterUrls(level);
+        const signature = urls.slice().sort().join("|");
+        state.editorRuntimeCharacterDesiredUrls = urls;
+        state.editorRuntimeCharacterDesiredSignature = signature;
+        if (!renderer || signature === state.editorRuntimeCharacterSyncedSignature) {
+            if (renderer) releaseEditorCharacterProjectsOwnedByRenderer();
+            return state.editorRuntimeCharacterSyncPromise || Promise.resolve(false);
+        }
+        if (state.editorRuntimeCharacterSyncPromise) return state.editorRuntimeCharacterSyncPromise;
+        let attemptedSignature = signature;
+        state.editorRuntimeCharacterSyncPromise = (async () => {
+            let changed = false;
+            while (state.editorRuntimeCharacterSyncedSignature !== state.editorRuntimeCharacterDesiredSignature) {
+                const targetUrls = state.editorRuntimeCharacterDesiredUrls.slice();
+                const targetSignature = state.editorRuntimeCharacterDesiredSignature;
+                attemptedSignature = targetSignature;
+                const result = await renderer.ensureCharacterProjects(targetUrls);
+                changed = changed || Boolean(result?.loadedCount || result?.unloadedCount);
+                state.editorRuntimeCharacterSyncedSignature = targetSignature;
+            }
+            return changed;
+        })().then((changed) => {
+            releaseEditorCharacterProjectsOwnedByRenderer();
+            if (changed) draw();
+            return changed;
+        }).catch((error) => {
+            console.warn("Could not synchronize Level Editor runtime character projects.", error);
+            // Treat the failed target as attempted so a missing resource does not
+            // create an immediate retry loop. A different level/entity set still
+            // changes the desired signature and schedules a fresh synchronization.
+            state.editorRuntimeCharacterSyncedSignature = attemptedSignature;
+            return false;
+        }).finally(() => {
+            state.editorRuntimeCharacterSyncPromise = null;
+            if (state.editorRuntimeRenderer && state.editorRuntimeCharacterSyncedSignature !== state.editorRuntimeCharacterDesiredSignature) {
+                void syncEditorRuntimeCharacterProjects(state.level);
+            }
+        });
+        return state.editorRuntimeCharacterSyncPromise;
     }
 
     function editorRuntimeLevelSource() {
@@ -6773,16 +7133,23 @@ import {
         applyEnemyDefinitionCatalog(runtimeState, editorRuntimeEnemyCatalog());
         state.editorRuntimeState = runtimeState;
         if (els.renderer) els.renderer.textContent = "renderer: loading Canvas2D game renderer";
+        const initialManifestUrls = editorRuntimeManifestUrls(state.level);
+        const initialCharacterUrls = editorRuntimeEnemyCharacterUrls(state.level);
         const renderer = await createGameCanvasRenderer(canvas, {
             preferWebGL2: false,
-            environmentAtlasManifestUrls: editorRuntimeManifestUrls(),
-            enemyCharacterUrls: editorRuntimeEnemyCharacterUrls(),
+            environmentAtlasManifestUrls: initialManifestUrls,
+            environmentAtlasSourceResolver: editorRuntimeEnvironmentAtlasSource,
+            enemyCharacterUrls: initialCharacterUrls,
             onProgress: ({ progress, label }) => {
                 if (!els.renderer) return;
                 els.renderer.textContent = `renderer: loading ${Math.round(Math.max(0, Math.min(1, Number(progress) || 0)) * 100)}% · ${label}`;
             }
         });
         state.editorRuntimeRenderer = renderer;
+        state.editorRuntimeAtlasSignature = initialManifestUrls.slice().sort().join("|");
+        state.editorRuntimeCharacterDesiredUrls = initialCharacterUrls;
+        state.editorRuntimeCharacterDesiredSignature = initialCharacterUrls.slice().sort().join("|");
+        state.editorRuntimeCharacterSyncedSignature = state.editorRuntimeCharacterDesiredSignature;
         markEditorRuntimeWorldDirty();
         return renderer;
     }
@@ -6803,16 +7170,17 @@ import {
         state.editorRuntimeWorldDirty = false;
         state.editorPerformance.syncMs = performance.now() - syncStart;
 
-        const manifestUrls = (state.level.atlasRefs || []).map((ref) => String(ref?.manifest || "").trim()).filter(Boolean);
-        const signature = [...new Set(manifestUrls)].sort().join("|");
-        if (signature && signature !== state.editorRuntimeAtlasSignature) {
+        const manifestUrls = editorRuntimeManifestUrls(state.level);
+        const signature = manifestUrls.slice().sort().join("|");
+        if (signature !== state.editorRuntimeAtlasSignature) {
             state.editorRuntimeAtlasSignature = signature;
             renderer.ensureEnvironmentAtlases(manifestUrls).then((changed) => {
                 if (changed) draw();
             }).catch((error) => {
-                console.warn("Could not extend the Level Editor runtime atlas set.", error);
+                console.warn("Could not synchronize the Level Editor runtime atlas set.", error);
             });
         }
+        void syncEditorRuntimeCharacterProjects(state.level);
         return true;
     }
 
@@ -7473,12 +7841,20 @@ import {
     }
 
     function placementWorldBounds(placement) {
+        const movement = normalizeMovingPlatform(placement?.movement);
         const signature = [
             finiteEditorNumber(placement?.x, 0),
             finiteEditorNumber(placement?.y, 0),
             finiteEditorNumber(placement?.w, 0),
             finiteEditorNumber(placement?.h, 0),
-            normalizeRotationRadians(placement?.rotation)
+            normalizeRotationRadians(placement?.rotation),
+            movement?.motionType || "",
+            movement?.endOffsetX || 0,
+            movement?.endOffsetY || 0,
+            movement?.angleAmplitude || 0,
+            movement?.initialAngle || 0,
+            movement?.pivotX || 0,
+            movement?.pivotY || 0
         ].join("|");
         const cached = state.placementBoundsCache.get(placement);
         if (cached?.signature === signature) return cached.bounds;
@@ -7491,7 +7867,7 @@ import {
                 maxY: finiteEditorNumber(placement.y, 0) + Math.max(0, finiteEditorNumber(placement.h, 0))
             };
         } else {
-            const corners = placementCorners(placement);
+            const corners = movingPlatformPathCorners(placement);
             bounds = {
                 minX: Math.min(...corners.map((point) => point.x)),
                 minY: Math.min(...corners.map((point) => point.y)),
@@ -7598,6 +7974,7 @@ import {
         const rotation = normalizeRotationRadians(placement.rotation);
         const caveForeground = placement.layer === CAVE_FOREGROUND_LAYER;
         const background = placement.layer === BACKGROUND_LAYER;
+        const blendMode = placement.blendMode || objectFor(placement.assetId, atlasId)?.blendMode || "alpha";
         const atlasImage = caveForeground && frame
             ? getEditorForegroundSprite(atlasId, placement.assetId, frame, placement)
             : imageForAtlas(atlasId);
@@ -7605,6 +7982,7 @@ import {
             ctx.save();
             if (preview) ctx.globalAlpha *= 0.58;
             ctx.globalAlpha *= Number.isFinite(Number(placement.alpha)) ? Number(placement.alpha) : 1;
+            if (blendMode === "brightenOnly") ctx.globalCompositeOperation = "lighten";
             if (background) ctx.filter = `brightness(${currentLayerVisuals().background.brightness})`;
             ctx.translate(center.x, center.y);
             ctx.rotate(rotation);
@@ -7633,7 +8011,7 @@ import {
         const utility = isInvisibleBlockerObject(objectFor(placement.assetId, atlasId));
         if (showDetails && (els.showAssetGuides.checked || utility)) drawPlacementGuides(placement);
         if (showDetails && els.showLabels.checked) {
-            const displayPlacement = displayedLayerPlacement(placement);
+            const displayPlacement = displayedLayerPlacement(movingPlatformInitialPlacement(placement));
             const topLeft = placementCorners(displayPlacement)[0];
             drawLabel(`${atlasId}:${placement.assetId}`, topLeft.x, topLeft.y - 8, COLORS.frame);
         }
@@ -7753,6 +8131,11 @@ import {
     function characterProjectForEntity(entity) {
         const resolvedEnemy = resolvedCharacterEnemy(entity);
         const requested = String(resolvedEnemy.characterId || resolvedEnemy.characterProject || "");
+        const runtimeProjects = state.editorRuntimeRenderer?.getRuntimeCharacterProjects?.() || new Map();
+        if (runtimeProjects.has(requested)) return runtimeProjects.get(requested);
+        for (const project of runtimeProjects.values()) {
+            if (project.characterId === requested || project.sourceUrl?.endsWith(`/${requested}.json`)) return project;
+        }
         if (state.characterProjects.has(requested)) return state.characterProjects.get(requested);
         for (const project of state.characterProjects.values()) {
             if (project.characterId === requested || project.sourceUrl?.endsWith(`/${requested}.json`)) return project;
@@ -8036,16 +8419,22 @@ import {
 
     function refreshMovingPlatformControlVisibility() {
         const enabled = Boolean(els.inspectMovingEnabled.checked);
+        const motionType = els.inspectMovingMotionType.value || "translate";
         const pattern = els.inspectMovingPattern.value || "shuttle";
         const activation = els.inspectMovingActivation.value || "automatic";
+        const movement = normalizeMovingPlatform({ motionType, pattern });
+        const translating = motionType === "translate";
+        const swinging = motionType === "swing";
         els.movingPlatformFields.style.display = enabled ? "block" : "none";
-        els.movingPlatformEndFields.style.display = enabled && movingPlatformHasEndpoint(pattern) ? "block" : "none";
-        els.movingPlatformFadeFields.style.display = enabled && movingPlatformUsesFade(pattern) ? "grid" : "none";
+        els.movingPatternLabel.style.display = enabled && translating ? "grid" : "none";
+        els.movingPlatformEndFields.style.display = enabled && translating && movingPlatformHasEndpoint(movement) ? "block" : "none";
+        els.movingPlatformSwingFields.style.display = enabled && swinging ? "block" : "none";
+        els.movingPlatformFadeFields.style.display = enabled && translating && movingPlatformUsesFade(movement) ? "grid" : "none";
         els.movingSignalChannelLabel.style.display = enabled && activation === "signal" ? "grid" : "none";
         els.movingInitialDelayLabel.style.display = enabled && activation === "automatic" ? "grid" : "none";
         els.movingTriggerDelayLabel.style.display = enabled && activation !== "automatic" ? "grid" : "none";
-        els.movingStartPauseLabel.style.display = enabled && activation === "automatic" ? "grid" : "none";
-        els.movingEndPauseLabel.style.display = enabled && movingPlatformHasEndpoint(pattern) ? "grid" : "none";
+        els.movingStartPauseLabel.style.display = enabled && translating && activation === "automatic" ? "grid" : "none";
+        els.movingEndPauseLabel.style.display = enabled && translating && movingPlatformHasEndpoint(movement) ? "grid" : "none";
     }
 
     function swapSelectedMovingPlatformEndpoints() {
@@ -8189,6 +8578,72 @@ import {
         const start = worldToScreen(startCenterWorld.x, startCenterWorld.y);
         drawMovingPlatformSignalLinks(placement, movement, start);
 
+        if (movement.motionType === "swing") {
+            const pivotWorld = placementLocalToWorld(placement, movement.pivotX, movement.pivotY);
+            const pivot = worldToScreen(pivotWorld.x, pivotWorld.y);
+            const baseCenter = placementCenter(placement);
+            const rotateCenter = (degrees) => {
+                const radians = degrees * Math.PI / 180;
+                const dx = baseCenter.x - pivotWorld.x;
+                const dy = baseCenter.y - pivotWorld.y;
+                const cosine = Math.cos(radians);
+                const sine = Math.sin(radians);
+                return {
+                    x: pivotWorld.x + dx * cosine - dy * sine,
+                    y: pivotWorld.y + dx * sine + dy * cosine
+                };
+            };
+            const amplitude = Math.max(0, movement.angleAmplitude);
+            const initialCenterWorld = rotateCenter(movement.initialAngle);
+            const initialCenter = worldToScreen(initialCenterWorld.x, initialCenterWorld.y);
+
+            ctx.save();
+            ctx.strokeStyle = "rgba(255,159,67,0.94)";
+            ctx.fillStyle = "rgba(255,199,132,1)";
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 6]);
+            ctx.beginPath();
+            for (let index = 0; index <= 32; index += 1) {
+                const degrees = -amplitude + amplitude * 2 * index / 32;
+                const pointWorld = rotateCenter(degrees);
+                const point = worldToScreen(pointWorld.x, pointWorld.y);
+                if (index === 0) ctx.moveTo(point.x, point.y);
+                else ctx.lineTo(point.x, point.y);
+            }
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(pivot.x, pivot.y);
+            ctx.lineTo(initialCenter.x, initialCenter.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.arc(pivot.x, pivot.y, 7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "rgba(17,16,25,0.95)";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.font = "bold 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+            ctx.fillStyle = "rgba(255,199,132,1)";
+            ctx.fillText("PIVOT", pivot.x + 10, pivot.y - 10);
+            ctx.fillText(`SWING ±${Math.round(amplitude * 10) / 10}° · ${movement.swingPeriod}s`, initialCenter.x + 12, initialCenter.y - 12);
+            ctx.restore();
+
+            for (const degrees of [-amplitude, amplitude]) {
+                const centerWorld = rotateCenter(degrees);
+                const center = worldToScreen(centerWorld.x, centerWorld.y);
+                ctx.save();
+                ctx.translate(center.x, center.y);
+                ctx.rotate(normalizeRotationRadians(placement.rotation) + degrees * Math.PI / 180);
+                ctx.strokeStyle = "rgba(255,159,67,0.58)";
+                ctx.fillStyle = "rgba(255,159,67,0.05)";
+                ctx.setLineDash([6, 5]);
+                ctx.fillRect(-placement.w * state.camera.zoom * 0.5, -placement.h * state.camera.zoom * 0.5, placement.w * state.camera.zoom, placement.h * state.camera.zoom);
+                ctx.strokeRect(-placement.w * state.camera.zoom * 0.5, -placement.h * state.camera.zoom * 0.5, placement.w * state.camera.zoom, placement.h * state.camera.zoom);
+                ctx.restore();
+            }
+            return;
+        }
+
         if (!movingPlatformHasEndpoint(movement)) {
             ctx.save();
             ctx.fillStyle = "rgba(255,159,67,0.96)";
@@ -8265,7 +8720,7 @@ import {
         ctx.lineWidth = primary && locked ? 3 : (primary ? 2 : 1.5);
         ctx.setLineDash(primary && locked ? [4, 4] : (primary ? [8, 5] : [5, 5]));
         if (selected.kind === "asset") {
-            const displayRecord = displayedLayerPlacement(selected.record);
+            const displayRecord = displayedLayerPlacement(movingPlatformInitialPlacement(selected.record));
             const centerWorld = placementCenter(displayRecord);
             const center = worldToScreen(centerWorld.x, centerWorld.y);
             const w = displayRecord.w * state.camera.zoom;
@@ -8394,12 +8849,22 @@ import {
             const movingDraft = authoredMovement || createDefaultMovingPlatform();
             els.inspectMovingEnabled.checked = Boolean(authoredMovement);
             els.inspectMovingPersistent.checked = movingDraft.persistent === true;
+            els.inspectMovingMotionType.value = movingDraft.motionType;
             els.inspectMovingPattern.value = movingDraft.pattern;
             els.inspectMovingActivation.value = movingDraft.activation;
             els.inspectMovingSignalChannel.value = movingDraft.signalChannel;
             els.inspectMovingEndX.value = String(Math.round(movingDraft.endOffsetX * 1000) / 1000);
             els.inspectMovingEndY.value = String(Math.round(movingDraft.endOffsetY * 1000) / 1000);
             els.inspectMovingSpeed.value = String(Math.round(movingDraft.speed * 1000) / 1000);
+            els.inspectMovingEasing.value = movingDraft.easing;
+            els.inspectMovingAngleAmplitude.max = String(MAX_MOVING_PLATFORM_SWING_AMPLITUDE);
+            els.inspectMovingInitialAngle.min = String(-MAX_MOVING_PLATFORM_SWING_AMPLITUDE);
+            els.inspectMovingInitialAngle.max = String(MAX_MOVING_PLATFORM_SWING_AMPLITUDE);
+            els.inspectMovingAngleAmplitude.value = String(movingDraft.angleAmplitude);
+            els.inspectMovingInitialAngle.value = String(movingDraft.initialAngle);
+            els.inspectMovingSwingPeriod.value = String(movingDraft.swingPeriod);
+            els.inspectMovingPivotX.value = String(movingDraft.pivotX);
+            els.inspectMovingPivotY.value = String(movingDraft.pivotY);
             els.inspectMovingInitialDelay.value = String(movingDraft.initialDelay);
             els.inspectMovingTriggerDelay.value = String(movingDraft.triggerDelay);
             els.inspectMovingStartPause.value = String(movingDraft.startPause);
@@ -8475,14 +8940,20 @@ import {
             els.inspectEnemyTurnPause.value = Math.max(0, finiteEditorNumber(resolvedEnemy.turnPause, 0.5));
             els.inspectEnemyHealth.value = Math.max(1, finiteEditorNumber(resolvedEnemy.health, 90));
             els.inspectEnemyRenderScale.value = normalizeEnemyScale(resolvedEnemy.scale, 1);
-            els.inspectEnemyAttackDamage.value = Math.max(0, finiteEditorNumber(resolvedEnemy.damage, finiteEditorNumber(resolvedEnemy.attackDamage, finiteEditorNumber(resolvedEnemy.projectileDamage, 24))));
+            els.inspectEnemyAttackDamage.value = Math.max(0, finiteEditorNumber(resolvedEnemy.damage, 24));
+            const resolvedEnemyAttackType = String(resolvedEnemy.attackType || "melee") === "projectile" ? "projectile" : "melee";
+            const resolvedEnemyIsProjectile = resolvedEnemyAttackType === "projectile";
             els.inspectEnemyAttackRange.value = Math.max(0, finiteEditorNumber(resolvedEnemy.attackRange, 66));
+            els.inspectEnemyAttackRangeLabel.hidden = !resolvedEnemyIsProjectile;
+            for (const label of [els.inspectEnemyMeleeHitRangeLabel, els.inspectEnemyLungeTargetDistLabel, els.inspectEnemyLungeRangeMinLabel, els.inspectEnemyLungeRangeMaxLabel, els.inspectEnemyLungeSpeedLabel]) {
+                label.hidden = resolvedEnemyIsProjectile;
+            }
             els.inspectEnemyMeleeHitRange.value = Math.max(0, finiteEditorNumber(resolvedEnemy.meleeHitRange, 0));
             els.inspectEnemyLungeTargetDist.value = Math.max(0, finiteEditorNumber(resolvedEnemy.lungeTargetDist, 0));
             els.inspectEnemyLungeRangeMin.value = Math.max(0, finiteEditorNumber(resolvedEnemy.lungeRangeMin, 0));
             els.inspectEnemyLungeRangeMax.value = Math.max(0, finiteEditorNumber(resolvedEnemy.lungeRangeMax, 0));
             els.inspectEnemyLungeSpeed.value = Math.max(0, finiteEditorNumber(resolvedEnemy.lungeSpeed, 0));
-            els.inspectEnemyAttackCooldown.value = Math.max(0, finiteEditorNumber(resolvedEnemy.attackCooldown, finiteEditorNumber(resolvedEnemy.projectileCooldown, 0.12)));
+            els.inspectEnemyAttackCooldown.value = Math.max(0, finiteEditorNumber(resolvedEnemy.attackCooldown, 0.12));
             els.inspectEnemyIsBoss.checked = rec.isBoss === true;
             els.inspectEnemyBossName.value = String(rec.bossName || "Boss");
             els.inspectEnemyBossSignal.value = String(rec.bossDefeatSignalChannel || "");
@@ -8686,6 +9157,7 @@ import {
             rec.atlasId = rec.atlasId || DEFAULT_ATLAS_ID;
             if (![BACKGROUND_LAYER, CAVE_FOREGROUND_LAYER].includes(rec.layer) && els.inspectMovingEnabled.checked) {
                 rec.movement = normalizeMovingPlatform({
+                    motionType: els.inspectMovingMotionType.value,
                     pattern: els.inspectMovingPattern.value,
                     activation: els.inspectMovingActivation.value,
                     signalChannel: normalizeSignalChannel(els.inspectMovingSignalChannel.value),
@@ -8693,6 +9165,12 @@ import {
                     endOffsetX: Number(els.inspectMovingEndX.value),
                     endOffsetY: Number(els.inspectMovingEndY.value),
                     speed: Number(els.inspectMovingSpeed.value),
+                    easing: els.inspectMovingEasing.value,
+                    angleAmplitude: Number(els.inspectMovingAngleAmplitude.value),
+                    initialAngle: Number(els.inspectMovingInitialAngle.value),
+                    swingPeriod: Number(els.inspectMovingSwingPeriod.value),
+                    pivotX: Number(els.inspectMovingPivotX.value),
+                    pivotY: Number(els.inspectMovingPivotY.value),
                     initialDelay: Number(els.inspectMovingInitialDelay.value),
                     triggerDelay: Number(els.inspectMovingTriggerDelay.value),
                     startPause: Number(els.inspectMovingStartPause.value),
@@ -8944,16 +9422,23 @@ import {
                 setCharacterEnemyOverride(rec, "health", Math.max(1, Number(els.inspectEnemyHealth.value) || 60), 90);
                 setCharacterEnemyOverride(rec, "scale", normalizeEnemyScale(els.inspectEnemyRenderScale.value, 1), 1);
                 setCharacterEnemyOverride(rec, "damage", Math.max(0, Number(els.inspectEnemyAttackDamage.value) || 0), 24);
-                setCharacterEnemyOverride(rec, "attackRange", Math.max(1, Number(els.inspectEnemyAttackRange.value) || 66), 66);
-                setCharacterEnemyOverride(rec, "meleeHitRange", Math.max(0, Number(els.inspectEnemyMeleeHitRange.value) || 0), 0);
-                setCharacterEnemyOverride(rec, "lungeTargetDist", Math.max(0, Number(els.inspectEnemyLungeTargetDist.value) || 0), 0);
-                setCharacterEnemyOverride(rec, "lungeRangeMin", Math.max(0, Number(els.inspectEnemyLungeRangeMin.value) || 0), 0);
-                setCharacterEnemyOverride(rec, "lungeRangeMax", Math.max(0, Number(els.inspectEnemyLungeRangeMax.value) || 0), 0);
-                setCharacterEnemyOverride(rec, "lungeSpeed", Math.max(0, Number(els.inspectEnemyLungeSpeed.value) || 0), 0);
+                const resolvedAttackType = String(resolvedCharacterEnemy(rec).attackType || "melee") === "projectile" ? "projectile" : "melee";
+                if (resolvedAttackType === "projectile") {
+                    setCharacterEnemyOverride(rec, "attackRange", Math.max(1, Number(els.inspectEnemyAttackRange.value) || 66), 66);
+                    delete rec.meleeHitRange;
+                    delete rec.lungeTargetDist;
+                    delete rec.lungeRangeMin;
+                    delete rec.lungeRangeMax;
+                    delete rec.lungeSpeed;
+                } else {
+                    delete rec.attackRange;
+                    setCharacterEnemyOverride(rec, "meleeHitRange", Math.max(0, Number(els.inspectEnemyMeleeHitRange.value) || 0), 0);
+                    setCharacterEnemyOverride(rec, "lungeTargetDist", Math.max(0, Number(els.inspectEnemyLungeTargetDist.value) || 0), 0);
+                    setCharacterEnemyOverride(rec, "lungeRangeMin", Math.max(0, Number(els.inspectEnemyLungeRangeMin.value) || 0), 0);
+                    setCharacterEnemyOverride(rec, "lungeRangeMax", Math.max(0, Number(els.inspectEnemyLungeRangeMax.value) || 0), 0);
+                    setCharacterEnemyOverride(rec, "lungeSpeed", Math.max(0, Number(els.inspectEnemyLungeSpeed.value) || 0), 0);
+                }
                 setCharacterEnemyOverride(rec, "attackCooldown", Math.max(0, Number(els.inspectEnemyAttackCooldown.value) || 0), 0.12);
-                delete rec.attackDamage;
-                delete rec.projectileDamage;
-                delete rec.projectileCooldown;
                 delete rec.attackHitTime;
                 delete rec.projectileReleaseTime;
                 delete rec.animationSlot;
@@ -10573,7 +11058,7 @@ import {
     }
 
     function notifyDevToolResourceSaved(kind, id) {
-        const bridge = window.chrome?.webview;
+        const bridge = window.IgnatiusProjectHost?.nativeBridge?.();
         if (typeof bridge?.postMessage === "function") {
             bridge.postMessage(`ignatius-resource-saved|${kind}|${id}`);
         }
@@ -10705,6 +11190,12 @@ import {
     }
 
     async function playBrowserCopy() {
+        if (state.playtestNavigationJob) {
+            setStatus("A playtest navigation build is already running. Wait for it to finish before launching another playtest.");
+            return;
+        }
+        cancelNavigationSimulation(null);
+        const nativeBridge = window.IgnatiusProjectHost?.nativeBridge?.() || null;
         const hostedReservePlaytest = (() => {
             try {
                 return window.parent !== window && typeof window.parent.ignatiusDevToolReservePlaytestWindow === "function"
@@ -10729,7 +11220,7 @@ import {
         // Chrome silently blocks the eventual window.open(). Native SDL uses
         // the host process and therefore does not reserve a browser window.
         let reservedPlaytestWindow = null;
-        if (!window.chrome?.webview) {
+        if (typeof nativeBridge?.postMessage !== "function") {
             try {
                 reservedPlaytestWindow = hostedReservePlaytest
                     ? hostedReservePlaytest()
@@ -10745,35 +11236,114 @@ import {
         };
 
         const stepTransitionMethod = els.navigationUseStrideArc.checked ? "stride_arc" : "legacy";
-        let playtestProfiles;
+        const previousPreviewGraphId = state.navigationPreviewGraphId;
+        const levelAtRequest = state.level;
+        const levelTextAtRequest = JSON.stringify(state.level);
+        const playtestJobId = `navigation_playtest_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        const playButton = document.getElementById("play-browser-copy");
+        let playtestWorker;
         try {
-            playtestProfiles = bakePlacedHunterNavigationProfiles({
-                includeWizard: false,
-                stepTransitionMethod
+            playtestWorker = new Worker(new URL("./src/tools/navigation-rebake-worker.js", import.meta.url), { type: "module" });
+        } catch (error) {
+            closeReservedPlaytest();
+            console.error("Could not start the playtest navigation worker.", error);
+            setStatus(`Could not start the playtest navigation worker: ${error?.message || error}`, false);
+            return;
+        }
+        state.playtestNavigationJob = { jobId: playtestJobId, worker: playtestWorker };
+        if (playButton) playButton.disabled = true;
+        const finishPlaytestJob = () => {
+            if (state.playtestNavigationJob?.jobId !== playtestJobId) return;
+            try { state.playtestNavigationJob.worker?.terminate(); } catch (_) {}
+            state.playtestNavigationJob = null;
+            if (playButton) playButton.disabled = false;
+        };
+        const finishWorker = () => {
+            try { playtestWorker.terminate(); } catch (_) {}
+            if (state.playtestNavigationJob?.jobId === playtestJobId) state.playtestNavigationJob.worker = null;
+        };
+
+        setStatus("Navigation worker is building heuristic playtest graphs (simulation disabled)…");
+        let playtestRebake;
+        try {
+            playtestRebake = await new Promise((resolve, reject) => {
+                playtestWorker.addEventListener("message", (event) => {
+                    const message = event.data || {};
+                    if (message.jobId !== playtestJobId) return;
+                    if (message.type === "navigation-rebake-progress") {
+                        setStatus(
+                            `Preparing heuristic playtest navigation…`
+                        );
+                        return;
+                    }
+                    if (message.type === "navigation-rebake-error") {
+                        finishWorker();
+                        reject(new Error(message.message || "Navigation rebake worker failed."));
+                        return;
+                    }
+                    if (message.type !== "navigation-rebake-complete") return;
+                    finishWorker();
+                    resolve(message);
+                });
+                playtestWorker.addEventListener("error", (event) => {
+                    finishWorker();
+                    reject(event.error || new Error(event.message || "Navigation rebake worker crashed."));
+                });
+                playtestWorker.postMessage({
+                    type: "rebake-navigation",
+                    jobId: playtestJobId,
+                    level: cloneData(state.level),
+                    context: navigationRebakeContext(),
+                    verifyBySimulation: false,
+                    reuseSimulationProofs: true,
+                    preserveMatchingVerification: true,
+                    includeWizard: false,
+                    stepTransitionMethod,
+                    compareStepMethods: false
+                });
             });
         } catch (error) {
             closeReservedPlaytest();
+            finishPlaytestJob();
             console.error("Could not build playtest navigation graphs.", error);
             setStatus(`Could not prepare playtest navigation: ${error?.message || error}`, false);
             return;
         }
-        const playtestGraphs = { version: 2, profiles: playtestProfiles };
-        const graphResult = {
-            built: true,
-            profiles: playtestProfiles.length,
-            edges: playtestProfiles.reduce((sum, graph) => sum + (graph.edges?.length || 0), 0)
-        };
+        if (state.level !== levelAtRequest || JSON.stringify(state.level) !== levelTextAtRequest) {
+            closeReservedPlaytest();
+            finishPlaytestJob();
+            setStatus("Playtest navigation finished, but the level changed while the worker was running. Click Play again to build the current level.", false);
+            return;
+        }
+
+        const playtestGraphs = cloneData(playtestRebake.level?.navigationGraphs || { version: 2, profiles: [] });
+        // Keep any matching stored runtime proofs in the editor state, but Play itself
+        // performs heuristic graph construction only. Preserve the editor-only
+        // Wizard preview graph, which is deliberately omitted from level_temp.
+        const editorOnlyProfiles = (state.level?.navigationGraphs?.profiles || [])
+            .filter((graph) => String(graph?.id || "") === "wizard")
+            .map((graph) => cloneData(graph));
+        const editorProfiles = [...editorOnlyProfiles, ...(playtestRebake.profiles || []).map((graph) => cloneData(graph))];
+        const editorNavigationGraphs = { version: 2, profiles: editorProfiles };
+        applyNavigationRebakeResult({
+            ...playtestRebake,
+            profiles: editorProfiles,
+            level: { ...cloneData(playtestRebake.level), navigationGraphs: editorNavigationGraphs }
+        }, { previousPreviewGraphId, refreshUi: true });
+        const graphResult = playtestRebake.summary || {};
         const graphSummary = graphResult.profiles
-            ? ` Rebuilt ${graphResult.profiles} runtime hunter navigation graph${graphResult.profiles === 1 ? "" : "s"} (${graphResult.edges} directed transitions); the editor-only Wizard preview was omitted from level_temp.`
+            ? ` Prepared ${graphResult.profiles} runtime hunter navigation graph${graphResult.profiles === 1 ? "" : "s"} (${graphResult.edges || 0} directed transitions) heuristically with simulation disabled. The editor-only Wizard preview was omitted from level_temp.`
             : " No runtime hunter navigation graphs were needed.";
         try {
             if (!await saveLevelTempCopy({ navigationGraphs: playtestGraphs })) {
                 closeReservedPlaytest();
+                finishPlaytestJob();
                 setStatus("Playtest cancelled because the temp level was not saved.", false);
                 return;
             }
         } catch (error) {
             closeReservedPlaytest();
+            finishPlaytestJob();
             console.error(`Could not save ${PLAYTEST_LEVEL_FILENAME} for playtest.`, error);
             setStatus(`Could not prepare playtest: ${error?.message || error}`, false);
             return;
@@ -10785,12 +11355,15 @@ import {
         if (hostedPlaytest) {
             const launched = hostedPlaytest(url.href, reservedPlaytestWindow);
             if (launched === false) setStatus("Playtest level was saved, but the browser blocked the playtest window. Allow popups for this page and try again.", false);
+        } else if (typeof nativeBridge?.postMessage === "function") {
+            nativeBridge.postMessage("ignatius-playtest-request");
         } else if (reservedPlaytestWindow && !reservedPlaytestWindow.closed) {
             reservedPlaytestWindow.location.href = url.href;
         } else {
             const opened = window.open(url.href, "ignatius-level-playtest");
             if (!opened) setStatus("Playtest level was saved, but the browser blocked the playtest window. Allow popups for this page and try again.", false);
         }
+        finishPlaytestJob();
     }
 
     function fitEditorBounds(bounds, maxZoom = 1.4) {
@@ -10815,12 +11388,11 @@ import {
                     { x: placement.x + placement.w, y: placement.y + placement.h }
                 );
             } else {
-                points.push(...placementCorners(placement));
-                const movement = normalizeMovingPlatform(placement.movement);
-                if (movement && movingPlatformHasEndpoint(movement)) {
-                    const endpoint = movingPlatformEndPosition(placement, movement);
-                    points.push(...placementCorners({ ...placement, x: endpoint.x, y: endpoint.y }));
-                }
+                const bounds = placementWorldBounds(placement);
+                points.push(
+                    { x: bounds.minX, y: bounds.minY },
+                    { x: bounds.maxX, y: bounds.maxY }
+                );
             }
         }
         for (const entity of state.level.entities) {
@@ -11111,6 +11683,10 @@ import {
         refreshMovingPlatformControlVisibility();
         draw();
     });
+    els.inspectMovingMotionType.addEventListener("change", () => {
+        refreshMovingPlatformControlVisibility();
+        draw();
+    });
     els.inspectMovingPattern.addEventListener("change", () => {
         refreshMovingPlatformControlVisibility();
         draw();
@@ -11173,7 +11749,17 @@ import {
     document.getElementById("to-front").addEventListener("click", raiseSelectedToTop);
     document.getElementById("to-back").addEventListener("click", lowerSelectedToBottom);
     document.getElementById("play-browser-copy").addEventListener("click", playBrowserCopy);
-    els.buildNavigationGraphs.addEventListener("click", buildPlacedHunterNavigationGraphs);
+    els.buildNavigationGraphs.addEventListener("click", () => {
+        if (state.navigationSimulationJob) {
+            cancelNavigationSimulation();
+            return;
+        }
+        if (els.navigationCheckBySimulation.checked) {
+            buildPlacedHunterNavigationGraphsBySimulation();
+            return;
+        }
+        buildPlacedHunterNavigationGraphsInWorker();
+    });
     els.clearNavigationGraphs.addEventListener("click", () => {
         state.level.navigationGraphs = { version: 2, profiles: [] };
         state.navigationPreviewGraphId = "";
@@ -11187,7 +11773,7 @@ import {
         refreshNavigationGraphUi();
         draw();
     });
-    els.navigationUseStrideArc.addEventListener("change", () => buildPlacedHunterNavigationGraphs());
+    els.navigationUseStrideArc.addEventListener("change", () => buildPlacedHunterNavigationGraphsInWorker());
     els.showNavigationGraph.addEventListener("change", draw);
     els.selectForegroundLayer.addEventListener("click", () => selectOnlyPlacementLayer(CAVE_FOREGROUND_LAYER));
     els.selectTerrainLayer.addEventListener("click", () => selectOnlyPlacementLayer("terrain"));
@@ -11332,6 +11918,7 @@ import {
             syncMetadataToUi();
             persistUi();
             resetEditHistory();
+            fitContentView();
             setStatus(`Loaded level ${file.name}`);
         } catch (error) {
             setStatus(`Could not import ${file.name}: ${error.message || error}`, false);

@@ -7,122 +7,122 @@
     "image": "at_atlas_010.png",
     "frames": {
         "castle_portrait_king_framed": {
-            "x": 20,
-            "y": 20,
+            "x": 1,
+            "y": 543,
             "w": 255,
             "h": 419
         },
         "castle_landscape_painting": {
-            "x": 307,
-            "y": 20,
+            "x": 447,
+            "y": 728,
             "w": 334,
             "h": 226
         },
         "castle_portrait_noblewoman_framed": {
-            "x": 673,
-            "y": 20,
+            "x": 447,
+            "y": 956,
             "w": 144,
             "h": 249
         },
         "castle_gothic_window_tall": {
-            "x": 849,
-            "y": 20,
+            "x": 258,
+            "y": 728,
             "w": 187,
             "h": 381
         },
         "castle_stained_glass_window_narrow_red": {
-            "x": 1068,
-            "y": 20,
+            "x": 689,
+            "y": 1,
             "w": 102,
             "h": 323
         },
         "castle_gothic_window_large_triple": {
-            "x": 1202,
-            "y": 20,
+            "x": 1,
+            "y": 964,
             "w": 188,
             "h": 377
         },
         "castle_window_small_narrow_blue": {
-            "x": 1422,
-            "y": 20,
+            "x": 258,
+            "y": 505,
             "w": 72,
             "h": 218
         },
         "castle_painting_knight_rider": {
-            "x": 1526,
-            "y": 20,
+            "x": 593,
+            "y": 1195,
             "w": 190,
             "h": 173
         },
         "castle_painting_heraldic_arms_helmet": {
-            "x": 1748,
-            "y": 20,
+            "x": 191,
+            "y": 1298,
             "w": 132,
             "h": 152
         },
         "castle_painting_madonna_child": {
-            "x": 20,
-            "y": 471,
+            "x": 689,
+            "y": 326,
             "w": 129,
             "h": 135
         },
         "castle_suit_armor_red_plume": {
-            "x": 181,
-            "y": 444,
+            "x": 1,
+            "y": 1,
             "w": 200,
             "h": 540
         },
         "castle_suit_armor_blue_plume": {
-            "x": 400,
-            "y": 455,
+            "x": 203,
+            "y": 1,
             "w": 175,
             "h": 502
         },
         "castle_banner_blue_lion": {
-            "x": 609,
-            "y": 471,
+            "x": 380,
+            "y": 1,
             "w": 154,
             "h": 465
         },
         "castle_banner_red_white_lion": {
-            "x": 795,
-            "y": 471,
+            "x": 536,
+            "y": 1,
             "w": 151,
             "h": 464
         },
         "castle_shield_quartered_lion_fleur": {
-            "x": 978,
-            "y": 471,
+            "x": 329,
+            "y": 1207,
             "w": 139,
             "h": 184
         },
         "castle_shield_eagle_red": {
-            "x": 1149,
-            "y": 471,
+            "x": 191,
+            "y": 1111,
             "w": 136,
             "h": 185
         },
         "castle_crest_ornate_small": {
-            "x": 1317,
-            "y": 471,
+            "x": 470,
+            "y": 1207,
             "w": 112,
             "h": 148
         },
         "castle_tapestry_royal_lions": {
-            "x": 1461,
-            "y": 471,
+            "x": 380,
+            "y": 468,
             "w": 421,
             "h": 258
         },
         "castle_wall_torch": {
-            "x": 1914,
-            "y": 471,
+            "x": 593,
+            "y": 956,
             "w": 89,
             "h": 237
         },
         "castle_candle_sconce_double": {
-            "x": 20,
-            "y": 1016,
+            "x": 684,
+            "y": 956,
             "w": 141,
             "h": 223
         }

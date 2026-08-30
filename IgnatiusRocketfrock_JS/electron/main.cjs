@@ -1,5 +1,6 @@
-const { app, BrowserWindow, ipcMain, protocol } = require("electron");
+const fs = require("node:fs");
 const path = require("node:path");
+const { app, BrowserWindow, dialog, ipcMain, protocol } = require("electron");
 
 const APP_SCHEME = "ignatius";
 const APP_HOST = "app";
@@ -23,10 +24,56 @@ const CHANNELS = Object.freeze({
 });
 
 let mainWindow = null;
+let contentRoot = null;
+let resourceRoot = null;
 
 function resolveWindowIconPath() {
-    const appRoot = app.isPackaged ? app.getAppPath() : path.resolve(__dirname, "..");
-    return path.join(appRoot, "favicon.ico");
+    return path.join(contentRoot, "favicon.ico");
+}
+
+function executableDirectory() {
+    return path.dirname(process.execPath);
+}
+
+function defaultContentRoot() {
+    return app.isPackaged ? path.join(executableDirectory(), "content") : path.resolve(__dirname, "..");
+}
+
+function parseResourceRootArgument() {
+    const args = process.argv.slice(1);
+    for (let index = 0; index < args.length; index += 1) {
+        const argument = String(args[index] || "");
+        const equals = argument.indexOf("=");
+        const name = equals >= 0 ? argument.slice(0, equals) : argument;
+        if (!["--resources-root", "-resources-root", "--resource-root", "-resource-root"].includes(name)) continue;
+        let value = equals >= 0 ? argument.slice(equals + 1) : "";
+        if (!value && index + 1 < args.length && !String(args[index + 1]).startsWith("-")) value = args[++index];
+        if (!value) throw new Error("--resources-root requires a folder path.");
+        return path.resolve(value);
+    }
+    return path.join(defaultContentRoot(), "resources");
+}
+
+function validResourceRoot(root) {
+    return fs.existsSync(path.join(root, "resources.json"))
+        && fs.existsSync(path.join(root, "levels"))
+        && fs.existsSync(path.join(root, "atlases"));
+}
+
+function writeStartupFailure(error) {
+    try {
+        const logPath = path.join(executableDirectory(), "logs", "electron-game-startup.log");
+        fs.mkdirSync(path.dirname(logPath), { recursive: true });
+        fs.appendFileSync(logPath, `${new Date().toISOString()} ${error?.stack || error}\nargv=${JSON.stringify(process.argv)}\ncontentRoot=${contentRoot}\nresourceRoot=${resourceRoot}\n`, "utf8");
+    } catch (_) {}
+}
+
+function resourcePath(relativePath) {
+    const text = String(relativePath || "").replace(/\\/g, "/").replace(/^\/+/, "");
+    if (!text || text.split("/").some((part) => !part || part === "." || part === "..")) return null;
+    const candidate = path.resolve(resourceRoot, ...text.split("/"));
+    const root = path.resolve(resourceRoot);
+    return candidate === root || candidate.startsWith(`${root}${path.sep}`) ? candidate : null;
 }
 
 function sendFullscreenState(window) {
@@ -41,16 +88,18 @@ function resolveAppRequest(requestUrl) {
     if (url.hostname !== APP_HOST) {
         return null;
     }
-    const appRoot = app.isPackaged ? app.getAppPath() : path.resolve(__dirname, "..");
     if (url.pathname === "/__ignatius_build_revision.txt") {
-        return app.isPackaged
-            ? path.join(appRoot, "BUILD_REVISION.txt")
-            : path.resolve(appRoot, "..", "BUILD_REVISION.txt");
+        return path.join(contentRoot, "BUILD_REVISION.txt");
     }
     const relativePath = decodeURIComponent(url.pathname).replace(/^\/+/, "") || "game.html";
-    const resolvedPath = path.resolve(appRoot, relativePath);
-    const rootPrefix = `${appRoot}${path.sep}`;
-    if (resolvedPath !== appRoot && !resolvedPath.startsWith(rootPrefix)) {
+    const resolvedPath = relativePath === "resources" || relativePath.startsWith("resources/")
+        ? resourcePath(relativePath.slice("resources/".length))
+        : path.resolve(contentRoot, relativePath);
+    const rootPrefix = relativePath === "resources" || relativePath.startsWith("resources/")
+        ? `${path.resolve(resourceRoot)}${path.sep}`
+        : `${path.resolve(contentRoot)}${path.sep}`;
+    if (!resolvedPath) return null;
+    if (!resolvedPath.startsWith(rootPrefix)) {
         return null;
     }
     return resolvedPath;
@@ -107,6 +156,17 @@ function createMainWindow() {
 }
 
 app.whenReady().then(() => {
+    try {
+        contentRoot = defaultContentRoot();
+        resourceRoot = parseResourceRootArgument();
+        if (!fs.existsSync(path.join(contentRoot, "game.html"))) throw new Error(`Could not find game content at ${contentRoot}`);
+        if (!validResourceRoot(resourceRoot)) throw new Error(`The resources root is not valid: ${resourceRoot}`);
+    } catch (error) {
+        writeStartupFailure(error);
+        dialog.showErrorBox("Ignatius Rocketfrock", error?.message || String(error));
+        app.quit();
+        return;
+    }
     registerAppProtocol();
     ipcMain.handle(CHANNELS.quit, () => {
         app.quit();

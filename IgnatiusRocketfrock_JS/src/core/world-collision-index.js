@@ -134,11 +134,15 @@ function buildIndex(world, binSize = DEFAULT_COLLISION_BIN_SIZE) {
     const segments = buildPartition(world?.segments, segmentBounds, safeBinSize);
     const visuals = buildPartition(world?.visuals, visualBounds, safeBinSize);
     const segmentsByVisualId = new Map();
-    for (const segment of Array.isArray(world?.segments) ? world.segments : []) {
+    const segmentIndexByRecord = new Map();
+    const worldSegments = Array.isArray(world?.segments) ? world.segments : [];
+    for (let index = 0; index < worldSegments.length; index += 1) {
+        const segment = worldSegments[index];
+        segmentIndexByRecord.set(segment, index);
         const visualId = String(segment?.visualId || "");
         if (!visualId) continue;
         if (!segmentsByVisualId.has(visualId)) segmentsByVisualId.set(visualId, []);
-        segmentsByVisualId.get(visualId).push(segment);
+        segmentsByVisualId.get(visualId).push(index);
     }
     return {
         world,
@@ -147,7 +151,8 @@ function buildIndex(world, binSize = DEFAULT_COLLISION_BIN_SIZE) {
         segments,
         polygons: buildPartition(world?.collisionPolygons, polygonBounds, safeBinSize),
         visuals,
-        segmentsByVisualId
+        segmentsByVisualId,
+        segmentIndexByRecord
     };
 }
 
@@ -213,13 +218,21 @@ export function queryWorldCollisionAssets(world, bounds) {
 export function queryWorldSegmentsFromCollisionAssets(world, bounds) {
     const index = getIndex(world);
     const direct = queryPartition(index.segments, bounds);
-    const included = new Set(direct);
+    const includedIndices = new Set();
+    for (const segment of direct) {
+        const segmentIndex = index.segmentIndexByRecord.get(segment);
+        if (segmentIndex !== undefined) includedIndices.add(segmentIndex);
+    }
     const visualIds = new Set(queryWorldCollisionAssets(world, bounds).map((visual) => String(visual.id)));
     for (const visualId of visualIds) {
-        for (const segment of index.segmentsByVisualId.get(visualId) || []) included.add(segment);
+        for (const segmentIndex of index.segmentsByVisualId.get(visualId) || []) includedIndices.add(segmentIndex);
     }
     // Preserve world-authored order so coincident-contact tie breaking remains deterministic.
-    return (Array.isArray(world?.segments) ? world.segments : []).filter((segment) => included.has(segment));
+    const worldSegments = Array.isArray(world?.segments) ? world.segments : [];
+    return [...includedIndices]
+        .sort((left, right) => left - right)
+        .map((segmentIndex) => worldSegments[segmentIndex])
+        .filter(Boolean);
 }
 
 export function worldCollisionIndexDiagnostics(world, bounds) {

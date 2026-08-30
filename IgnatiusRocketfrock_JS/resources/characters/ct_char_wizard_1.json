@@ -21,7 +21,9 @@
         "away": "ct_anim_wizard_away_1.json",
         "yes": "ct_anim_wizard_yes_1.json",
         "no": "ct_anim_wizard_no_1.json",
-        "rocketLaunch": null
+        "rocketLaunch": null,
+        "lunge": "ct_anim_wizard_lunge_1.json",
+        "lunge2": "ct_anim_wizard_lunge_2.json"
     },
     "supplementalAtlases": [
         "ct_atlas_wizard_2.json"

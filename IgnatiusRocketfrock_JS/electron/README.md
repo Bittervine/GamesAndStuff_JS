@@ -37,6 +37,15 @@ Outputs:
 - `electron/dist/*portable.exe` for the default portable build.
 - `electron/dist/win-unpacked/` when running `build.bat dir` for an unpacked smoke build.
 
-The staged app includes only runtime game files: `game.html`, `GameManual.html`, `favicon.ico`, `resources/`, `src/`, `main.cjs`, `preload.cjs`, and a generated package manifest. The shared webpage `favicon.ico` is also used for the live Electron window and the packaged Windows executable. Generated folders (`node_modules/`, `.build/`, and `dist/`) are intentionally ignored by git.
+The packaged app keeps the browser code and runtime content in an
+executable-adjacent `content/` directory. Its default resources are therefore
+`content/resources/`, matching the native SDL executable. The same root can be
+replaced explicitly at launch with `--resources-root <folder>` or
+`--resources-root=<folder>`. Generated folders (`node_modules/`, `.build/`, and
+`dist/`) are intentionally ignored by git.
+
+The Electron game does not search the working directory or source checkout for
+resources. A missing default or override root is reported as a visible startup
+error.
 
 Revision 489 keeps this portable build compatible with electron-builder 26.15.x by using `win.signExecutable: false` in the generated staging manifest. That disables Windows code signing for local unsigned builds while keeping executable resource editing enabled for the shared favicon and app metadata.

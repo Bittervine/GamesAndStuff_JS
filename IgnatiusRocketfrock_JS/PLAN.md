@@ -4714,3 +4714,112 @@ Domed Grounded exposed a generator-only side-boundary defect on long caves. The 
 The grounded cavern builder now expands only its two endpoint chambers horizontally by the maximum parallax travel implied by half of the generated grounded-floor span and the generated Foreground X factor. The ordinary route, grounded floor bands, lower floor-seated perimeter, terrain placement, endpoint placement, random streams, and runtime parallax formula are unchanged. The additional chamber width is therefore an outward safety allowance in the presentation perimeter rather than a gameplay collision workaround.
 
 Grounded-cavern presentation validation now measures the first and last grounded terrain edges against both the parallax-adjusted full-black outset and the parallax-adjusted player boundary, using the same world-centre anchor as gameplay. A generated Domed Grounded draft is invalid if either horizontal end falls outside either contour. Regression coverage independently projects both boundaries at the endpoint terrain extremes so this failure cannot return silently.
+
+## Revision 453 airborne hunter hurt traversal parity
+
+A controlled reproduction of the default-seed Domed Grounded skeleton incident isolated a native-only parity defect. When a ground hunter was struck non-lethally during a baked jump/drop, the SDL hurt branch gave the entire fixed step to the hurt presentation, zeroed the hunter's velocity, and stopped advancing `airTimer`. The browser already keeps an airborne hunter's authored ballistic traversal running underneath the hurt animation. On the recorded vertical jump at `x = -115.217`, freezing the launch momentum left the source-polygon departure exemption active long enough for the recovering hunter to descend through the floor it launched from and settle on the polygon's lower edge.
+
+Native ground hunters now continue `updateCharacterEnemyAirTraversal()` while airborne during a non-lethal hurt presentation. Grounded hurt enemies remain stationary exactly as before, and flying-enemy hurt behavior is unchanged. The change preserves the existing collision sweeps, source-obstacle exemption, navigation route semantics, and hurt animation; it only restores the browser's already-established airborne integration order.
+
+Browser and native regression coverage synthesize the exact local cave polygon, upper one-way support, skeleton dimensions, gravity, jump height, launch coordinate, and impact timing from the captured incident. The revision-452 native path fails the controlled case by freezing ballistic motion and landing on `blockable_4`; the corrected path keeps both position and `airTimer` advancing through hurt and returns safely to the source top when this marginal baked arc misses the upper support. The browser already passes the same contract without a gameplay-code change.
+
+
+## Revision 454: damage-interrupt authoring
+
+- `meleeHitRange` remains the close-range threshold at which a lunge-capable melee enemy performs its ordinary attack without lunging; `lungeRangeMin` controls the inner edge of the lunge band, so raising it makes moderately close enemies pursue inward rather than re-lunge.
+- Enemy catalog defaults may set `immuneToInterrupts: true`. Non-lethal damage received during an already-active attack/lunge still deals damage, flashes/alerts the enemy, and may kill it, but does not enter the hurt state, cancel the attack/lunge, restart its cooldown, or turn a committed attack around. Damage outside an active attack keeps the existing hurt/interruption behavior. Puppet Forge exposes this as **Immune to interrupts**.
+
+
+## Revision 455 Puppet Forge character-base mouse coordinates
+
+- Puppet Forge's animation toolbar now keeps a live mouse `X/Y` readout at the right edge. Coordinates are reported in runtime world pixels relative to the character ground/base origin, with positive X to screen/world right and positive Y downward, independent of the character-facing mirror. The editor-only 1.9 preview magnification and viewport zoom/pan are removed from the readout so the numbers can be compared directly with authored gameplay distances such as melee reach.
+- Leaving the character canvas clears the readout rather than preserving a stale coordinate. The WebView2 Development Tool and browser Character Tool share this same page, so no separate native presentation implementation is required.
+## Revision 456 - Native incremental-build ABI safety
+
+- Windows and Linux build scripts content-hash native source/header inputs before each incremental build and refresh timestamps only for files whose contents changed since that configuration last built successfully. This defeats ZIP-preserved stale mtimes without turning every revision bump into a full native rebuild.
+- Native startup cross-checks `sizeof(FEnemyState)` as compiled by `Simulation.cpp` against the runtime translation unit and fails clearly if a stale mixed-object build somehow survives.
+- The regression was diagnosed from the revision-455 crash dump/map: `Simulation.obj` used the revision-453 `FEnemyState` stride (`0xC98`) while `ignatius-app.obj` iterated the revision-454/455 stride (`0xCA0`).
+- `IgnatiusNativeScene` is now compiled as eight responsibility-named SDL application-shell translation units behind one internal class declaration. This removes the former ~23.7k-line / ~1.2 MB `ignatius-app.cpp` optimization bottleneck while keeping portable simulation/gameplay code in its existing parity-oriented `src/core` and `src/shared` locations.
+- The source-hash candidate manifest is reusable after an interrupted build: a retry does not touch the same already-prepared files again, so Ninja/MSBuild can resume completed object work. The committed manifest is still promoted only after a successful build.
+
+
+## Revision 457 native test translation-unit partition
+
+- Partitioned the oversized `src/tests/main.cpp` native regression program into responsibility-oriented `test-suite-*.cpp` translation units plus `test-suite.h`; `main.cpp` is now only the CLI/dispatch shell.
+- Kept the existing test implementation bodies mechanically unchanged while moving them, including the controlled enemy regressions and parity checks. Large independent blocks that previously lived directly in `main()` are grouped into four small inline-regression suite translation units.
+- Updated both the primary CMake project and Linux generated CMake source list so Windows/MSBuild and Linux/Ninja build the same partitioned test program.
+- This is test/build infrastructure only. Portable gameplay and the HTML/JS reference implementation are unchanged.
+
+## Revision 458 incremental native-build integrity hardening
+
+- Fixed interrupted incremental builds so a retained `.candidate` hash manifest is no longer enough by itself to suppress a timestamp refresh. Candidate/shared prepared manifests now act as timestamp markers, and a source is reused only while it is still newer than the exact manifest that prepared it. Re-applying a cumulative update ZIP with older archived mtimes therefore re-touches affected sources instead of allowing stale objects to survive.
+- Extended native content hashing to vendored C/C++ headers under `external/`, closing the same stale-object hole for SDL/nlohmann header updates.
+- Kept successful build state per configuration, but added one shared prepared-source marker so Debug/Release can reuse a timestamp already prepared for the identical source tree rather than repeatedly invalidating each other.
+- Replaced the size-only `FEnemyState` stale-object check with a signature that mixes size, alignment, representative member offsets/member sizes, and an explicit ABI revision. Every partitioned native application translation unit now binds to the current ABI anchor and exposes a startup probe, turning mixed-layout objects into a link/startup failure instead of memory corruption.
+- No HTML/JS gameplay behavior changes in this revision; browser changes are regression/source-contract coverage for the native build-integrity rules only.
+
+
+
+## Revision 459 grounded-base melee reach and nearest attack-ready lunge spacing
+
+- Positive `meleeHitRange` now means horizontal world-space reach from the enemy grounded base position, using the same X reference as `lungeRangeMin` / `lungeRangeMax`. The attack handoff still provides the authored impact time and strike height. The actual melee segment runs from the grounded base X to `baseX + facing * meleeHitRange`; `meleeHitRange = 0` retains the legacy handoff-centered radius behavior. This supersedes the older handoff-relative positive-range interpretation.
+- Lunge-capable hunters no longer treat `lungeRangeMax * 0.92` as a standing combat distance. While positioning between attacks they consider the direct-melee region and the valid lunge band and choose the attack-ready point requiring the least travel. If the current/arrival position is already direct-attack-ready or lunge-ready, it is itself a candidate, so a hunter does not manufacture a retreat merely to set up another lunge. Between the two bands, the nearest direct boundary or effective `lungeRangeMin` boundary wins.
+- Browser and native local-ground recovery use the same nearest attack-ready spacing rule so glare/stranded recovery cannot reintroduce the old retreat behavior. Projectile hunter preferred-range behavior is unchanged.
+- The user-supplied `ct_enemies_001.json` is preserved as the catalog basis for this revision, including the newly authored lunge bands and interruption-immunity choices. The five currently weapon-lunge enemies are converted to grounded-base visible weapon-tip reach: Skeleton Guard 181, Human Raider 143, Human Raider II 143, Human Pirate 135, Human Pirate II 138.
+- Domed Grounded generator provenance/versioning is intentionally left unchanged in this revision per the user's request.
+
+## Revision 460 post-lunge route invalidation
+
+- A committed melee lunge can move a hunter far away from the route target it selected before attacking. The attack state suspends ordinary route following, so that old route must be invalidated after a lunge actually launches and the attack finishes.
+- Browser and native now clear the hunter navigation plan at attack completion only when `attackLungeStarted` is true. The next cooldown tick therefore computes attack spacing from the enemy's actual landing point instead of walking back toward a stale pre-lunge target. Ordinary non-lunge melee and projectile attack route behavior is unchanged.
+- Matched browser/native regressions seed a stale pre-attack route, complete a lunge into direct melee reach, and require the first cooldown tick to hold/replan at the landing point rather than retreat.
+
+## Revision 463 Level Editor pixmap/resource-pressure cleanup
+
+Completed the first memory/resource optimization pass for the WebView2-specific Level Editor pixmap failure investigation. The embedded production renderer no longer starts with the complete enemy catalog. It tracks only character projects required by enemies in the current level and unloads obsolete projects as the authored enemy set changes. Overlay rendering now reuses those renderer-owned projects, eliminating the second full set of current-level character canvases that the editor previously prepared for direct previews.
+
+Character loading also gained a prepared-atlas cache so distinct character projects backed by one atlas share its decoded image, frame canvases, and pixmap pyramids. This targets the human/goblin family pattern directly while retaining independent project maps and project-specific rig/animation/color-exchange state. Level switches additionally discard no-longer-referenced full editor atlas images when the compact palette cache is active. Environment atlases are still independently decoded by the editor atlas library and production renderer; deduplicating that ownership is intentionally left as a later step if the scoped-character fix does not provide enough headroom on the target WebView2 machine.
+
+## Revision 464 Level Editor atlas double-loading pass
+
+The second WebView2 memory pass removes persistent environment/item atlas decode duplication between the Level Editor atlas library and the embedded production Canvas renderer. The editor remains responsible for lazy authoring loads; the renderer requests a prepared source by manifest URL and creates an independent wrapper around the editor's decoded image. This deliberately shares only immutable source artwork, not mutable colour-treated surfaces or renderer texture/release state. Reloading the atlas library can replace an existing renderer wrapper with the editor's newly decoded source, while ordinary level switches still release atlas references from both owners when no longer needed.
+
+The character-preview path is tightened one step further: selected-but-unplaced character projects can reuse prepared atlas frames/pixmap pyramids already held by renderer-owned current-level projects. The native SDL gameplay atlas loader already owns one environment atlas record per loaded manifest and retains/reuses those records across compatible scene transitions, so there is no equivalent persistent editor/renderer double-decode layer to change in C++.
+
+
+## Revision 465 atlas reforging visible-pixel safety gate
+
+Before introducing automatic atlas repacking, add a deterministic verifier that compares an original atlas JSON/PNG pair with a rebuilt pair using every authored `frames` entry, regardless of whether that frame is currently referenced by gameplay or editor data. Frame names and dimensions are invariants; `x`/`y` may change. Alpha must match exactly for every logical frame pixel, and RGB must match exactly anywhere either pixel is visible. Fully transparent RGB may differ so the future reforger can add GPU-safe colour dilation underneath alpha zero.
+
+The verifier supports one atlas pair or mirrored directory trees spanning environment, character, and item atlases. Legacy rectangles that begin slightly outside a PNG or extend past its edge are compared as fixed-size logical crops with transparent padding rather than rejected. Focused tests cover repacking, transparent-RGB changes, visible-RGB/alpha corruption, missing unused frames, dimension changes, and out-of-bounds legacy rectangles.
+
+## Revision 466 atlas reforger
+
+Add the deterministic atlas-repacking tool behind the Revision 465 visible-pixel safety gate before changing authored atlas resources. Preserve every JSON-defined frame independent of current usage, preserve exact duplicate and overlap/containment geometry through overlap clusters, discard pixels outside all defined frames, and add alpha-zero nearest-neighbour RGB edge dilation. Prefer padded compact layouts, but never increase decoded atlas area by default; fall back to source-relative cropping when necessary. Verify every generated pair automatically with `verify_atlas_rect_pixels.py` and stage in-place replacement before overwriting source assets. Exercise the tool against all current environment, character, and item atlases without committing the generated atlas images in this revision.
+
+## Revision 467 atlas reforger rollout
+
+Apply the verified deterministic reforger to the committed production atlas resources. Replace the environment, character, and item atlas PNG/JSON pairs in place, verify the resulting tree against the Revision 462 baseline with `verify_atlas_rect_pixels.py`, and update any brittle tests that assumed fixed atlas-space coordinates now that `x`/`y` are intentionally relocatable. Finish by re-running the browser release gate plus the native Linux build/test pipeline so Revision 467 ships the actual compacted atlas set rather than only the tool.
+
+## Revision 468 moving-platform motion types
+
+Extend moving platforms without destabilizing the established translation implementation. Version the shared movement record to distinguish `translate` and `swing` as mutually exclusive modes. Translation retains the existing lifecycle and gains the same fixed quadratic easing choices used by character keyframes, with `speed` still determining total endpoint travel time. Explicitly migrate all shipped platforms to `translate` + `linear` so their old behavior remains the regression baseline.
+
+Add a separate physically plausible swing branch driven by amplitude, initial angle, full-cycle period, and a local pivot that may sit outside the sprite. Derive the starting phase so a displaced pendulum initially falls toward the centre and a zero-angle start moves counter-clockwise. Transform visuals and all platform-owned collision from immutable base geometry, carry riders around the pivot while keeping them upright, and reuse existing red damaging/killable atlas lines for hazardous pendulums. Expose only the relevant controls and pivot/arc visualization in the Level Editor; do not expose combined linear-plus-angular motion in this revision.
+
+## Revision 469 delta-review corrections
+
+Close the post-468 review findings without disturbing translational moving-platform behavior. Swinging hazard geometry is checked over the complete angular sweep, including filled damaging/killable collision polygons generated by closed orange/red atlas loops. Rotational crush comparison uses point-specific motion around the pivot. The Level Editor selects and frames swinging assets at their initial pose and includes the complete swing envelope in content bounds. Refresh the atlas-derived palette metadata and promote its source/frame freshness checks into the ordinary resource audit. Strengthen atlas regressions so repackable `x/y` coordinates are no longer tested through self-referential assertions.
+
+## Revision 470 second delta-review corrections
+
+Replace endpoint-angle pendulum hazard reconstruction with phase-aware sampling of the true sinusoidal path, including extremum reversals and relative player motion. Extend editor swing bounds to the authored external pivot. Turn palette metadata refresh into a guarded reforge-only operation that requires an exact original atlas tree and visible-pixel equivalence, while the resource audit derives palette completeness independently from `resources.json`. Promote the Python atlas/reforge/cache regressions and curated artwork fingerprints into the normal release gate.
+
+## Revision 471 third delta-review corrections
+
+Unify pendulum interaction around the actual sampled runtime transform. Rather than reconstructing hazards independently after a swing has already moved to its endpoint, advance the platform through adaptive angular substeps and let rider carry, closed blockable-polygon depenetration, and damaging/killable contact observe those same poses. Derive the sampling density from maximum angular speed and pivot radius without a fixed cap, so legal long-radius pendulums cannot tunnel merely because an implementation ceiling was reached. Preserve ordinary per-tick crush confirmation by suppressing repeated crush-accounting side effects inside substeps. Extend release-resume fingerprints to production atlas PNG bytes so PNG-only artwork edits cannot reuse stale passing shard results.
+
+
+## Revision 472 bounded/simplified pendulum collision follow-up
+
+Constrain swing authoring to the useful gameplay range instead of preserving the Revision 471 extreme-physics stress envelope: minimum full-cycle period 2.0 s and maximum local pivot-vector length 800 px. Use the resulting short per-tick arc movement to approximate actor response as translational motion between sampled platform poses, while retaining the angular correction for the platform visual/collision geometry. Make rider carry respect other world collision, make open walkable/blockable lines participate in the sampled swing contact path, and push/catch non-rider character enemies when a swinging solid reaches them. Remove the unrealistic 0.05-second / 10,000-pixel pendulum regression rather than optimizing for unsupported authoring extremes.

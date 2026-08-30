@@ -43,7 +43,14 @@ export async function testSourceFingerprint() {
         if (entry.isDirectory() && FINGERPRINT_DIRECTORIES.has(entry.name)) await walkFiles(join(PROJECT_ROOT, entry.name), candidates);
     }
     const files = candidates
-        .filter((path) => FINGERPRINT_EXTENSIONS.has(extensionOf(path.replaceAll("\\", "/"))))
+        .filter((path) => {
+            const normalizedPath = path.replaceAll("\\", "/");
+            const extension = extensionOf(normalizedPath);
+            if (FINGERPRINT_EXTENSIONS.has(extension)) return true;
+            if (extension !== ".png") return false;
+            const relativePath = relative(PROJECT_ROOT, path).replaceAll("\\", "/");
+            return /^resources\/(?:atlases|characters|items)\/[^/]*atlas[^/]*\.png$/i.test(relativePath);
+        })
         .sort((left, right) => relative(PROJECT_ROOT, left).localeCompare(relative(PROJECT_ROOT, right)));
     const hash = createHash("sha256");
     for (const path of files) {

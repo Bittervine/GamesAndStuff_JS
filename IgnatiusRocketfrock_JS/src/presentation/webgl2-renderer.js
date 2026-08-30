@@ -897,11 +897,13 @@ export class WebGL2RendererBackend {
         if (mirrorX) [u0, u1] = [u1, u0];
         if (mirrorY) [vTop, vBottom] = [vBottom, vTop];
         const baseTint = Array.isArray(tint) ? tint : parseCssColor(tint);
+        const effectiveAlpha = clamp01((baseTint[3] ?? 1) * finiteNumber(alpha, 1));
+        const premultipliedVisualAlpha = this.normalizeBlendMode(blendMode) === "brightenOnly" ? effectiveAlpha : 1;
         const color = [
-            clamp01(baseTint[0] ?? 1),
-            clamp01(baseTint[1] ?? 1),
-            clamp01(baseTint[2] ?? 1),
-            clamp01((baseTint[3] ?? 1) * finiteNumber(alpha, 1))
+            clamp01(baseTint[0] ?? 1) * premultipliedVisualAlpha,
+            clamp01(baseTint[1] ?? 1) * premultipliedVisualAlpha,
+            clamp01(baseTint[2] ?? 1) * premultipliedVisualAlpha,
+            effectiveAlpha
         ];
 
         let offset = this.vertexFloatCount;

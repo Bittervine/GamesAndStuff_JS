@@ -18,6 +18,8 @@
         "audit:renderer": "node devel/audit_renderer_boundary.mjs",
         "inspect:editor-stress": "node devel/inspect_editor_stress_fixture.mjs",
         "capture:recording": "node devel/capture_recording_frame.mjs",
-        "audit:resources": "node devel/audit_resource_layout.mjs"
+        "audit:resources": "node devel/audit_resource_layout.mjs",
+        "test:navigation-parity": "node devel/check_navigation_simulation_parity.mjs",
+        "rebake:navigation-simulation": "node devel/rebake_navigation_simulation.mjs"
     }
 }

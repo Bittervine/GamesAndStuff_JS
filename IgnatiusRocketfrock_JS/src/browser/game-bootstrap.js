@@ -32,10 +32,14 @@ import { normalizeCaveWindow } from "../shared/cave-window-data.js";
 import { collectLevelEnemyCharacterIds } from "../shared/auto-spawn-enemy-data.js";
 import {
     DEVELOPMENT,
+    DEFAULT_INPUT_BINDINGS,
+    GAME_INPUT_ACTIONS,
+    assignInputBinding,
     gameDifficultyPreset,
     gameRenderingModePreset,
     gameRenderingQualityPreset,
-    normalizeGameSettings
+    normalizeGameSettings,
+    removeInputBinding
 } from "../shared/game-settings-data.js";
 import { loadStoredGameSettings, saveStoredGameSettings } from "./game-settings-store.js";
 import {
@@ -93,7 +97,12 @@ import {
     parseCreditsMarkdown
 } from "../shared/credits-data.js";
 import { shownTransformOf } from "../shared/presentation-transform-data.js";
-import { computeMinimapGeometry, minimapPointInsideGameplayPerimeter, minimapTeleportAllowed } from "../presentation/minimap-data.js";
+import {
+    computeMinimapGeometry,
+    minimapPointInsideGameplayPerimeter,
+    minimapTeleportAllowed,
+    minimapTeleportDestination
+} from "../presentation/minimap-data.js";
 import { BrowserGameplayRecordingSpool } from "./gameplay-recording-spool.js";
 import { applyBuildRevisionToDocument } from "../shared/build-revision.js";
 
@@ -128,6 +137,8 @@ const loadingPercent = document.getElementById("loading-percent");
 const loadingTrack = document.getElementById("loading-track");
 const loadingBarFill = document.getElementById("loading-bar-fill");
 const loadingDetail = document.getElementById("loading-detail");
+const startupStudioSplash = document.getElementById("startup-studio-splash");
+const startupStudioLogo = document.getElementById("startup-studio-logo");
 const titleScreen = document.getElementById("title-screen");
 const creditsScreen = document.getElementById("credits-screen");
 const creditsTrack = document.getElementById("credits-track");
@@ -170,6 +181,12 @@ const showMinimapInput = document.getElementById("show-minimap");
 const renderingModeValue = document.getElementById("rendering-mode-value");
 const renderingModeStatus = document.getElementById("rendering-mode-status");
 const renderingModeSelect = document.getElementById("rendering-mode-select");
+const controlsSettingsButton = document.getElementById("controls-settings-button");
+const gameControlsPanel = document.getElementById("game-controls-panel");
+const controlBindingsMain = document.getElementById("control-bindings-main");
+const controlBindingsAdvanced = document.getElementById("control-bindings-advanced");
+const controlBindingsAdvancedToggle = document.getElementById("control-bindings-advanced-toggle");
+const controlBindingsResetButton = document.getElementById("control-bindings-reset");
 const developmentFeaturesButton = document.getElementById("development-features-button");
 const gameDevelopmentPanel = document.getElementById("game-development-panel");
 const developmentAssetGuidesInput = document.getElementById("development-asset-guides");
@@ -204,6 +221,12 @@ const launchEditorPlaytest = launchParams.get("playtest_browser_copy") === "1";
 const launchRecordRequested = ["1", "true", "on", "yes"].includes(String(launchParams.get("record") || "").trim().toLowerCase());
 const launchPlaybackUrl = playbackUrlFromQueryValue(launchParams.get("playback"));
 const launchPlaybackPauseAtSec = finiteNonNegativeNumber(launchParams.get("playback_pause"), null);
+const STARTUP_STUDIO_SPLASH_FADE_IN_MS = 500;
+const STARTUP_STUDIO_SPLASH_HOLD_MS = 2000;
+const STARTUP_STUDIO_SPLASH_FADE_OUT_MS = 500;
+const STARTUP_STUDIO_SPLASH_TOTAL_MS = STARTUP_STUDIO_SPLASH_FADE_IN_MS
+    + STARTUP_STUDIO_SPLASH_HOLD_MS
+    + STARTUP_STUDIO_SPLASH_FADE_OUT_MS;
 const pendingStartupExceptionAlerts = [];
 const MAX_GAMEPLAY_RECORDING_BLOB_FALLBACK_BYTES = 32 * 1024 * 1024;
 let fatalRuntimeFailure = false;
@@ -261,6 +284,8 @@ let musicCatalog = normalizeMusicCatalog(null);
 let lootCatalog = { items: {}, pools: {} };
 let activeLevelMusic = normalizeLevelMusic(null);
 let gameMenuView = "menu";
+let controlBindingCapture = null;
+let controlBindingsAdvancedOpen = false;
 let saveSlotMode = "load";
 let gameMenuPreviousPause = false;
 let pageFocusLost = document.hidden;
@@ -269,6 +294,7 @@ let fullscreenActive = false;
 let fullscreenRequestPending = false;
 let stopElectronFullscreenListener = null;
 let titleScreenActive = true;
+let startupStudioSplashActive = false;
 let creditsActive = false;
 let creditsElapsedSeconds = 0;
 let creditsHeldGamepadButtons = new Set();
@@ -288,7 +314,7 @@ const hudBackdropBlurDisabled = shouldDisableHudBackdropBlur();
 document.documentElement.classList.toggle("dev-no-hud-blur", hudBackdropBlurDisabled);
 gameState.debug.revision = GAME_REVISION;
 addEvent(gameState, `BUILD_REVISION_${GAME_REVISION}`);
-const input = new RocketfrockInput(window);
+const input = new RocketfrockInput(window, gameState.settings.inputBindings);
 const gamepadHaptics = new GamepadHaptics();
 gamepadHaptics.prime(gameState.debug.lastEvents);
 showLoadingScreen("Loading bundled text fonts", 0.015);
@@ -370,8 +396,10 @@ setupTitleScreen();
 setupMinimap();
 setupGameMenuAndSettings();
 setLoadingProgress(1, "Ready");
-showTitleScreen();
 const shouldAutoStartGameplay = loadedBrowserCopy || launchLevelSpecified || launchRecordRequested;
+const shouldShowStartupStudioSplash = !launchPlaybackRecording && !shouldAutoStartGameplay;
+startupStudioSplashActive = shouldShowStartupStudioSplash;
+showTitleScreen();
 if (launchPlaybackRecording) {
     await startGameplayPlayback(launchPlaybackRecording, {
         source: launchPlaybackUrl,
@@ -386,6 +414,9 @@ if (launchPlaybackRecording) {
 }
 await nextPaint();
 hideLoadingScreen();
+if (shouldShowStartupStudioSplash) {
+    await playStartupStudioSplash();
+}
 
 function browserRandomSeed() {
     if (globalThis.crypto?.getRandomValues) {
@@ -1806,7 +1837,11 @@ function handleTitleMenuNavigationKey(event) {
 }
 
 function handleRuntimeHotkeyKeydown(event) {
-    if (DEVELOPMENT && event.code === "F8" && !event.repeat) {
+    if (DEVELOPMENT
+        && event.code === "F8"
+        && !event.repeat
+        && !controlBindingCapture
+        && !input.isGameplayKey(event.code)) {
         event.preventDefault();
         event.stopImmediatePropagation();
         requestSkipToNextLevel();
@@ -1822,6 +1857,43 @@ function handleGameplayPlaybackResumeKeydown(event) {
     resumeGameplayPlaybackFromPause();
 }
 
+async function waitForStartupStudioLogo() {
+    if (!startupStudioLogo) return false;
+    if (startupStudioLogo.complete && startupStudioLogo.naturalWidth > 0) return true;
+    try {
+        await startupStudioLogo.decode();
+        return startupStudioLogo.naturalWidth > 0;
+    } catch (error) {
+        console.warn("Startup studio logo unavailable; continuing directly to the title screen.", error);
+        return false;
+    }
+}
+
+async function playStartupStudioSplash() {
+    if (!startupStudioSplash || !startupStudioLogo || !startupStudioSplashActive) {
+        startupStudioSplashActive = false;
+        syncTitleScreenUi();
+        return false;
+    }
+    if (!await waitForStartupStudioLogo()) {
+        startupStudioSplashActive = false;
+        startupStudioSplash.hidden = true;
+        syncTitleScreenUi();
+        return false;
+    }
+
+    startupStudioSplash.hidden = false;
+    startupStudioSplash.classList.remove("active");
+    await nextPaint();
+    startupStudioSplash.classList.add("active");
+    await new Promise((resolve) => window.setTimeout(resolve, STARTUP_STUDIO_SPLASH_TOTAL_MS));
+    startupStudioSplash.classList.remove("active");
+    startupStudioSplash.hidden = true;
+    startupStudioSplashActive = false;
+    syncTitleScreenUi();
+    return true;
+}
+
 function showTitleScreen() {
     creditsActive = false;
     creditsElapsedSeconds = 0;
@@ -1835,7 +1907,7 @@ function showTitleScreen() {
 }
 
 function startGameFromTitle() {
-    if (!titleScreenActive) return;
+    if (!titleScreenActive || startupStudioSplashActive) return;
     titleScreenActive = false;
     gameHasStarted = true;
     input.clear();
@@ -1847,7 +1919,7 @@ function startGameFromTitle() {
 }
 
 async function startNewGameFromTitle() {
-    if (!titleScreenActive) return false;
+    if (!titleScreenActive || startupStudioSplashActive) return false;
     void musicDirector.unlock();
     void soundEffectsDirector.unlock();
     void applyFullscreenPreference();
@@ -1855,7 +1927,11 @@ async function startNewGameFromTitle() {
         levelId: START_LEVEL_ID,
         loadingLabel: "Starting new game",
         useBrowserCopy: false,
-        playerProgression: {}
+        playerProgression: {
+            lungeUnlocked: true,
+            fallImpactExplosionUnlocked: true,
+            fallDamageReductionUnlocked: false
+        }
     });
     if (!loaded) return false;
     saveResumeLevelId(START_LEVEL_ID);
@@ -1891,7 +1967,7 @@ async function loadSaveGameRecord(record, { startFromTitle = titleScreenActive }
 }
 
 async function resumeGameFromTitle() {
-    if (!titleScreenActive) return false;
+    if (!titleScreenActive || startupStudioSplashActive) return false;
     void applyFullscreenPreference();
     const autosave = storedResumeSave();
     if (!autosave) {
@@ -1926,7 +2002,7 @@ async function exitToDesktop() {
 }
 
 function syncTitleScreenUi() {
-    if (titleScreen) titleScreen.hidden = !titleScreenActive;
+    if (titleScreen) titleScreen.hidden = !titleScreenActive || startupStudioSplashActive;
     document.body.classList.toggle("title-screen-active", titleScreenActive);
     document.body.classList.toggle("game-running", gameHasStarted && !titleScreenActive);
     if (gameMenuExitTitleButton) gameMenuExitTitleButton.hidden = titleScreenActive;
@@ -2186,8 +2262,9 @@ function tryTeleportPlayerFromMinimapClick(event) {
     }
     const worldPoint = minimapWorldPointFromClick(event);
     if (!worldPoint || !minimapPointInsideGameplayPerimeter(gameState.world, activeCaveWindow, worldPoint)) return false;
+    const teleportPoint = minimapTeleportDestination(gameState.world, worldPoint);
     input.clear();
-    const teleported = teleportPlayer(gameState, worldPoint.x, worldPoint.y, "minimapDevelopmentTeleport");
+    const teleported = teleportPlayer(gameState, teleportPoint.x, teleportPoint.y, "minimapDevelopmentTeleport");
     if (teleported) drawMinimap(true);
     return teleported;
 }
@@ -2225,11 +2302,13 @@ function setupGameMenuAndSettings() {
     gameMenuSaveButton?.addEventListener("click", () => setGameMenuView("save"));
     gameMenuLoadButton?.addEventListener("click", () => setGameMenuView("load"));
     gameMenuSettingsButton?.addEventListener("click", () => setGameMenuView("settings"));
+    controlsSettingsButton?.addEventListener("click", () => setGameMenuView("controls"));
     developmentFeaturesButton?.addEventListener("click", () => setGameMenuView("development"));
     developmentGameTuningButton?.addEventListener("click", () => setGameMenuView("tuning"));
     gameMenuBackButton?.addEventListener("click", () => {
+        if (controlBindingCapture) { cancelControlBindingCapture(); return; }
         if (gameMenuView === "tuning") setGameMenuView("development");
-        else if (gameMenuView === "development") setGameMenuView("settings");
+        else if (gameMenuView === "development" || gameMenuView === "controls") setGameMenuView("settings");
         else if (gameMenuView !== "menu" && !titleScreenActive) setGameMenuView("menu");
         else closeGameMenu();
     });
@@ -2240,8 +2319,9 @@ function setupGameMenuAndSettings() {
 
     gameMenuDialog.addEventListener("cancel", (event) => {
         event.preventDefault();
+        if (controlBindingCapture) { cancelControlBindingCapture(); return; }
         if (gameMenuView === "tuning") setGameMenuView("development");
-        else if (gameMenuView === "development") setGameMenuView("settings");
+        else if (gameMenuView === "development" || gameMenuView === "controls") setGameMenuView("settings");
         else if (gameMenuView !== "menu" && !titleScreenActive) setGameMenuView("menu");
         else closeGameMenu();
     });
@@ -2287,6 +2367,17 @@ function setupGameMenuAndSettings() {
         const renderingMode = renderingModeSelect.value;
         if (renderingMode?.endsWith("Speedhack")) staticBakeFailureNoticeKey = "";
         updatePersistentGameSettings({ renderingMode });
+    });
+
+    controlBindingsAdvancedToggle?.addEventListener("click", () => {
+        cancelControlBindingCapture();
+        controlBindingsAdvancedOpen = !controlBindingsAdvancedOpen;
+        syncControlBindingsUi();
+    });
+    controlBindingsResetButton?.addEventListener("click", () => {
+        if (!window.confirm("Reset all controls to their defaults?")) return;
+        cancelControlBindingCapture();
+        updatePersistentGameSettings({ inputBindings: DEFAULT_INPUT_BINDINGS });
     });
 
     tuningRunSpeedInput?.addEventListener("input", () => updateSimpleGameTuning("maxRunSpeed", Number(tuningRunSpeedInput.value)));
@@ -2340,18 +2431,24 @@ function setupGameMenuAndSettings() {
 
 function handleMenuAndFullscreenKeydown(event) {
     if (isGameMenuOpen()) {
+        if (controlBindingCapture && !event.repeat) {
+            event.preventDefault();
+            if (event.code === "Escape") cancelControlBindingCapture();
+            else completeControlBindingCapture(`keyboard:${event.code}`);
+            return;
+        }
         if (handleGameMenuNavigationKey(event)) return;
         if (event.code === "Escape" && !event.repeat) {
             event.preventDefault();
             if (gameMenuView === "tuning") setGameMenuView("development");
-            else if (gameMenuView === "development") setGameMenuView("settings");
+            else if (gameMenuView === "development" || gameMenuView === "controls") setGameMenuView("settings");
             else if (gameMenuView !== "menu") setGameMenuView("menu");
             else closeGameMenu();
         }
         return;
     }
 
-    if (event.code === "F11" && !event.repeat) {
+    if (event.code === "F11" && !event.repeat && !input.isGameplayKey("F11")) {
         event.preventDefault();
         void toggleFullscreen();
         return;
@@ -2366,11 +2463,13 @@ function handleMenuAndFullscreenKeydown(event) {
 function visibleDialogFocusItems() {
     const view = gameMenuView === "settings"
         ? gameSettingsPanel
-        : (gameMenuView === "development"
-            ? gameDevelopmentPanel
-            : (gameMenuView === "tuning"
-                ? gameTuningPanel
-                : (gameMenuView === "save" || gameMenuView === "load" ? gameSaveSlotsPanel : gameMenuMain)));
+        : (gameMenuView === "controls"
+            ? gameControlsPanel
+            : (gameMenuView === "development"
+                ? gameDevelopmentPanel
+                : (gameMenuView === "tuning"
+                    ? gameTuningPanel
+                    : (gameMenuView === "save" || gameMenuView === "load" ? gameSaveSlotsPanel : gameMenuMain))));
     if (!view) {
         return [];
     }
@@ -2695,37 +2794,44 @@ function handlePageVisibilityChange() {
 }
 
 function setGameMenuView(view) {
-    const validViews = new Set(["menu", "settings", "development", "tuning", "save", "load"]);
+    const validViews = new Set(["menu", "settings", "controls", "development", "tuning", "save", "load"]);
+    if (view !== "controls") cancelControlBindingCapture();
     gameMenuView = validViews.has(view) ? view : "menu";
     saveSlotMode = gameMenuView === "save" ? "save" : "load";
     const inSettings = gameMenuView === "settings";
+    const inControls = gameMenuView === "controls";
     const inDevelopment = gameMenuView === "development";
     const inTuning = gameMenuView === "tuning";
     const inSaveSlots = gameMenuView === "save" || gameMenuView === "load";
     if (gameMenuMain) gameMenuMain.hidden = gameMenuView !== "menu";
     if (gameSettingsPanel) gameSettingsPanel.hidden = !inSettings;
+    if (gameControlsPanel) gameControlsPanel.hidden = !inControls;
     if (gameDevelopmentPanel) gameDevelopmentPanel.hidden = !inDevelopment;
     if (gameTuningPanel) gameTuningPanel.hidden = !inTuning;
     if (gameSaveSlotsPanel) gameSaveSlotsPanel.hidden = !inSaveSlots;
 
-    const title = gameMenuView === "settings"
+    const title = inSettings
         ? "Settings"
-        : (gameMenuView === "development"
-            ? "Development features"
-            : (gameMenuView === "tuning"
-                ? "Game tuning"
-                : (gameMenuView === "save" ? "Save Game" : (gameMenuView === "load" ? "Load Game" : (titleScreenActive ? "Menu" : "Paused")))));
-    const subtitle = gameMenuView === "settings"
+        : (inControls
+            ? "Controls"
+            : (inDevelopment
+                ? "Development features"
+                : (inTuning
+                    ? "Game tuning"
+                    : (gameMenuView === "save" ? "Save Game" : (gameMenuView === "load" ? "Load Game" : (titleScreenActive ? "Menu" : "Paused"))))));
+    const subtitle = inSettings
         ? "Tune the machinery without disturbing the cave dust."
-        : (gameMenuView === "development"
-            ? "Compact guides and diagnostics for testing this build."
-            : (gameMenuView === "tuning"
-                ? "Overrides are saved automatically. Reset returns to resources/config/tuning.json."
-                : (gameMenuView === "save"
-                    ? `Current: ${gameState.world?.title || gameState.story?.levelTitle || gameState.world?.levelId || START_LEVEL_ID}. Progress resumes from level start.`
-                    : (gameMenuView === "load"
-                        ? "Choose a saved level to continue from its checkpoint."
-                        : (titleScreenActive ? "Choose where to go next." : "The cave can wait. Probably.")))));
+        : (inControls
+            ? "Select an action to change its keyboard or gamepad bindings."
+            : (inDevelopment
+                ? "Compact guides and diagnostics for testing this build."
+                : (inTuning
+                    ? "Overrides are saved automatically. Reset returns to resources/config/tuning.json."
+                    : (gameMenuView === "save"
+                        ? `Current: ${gameState.world?.title || gameState.story?.levelTitle || gameState.world?.levelId || START_LEVEL_ID}. Progress resumes from level start.`
+                        : (gameMenuView === "load"
+                            ? "Choose a saved level to continue from its checkpoint."
+                            : (titleScreenActive ? "Choose where to go next." : "The cave can wait. Probably."))))));
     if (gameMenuTitle) gameMenuTitle.textContent = title;
     if (gameMenuSubtitle) gameMenuSubtitle.textContent = subtitle;
     if (gameMenuBackButton) gameMenuBackButton.textContent = "BACK";
@@ -2733,7 +2839,159 @@ function setGameMenuView(view) {
     if (gameMenuSaveButton) gameMenuSaveButton.hidden = titleScreenActive;
     if (inSaveSlots) syncSaveSlotUi();
     if (inTuning) syncSimpleGameTuningUi();
+    if (inControls) syncControlBindingsUi();
     if (isGameMenuOpen()) focusDialogBoundary(false);
+}
+
+function gameInputBindingLabel(binding) {
+    if (!binding) return "Unbound";
+    if (binding.startsWith("keyboard:")) {
+        const code = binding.slice("keyboard:".length);
+        const named = {
+            ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→",
+            Space: "Space", Enter: "Enter", NumpadEnter: "Num Enter",
+            ControlLeft: "Left Ctrl", ControlRight: "Right Ctrl",
+            ShiftLeft: "Left Shift", ShiftRight: "Right Shift",
+            AltLeft: "Left Alt", AltRight: "Right Alt",
+            MetaLeft: "Left Meta", MetaRight: "Right Meta",
+            Backspace: "Backspace", Delete: "Delete", Tab: "Tab"
+        };
+        if (named[code]) return named[code];
+        if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+        if (/^Digit\d$/.test(code)) return code.slice(5);
+        if (/^Numpad\d$/.test(code)) return `Num ${code.slice(6)}`;
+        return code.replace(/^Numpad/, "Num ");
+    }
+    if (binding.startsWith("gamepad:")) {
+        const name = binding.slice("gamepad:".length);
+        const labels = {
+            south: "Gamepad South", east: "Gamepad East", west: "Gamepad West", north: "Gamepad North",
+            leftShoulder: "L1", rightShoulder: "R1", leftTrigger: "L2", rightTrigger: "R2",
+            back: "Back / Select", start: "Start", leftStick: "L3", rightStick: "R3",
+            dpadUp: "D-pad ↑", dpadDown: "D-pad ↓", dpadLeft: "D-pad ←", dpadRight: "D-pad →", home: "Home"
+        };
+        return labels[name] || name.replace(/^button/, "Gamepad button ");
+    }
+    return binding;
+}
+
+function beginControlBindingCapture(actionId, replaceBinding = "") {
+    controlBindingCapture = { actionId, replaceBinding };
+    input.clearPendingBindingPresses();
+    syncControlBindingsUi();
+}
+
+function cancelControlBindingCapture() {
+    if (!controlBindingCapture) return;
+    controlBindingCapture = null;
+    input.clearPendingBindingPresses();
+    syncControlBindingsUi();
+}
+
+function controlBindingCandidateFits(actionId, candidateBindings) {
+    const previousSettings = gameState.settings;
+    const previousCapture = controlBindingCapture;
+    gameState.settings = {
+        ...normalizeGameSettings(previousSettings),
+        inputBindings: candidateBindings
+    };
+    controlBindingCapture = null;
+    syncControlBindingsUi();
+    const rows = gameControlsPanel?.querySelectorAll?.(".control-binding-row") || [];
+    const row = Array.from(rows).find((candidate) => candidate.dataset.actionId === actionId);
+    const slots = row?.querySelector?.(".control-binding-slots");
+    const fits = !slots || slots.clientWidth <= 0 || slots.scrollWidth <= slots.clientWidth + 1;
+    gameState.settings = previousSettings;
+    controlBindingCapture = previousCapture;
+    syncControlBindingsUi();
+    return fits;
+}
+
+function completeControlBindingCapture(binding) {
+    if (!controlBindingCapture || binding === "keyboard:Escape") return;
+    const { actionId, replaceBinding } = controlBindingCapture;
+    const candidateBindings = assignInputBinding(gameState.settings.inputBindings, actionId, binding, replaceBinding);
+    if (!controlBindingCandidateFits(actionId, candidateBindings)) return;
+    controlBindingCapture = null;
+    updatePersistentGameSettings({ inputBindings: candidateBindings });
+}
+
+function removeControlBinding(actionId, binding) {
+    updatePersistentGameSettings({
+        inputBindings: removeInputBinding(gameState.settings.inputBindings, actionId, binding)
+    });
+}
+
+function renderControlBindingRows(container, advanced) {
+    if (!container) return;
+    container.replaceChildren();
+    const settings = normalizeGameSettings(gameState.settings);
+    for (const action of GAME_INPUT_ACTIONS.filter((candidate) => Boolean(candidate.advanced) === advanced)) {
+        const row = document.createElement("div");
+        row.className = `control-binding-row${advanced ? " advanced" : ""}`;
+        row.dataset.actionId = action.id;
+        row.tabIndex = 0;
+        row.setAttribute("role", "button");
+        row.setAttribute("aria-label", `Add a binding for ${action.label}`);
+
+        const name = document.createElement("div");
+        name.className = "control-binding-name";
+        name.textContent = action.label;
+        const slots = document.createElement("div");
+        slots.className = "control-binding-slots";
+
+        const capturing = controlBindingCapture?.actionId === action.id;
+        if (capturing) {
+            const message = document.createElement("span");
+            message.className = "control-binding-capture-message";
+            message.textContent = "Press key to use or hit Escape...";
+            slots.append(message);
+        } else {
+            if (action.id === "pause") {
+                const fixed = document.createElement("span");
+                fixed.className = "control-binding-fixed";
+                fixed.textContent = "Esc (fixed)";
+                slots.append(fixed);
+            }
+            for (const binding of settings.inputBindings[action.id] || []) {
+                const chip = document.createElement("button");
+                chip.type = "button";
+                chip.className = "control-binding-chip";
+                chip.textContent = gameInputBindingLabel(binding);
+                chip.setAttribute("aria-label", `Unbind ${gameInputBindingLabel(binding)} from ${action.label}`);
+                chip.addEventListener("click", (event) => {
+                    event.stopPropagation();
+                    removeControlBinding(action.id, binding);
+                });
+                slots.append(chip);
+            }
+        }
+
+        const beginCaptureFromRow = (event) => {
+            if (event?.target?.closest?.(".control-binding-chip, .control-binding-fixed")) return;
+            beginControlBindingCapture(action.id);
+        };
+        row.addEventListener("click", beginCaptureFromRow);
+        row.addEventListener("keydown", (event) => {
+            if (event?.target?.closest?.(".control-binding-chip, .control-binding-fixed")) return;
+            if (!['Enter', 'NumpadEnter', 'Space'].includes(event.code)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            beginControlBindingCapture(action.id);
+        });
+        row.append(name, slots);
+        container.append(row);
+    }
+}
+
+function syncControlBindingsUi() {
+    if (controlBindingsAdvanced) controlBindingsAdvanced.hidden = !controlBindingsAdvancedOpen;
+    if (controlBindingsAdvancedToggle) {
+        controlBindingsAdvancedToggle.setAttribute("aria-expanded", String(controlBindingsAdvancedOpen));
+        controlBindingsAdvancedToggle.textContent = controlBindingsAdvancedOpen ? "Hide advanced bindings" : "Advanced bindings...";
+    }
+    renderControlBindingRows(controlBindingsMain, false);
+    renderControlBindingRows(controlBindingsAdvanced, true);
 }
 
 function updatePersistentGameSettings(patch) {
@@ -2757,6 +3015,8 @@ function syncGameSettingsUi() {
     const difficulty = gameDifficultyPreset(settings);
     const quality = gameRenderingQualityPreset(settings);
     const renderingMode = gameRenderingModePreset(settings);
+    input.setInputBindings(settings.inputBindings);
+    if (gameMenuView === "controls") syncControlBindingsUi();
     if (sfxVolumeInput) sfxVolumeInput.value = String(settings.sfxVolume);
     if (musicVolumeInput) musicVolumeInput.value = String(settings.musicVolume);
     if (fullscreenInput) fullscreenInput.checked = Boolean(settings.fullscreen);
@@ -3195,7 +3455,15 @@ function frame(now) {
         realDt = 0;
     } else {
         inputFrame = input.sample({ consumeGameplayEdges: false });
+        if (controlBindingCapture) {
+            const binding = input.takeBindingPress();
+            if (binding && !binding.startsWith("keyboard:")) completeControlBindingCapture(binding);
+        }
         if (!isGameMenuOpen() && !titleScreenActive) {
+            if (inputFrame.pausePressed) {
+                openGameMenu("menu");
+                inputFrame.pausePressed = false;
+            }
             handleDebugInput(inputFrame);
         }
     }
@@ -3317,7 +3585,7 @@ function frame(now) {
 
 function handleDebugInput(inputFrame) {
     if (fatalRuntimeFailure) return;
-    if (inputFrame.pausePressed) {
+    if (inputFrame.debugPausePressed) {
         setGamePaused(!gameState.debug.paused);
     }
     if (inputFrame.stepPressed) {

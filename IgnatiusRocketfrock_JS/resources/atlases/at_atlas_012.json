@@ -7,212 +7,212 @@
     "image": "at_atlas_012.png",
     "frames": {
         "castle_stone_wall_panel_large": {
-            "x": 20,
-            "y": 20,
+            "x": 539,
+            "y": 475,
             "w": 384,
             "h": 308
         },
         "castle_stone_platform_extra_long_top": {
-            "x": 436,
-            "y": 20,
+            "x": 1,
+            "y": 1,
             "w": 1055,
             "h": 93
         },
         "castle_stone_platform_medium_a": {
-            "x": 1523,
-            "y": 20,
+            "x": 539,
+            "y": 387,
             "w": 431,
             "h": 86
         },
         "castle_stone_platform_medium_b": {
-            "x": 20,
-            "y": 360,
+            "x": 1,
+            "y": 567,
             "w": 300,
             "h": 85
         },
         "castle_stone_platform_short_a": {
-            "x": 352,
-            "y": 360,
+            "x": 905,
+            "y": 96,
             "w": 150,
             "h": 75
         },
         "castle_stone_platform_short_b": {
-            "x": 534,
-            "y": 360,
+            "x": 538,
+            "y": 877,
             "w": 119,
             "h": 85
         },
         "castle_stone_platform_long_mid": {
-            "x": 685,
-            "y": 360,
+            "x": 1,
+            "y": 190,
             "w": 839,
             "h": 90
         },
         "castle_stone_platform_short_c": {
-            "x": 1556,
-            "y": 360,
+            "x": 842,
+            "y": 190,
             "w": 204,
             "h": 88
         },
         "castle_wood_platform_extra_long": {
-            "x": 20,
-            "y": 482,
+            "x": 1,
+            "y": 96,
             "w": 902,
             "h": 92
         },
         "castle_wood_platform_medium_a": {
-            "x": 954,
-            "y": 482,
+            "x": 1,
+            "y": 654,
             "w": 295,
             "h": 85
         },
         "castle_wood_platform_short_a": {
-            "x": 1281,
-            "y": 482,
+            "x": 1,
+            "y": 741,
             "w": 250,
             "h": 86
         },
         "castle_wood_platform_long_a": {
-            "x": 1563,
-            "y": 482,
+            "x": 539,
+            "y": 282,
             "w": 459,
             "h": 103
         },
         "castle_wood_platform_medium_b": {
-            "x": 20,
-            "y": 617,
+            "x": 1,
+            "y": 478,
             "w": 348,
             "h": 87
         },
         "castle_wood_platform_short_b": {
-            "x": 400,
-            "y": 617,
+            "x": 298,
+            "y": 654,
             "w": 239,
             "h": 88
         },
         "castle_wood_platform_tiny_a": {
-            "x": 671,
-            "y": 617,
+            "x": 538,
+            "y": 785,
             "w": 139,
             "h": 90
         },
         "castle_wood_platform_short_c": {
-            "x": 842,
-            "y": 617,
+            "x": 253,
+            "y": 744,
             "w": 223,
             "h": 94
         },
         "castle_hanging_candle_chandelier_a": {
-            "x": 1097,
-            "y": 617,
+            "x": 52,
+            "y": 829,
             "w": 87,
             "h": 178
         },
         "castle_hanging_candle_chandelier_b": {
-            "x": 1216,
-            "y": 617,
+            "x": 141,
+            "y": 829,
             "w": 76,
             "h": 177
         },
         "castle_hanging_candle_chandelier_c": {
-            "x": 1324,
-            "y": 617,
+            "x": 351,
+            "y": 478,
             "w": 82,
             "h": 172
         },
         "castle_hanging_lantern_a": {
-            "x": 1438,
-            "y": 617,
+            "x": 925,
+            "y": 475,
             "w": 64,
             "h": 182
         },
         "castle_hanging_lantern_b": {
-            "x": 1534,
-            "y": 617,
+            "x": 1,
+            "y": 829,
             "w": 49,
             "h": 180
         },
         "castle_hanging_lantern_c": {
-            "x": 1615,
-            "y": 617,
+            "x": 478,
+            "y": 744,
             "w": 58,
             "h": 192
         },
         "castle_hanging_lantern_d": {
-            "x": 1705,
-            "y": 617,
+            "x": 435,
+            "y": 478,
             "w": 62,
             "h": 154
         },
         "castle_hanging_lamp_small_a": {
-            "x": 1799,
-            "y": 617,
+            "x": 219,
+            "y": 840,
             "w": 53,
             "h": 150
         },
         "castle_hanging_lamp_small_b": {
-            "x": 1884,
-            "y": 617,
+            "x": 378,
+            "y": 840,
             "w": 85,
             "h": 141
         },
         "castle_wood_pillar_tall_a": {
-            "x": 20,
-            "y": 841,
+            "x": 1058,
+            "y": 1,
             "w": 84,
             "h": 367
         },
         "castle_wood_pillar_tall_b": {
-            "x": 136,
-            "y": 841,
+            "x": 1000,
+            "y": 370,
             "w": 69,
             "h": 357
         },
         "castle_wood_pillar_medium_a": {
-            "x": 237,
-            "y": 841,
+            "x": 1144,
+            "y": 1,
             "w": 67,
             "h": 319
         },
         "castle_wood_pillar_medium_b": {
-            "x": 336,
-            "y": 841,
+            "x": 1144,
+            "y": 322,
             "w": 54,
             "h": 314
         },
         "castle_wood_pillar_thin": {
-            "x": 422,
-            "y": 841,
+            "x": 1071,
+            "y": 370,
             "w": 49,
             "h": 279
         },
         "castle_wood_post_short_a": {
-            "x": 503,
-            "y": 841,
+            "x": 679,
+            "y": 785,
             "w": 49,
             "h": 138
         },
         "castle_wood_post_short_b": {
-            "x": 584,
-            "y": 841,
+            "x": 327,
+            "y": 840,
             "w": 49,
             "h": 144
         },
         "castle_wood_post_short_c": {
-            "x": 665,
-            "y": 841,
+            "x": 274,
+            "y": 840,
             "w": 51,
             "h": 145
         },
         "castle_stone_stairs_wide": {
-            "x": 747,
-            "y": 840,
+            "x": 1,
+            "y": 282,
             "w": 536,
             "h": 194
         },
         "castle_stone_stairs_narrow": {
-            "x": 1317,
-            "y": 841,
+            "x": 925,
+            "y": 729,
             "w": 253,
             "h": 119
         }

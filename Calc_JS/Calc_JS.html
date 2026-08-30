@@ -57,6 +57,7 @@
     }
 
     #exprLine {
+      position: relative;
       min-height: 1.45em;
       font-family: "Courier New", Courier, monospace;
       font-size: 1.15em;
@@ -68,8 +69,12 @@
     }
 
     #caret {
+      position: absolute;
+      top: 0;
+      left: 0;
       color: #0d3b66;
       font-weight: bold;
+      pointer-events: none;
     }
 
     #resultLine {
@@ -143,6 +148,7 @@
     }
 
     button {
+      display: block;
       width: 100%;
       height: 100%;
       padding: 0.1em 0.2em;
@@ -457,12 +463,25 @@
 
       function fitAllButtonText() {
         var buttons = document.getElementsByTagName('button');
+        var halfButtons = [];
+        var halfButtonFontSize = null;
         var i;
         var button;
+        var size;
         for (i = 0; i < buttons.length; i++) {
           button = buttons[i];
           if (button.parentNode && button.parentNode.id === 'formatRow') continue;
           fitButtonText(button);
+          if (/(^|\s)halfBtn(\s|$)/.test(button.className)) {
+            halfButtons[halfButtons.length] = button;
+            size = getButtonTextFontSize(button);
+            if (halfButtonFontSize === null || size < halfButtonFontSize) {
+              halfButtonFontSize = size;
+            }
+          }
+        }
+        for (i = 0; i < halfButtons.length; i++) {
+          halfButtons[i].style.fontSize = halfButtonFontSize + 'px';
         }
       }
 
@@ -514,23 +533,33 @@
       }
 
       function renderExpression() {
-        var left = expression.substring(0, cursorPos);
-        var right = expression.substring(cursorPos);
+        var textEl;
         var caretEl;
+        var range;
+        var textRect;
+        var lineRect;
         var pad;
         var caretLeft;
         var caretRight;
         var viewLeft;
         var viewRight;
-        exprLineEl.innerHTML = escapeHtml(left) + (hideCaret ? '' : '<span id="caret">|</span>') + escapeHtml(right);
+        exprLineEl.innerHTML = '<span id="exprText">' + escapeHtml(expression || '\u00a0') + '</span>' +
+          (hideCaret ? '' : '<span id="caret">|</span>');
         if (hideCaret) {
           exprLineEl.scrollLeft = exprLineEl.scrollWidth;
           return;
         }
+        textEl = document.getElementById('exprText');
         caretEl = document.getElementById('caret');
         if (!caretEl) return;
+        range = document.createRange();
+        range.setStart(textEl.firstChild, Math.min(cursorPos, expression.length));
+        range.collapse(true);
+        textRect = range.getBoundingClientRect();
+        lineRect = exprLineEl.getBoundingClientRect();
+        caretLeft = textRect.left - lineRect.left + exprLineEl.scrollLeft;
+        caretEl.style.left = Math.round(caretLeft) + 'px';
         pad = 12;
-        caretLeft = caretEl.offsetLeft;
         caretRight = caretLeft + caretEl.offsetWidth;
         viewLeft = exprLineEl.scrollLeft;
         viewRight = viewLeft + exprLineEl.clientWidth;
@@ -684,6 +713,11 @@
           }
 
           if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) {
+            if (input.substring(i, i + 3).toLowerCase() === 'ans') {
+              tokens[tokens.length] = { type: 'number', value: lastValue };
+              i += 3;
+              continue;
+            }
             if (input.substring(i, i + 4).toLowerCase() === 'asin') {
               tokens[tokens.length] = { type: 'function', name: 'asin' };
               i += 4;
@@ -1221,7 +1255,7 @@
           return;
         }
         if (action === 'ans') {
-          insertToken(String(lastValue));
+          insertToken('Ans');
           return;
         }
         if (action === 'eval') {
