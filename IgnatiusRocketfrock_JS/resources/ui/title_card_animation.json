@@ -1,0 +1,120 @@
+{
+  "version": 1,
+  "designWidth": 1448,
+  "designHeight": 1086,
+  "fallbackImage": "title_card.png",
+  "global": {
+    "motionScale": 0.107,
+    "motionSpeed": 0.55,
+    "axisSpinSpeed": 0.074,
+    "parallaxPixelScale": 10
+  },
+  "particles": {
+    "enabled": true,
+    "intensity": 1.19,
+    "originX": 330,
+    "originY": 1030,
+    "offsetX": -67,
+    "offsetY": -103,
+    "angleDeg": -34.1,
+    "baseDirectionDeg": 155,
+    "speed": 1,
+    "flameLifetime": 3.88,
+    "smokeLifetime": 2.05,
+    "sparkLifetime": 3.89,
+    "zIndex": 45
+  },
+  "layers": {
+    "background": {
+      "id": "background",
+      "file": "title_layer_1_background.png",
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "scale": 1.1,
+      "angleDeg": 0,
+      "parallaxX": 10,
+      "parallaxY": 10,
+      "motionSource": "",
+      "zIndex": 10
+    },
+    "frame": {
+      "id": "frame",
+      "file": "title_layer_2_frame.png",
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "scale": 1.01,
+      "angleDeg": 0,
+      "parallaxX": 0,
+      "parallaxY": 0,
+      "motionSource": "",
+      "zIndex": 20
+    },
+    "skeleton": {
+      "id": "skeleton",
+      "file": "title_layer_3_skeleton.png",
+      "visible": true,
+      "x": -184,
+      "y": -128,
+      "scale": 0.8,
+      "angleDeg": 0,
+      "parallaxX": 6,
+      "parallaxY": 6,
+      "motionSource": "",
+      "zIndex": 30
+    },
+    "rocket": {
+      "id": "rocket",
+      "file": "title_layer_4_rocket.png",
+      "visible": true,
+      "x": -98,
+      "y": -209,
+      "scale": 0.44,
+      "angleDeg": 16,
+      "parallaxX": 12,
+      "parallaxY": 9,
+      "motionSource": "wizard",
+      "zIndex": 40
+    },
+    "wizard": {
+      "id": "wizard",
+      "file": "title_layer_5_wizard.png",
+      "visible": true,
+      "x": -89,
+      "y": -189,
+      "scale": 0.49,
+      "angleDeg": 0,
+      "parallaxX": 6,
+      "parallaxY": 6,
+      "motionSource": "",
+      "zIndex": 50
+    },
+    "goblin": {
+      "id": "goblin",
+      "file": "title_layer_6_goblin.png",
+      "visible": true,
+      "x": 428,
+      "y": 327,
+      "scale": 0.42,
+      "angleDeg": 0,
+      "parallaxX": 6,
+      "parallaxY": 6,
+      "motionSource": "",
+      "zIndex": 60
+    },
+    "title": {
+      "id": "title",
+      "file": "title_layer_7_title.png",
+      "visible": true,
+      "x": -2,
+      "y": 186,
+      "scale": 0.71,
+      "angleDeg": 0,
+      "parallaxX": 2.5,
+      "parallaxY": 2,
+      "motionSource": "",
+      "zIndex": 70
+    }
+  }
+}

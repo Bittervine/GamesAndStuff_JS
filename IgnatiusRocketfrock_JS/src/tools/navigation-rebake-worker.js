@@ -12,6 +12,7 @@ self.addEventListener("message", (event) => {
             preserveMatchingVerification: message.preserveMatchingVerification !== false,
             reuseSimulationProofs: message.reuseSimulationProofs !== false,
             compareStepMethods: message.compareStepMethods === true,
+            nrOfAltJumps: Math.max(0, Math.floor(Number(message.nrOfAltJumps ?? 6) || 0)),
             progressInterval: Math.max(1, Math.floor(Number(message.progressInterval) || 20)),
             onProgress(progress) {
                 self.postMessage({ type: "navigation-rebake-progress", jobId, ...progress });

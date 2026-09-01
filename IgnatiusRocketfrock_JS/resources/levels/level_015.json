@@ -304,18 +304,19 @@
                             "visual:campaign_scaffold_floor_015"
                         ],
                         "verification": "verified",
-                        "verificationInputHash": "navwalkproof-v3-d5268a3e7586545a"
+                        "verificationInputHash": "navwalkproof-v3-5a4e7d4f9d96fc81"
                     }
                 ],
                 "supportSignature": "campaign_scaffold_floor_015_blockable_1:-160:640:2880:640:::campaign_scaffold_floor_015_area_0",
                 "edges": [],
                 "dynamicCostRules": [],
                 "build": {
-                    "method": "walk_regions_with_ballistic_transitions",
+                    "method": "atomic_support_fragments_sparse_strides_v16",
                     "stepTransitionMethod": "stride_arc",
                     "samplesPerSecond": 60,
                     "generatedBy": "Ignatius Rocketfrock Level Editor",
-                    "advisoryHeuristicSchema": 6,
+                    "nrOfAltJumps": 6,
+                    "advisoryHeuristicSchema": 13,
                     "advisoryHeuristics": [
                         "intervening_walkable_support",
                         "intervening_walkable_support_body_span",
@@ -323,7 +324,7 @@
                         "source_support_return",
                         "run_up_first_step_blocked"
                     ],
-                    "verificationInputSignature": "navverify-v3-51e492690a61ee92",
+                    "verificationInputSignature": "navverify-v13-be8606923e011cb1",
                     "simulationCheck": {
                         "enabled": true,
                         "fixedStep": 0.016666666666666666,

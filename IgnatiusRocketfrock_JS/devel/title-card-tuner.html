@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ignatius Title Card Tuner</title>
+    <style>
+        :root { color-scheme: dark; --bg:#0d0c15; --panel:#191724; --line:#38334a; --text:#f4efff; --muted:#aaa2bf; --accent:#c99fff; }
+        * { box-sizing:border-box; }
+        html,body { margin:0; min-height:100%; background:var(--bg); color:var(--text); font:14px/1.4 system-ui,sans-serif; }
+        body { display:grid; grid-template-columns:minmax(0,1fr) 390px; min-height:100vh; }
+        main { display:grid; place-items:center; padding:24px; overflow:hidden; background:radial-gradient(circle at 50% 40%,#302247 0,#12101d 58%,#08070c 100%); }
+        canvas { display:block; width:min(100%,calc((100vh - 48px) * 1.333333)); height:auto; max-height:calc(100vh - 48px); aspect-ratio:4/3; box-shadow:0 22px 70px #000b; }
+        aside { padding:18px; overflow:auto; border-left:1px solid var(--line); background:var(--panel); }
+        h1 { margin:0 0 4px; font-size:20px; } p { color:var(--muted); margin:0 0 16px; }
+        fieldset { border:1px solid var(--line); border-radius:10px; margin:0 0 14px; padding:12px; }
+        legend { color:var(--accent); font-weight:700; padding:0 5px; }
+        label { display:grid; grid-template-columns:1fr 88px; gap:9px; align-items:center; margin:7px 0; }
+        label span { color:#ddd5ed; }
+        input[type=range] { width:100%; grid-column:1/-1; }
+        input[type=number], select, textarea, button { width:100%; background:#100f18; color:var(--text); border:1px solid var(--line); border-radius:7px; padding:7px 8px; }
+        input[type=checkbox] { justify-self:end; }
+        .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:8px 0; }
+        button { cursor:pointer; background:#29223a; } button:hover { border-color:var(--accent); }
+        textarea { min-height:210px; font:11px/1.35 ui-monospace,SFMono-Regular,Consolas,monospace; resize:vertical; }
+        .back { display:inline-block; margin-bottom:12px; color:var(--accent); text-decoration:none; }
+        @media (max-width:980px) { body { grid-template-columns:1fr; } aside { border-left:0; border-top:1px solid var(--line); } main { min-height:60vh; } }
+    </style>
+</head>
+<body>
+<main><canvas id="preview" width="1448" height="1086"></canvas></main>
+<aside>
+    <a class="back" href="../devel.html">← Development portal</a>
+    <h1>Animated title card</h1>
+    <p>Presentation-only tuner. Export the JSON and replace <code>resources/ui/title_card_animation.json</code> when a setting is approved.</p>
+    <fieldset id="global-controls"><legend>Global motion</legend></fieldset>
+    <fieldset id="particle-controls"><legend>Rocket particles</legend></fieldset>
+    <fieldset><legend>Layer</legend><select id="layer-select"></select><div id="layer-controls"></div></fieldset>
+    <fieldset><legend>JSON</legend>
+        <div class="row"><button id="apply-json">Apply JSON</button><button id="reload-json">Reload shipped</button></div>
+        <textarea id="json-text" spellcheck="false"></textarea>
+        <div class="row"><button id="copy-json">Copy JSON</button><button id="download-json">Download JSON</button></div>
+    </fieldset>
+</aside>
+<script type="module">
+import { createTitleCardAnimator, normalizeTitleCardConfig } from "../src/presentation/title-card-animation.js";
+
+const preview = document.getElementById("preview");
+const animator = await createTitleCardAnimator(preview);
+let config = animator.config;
+const jsonText = document.getElementById("json-text");
+const layerSelect = document.getElementById("layer-select");
+
+const fieldSpecs = {
+    global: [
+        ["motionScale", "Motion scale", 0, 1, 0.001],
+        ["motionSpeed", "Motion speed", 0, 3, 0.01],
+        ["axisSpinSpeed", "Axis spin speed", -1, 1, 0.001],
+        ["parallaxPixelScale", "Parallax pixel scale", 0, 30, 0.1]
+    ],
+    particles: [
+        ["intensity", "Intensity", 0, 3, 0.01], ["offsetX", "Offset X", -300, 300, 1], ["offsetY", "Offset Y", -300, 300, 1],
+        ["angleDeg", "Angle", -180, 180, 0.1], ["speed", "Speed", 0, 3, 0.01], ["flameLifetime", "Flame lifetime", 0.1, 10, 0.01],
+        ["smokeLifetime", "Smoke lifetime", 0.1, 10, 0.01], ["sparkLifetime", "Spark lifetime", 0.1, 10, 0.01]
+    ],
+    layer: [
+        ["x", "X", -700, 700, 1], ["y", "Y", -700, 700, 1], ["scale", "Scale", 0.2, 1.5, 0.001], ["angleDeg", "Angle", -45, 45, 0.01],
+        ["parallaxX", "Parallax X", 0, 60, 0.1], ["parallaxY", "Parallax Y", 0, 60, 0.1], ["zIndex", "Z index", 0, 100, 1]
+    ]
+};
+
+function syncJson() { jsonText.value = JSON.stringify(config, null, 2); }
+function updateObjectInPlace(target, source) {
+    for (const key of Object.keys(target)) { if (!(key in source)) delete target[key]; }
+    for (const [key, value] of Object.entries(source)) {
+        if (value && typeof value === "object" && !Array.isArray(value) && target[key] && typeof target[key] === "object" && !Array.isArray(target[key])) {
+            updateObjectInPlace(target[key], value);
+        } else {
+            target[key] = value;
+        }
+    }
+}
+function commit() { updateObjectInPlace(config, normalizeTitleCardConfig(config)); animator.setConfig(config); syncJson(); }
+function numberControl(parent, target, spec) {
+    const [key, labelText, min, max, step] = spec;
+    const label = document.createElement("label");
+    const span = document.createElement("span"); span.textContent = labelText;
+    const number = document.createElement("input"); number.type="number"; number.min=min; number.max=max; number.step=step; number.value=target[key];
+    const range = document.createElement("input"); range.type="range"; range.min=min; range.max=max; range.step=step; range.value=target[key];
+    const update = (value) => { target[key] = Number(value); number.value=target[key]; range.value=target[key]; commit(); };
+    number.addEventListener("change", () => update(number.value)); range.addEventListener("input", () => update(range.value));
+    label.append(span, number, range); parent.append(label);
+}
+function buildFixedControls() {
+    const global = document.getElementById("global-controls"); global.querySelectorAll("label").forEach(el=>el.remove());
+    fieldSpecs.global.forEach(spec=>numberControl(global, config.global, spec));
+    const particles = document.getElementById("particle-controls"); particles.querySelectorAll("label").forEach(el=>el.remove());
+    const enabled = document.createElement("label"); enabled.innerHTML="<span>Enabled</span>";
+    const checkbox = document.createElement("input"); checkbox.type="checkbox"; checkbox.checked=config.particles.enabled;
+    checkbox.addEventListener("change",()=>{config.particles.enabled=checkbox.checked;commit();}); enabled.append(checkbox); particles.append(enabled);
+    fieldSpecs.particles.forEach(spec=>numberControl(particles, config.particles, spec));
+}
+function buildLayerControls() {
+    layerSelect.replaceChildren(...Object.keys(config.layers).map(id=>{const o=document.createElement("option");o.value=id;o.textContent=id;return o;}));
+    layerSelect.value = layerSelect.value || Object.keys(config.layers)[0] || "";
+    renderSelectedLayer();
+}
+function renderSelectedLayer() {
+    const host=document.getElementById("layer-controls"); host.replaceChildren();
+    const layer=config.layers[layerSelect.value]; if(!layer)return;
+    const visible=document.createElement("label"); visible.innerHTML="<span>Visible</span>";
+    const checkbox=document.createElement("input");checkbox.type="checkbox";checkbox.checked=layer.visible;checkbox.addEventListener("change",()=>{layer.visible=checkbox.checked;commit();});visible.append(checkbox);host.append(visible);
+    const motionLabel=document.createElement("label"); const motionText=document.createElement("span"); motionText.textContent="Motion follows";
+    const motionSelect=document.createElement("select");
+    const ownOption=document.createElement("option"); ownOption.value=""; ownOption.textContent="Own parallax"; motionSelect.append(ownOption);
+    for (const id of Object.keys(config.layers)) { if (id===layerSelect.value) continue; const option=document.createElement("option"); option.value=id; option.textContent=id; motionSelect.append(option); }
+    motionSelect.value=layer.motionSource||""; motionSelect.addEventListener("change",()=>{layer.motionSource=motionSelect.value;commit();});
+    motionLabel.append(motionText,motionSelect); host.append(motionLabel);
+    fieldSpecs.layer.forEach(spec=>numberControl(host,layer,spec));
+}
+layerSelect.addEventListener("change",renderSelectedLayer);
+
+document.getElementById("apply-json").addEventListener("click",()=>{ try { config=normalizeTitleCardConfig(JSON.parse(jsonText.value)); buildFixedControls(); buildLayerControls(); commit(); } catch(error) { alert(error.message); } });
+document.getElementById("reload-json").addEventListener("click",async()=>{ const r=await fetch("../resources/ui/title_card_animation.json",{cache:"no-cache"}); config=normalizeTitleCardConfig(await r.json()); buildFixedControls(); buildLayerControls(); commit(); animator.resetClock(); });
+document.getElementById("copy-json").addEventListener("click",()=>navigator.clipboard.writeText(jsonText.value));
+document.getElementById("download-json").addEventListener("click",()=>{ const blob=new Blob([jsonText.value+"\n"],{type:"application/json"}); const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="title_card_animation.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000); });
+
+buildFixedControls(); buildLayerControls(); syncJson();
+</script>
+</body>
+</html>

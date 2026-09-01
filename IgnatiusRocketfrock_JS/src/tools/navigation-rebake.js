@@ -627,11 +627,13 @@ function annotateRuntimeCheapNavigationAdvisories(world, graph) {
 }
 
 function bakeProfiles(world, state, options, stepTransitionMethod) {
+    const nrOfAltJumps = Math.max(0, Math.floor(Number(options.nrOfAltJumps ?? 6) || 0));
     return [...navigationProfilesForState(state, options).entries()].map(([id, profile]) => {
         const graph = bakeEnemyNavigationGraph(world, profile, {
             id,
             label: graphLabel(id, profile),
-            stepTransitionMethod
+            stepTransitionMethod,
+            nrOfAltJumps
         });
         return stampVerificationInputSignature(world, annotateRuntimeCheapNavigationAdvisories(world, graph));
     });
@@ -664,7 +666,9 @@ export function rebakeAndVerifyNavigation(levelDocument, context = {}, options =
     const verifyBySimulation = options.verifyBySimulation === true;
     const stepTransitionMethod = options.stepTransitionMethod === "legacy" ? "legacy" : "stride_arc";
     const { state, world } = buildCanonicalNavigationWorld(levelDocument, context);
+    const heuristicStartedAt = globalThis.performance?.now?.() ?? Date.now();
     let candidateProfiles = bakeProfiles(world, state, options, stepTransitionMethod);
+    const heuristicElapsedMs = Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - heuristicStartedAt);
     const existingProfiles = Array.isArray(source?.navigationGraphs?.profiles) ? source.navigationGraphs.profiles : [];
     const existingById = new Map(existingProfiles.map((graph) => [String(graph?.id || ""), graph]));
     const proofIndex = buildNavigationLocalProofIndex(world);
@@ -792,7 +796,9 @@ export function rebakeAndVerifyNavigation(levelDocument, context = {}, options =
             reusedSalvageEdges,
             salvageProofChecks,
             salvagedEdges,
-            elapsedMs
+            elapsedMs,
+            heuristicElapsedMs,
+            nrOfAltJumps: Math.max(0, Math.floor(Number(options.nrOfAltJumps ?? 6) || 0))
         }
     };
 }

@@ -216,7 +216,8 @@ async function runNavigationBatch(options = {}) {
                     includeWizard: true,
                     preserveMatchingVerification: false,
                     reuseSimulationProofs: !cleanBuild,
-                    compareStepMethods: false
+                    compareStepMethods: false,
+                    nrOfAltJumps: 6
                 }, (message) => {
                     const profileNumber = Math.min((message.profileIndex || 0) + 1, message.profileCount || 1);
                     setStatus(

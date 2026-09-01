@@ -253,9 +253,10 @@
         #title-card-art {
             display: block;
             width: min(100%, calc((100vh - 145px) * 1.333));
+            height: auto;
             max-height: min(76vh, 780px);
+            aspect-ratio: 4 / 3;
             object-fit: contain;
-            
             user-select: none;
             -webkit-user-drag: none;
         }
@@ -1184,7 +1185,7 @@ font-size: 14px;
     </div>
     <section id="title-screen" aria-label="Ignatius Rocketfrock title screen" hidden>
         <div id="title-content">
-            <img id="title-card-art" src="resources/ui/title_card.png" alt="Ignatius Rocketfrock">
+            <canvas id="title-card-art" width="1448" height="1086" role="img" aria-label="Ignatius Rocketfrock animated title artwork"></canvas>
             <div id="title-actions" role="menu" aria-label="Main menu">
                 <button id="title-start-button" class="title-action" type="button" role="menuitem">Start New Game</button>
                 <button id="title-resume-button" class="title-action" type="button" role="menuitem">Resume Game</button>
@@ -1365,6 +1366,14 @@ font-size: 14px;
                 </div>
                 <div class="settings-group">
                     <div class="settings-label">
+                        <span>Lunge speed</span>
+                        <span id="tuning-lunge-speed-value" class="settings-value">1440 px/s</span>
+                    </div>
+                    <input id="tuning-lunge-speed" type="range" min="400" max="3000" step="20" value="1440">
+                    <div class="settings-note">Adjusts lunge speed while preserving its current movement duration by scaling travel distance with it.</div>
+                </div>
+                <div class="settings-group">
+                    <div class="settings-label">
                         <span>Jump height</span>
                         <span id="tuning-jump-height-value" class="settings-value">200</span>
                     </div>
@@ -1380,9 +1389,17 @@ font-size: 14px;
                 <div class="settings-group">
                     <div class="settings-label">
                         <span>Rocket damage</span>
-                        <span id="tuning-rocket-damage-value" class="settings-value">30</span>
+                        <span id="tuning-rocket-damage-value" class="settings-value">100%</span>
                     </div>
-                    <input id="tuning-rocket-damage" type="range" min="5" max="500" step="5" value="30">
+                    <input id="tuning-rocket-damage" type="range" min="25" max="300" step="5" value="100">
+                </div>
+                <div class="settings-group">
+                    <div class="settings-label">
+                        <span>Rocket duration</span>
+                        <span id="tuning-rocket-duration-value" class="settings-value">100%</span>
+                    </div>
+                    <input id="tuning-rocket-duration" type="range" min="25" max="300" step="5" value="100">
+                    <div class="settings-note">Scales rocket lifetime and therefore reach without changing rocket speed.</div>
                 </div>
                 <div class="settings-group settings-wide">
                     <div class="settings-label">

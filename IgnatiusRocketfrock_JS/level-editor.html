@@ -4550,7 +4550,8 @@ import {
             preserveMatchingVerification: true,
             includeWizard: options.includeWizard !== false,
             stepTransitionMethod,
-            compareStepMethods: !silent && options.compare !== false
+            compareStepMethods: !silent && options.compare !== false,
+            nrOfAltJumps: 6
         });
         applyNavigationRebakeResult(result, { previousPreviewGraphId, refreshUi });
         const summary = result.summary || {};
@@ -4631,7 +4632,7 @@ import {
             const retainedSummary = summary.reusedVerifiedProfiles
                 ? ` Preserved verification for ${summary.reusedVerifiedProfiles} unchanged profile${summary.reusedVerifiedProfiles === 1 ? "" : "s"}.`
                 : "";
-            setStatus(`Navigation worker built ${summary.profiles || 0} graph${summary.profiles === 1 ? "" : "s"} with ${navigationStepMethodLabel(stepTransitionMethod)} steps: ${summary.supports || 0} supports and ${summary.edges || 0} directed transitions.${retainedSummary}${comparisonSummary}`);
+            setStatus(`Navigation worker built ${summary.profiles || 0} graph${summary.profiles === 1 ? "" : "s"} with ${navigationStepMethodLabel(stepTransitionMethod)} steps: ${summary.supports || 0} supports and ${summary.edges || 0} directed transitions in ${(Number(summary.heuristicElapsedMs) || 0).toFixed(1)} ms, retaining up to ${summary.nrOfAltJumps || 0} alternate ballistic path(s) per connection.${retainedSummary}${comparisonSummary}`);
         });
         worker.addEventListener("error", (event) => {
             if (state.navigationSimulationJob?.jobId !== jobId) return;
@@ -4648,7 +4649,8 @@ import {
             stepTransitionMethod,
             includeWizard: options.includeWizard !== false,
             compareStepMethods: options.compare !== false,
-            preserveMatchingVerification: true
+            preserveMatchingVerification: true,
+            nrOfAltJumps: 6
         });
         return { built: false, pending: true };
     }
@@ -4755,7 +4757,8 @@ import {
             stepTransitionMethod,
             includeWizard: true,
             compareStepMethods: false,
-            preserveMatchingVerification: false
+            preserveMatchingVerification: false,
+            nrOfAltJumps: 6
         });
         return { built: false, pending: true };
     }
@@ -11299,7 +11302,8 @@ import {
                     preserveMatchingVerification: true,
                     includeWizard: false,
                     stepTransitionMethod,
-                    compareStepMethods: false
+                    compareStepMethods: false,
+                    nrOfAltJumps: 2
                 });
             });
         } catch (error) {
@@ -11332,7 +11336,7 @@ import {
         }, { previousPreviewGraphId, refreshUi: true });
         const graphResult = playtestRebake.summary || {};
         const graphSummary = graphResult.profiles
-            ? ` Prepared ${graphResult.profiles} runtime hunter navigation graph${graphResult.profiles === 1 ? "" : "s"} (${graphResult.edges || 0} directed transitions) heuristically with simulation disabled. The editor-only Wizard preview was omitted from level_temp.`
+            ? ` Prepared ${graphResult.profiles} runtime hunter navigation graph${graphResult.profiles === 1 ? "" : "s"} (${graphResult.edges || 0} directed transitions) heuristically in ${(Number(graphResult.heuristicElapsedMs) || 0).toFixed(1)} ms with simulation disabled and up to ${graphResult.nrOfAltJumps || 0} alternate ballistic path(s) allowed. The editor-only Wizard preview was omitted from level_temp.`
             : " No runtime hunter navigation graphs were needed.";
         try {
             if (!await saveLevelTempCopy({ navigationGraphs: playtestGraphs })) {

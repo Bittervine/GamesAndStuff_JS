@@ -7,8 +7,9 @@ const ENEMY_NAVIGATION_DIRECT_SEAM_MAX_DISTANCE = 1.0; // matches ordinary wizar
 const ENEMY_NAVIGATION_ATOMIC_SPLIT_SEAM_MAX_DISTANCE = 0.05; // only exact authored-line split siblings bypass foreign-seam physics
 const ENEMY_NAVIGATION_SHORTCUT_MIN_SAVING = 500;
 const ENEMY_NAVIGATION_BALLISTIC_PROPOSAL_LIMIT = 3;
+const ENEMY_NAVIGATION_DEFAULT_ALT_JUMPS = 2;
 
-export const ENEMY_NAVIGATION_GRAPH_BUILD_METHOD = "atomic_support_fragments_sparse_strides_v15";
+export const ENEMY_NAVIGATION_GRAPH_BUILD_METHOD = "atomic_support_fragments_sparse_strides_v16";
 export const ENEMY_DROP_SOURCE_CLEARANCE_HEIGHT_FACTOR = 0.45;
 export const ENEMY_DROP_SOURCE_CLEARANCE_WIDTH_FACTOR = 0.9;
 export const ENEMY_NAVIGATION_VERIFICATION_UNVERIFIED = "unverified";
@@ -2078,7 +2079,13 @@ function attachBallisticRunUp(edge, from, options = {}) {
     const minimumDistance = jumpRunUpDistanceForSpeed(requiredSpeed, acceleration);
 
     const supports = options.navigationSupports || [];
-    const runUpChain = contiguousRunUpSupportChain(from, supports, direction);
+    const runUpCache = options.runUpSupportChainCache instanceof Map ? options.runUpSupportChainCache : null;
+    const runUpCacheKey = `${String(from.id || "")}\u0000${direction}`;
+    let runUpChain = runUpCache?.get(runUpCacheKey) || null;
+    if (!runUpChain) {
+        runUpChain = contiguousRunUpSupportChain(from, supports, direction);
+        runUpCache?.set(runUpCacheKey, runUpChain);
+    }
     const runUpMin = Math.min(...runUpChain.map((support) => support.xMin));
     const runUpMax = Math.max(...runUpChain.map((support) => support.xMax));
     const availableDistance = direction > 0
@@ -3450,8 +3457,16 @@ function enemyNavigationBallisticProposalWorthwhile(edge, from, to, supports, ed
     return route.cost - maneuverCost >= ENEMY_NAVIGATION_SHORTCUT_MIN_SAVING - EPSILON;
 }
 
-function enemyNavigationBestValuableBallisticTransition(from, to, supports, edgeMap, options, obstacles) {
-    if (!enemyNavigationBallisticPairInsidePlanningEnvelope(from, to, options)) return null;
+function enemyNavigationBallisticProposalSeparation(left, right) {
+    if (!left || !right) return Number.POSITIVE_INFINITY;
+    return Math.max(
+        Math.abs(finite(left.launchX) - finite(right.launchX)),
+        Math.abs(finite(left.landingX) - finite(right.landingX))
+    );
+}
+
+function enemyNavigationValuableBallisticTransitions(from, to, supports, edgeMap, options, obstacles) {
+    if (!enemyNavigationBallisticPairInsidePlanningEnvelope(from, to, options)) return [];
 
     const proposals = [];
     for (const candidate of directionalTransitionCandidates(from, to, options)) {
@@ -3468,16 +3483,60 @@ function enemyNavigationBestValuableBallisticTransition(from, to, supports, edge
     }
     proposals.sort((left, right) => finite(left.cost) - finite(right.cost));
 
+    const nrOfAltJumps = Math.max(0, Math.floor(finite(options.nrOfAltJumps, ENEMY_NAVIGATION_DEFAULT_ALT_JUMPS)));
+    const desiredCount = 1 + nrOfAltJumps;
+    const minimumAlternativeSeparation = Math.max(24, finite(options.bodyWidth, 48) * 0.75);
+    const proposalValidationLimit = Math.max(
+        ENEMY_NAVIGATION_BALLISTIC_PROPOSAL_LIMIT,
+        desiredCount * ENEMY_NAVIGATION_BALLISTIC_PROPOSAL_LIMIT
+    );
+    const selected = [];
+    const attempted = new Set();
     let checked = 0;
-    for (const proposal of proposals) {
-        if (checked >= ENEMY_NAVIGATION_BALLISTIC_PROPOSAL_LIMIT) break;
-        if (!enemyNavigationBallisticProposalWorthwhile(proposal, from, to, supports, edgeMap, options)) continue;
+
+    const trySelect = (proposal) => {
+        if (!proposal || attempted.has(proposal) || checked >= proposalValidationLimit) return false;
+        attempted.add(proposal);
+        if (!enemyNavigationBallisticProposalWorthwhile(proposal, from, to, supports, edgeMap, options)) return false;
         checked += 1;
         const validation = transitionTrajectoryClear(proposal, { ...options, obstacles, fromSupport: from, toSupport: to });
-        if (!validation.clear) continue;
-        return { ...proposal, blockerIds: validation.blockerIds };
+        if (!validation.clear) return false;
+        selected.push({ ...proposal, blockerIds: validation.blockerIds });
+        return true;
+    };
+
+    // The cheapest physically valid proposal remains the primary manoeuvre.
+    for (const proposal of proposals) {
+        if (checked >= proposalValidationLimit || selected.length) break;
+        trySelect(proposal);
     }
-    return null;
+
+    // Fill alternate slots farthest-first. This spends the bounded backup
+    // budget on genuinely different launch/landing geometry rather than on
+    // a row of near-identical samples. Cost is the deterministic tie-breaker.
+    while (selected.length < desiredCount && checked < proposalValidationLimit) {
+        let best = null;
+        let bestSeparation = -1;
+        for (const proposal of proposals) {
+            if (attempted.has(proposal)) continue;
+            let minimumSeparation = Number.POSITIVE_INFINITY;
+            for (const existing of selected) {
+                minimumSeparation = Math.min(
+                    minimumSeparation,
+                    enemyNavigationBallisticProposalSeparation(existing, proposal));
+            }
+            if (minimumSeparation < minimumAlternativeSeparation - EPSILON) continue;
+            if (minimumSeparation > bestSeparation + EPSILON
+                || (Math.abs(minimumSeparation - bestSeparation) <= EPSILON
+                    && (!best || finite(proposal.cost) < finite(best.cost) - EPSILON))) {
+                best = proposal;
+                bestSeparation = minimumSeparation;
+            }
+        }
+        if (!best) break;
+        trySelect(best);
+    }
+    return selected;
 }
 
 function enemyNavigationStepRouteSupportIds(fromId, toId, edgeMap) {
@@ -3550,19 +3609,32 @@ function enemyNavigationStepProposalWorthwhile(edge, from, to, supports, edgeMap
 }
 
 function pruneEnemyNavigationRedundantBallistics(supports, edgeMap, options = {}) {
+    const supportById = options.supportById instanceof Map
+        ? options.supportById
+        : new Map((supports || []).map((support) => [String(support.id || ""), support]));
     for (const from of supports || []) {
-        const edgeList = edgeMap.get(from.id) || [];
-        const candidates = edgeList.filter((edge) => edge.type === "jump" || edge.type === "drop");
-        for (const candidate of candidates) {
-            const currentIndex = edgeList.indexOf(candidate);
-            if (currentIndex < 0) continue;
-            edgeList.splice(currentIndex, 1);
-            const to = navigationSupportById(supports, candidate.to);
-            const stillValuable = to && enemyNavigationBallisticProposalWorthwhile(candidate, from, to, supports, edgeMap, options);
-            if (stillValuable) {
-                edgeList.splice(Math.min(currentIndex, edgeList.length), 0, candidate);
-            }
+        const original = [...(edgeMap.get(from.id) || [])];
+        const groups = new Map();
+        for (const edge of original) {
+            if (edge.type !== "jump" && edge.type !== "drop") continue;
+            const key = String(edge.to || "");
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(edge);
         }
+        if (!groups.size) continue;
+
+        const keepTargets = new Set();
+        for (const [targetId, candidates] of groups) {
+            const withoutGroup = original.filter((edge) =>
+                (edge.type !== "jump" && edge.type !== "drop") || String(edge.to || "") !== targetId);
+            edgeMap.set(from.id, withoutGroup);
+            const to = supportById.get(targetId) || null;
+            const stillValuable = Boolean(to) && candidates.some((candidate) =>
+                enemyNavigationBallisticProposalWorthwhile(candidate, from, to, supports, edgeMap, options));
+            if (stillValuable) keepTargets.add(targetId);
+        }
+        edgeMap.set(from.id, original.filter((edge) =>
+            (edge.type !== "jump" && edge.type !== "drop") || keepTargets.has(String(edge.to || ""))));
     }
 }
 
@@ -3573,6 +3645,13 @@ export function buildEnemyNavigationEdgesByEndpointStride(supports, options = {}
         : navigationBlockingObstacles(options.world || {});
     normalizedOptions.obstacles = obstacles;
     normalizedOptions.navigationSupports = supports || [];
+    normalizedOptions.supportById = options.supportById instanceof Map
+        ? options.supportById
+        : new Map((supports || []).map((support) => [String(support.id || ""), support]));
+    normalizedOptions.runUpSupportChainCache = options.runUpSupportChainCache instanceof Map
+        ? options.runUpSupportChainCache
+        : new Map();
+    normalizedOptions.nrOfAltJumps = Math.max(0, Math.floor(finite(options.nrOfAltJumps, ENEMY_NAVIGATION_DEFAULT_ALT_JUMPS)));
     normalizedOptions.strideCandidateEdges = normalizedOptions.world
         ? enemyNavigationStrideCandidateEdges(normalizedOptions.world, supports || [])
         : [];
@@ -3644,7 +3723,7 @@ export function buildEnemyNavigationEdgesByEndpointStride(supports, options = {}
         const edgeList = edges.get(from.id);
         for (const to of supports || []) {
             if (from.id === to.id) continue;
-            const ballistic = enemyNavigationBestValuableBallisticTransition(
+            const ballistics = enemyNavigationValuableBallisticTransitions(
                 from,
                 to,
                 supports,
@@ -3652,7 +3731,7 @@ export function buildEnemyNavigationEdgesByEndpointStride(supports, options = {}
                 normalizedOptions,
                 obstacles
             );
-            if (ballistic) edgeList.push(ballistic);
+            for (const ballistic of ballistics) edgeList.push(ballistic);
         }
     }
 
@@ -3673,6 +3752,13 @@ export function buildEnemyNavigationEdges(supports, options = {}) {
         : navigationBlockingObstacles(options.world || {});
     normalizedOptions.obstacles = obstacles;
     normalizedOptions.navigationSupports = supports || [];
+    normalizedOptions.supportById = options.supportById instanceof Map
+        ? options.supportById
+        : new Map((supports || []).map((support) => [String(support.id || ""), support]));
+    normalizedOptions.runUpSupportChainCache = options.runUpSupportChainCache instanceof Map
+        ? options.runUpSupportChainCache
+        : new Map();
+    normalizedOptions.nrOfAltJumps = Math.max(0, Math.floor(finite(options.nrOfAltJumps, ENEMY_NAVIGATION_DEFAULT_ALT_JUMPS)));
     normalizedOptions.strideCandidateEdges = enemyNavigationStepMethod(normalizedOptions) === "stride_arc" && normalizedOptions.world
         ? enemyNavigationStrideCandidateEdges(normalizedOptions.world, supports || [])
         : [];
@@ -3692,7 +3778,7 @@ export function buildEnemyNavigationEdges(supports, options = {}) {
         const edgeList = edges.get(from.id);
         for (const to of supports || []) {
             if (from.id === to.id) continue;
-            const ballistic = enemyNavigationBestValuableBallisticTransition(
+            const ballistics = enemyNavigationValuableBallisticTransitions(
                 from,
                 to,
                 supports,
@@ -3700,7 +3786,7 @@ export function buildEnemyNavigationEdges(supports, options = {}) {
                 normalizedOptions,
                 obstacles
             );
-            if (ballistic) edgeList.push(ballistic);
+            for (const ballistic of ballistics) edgeList.push(ballistic);
         }
     }
     pruneEnemyNavigationRedundantBallistics(supports, edges, normalizedOptions);
@@ -3839,7 +3925,8 @@ export function bakeEnemyNavigationGraph(world, rawProfile = {}, metadata = {}) 
     });
     const profile = { ...normalizeEnemyNavigationProfile(rawProfile), stepTransitionMethod };
     const supports = buildEnemyNavigationSupports(world, profile);
-    const edgeMap = buildEnemyNavigationEdges(supports, { ...profile, world, stepTransitionMethod });
+    const nrOfAltJumps = Math.max(0, Math.floor(finite(metadata.nrOfAltJumps, ENEMY_NAVIGATION_DEFAULT_ALT_JUMPS)));
+    const edgeMap = buildEnemyNavigationEdges(supports, { ...profile, world, stepTransitionMethod, nrOfAltJumps });
     const walkRegionBuild = buildEnemyNavigationWalkRegions(supports, edgeMap);
     const advisoryContext = buildEnemyNavigationAdvisoryContext(supports);
     const supportById = new Map(supports.map((support) => [String(support.id || ""), support]));
@@ -3907,6 +3994,7 @@ export function bakeEnemyNavigationGraph(world, rawProfile = {}, metadata = {}) 
             stepTransitionMethod,
             samplesPerSecond: 60,
             generatedBy: String(metadata.generatedBy || "Ignatius Rocketfrock Level Editor"),
+            nrOfAltJumps,
             advisoryHeuristicSchema: ENEMY_NAVIGATION_ADVISORY_HEURISTIC_SCHEMA,
             advisoryHeuristics: [...ENEMY_NAVIGATION_ADVISORY_HEURISTICS]
         }
@@ -4000,11 +4088,13 @@ function buildEnemyNavigationRouteSearch(supports, startSupportId, options = {},
         return null;
     }
 
-    const startSupport = navigationSupportById(supports, startSupportId);
+    const supportById = options.supportById instanceof Map
+        ? options.supportById
+        : new Map((supports || []).map((support) => [String(support.id || ""), support]));
+    const startSupport = supportById.get(String(startSupportId || "")) || null;
     const startX = Number.isFinite(Number(options.startX))
         ? clamp(Number(options.startX), startSupport?.xMin ?? Number(options.startX), startSupport?.xMax ?? Number(options.startX))
         : (startSupport ? (startSupport.xMin + startSupport.xMax) * 0.5 : 0);
-    const supportById = new Map((supports || []).map((support) => [String(support.id || ""), support]));
     const states = [{
         supportId: startSupportId,
         arrivalX: startX,
@@ -4130,7 +4220,9 @@ export function enemyNavigationRouteFromSearch(search, targetSupportId, targetX 
     let bestUsesSameWalkRegionBallistic = true;
     for (const index of targetIndices) {
         const state = search.states[index];
-        const support = navigationSupportById(search.supports || [], targetSupportId);
+        const support = search.supportById instanceof Map
+            ? (search.supportById.get(String(targetSupportId || "")) || null)
+            : navigationSupportById(search.supports || [], targetSupportId);
         const cost = state.cost + (resolvedTargetX === null ? 0 : supportTravelDistance(support, state.arrivalX, resolvedTargetX));
         if (bestIndex < 0
             || (bestUsesUnverified && !state.usesUnverified)

@@ -28,6 +28,7 @@ import {
 import { RocketfrockInput } from "./browser-input.js";
 import { GamepadHaptics } from "./gamepad-haptics.js";
 import { createRenderer } from "../presentation/canvas-renderer.js";
+import { createTitleCardAnimator } from "../presentation/title-card-animation.js";
 import { normalizeCaveWindow } from "../shared/cave-window-data.js";
 import { collectLevelEnemyCharacterIds } from "../shared/auto-spawn-enemy-data.js";
 import {
@@ -140,6 +141,7 @@ const loadingDetail = document.getElementById("loading-detail");
 const startupStudioSplash = document.getElementById("startup-studio-splash");
 const startupStudioLogo = document.getElementById("startup-studio-logo");
 const titleScreen = document.getElementById("title-screen");
+const titleCardArt = document.getElementById("title-card-art");
 const creditsScreen = document.getElementById("credits-screen");
 const creditsTrack = document.getElementById("credits-track");
 const titleActions = document.getElementById("title-actions");
@@ -149,6 +151,12 @@ const titleLoadButton = document.getElementById("title-load-button");
 const titleSettingsButton = document.getElementById("title-settings-button");
 const titleExitDesktopButton = document.getElementById("title-exit-desktop-button");
 const titleActionButtons = [titleStartButton, titleResumeButton, titleLoadButton, titleSettingsButton, titleExitDesktopButton].filter(Boolean);
+let titleCardAnimator = null;
+if (titleCardArt instanceof HTMLCanvasElement) {
+    void createTitleCardAnimator(titleCardArt)
+        .then((animator) => { titleCardAnimator = animator; })
+        .catch((error) => { console.warn("Unable to initialize animated title card.", error); });
+}
 const hudPanelGroup = document.getElementById("hud");
 const metersPanel = document.getElementById("meters");
 const minimapPanel = document.getElementById("game-menu-controls");
@@ -198,12 +206,16 @@ const developmentGameTuningButton = document.getElementById("development-game-tu
 const gameTuningPanel = document.getElementById("game-tuning-panel");
 const tuningRunSpeedInput = document.getElementById("tuning-run-speed");
 const tuningRunSpeedValue = document.getElementById("tuning-run-speed-value");
+const tuningLungeSpeedInput = document.getElementById("tuning-lunge-speed");
+const tuningLungeSpeedValue = document.getElementById("tuning-lunge-speed-value");
 const tuningJumpHeightInput = document.getElementById("tuning-jump-height");
 const tuningJumpHeightValue = document.getElementById("tuning-jump-height-value");
 const tuningGravityInput = document.getElementById("tuning-gravity");
 const tuningGravityValue = document.getElementById("tuning-gravity-value");
 const tuningRocketDamageInput = document.getElementById("tuning-rocket-damage");
 const tuningRocketDamageValue = document.getElementById("tuning-rocket-damage-value");
+const tuningRocketDurationInput = document.getElementById("tuning-rocket-duration");
+const tuningRocketDurationValue = document.getElementById("tuning-rocket-duration-value");
 const tuningDoubleJumpPhysicsSelect = document.getElementById("tuning-double-jump-physics");
 const tuningResetButton = document.getElementById("tuning-reset");
 const developmentRecordingButton = document.getElementById("development-recording");
@@ -1902,6 +1914,7 @@ function showTitleScreen() {
     document.body.classList.remove("credits-screen-active");
     titleScreenActive = true;
     gameHasStarted = false;
+    titleCardAnimator?.resetClock();
     setGamePaused(true, { clearInput: true });
     syncTitleScreenUi();
 }
@@ -2381,9 +2394,11 @@ function setupGameMenuAndSettings() {
     });
 
     tuningRunSpeedInput?.addEventListener("input", () => updateSimpleGameTuning("maxRunSpeed", Number(tuningRunSpeedInput.value)));
+    tuningLungeSpeedInput?.addEventListener("input", () => updateSimpleGameTuning("playerLungeSpeed", Number(tuningLungeSpeedInput.value)));
     tuningJumpHeightInput?.addEventListener("input", () => updateSimpleGameTuning("ordinaryJumpHeight", Number(tuningJumpHeightInput.value)));
     tuningGravityInput?.addEventListener("input", () => updateSimpleGameTuning("gravity", Number(tuningGravityInput.value)));
-    tuningRocketDamageInput?.addEventListener("input", () => updateSimpleGameTuning("rocketProjectileDamage", Number(tuningRocketDamageInput.value)));
+    tuningRocketDamageInput?.addEventListener("input", () => updateSimpleGameTuning("rocketDamagePercent", Number(tuningRocketDamageInput.value)));
+    tuningRocketDurationInput?.addEventListener("input", () => updateSimpleGameTuning("rocketDurationPercent", Number(tuningRocketDurationInput.value)));
     tuningDoubleJumpPhysicsSelect?.addEventListener("change", () => updateSimpleGameTuning(
         "doubleJumpPhysics",
         tuningDoubleJumpPhysicsSelect.value === DOUBLE_JUMP_PHYSICS_CONSISTENT_APEX
@@ -3858,8 +3873,14 @@ function persistCurrentGameTuning() {
 }
 
 function updateSimpleGameTuning(key, value) {
+    const previousLungeDuration = key === "playerLungeSpeed"
+        ? Math.max(0, Number(gameState.tuning.playerLungeDistance) || 0) / Math.max(0.000001, Number(gameState.tuning.playerLungeSpeed) || 0)
+        : 0;
     const resolved = applyGameTuningValues(gameState.tuning, { [key]: value });
     gameState.tuning[key] = resolved[key];
+    if (key === "playerLungeSpeed" && previousLungeDuration > 0) {
+        gameState.tuning.playerLungeDistance = gameState.tuning.playerLungeSpeed * previousLungeDuration;
+    }
     applyTuningSideEffects(key);
     persistCurrentGameTuning();
     syncSimpleGameTuningUi();
@@ -3889,12 +3910,16 @@ function resetSimpleGameTuning() {
 function syncSimpleGameTuningUi() {
     if (tuningRunSpeedInput) tuningRunSpeedInput.value = String(gameState.tuning.maxRunSpeed);
     if (tuningRunSpeedValue) tuningRunSpeedValue.textContent = String(Math.round(gameState.tuning.maxRunSpeed));
+    if (tuningLungeSpeedInput) tuningLungeSpeedInput.value = String(gameState.tuning.playerLungeSpeed);
+    if (tuningLungeSpeedValue) tuningLungeSpeedValue.textContent = `${Math.round(gameState.tuning.playerLungeSpeed)} px/s`;
     if (tuningJumpHeightInput) tuningJumpHeightInput.value = String(gameState.tuning.ordinaryJumpHeight);
     if (tuningJumpHeightValue) tuningJumpHeightValue.textContent = String(Math.round(gameState.tuning.ordinaryJumpHeight));
     if (tuningGravityInput) tuningGravityInput.value = String(gameState.tuning.gravity);
     if (tuningGravityValue) tuningGravityValue.textContent = String(Math.round(gameState.tuning.gravity));
-    if (tuningRocketDamageInput) tuningRocketDamageInput.value = String(gameState.tuning.rocketProjectileDamage);
-    if (tuningRocketDamageValue) tuningRocketDamageValue.textContent = String(Math.round(gameState.tuning.rocketProjectileDamage));
+    if (tuningRocketDamageInput) tuningRocketDamageInput.value = String(gameState.tuning.rocketDamagePercent);
+    if (tuningRocketDamageValue) tuningRocketDamageValue.textContent = `${Math.round(gameState.tuning.rocketDamagePercent)}%`;
+    if (tuningRocketDurationInput) tuningRocketDurationInput.value = String(gameState.tuning.rocketDurationPercent);
+    if (tuningRocketDurationValue) tuningRocketDurationValue.textContent = `${Math.round(gameState.tuning.rocketDurationPercent)}%`;
     if (tuningDoubleJumpPhysicsSelect) {
         tuningDoubleJumpPhysicsSelect.value = gameState.tuning.doubleJumpPhysics === DOUBLE_JUMP_PHYSICS_CONSISTENT_APEX
             ? DOUBLE_JUMP_PHYSICS_CONSISTENT_APEX

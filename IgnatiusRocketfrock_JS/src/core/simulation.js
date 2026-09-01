@@ -293,7 +293,7 @@ export const DEFAULT_TUNING = Object.freeze({
     fallDamageSafeImpactSpeed: 1441,
     fallDamagePerWizardHeight: 10,
     playerFallDamageMultiplier: 0.5,
-    playerFallImpactExplosionCooldownSeconds: 5,
+    playerFallImpactExplosionCooldownSeconds: 2.5,
     playerFallImpactExplosionDamage: 60,
     jumpVelocity: ordinaryJumpVelocity(1490, 200),
     maxRunSpeed: 360,
@@ -333,8 +333,8 @@ export const DEFAULT_TUNING = Object.freeze({
     playerLungeChargeSeconds: 0.5,
     playerFireHoldLungeSeconds: 0.25,
     playerLungeCooldownSeconds: 5,
-    playerLungeDistance: 850,
-    playerLungeSpeed: 1600,
+    playerLungeDistance: 720,
+    playerLungeSpeed: 1440,
     playerLungeDamage: 45,
     playerLungeHitboxHeight: 78,
     attachedBoostKickChargeMax: 1,
@@ -355,13 +355,15 @@ export const DEFAULT_TUNING = Object.freeze({
     rocketProjectileUpLaunchSeconds: 0.32,
     rocketProjectileInitialHomingStrength: 6.42,
     rocketProjectileHomingStrength: 4.8,
-    rocketProjectileMaxTravelDistance: 1800,
-    rocketProjectileUnwrenchedMaxTravelDistance: 600,
+    rocketDurationPercent: 100,
+    rocketDamagePercent: 100,
+    rocketProjectileMaxTravelDistance: 1200,
+    rocketProjectileUnwrenchedMaxTravelDistance: 400,
     rocketTargetSearchDistance: 1500,
     rocketLifetimeExplosionOffscreenMargin: 100,
     rocketProjectileExplosionSeconds: 0.24,
     rocketProjectileImpactRadius: 24,
-    rocketProjectileDamage: 30,
+    rocketProjectileDamage: 20,
     flightStandardRocketDamageMultiplier: 0.5,
     standardRocketSecondarySplashDamage: 1,
     standardRocketSecondarySplashRadiusWizardHeights: 1,
@@ -2390,7 +2392,9 @@ function cutsceneGroundFollowSupport(state, character, x, referenceY) {
     const automaticStepHeight = character.kind === "wizard"
         ? playerAutomaticStepHeight(actor)
         : Math.max(Number(actor.maxStepHeight) || 0, (Number(actor.height) || 0) * AUTOMATIC_STEP_HEIGHT_RATIO);
-    const maximumDrop = automaticStepHeight;
+    const maximumDrop = character.kind === "wizard"
+        ? automaticStepHeight
+        : Math.max(automaticStepHeight, Number(actor.maxDropDistance) || 0);
     return findCharacterEnemyGroundSupport(
         state,
         x,
@@ -7634,6 +7638,31 @@ function characterEnemyWalkingSupportIsContinuation(state, enemy, support) {
     const heldId = String(enemy?.supportId || "");
     const nextId = String(support?.id || "");
     if (!heldId || !nextId || heldId === nextId) return true;
+
+    const movingPlatformForSupportAlias = (id) => {
+        const direct = movingPlatformForCollisionId(state, id);
+        if (direct) return direct;
+        return id.endsWith("_top")
+            ? movingPlatformForCollisionId(state, id.slice(0, -4))
+            : null;
+    };
+    const heldPlatform = movingPlatformForSupportAlias(heldId);
+    const nextPlatform = movingPlatformForSupportAlias(nextId);
+    if (Boolean(heldPlatform) !== Boolean(nextPlatform) || (heldPlatform && nextPlatform && heldPlatform.id !== nextPlatform.id)) {
+        // Touching static terrain and moving-platform collision are not an
+        // ordinary seam. Hunters may ride a platform they are already on, but
+        // local walking must not invent a platform transition that the graph
+        // deliberately does not model.
+        return false;
+    }
+
+    const sameSolidTopAlias = (left, right) => {
+        const matches = (topId, solidId) => topId === `${solidId}_top`
+            && (state.world?.solids || []).some((solid) => String(solid?.id || "") === solidId);
+        return matches(left, right) || matches(right, left);
+    };
+    if (sameSolidTopAlias(heldId, nextId)) return true;
+
     // Enemy ground following uses the same authored-family continuation rule
     // as the wizard. Curved assets are commonly authored as several adjacent
     // walkable line segments; those vertices are not steps or one-way seams.
@@ -8935,17 +8964,16 @@ const CHARACTER_ENEMY_TRANSITION_RETRY_PENALTY = 50000;
 const CHARACTER_ENEMY_TRANSITION_BLOCK_SECONDS = 8;
 
 function characterEnemyNavigationTransitionKey(edge) {
-    // Reliability is attached to the logical directed manoeuvre, not to one
-    // sampled ballistic arc. Atomic graph construction can retain several
-    // launch/landing samples for the same jump; letting each sample own an
-    // independent strike counter would allow an A->B failure loop to cycle
-    // through near-identical arcs forever. Keep manoeuvre types separate so a
-    // failed step can still fall back to a jump (or a failed jump to a drop).
-    return [
-        String(edge?.type || "edge"),
-        String(edge?.from || ""),
-        String(edge?.to || "")
-    ].join("|");
+    // Walking reliability belongs to the directed support transition. Ballistic
+    // alternatives are intentionally spatially distinct, so a failed primary
+    // jump/drop must not blacklist its backup sample as well.
+    const type = String(edge?.type || "edge");
+    const parts = [type, String(edge?.from || ""), String(edge?.to || "")];
+    if (type === "jump" || type === "drop") {
+        parts.push(String(Math.round((Number(edge?.launchX) || 0) * 10)));
+        parts.push(String(Math.round((Number(edge?.landingX) || 0) * 10)));
+    }
+    return parts.join("|");
 }
 
 function characterEnemyNavigationTransitionFailureMap(enemy) {
@@ -14543,7 +14571,8 @@ function launchHomingRocket(state) {
         ? Math.max(0, Number(t.flightStandardRocketDamageMultiplier) || 0)
         : 1;
     const projectileDamage = Math.max(0,
-        (t.rocketProjectileDamage ?? 30)
+        (t.rocketProjectileDamage ?? 20)
+        * Math.max(0.01, (Number(t.rocketDamagePercent) || 100) / 100)
         * Math.max(0, Number(rocketProfile.damageMultiplier) || 0)
         * flightStandardRocketDamageMultiplier
     );
@@ -14558,6 +14587,7 @@ function launchHomingRocket(state) {
         : 0;
     const volleyId = `rocket_volley_${state.clock.tick}_${weapons.nextProjectileId}`;
     const spawnedIds = [];
+    const durationScale = Math.max(0.01, (Number(t.rocketDurationPercent) || 100) / 100);
 
     const initialAngleJitterDegrees = Math.max(0, Number(rocketProfile.initialAngleJitterDegrees) || 0);
     const homingMeanderIntervalSeconds = Math.max(0, Number(rocketProfile.homingMeanderIntervalSeconds) || 0);
@@ -14626,9 +14656,10 @@ function launchHomingRocket(state) {
             homingMeanderLastTurn: 0,
             upLaunchTimer: rocketProfile.launchMode === "up" ? Math.max(0, t.rocketProjectileUpLaunchSeconds ?? 0.32) : 0,
             age: 0,
-            lifetime: Math.max(0.001, (wrenchEffectId
-                ? t.rocketProjectileMaxTravelDistance
-                : t.rocketProjectileUnwrenchedMaxTravelDistance) / Math.max(0.001, projectileSpeed)),
+            lifetime: Math.max(0.001, ((wrenchEffectId
+                ? t.rocketProjectileMaxTravelDistance * Math.max(0.01, Number(rocketProfile.travelDistanceMultiplier) || 1)
+                : t.rocketProjectileUnwrenchedMaxTravelDistance) / Math.max(0.001, projectileSpeed))
+                * durationScale),
             explosionTimer: 0,
             radius: projectileRadius,
             wrenchEffectId,
@@ -14644,7 +14675,7 @@ function launchHomingRocket(state) {
             phasesThroughObstacles: Boolean(rocketProfile.phasesThroughObstacles),
             boomerangMode: rocketProfile.boomerang ? "outbound" : null,
             boomerangOutboundTimer: rocketProfile.boomerang
-                ? Math.max(0, t.rocketProjectileUpLaunchSeconds ?? 0.32)
+                ? Math.max(0, t.rocketProjectileUpLaunchSeconds ?? 0.32) * durationScale
                 : 0,
             boomerangReturnStartedAt: null,
             boomerangRefundFuel: rocketProfile.boomerang ? launchCost * 0.5 : 0,
@@ -15688,7 +15719,7 @@ function findProjectileReactiveObjectImpact(state, projectile, previousX, previo
 
 function applyProjectileDamageToReactiveObject(state, projectile, object) {
     const before = Math.max(0, Number(object.health) || 0);
-    const requestedDamage = Math.max(0, Number(projectile.damage ?? state.tuning.rocketProjectileDamage) || 0);
+    const requestedDamage = Math.max(0, Number(projectile.damage ?? (state.tuning.rocketProjectileDamage * Math.max(0.01, (Number(state.tuning.rocketDamagePercent) || 100) / 100))) || 0);
     const scaledDamage = requestedDamage * Math.max(0, Number(object.projectileDamageMultiplier) || 0);
     const damage = Math.min(before, scaledDamage);
     object.health = Math.max(0, before - scaledDamage);
@@ -16034,7 +16065,7 @@ function applyProjectileDamageToEnemy(state, projectile, enemy) {
             blocked: true
         };
     }
-    const requestedDamage = Math.max(0, Number(projectile.damage ?? state.tuning.rocketProjectileDamage) || 0);
+    const requestedDamage = Math.max(0, Number(projectile.damage ?? (state.tuning.rocketProjectileDamage * Math.max(0.01, (Number(state.tuning.rocketDamagePercent) || 100) / 100))) || 0);
     const damage = Math.min(before, requestedDamage);
     enemy.maxHealth = Math.max(before, Number(enemy.maxHealth) || before);
     enemy.health = Math.max(0, before - requestedDamage);
@@ -19020,6 +19051,11 @@ function landPlayerOn(state, y, wasOnGround, id, kind = "blockable") {
     }
 }
 
+function effectivePlayerFallImpactExplosionCooldownSeconds(state) {
+    const baseCooldown = Math.max(0, Number(state?.tuning?.playerFallImpactExplosionCooldownSeconds) || 0);
+    return state?.playerProgression?.fallDamageReductionUnlocked ? baseCooldown * 2 : baseCooldown;
+}
+
 function triggerPlayerFallImpactExplosion(state) {
     const p = state.player;
     if (!state.playerProgression?.fallImpactExplosionUnlocked) return false;
@@ -19062,7 +19098,7 @@ function triggerPlayerFallImpactExplosion(state) {
     };
     state.projectiles.push(projectile);
     detonatePlayerProjectile(state, projectile, "fallImpact", { impactKind: "fallImpact" });
-    p.fallImpactExplosionCooldownTimer = Math.max(0, Number(state.tuning.playerFallImpactExplosionCooldownSeconds) || 0);
+    p.fallImpactExplosionCooldownTimer = effectivePlayerFallImpactExplosionCooldownSeconds(state);
     addEvent(state, "PLAYER_FALL_IMPACT_EXPLOSION", {
         id: projectileId,
         x: round(projectile.currentTransform.x),

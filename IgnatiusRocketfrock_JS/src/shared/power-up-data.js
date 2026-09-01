@@ -61,6 +61,7 @@ const DEFAULT_ROCKET_PROFILE = Object.freeze({
     launchFuelCostMultiplier: 1,
     projectileCount: 1,
     damageMultiplier: 1,
+    travelDistanceMultiplier: 1,
     radiusMultiplier: 1,
     visualScale: 1,
     glowTint: null,
@@ -188,6 +189,7 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
             launchFuelCostMultiplier: 0.5,
             projectileCount: 5,
             damageMultiplier: 1 / 5,
+            travelDistanceMultiplier: 1.5,
             radiusMultiplier: 0.6,
             visualScale: 0.62,
             speedMultiplier: NON_HOMING_ROCKET_SPEED_FACTOR,
@@ -204,6 +206,7 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
         rocket: {
             launchFuelCostMultiplier: 0.5,
             damageMultiplier: 1,
+            travelDistanceMultiplier: 1.5,
             speedMultiplier: NON_HOMING_ROCKET_SPEED_FACTOR,
             homing: true,
             launchMode: "forward",
@@ -365,6 +368,10 @@ export function normalizePowerUpEffectDefinition(rawDefinition, fallbackId = "")
             damageMultiplier: Math.max(0, finiteNumber(
                 rocketSource.damageMultiplier,
                 finiteNumber(builtinRocket.damageMultiplier, 1)
+            )),
+            travelDistanceMultiplier: Math.max(0.01, finiteNumber(
+                rocketSource.travelDistanceMultiplier,
+                finiteNumber(builtinRocket.travelDistanceMultiplier, 1)
             )),
             radiusMultiplier: Math.max(0.1, finiteNumber(
                 rocketSource.radiusMultiplier,

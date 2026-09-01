@@ -18,14 +18,19 @@ function parseArgs(argv) {
         write: false,
         check: false,
         levelNames: [],
-        verbose: false
+        verbose: false,
+        nrOfAltJumps: 6
     };
     for (let index = 0; index < argv.length; index += 1) {
         const arg = argv[index];
         if (arg === '--write') options.write = true;
         else if (arg === '--check') options.check = true;
         else if (arg === '--verbose') options.verbose = true;
-        else if (arg === '--level') {
+        else if (arg === '--nr-of-alt-jumps') {
+            const value = Number(argv[++index]);
+            if (!Number.isFinite(value) || value < 0) throw new Error('--nr-of-alt-jumps requires a non-negative integer');
+            options.nrOfAltJumps = Math.floor(value);
+        } else if (arg === '--level') {
             const value = argv[++index];
             if (!value) throw new Error('--level requires a level id or filename');
             options.levelNames.push(value.endsWith('.json') ? value : `${value}.json`);
@@ -93,7 +98,7 @@ function heuristicGraphShape(collection) {
     };
 }
 
-async function bakeLevel(levelPath, enemyCatalog, gameTuning) {
+async function bakeLevel(levelPath, enemyCatalog, gameTuning, nrOfAltJumps) {
     const document = await readJson(levelPath);
     const level = document?.level && typeof document.level === 'object' ? document.level : document;
     const manifestByAtlasId = await loadAtlasManifestsForLevel(level);
@@ -106,7 +111,8 @@ async function bakeLevel(levelPath, enemyCatalog, gameTuning) {
         preserveMatchingVerification: true,
         includeWizard: true,
         stepTransitionMethod: 'stride_arc',
-        compareStepMethods: false
+        compareStepMethods: false,
+        nrOfAltJumps
     });
     const nextDocument = result.level;
     const nextLevel = nextDocument?.level && typeof nextDocument.level === 'object' ? nextDocument.level : nextDocument;
@@ -114,7 +120,7 @@ async function bakeLevel(levelPath, enemyCatalog, gameTuning) {
         ? level.navigationGraphs
         : { version: 2, profiles: [] };
     const next = nextLevel.navigationGraphs || { version: 2, profiles: [] };
-    return { document, level, previous, next };
+    return { document, level, previous, next, summary: result.summary || {} };
 }
 
 async function main() {
@@ -136,7 +142,7 @@ async function main() {
     let totalEdges = 0;
     for (const name of names) {
         const levelPath = path.join(LEVELS_ROOT, name);
-        const { document, level, previous, next } = await bakeLevel(levelPath, enemyCatalog, gameTuning);
+        const { document, level, previous, next, summary } = await bakeLevel(levelPath, enemyCatalog, gameTuning, options.nrOfAltJumps);
         const differs = stableJson(heuristicGraphShape(previous)) !== stableJson(heuristicGraphShape(next));
         totalProfiles += next.profiles.length;
         totalEdges += next.profiles.reduce((sum, graph) => sum + (graph.edges?.length || 0), 0);
@@ -161,7 +167,7 @@ async function main() {
                 if (!next.profiles.some((graph) => graph.id === old?.id)) console.log(`      - profile ${old?.id || '(missing id)'}`);
             }
         }
-        console.log(`${differs ? 'CHANGE' : 'OK    '} ${name}: ${next.profiles.length} profile(s), ${next.profiles.reduce((sum, graph) => sum + (graph.edges?.length || 0), 0)} edge(s)`);
+        console.log(`${differs ? 'CHANGE' : 'OK    '} ${name}: ${next.profiles.length} profile(s), ${next.profiles.reduce((sum, graph) => sum + (graph.edges?.length || 0), 0)} edge(s)${options.verbose ? `, heuristic ${(Number(summary.heuristicElapsedMs) || 0).toFixed(1)} ms, alt=${summary.nrOfAltJumps ?? options.nrOfAltJumps}` : ''}`);
         if (differs && options.write) {
             level.navigationGraphs = next;
             await fs.writeFile(levelPath, `${JSON.stringify(document, null, 4)}\n`, 'utf8');
