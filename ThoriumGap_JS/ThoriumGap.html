@@ -10,6 +10,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./pwa-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./pwa-icon.svg" type="image/svg+xml">
+  <link rel="preload" href="./assets/studio_logo.png" as="image" type="image/png">
   <link rel="preload" href="./assets/titlescreen.ogg" as="audio" type="audio/ogg">
   <title>Thorium Gap</title>
   <style>
@@ -39,6 +40,38 @@
       background: transparent;
       touch-action: none;
       z-index: 1;
+    }
+    #startup-studio-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: grid;
+      place-items: center;
+      padding: clamp(24px, 6vw, 72px);
+      background: #000;
+      pointer-events: none;
+      animation: thorium-studio-splash 3000ms linear both;
+    }
+    #startup-studio-logo {
+      display: block;
+      width: min(76vw, 900px);
+      max-width: 100%;
+      max-height: 72vh;
+      object-fit: contain;
+      opacity: 0;
+      user-select: none;
+      -webkit-user-drag: none;
+      animation: thorium-studio-logo-startup 3000ms linear both;
+    }
+    @keyframes thorium-studio-splash {
+      0%, 99.999% { visibility: visible; }
+      100% { visibility: hidden; }
+    }
+    @keyframes thorium-studio-logo-startup {
+      0% { opacity: 0; }
+      16.6667% { opacity: 1; }
+      83.3333% { opacity: 1; }
+      100% { opacity: 0; }
     }
     #hud {
       position: fixed;
@@ -432,6 +465,9 @@
   </style>
 </head>
   <body>
+  <section id="startup-studio-splash" aria-hidden="true">
+    <img id="startup-studio-logo" src="assets/studio_logo.png" alt="">
+  </section>
   <canvas id="game"></canvas>
   <canvas id="hud"></canvas>
   <div id="hudHint"></div>
@@ -516,7 +552,7 @@
   </dialog>
   <script>
     (function () {
-      var appVersion = 'thoriumgap-v122';     // BUMP ME
+      var appVersion = 'thoriumgap-v124';     // BUMP ME
       window.THORIUM_GAP_VERSION = appVersion;
       var script = document.createElement('script');
       script.src = './ThoriumGap.js?v=' + encodeURIComponent(appVersion);

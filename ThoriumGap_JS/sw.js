@@ -1,10 +1,10 @@
 'use strict';
 
-var APP_VERSION = 'thoriumgap-v116'; // BUMP ME
+var APP_VERSION = 'thoriumgap-v124'; // BUMP ME
 var CACHE_NAME = APP_VERSION;
 var APP_SHELL = [
   './ThoriumGap.html',
-  './ThoriumGap.js?v=thoriumgap-v116',
+  './ThoriumGap.js?v=thoriumgap-v124',
   './GameManual.html',
   './manifest.webmanifest',
   './pwa-icon.svg',
@@ -37,6 +37,7 @@ var APP_ASSETS = (function () {
   out.push('./assets/players_aura.png');
   out.push('./assets/players_spaceship.png');
   out.push('./assets/thorium_gap_title.png');
+  out.push('./assets/studio_logo.png');
   out.push('./assets/soundtrack1.ogg');
   out.push('./assets/titlescreen.ogg');
   for (lvl = 1; lvl <= 13; lvl++) out.push('./assets/boss_' + z2(lvl) + '.png');
