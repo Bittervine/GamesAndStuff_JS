@@ -209,6 +209,25 @@
       padding-bottom: 0.02em;
     }
 
+    .cursorBtn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.1em;
+    }
+
+    .cursorArrow {
+      display: block;
+      width: 1.25em;
+      height: 1.25em;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      pointer-events: none;
+    }
+
     @media (max-width: 420px) {
       #formatRow {
         font-size: 0.72em;
@@ -316,8 +335,8 @@
             <td><button class="digitBtn" data-key="5" type="button">5</button></td>
             <td><button class="digitBtn" data-key="6" type="button">6</button></td>
             <td><button class="opBtn" data-key="*" type="button">*</button></td>
-            <td><button class="opBtn" data-action="left" type="button">&#8592;</button></td>
-            <td><button class="opBtn" data-action="right" type="button">&#8594;</button></td>
+            <td><button class="opBtn cursorBtn" data-action="left" aria-label="Move cursor left" type="button"><svg class="cursorArrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg></button></td>
+            <td><button class="opBtn cursorBtn" data-action="right" aria-label="Move cursor right" type="button"><svg class="cursorArrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h14M12 5l7 7-7 7"></path></svg></button></td>
           </tr>
           <tr>
             <td><button class="digitBtn" data-key="1" type="button">1</button></td>
@@ -536,9 +555,12 @@
         var textEl;
         var caretEl;
         var range;
+        var charRange;
         var textRect;
+        var charRect;
         var lineRect;
         var pad;
+        var charWidth;
         var caretLeft;
         var caretRight;
         var viewLeft;
@@ -558,6 +580,14 @@
         textRect = range.getBoundingClientRect();
         lineRect = exprLineEl.getBoundingClientRect();
         caretLeft = textRect.left - lineRect.left + exprLineEl.scrollLeft;
+        charRange = document.createRange();
+        charRange.setStart(textEl.firstChild, 0);
+        charRange.setEnd(textEl.firstChild, 1);
+        charRect = charRange.getBoundingClientRect();
+        charWidth = charRect.width;
+        if (!charWidth) charWidth = caretEl.offsetHeight * 0.6;
+        caretLeft -= charWidth / 2;
+        if (caretLeft < 0) caretLeft = 0;
         caretEl.style.left = Math.round(caretLeft) + 'px';
         pad = 12;
         caretRight = caretLeft + caretEl.offsetWidth;
