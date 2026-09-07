@@ -587,7 +587,6 @@
         charWidth = charRect.width;
         if (!charWidth) charWidth = caretEl.offsetHeight * 0.6;
         caretLeft -= charWidth / 2;
-        if (caretLeft < 0) caretLeft = 0;
         caretEl.style.left = Math.round(caretLeft) + 'px';
         pad = 12;
         caretRight = caretLeft + caretEl.offsetWidth;
