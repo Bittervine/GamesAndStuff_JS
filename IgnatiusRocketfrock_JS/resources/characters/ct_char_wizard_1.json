@@ -26,6 +26,7 @@
         "lunge2": "ct_anim_wizard_lunge_2.json"
     },
     "supplementalAtlases": [
-        "ct_atlas_wizard_2.json"
+        "ct_atlas_wizard_2.json",
+        "ct_atlas_wizard_3.json"
     ]
 }

@@ -1,0 +1,25 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Revision 600 mini-volcano character project. Uses the existing multi-attack-handoff character mechanism and explicitly orders the seven lava-rock markers from lavaRock1 through lavaRock7 so the eruption launches in ascending authored order."
+    },
+    "characterId": "ct_char_enemy_910",
+    "displayName": "Mini Volcano",
+    "rig": "ct_rig_enemy_910.json",
+    "defaultFacing": "right",
+    "mirrorable": false,
+    "animationMap": {
+        "idle": "ct_anim_enemy_910_idle.json",
+        "attack": "ct_anim_enemy_910_attack.json"
+    },
+    "sounds": {},
+    "attackParts": [
+        "lavaRock1",
+        "lavaRock2",
+        "lavaRock3",
+        "lavaRock4",
+        "lavaRock5",
+        "lavaRock6",
+        "lavaRock7"
+    ]
+}

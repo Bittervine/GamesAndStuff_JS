@@ -136,6 +136,7 @@ export class WebGL2RendererBackend {
             : 32767;
         this.textureCache = new WeakMap();
         this.textureRecords = new Set();
+        this.internalTextureRecords = new Map();
         this.pinnedSources = new Set();
         this.lastTextureError = "";
         this.frameId = 0;
@@ -183,6 +184,7 @@ export class WebGL2RendererBackend {
             this.contextLost = false;
             this.textureCache = new WeakMap();
             this.textureRecords.clear();
+            this.internalTextureRecords.clear();
             this.initializeResources();
             this.resourceGeneration += 1;
             this.available = true;
@@ -341,6 +343,7 @@ export class WebGL2RendererBackend {
             gl.deleteTexture(record.texture);
         }
         this.textureRecords.clear();
+        this.internalTextureRecords.clear();
         this.textureCache = new WeakMap();
         if (!preservePinned) {
             this.pinnedSources.clear();
@@ -505,6 +508,54 @@ export class WebGL2RendererBackend {
             this.currentTextureRecord = null;
         }
         return true;
+    }
+
+    captureFramebufferTexture(name, width, height) {
+        if (!this.available || this.contextLost) return null;
+        this.flush();
+        const gl = this.gl;
+        const safeWidth = Math.max(1, Math.floor(finiteNumber(width, this.canvas.width || 1)));
+        const safeHeight = Math.max(1, Math.floor(finiteNumber(height, this.canvas.height || 1)));
+        const key = String(name || "capture");
+        let record = this.internalTextureRecords.get(key);
+        if (!record) {
+            const texture = gl.createTexture();
+            if (!texture) return null;
+            const source = { width: safeWidth, height: safeHeight, atmosphereInternalTexture: key };
+            record = {
+                texture,
+                source,
+                width: safeWidth,
+                height: safeHeight,
+                dynamic: false,
+                uploadedFrame: this.frameId,
+                wrapMode: "clamp",
+                internal: true
+            };
+            this.internalTextureRecords.set(key, record);
+            this.textureCache.set(source, record);
+            this.textureRecords.add(record);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, safeWidth, safeHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+        } else if (record.width !== safeWidth || record.height !== safeHeight) {
+            record.width = safeWidth;
+            record.height = safeHeight;
+            record.source.width = safeWidth;
+            record.source.height = safeHeight;
+            gl.bindTexture(gl.TEXTURE_2D, record.texture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, safeWidth, safeHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+        }
+        gl.bindTexture(gl.TEXTURE_2D, record.texture);
+        gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, safeWidth, safeHeight);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        record.uploadedFrame = this.frameId;
+        return record.source;
     }
 
     beginFrame(width, height, clearColor = "rgb(6, 6, 12)") {
@@ -913,6 +964,63 @@ export class WebGL2RendererBackend {
         appendVertex(this.vertexData, offset, topLeft.x, topLeft.y, u0, vTop, color); offset += FLOATS_PER_VERTEX;
         appendVertex(this.vertexData, offset, bottomRight.x, bottomRight.y, u1, vBottom, color); offset += FLOATS_PER_VERTEX;
         appendVertex(this.vertexData, offset, bottomLeft.x, bottomLeft.y, u0, vBottom, color); offset += FLOATS_PER_VERTEX;
+        this.vertexFloatCount = offset;
+        this.frameDiagnostics.quads += 1;
+        return true;
+    }
+
+    queueGradientQuad({
+        source,
+        topLeft,
+        topRight,
+        bottomRight,
+        bottomLeft,
+        topLeftColor = [1, 1, 1, 1],
+        topRightColor = [1, 1, 1, 1],
+        bottomRightColor = [1, 1, 1, 1],
+        bottomLeftColor = [1, 1, 1, 1],
+        dynamic = false,
+        forceDynamicUpload = false,
+        blendMode = "alpha",
+        wrapMode = "clamp",
+        u0 = 0,
+        u1 = 1
+    }) {
+        if (!this.available || this.contextLost || !source) return false;
+        const record = source === this.whiteTextureRecord
+            ? this.whiteTextureRecord
+            : this.textureRecord(source, dynamic, forceDynamicUpload);
+        if (!record) return false;
+        this.ensureTextureWrap(record, wrapMode);
+        this.applyBlendMode(blendMode);
+        this.switchTexture(record);
+        this.ensureCapacity(1);
+
+        const normalizeColor = (value) => {
+            const baseTint = Array.isArray(value) ? value : parseCssColor(value);
+            const effectiveAlpha = clamp01(baseTint[3] ?? 1);
+            const premultipliedVisualAlpha = this.normalizeBlendMode(blendMode) === "brightenOnly" ? effectiveAlpha : 1;
+            return [
+                clamp01(baseTint[0] ?? 1) * premultipliedVisualAlpha,
+                clamp01(baseTint[1] ?? 1) * premultipliedVisualAlpha,
+                clamp01(baseTint[2] ?? 1) * premultipliedVisualAlpha,
+                effectiveAlpha
+            ];
+        };
+        const tl = normalizeColor(topLeftColor);
+        const tr = normalizeColor(topRightColor);
+        const br = normalizeColor(bottomRightColor);
+        const bl = normalizeColor(bottomLeftColor);
+
+        let offset = this.vertexFloatCount;
+        const leftU = finiteNumber(u0, 0);
+        const rightU = finiteNumber(u1, 1);
+        appendVertex(this.vertexData, offset, finiteNumber(topLeft?.x, 0), finiteNumber(topLeft?.y, 0), leftU, 1, tl); offset += FLOATS_PER_VERTEX;
+        appendVertex(this.vertexData, offset, finiteNumber(topRight?.x, 0), finiteNumber(topRight?.y, 0), rightU, 1, tr); offset += FLOATS_PER_VERTEX;
+        appendVertex(this.vertexData, offset, finiteNumber(bottomRight?.x, 0), finiteNumber(bottomRight?.y, 0), rightU, 0, br); offset += FLOATS_PER_VERTEX;
+        appendVertex(this.vertexData, offset, finiteNumber(topLeft?.x, 0), finiteNumber(topLeft?.y, 0), leftU, 1, tl); offset += FLOATS_PER_VERTEX;
+        appendVertex(this.vertexData, offset, finiteNumber(bottomRight?.x, 0), finiteNumber(bottomRight?.y, 0), rightU, 0, br); offset += FLOATS_PER_VERTEX;
+        appendVertex(this.vertexData, offset, finiteNumber(bottomLeft?.x, 0), finiteNumber(bottomLeft?.y, 0), leftU, 0, bl); offset += FLOATS_PER_VERTEX;
         this.vertexFloatCount = offset;
         this.frameDiagnostics.quads += 1;
         return true;

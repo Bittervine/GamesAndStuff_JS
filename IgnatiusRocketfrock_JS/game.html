@@ -107,13 +107,13 @@
         }
 
         #startup-studio-splash.active #startup-studio-logo {
-            animation: ignatius-studio-logo-startup 3000ms linear both;
+            animation: ignatius-studio-logo-startup 2500ms linear both;
         }
 
         @keyframes ignatius-studio-logo-startup {
             0% { opacity: 0; }
-            16.6667% { opacity: 1; }
-            83.3333% { opacity: 1; }
+            20% { opacity: 1; }
+            80% { opacity: 1; }
             100% { opacity: 0; }
         }
 
@@ -230,8 +230,9 @@
             position: fixed;
             inset: 0;
             z-index: 80;
-            display: grid;
-            place-items: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             padding: clamp(18px, 4vw, 48px);
             background:
                 radial-gradient(circle at 50% 39%, rgba(122, 80, 184, 0.48) 0, rgba(43, 29, 67, 0.38) 28%, rgba(10, 8, 18, 0.96) 64%, #03030a 100%),
@@ -245,16 +246,19 @@
 
         #title-content {
             width: min(96vw, 1240px);
-            display: grid;
-            justify-items: center;
+            min-height: calc(100vh - clamp(36px, 8vw, 96px));
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             gap: clamp(10px, 1.5vw, 18px);
         }
 
         #title-card-art {
             display: block;
-            width: min(100%, calc((100vh - 145px) * 1.333));
+            width: min(100%, calc((100vh - 220px) * 1.333));
             height: auto;
-            max-height: min(76vh, 780px);
+            max-height: min(72vh, calc(100vh - 220px), 780px);
             aspect-ratio: 4 / 3;
             object-fit: contain;
             user-select: none;
@@ -1146,9 +1150,13 @@ font-size: 14px;
                 padding: 14px;
             }
 
+            #title-content {
+                min-height: calc(100vh - 28px);
+            }
+
             #title-card-art {
-                width: min(100%, calc((100vh - 132px) * 1.333));
-                max-height: 72vh;
+                width: min(100%, calc((100vh - 200px) * 1.333));
+                max-height: min(68vh, calc(100vh - 200px));
             }
 
             #title-actions {
@@ -1343,7 +1351,7 @@ font-size: 14px;
                     <label class="settings-toggle" for="development-debug-logging">
                         <span class="settings-toggle-copy">
                             <span class="settings-toggle-title">Debug logging</span>
-                            <span class="settings-note">Periodic snapshots are downloaded when logging stops.</span>
+                            <span class="settings-note">Persistent. A fresh structured log starts with each game launch; disabling downloads the current browser log.</span>
                         </span>
                         <input id="development-debug-logging" type="checkbox">
                     </label>

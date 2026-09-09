@@ -1,7 +1,7 @@
 {
     "meta": {
         "version": 1,
-        "note": "Supplemental wizard atlas containing six precomposited rocket-plus-glow sprites for wrench power-ups. Each frame already includes the base projectile and its coloured halo, so powered shots render with a single atlas draw before procedural flame effects."
+        "note": "Supplemental wizard atlas containing six precomposited rocket-plus-glow sprites for wrench power-ups, plus the dedicated Rocketpunch boxing-glove projectile. The Rocketpunch frame is a tight full-detail crop of the supplied artwork; rendering matches the spacing of its fuselage bands to the ordinary rocket so the glove increases total sprite length without shrinking the rocket body."
     },
     "atlasId": "ct_atlas_wizard_2",
     "image": "ct_atlas_wizard_2.png",
@@ -41,6 +41,12 @@
             "y": 3745,
             "w": 436,
             "h": 749
+        },
+        "rocket_projectile_rocketpunch": {
+            "x": 0,
+            "y": 4494,
+            "w": 473,
+            "h": 923
         }
     },
     "objects": {
@@ -144,6 +150,21 @@
                 "rocket",
                 "glow",
                 "wrenchBlue"
+            ]
+        },
+        "rocket_projectile_rocketpunch": {
+            "id": "rocket_projectile_rocketpunch",
+            "frame": "rocket_projectile_rocketpunch",
+            "type": "projectileVariant",
+            "layer": "character",
+            "mirrorable": false,
+            "effectId": "wrenchOrange",
+            "tags": [
+                "wizard",
+                "projectile",
+                "rocket",
+                "rocketpunch",
+                "wrenchOrange"
             ]
         }
     }

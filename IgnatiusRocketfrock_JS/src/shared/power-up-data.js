@@ -8,7 +8,8 @@ export const POWER_UP_EFFECT_IDS = Object.freeze({
     WRENCH_BURST: "wrenchGreen",
     WRENCH_BIGBOMB: "wrenchRed",
     WRENCH_BOOMERANG: "wrenchMagenta",
-    WRENCH_PHASE: "wrenchBlue"
+    WRENCH_PHASE: "wrenchBlue",
+    WRENCH_ROCKETPUNCH: "wrenchOrange"
 });
 
 const RETIRED_ROCKET_OVERDRIVE_ID = "rocketOverdrive";
@@ -39,7 +40,8 @@ export const WRENCH_POWER_UP_EFFECT_IDS = Object.freeze([
     POWER_UP_EFFECT_IDS.WRENCH_BURST,
     POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB,
     POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG,
-    POWER_UP_EFFECT_IDS.WRENCH_PHASE
+    POWER_UP_EFFECT_IDS.WRENCH_PHASE,
+    POWER_UP_EFFECT_IDS.WRENCH_ROCKETPUNCH
 ]);
 
 export const WRENCH_ROCKET_GLOW_ATLAS_FRAMES = Object.freeze({
@@ -81,7 +83,8 @@ const DEFAULT_ROCKET_PROFILE = Object.freeze({
     areaDamageRadiusWizardHeights: 0,
     boomerang: false,
     piercesEnemies: false,
-    phasesThroughObstacles: false
+    phasesThroughObstacles: false,
+    projectileFrameId: "rocket_projectile"
 });
 
 function wrenchEffect({ id, label, glowTint, rocket }) {
@@ -268,6 +271,21 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
             homingMeanderTurnDegrees: HOMING_TRIPLE_MEANDER_TURN_DEGREES,
             separateTargets: true
         }
+    }),
+    [POWER_UP_EFFECT_IDS.WRENCH_ROCKETPUNCH]: wrenchEffect({
+        id: POWER_UP_EFFECT_IDS.WRENCH_ROCKETPUNCH,
+        label: POWER_UP_EFFECT_IDS.WRENCH_ROCKETPUNCH,
+        glowTint: "#ff8c00",
+        rocket: {
+            launchFuelCostMultiplier: 1 / 6,
+            damageMultiplier: 1,
+            travelDistanceMultiplier: 1 / 6,
+            speedMultiplier: 1.8,
+            homing: false,
+            launchMode: "forward",
+            areaDamageRadiusWizardHeights: 1,
+            projectileFrameId: "rocket_projectile_rocketpunch"
+        }
     })
 });
 
@@ -433,7 +451,8 @@ export function normalizePowerUpEffectDefinition(rawDefinition, fallbackId = "")
             )),
             boomerang: Boolean(rocketSource.boomerang ?? builtinRocket.boomerang ?? false),
             piercesEnemies: Boolean(rocketSource.piercesEnemies ?? builtinRocket.piercesEnemies ?? false),
-            phasesThroughObstacles: Boolean(rocketSource.phasesThroughObstacles ?? builtinRocket.phasesThroughObstacles ?? false)
+            phasesThroughObstacles: Boolean(rocketSource.phasesThroughObstacles ?? builtinRocket.phasesThroughObstacles ?? false),
+            projectileFrameId: String(rocketSource.projectileFrameId || builtinRocket.projectileFrameId || "rocket_projectile")
         }
     };
 }

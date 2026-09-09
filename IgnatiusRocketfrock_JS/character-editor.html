@@ -803,6 +803,7 @@
                 <label><span>Default render scale</span><input id="enemy-render-scale" type="number" min="0.01" step="0.01"></label>
                 <label><span>Health</span><input id="enemy-health" type="number" min="0" step="1"></label>
             </div>
+            <label class="check-row" title="Invulnerable character enemies keep normal physical collision and attacks, but player-originated damage is rejected and homing rockets never select them."><input id="enemy-invulnerable" type="checkbox"> Invulnerable</label>
             <div class="row">
                 <label title="Moves rendered artwork horizontally relative to the hitbox without changing animation keys. Positive X is character-local and mirrors with facing."><span>Artwork offset X</span><input id="enemy-render-offset-x" type="number" step="1"></label>
                 <label title="Moves rendered artwork vertically relative to the hitbox without changing animation keys. Positive Y moves the artwork downward."><span>Artwork offset Y</span><input id="enemy-render-offset-y" type="number" step="1"></label>
@@ -811,8 +812,8 @@
         <section class="box" id="enemy-movement-panel" data-panel-key="movement" title="Type-wide locomotion and movement defaults inherited by deployed enemies unless a level instance explicitly overrides them.">
             <h2>Movement</h2>
             <div class="row">
-                <label><span>Locomotion</span><select id="enemy-locomotion"><option value="ground">Ground</option><option value="flying">Flying</option></select></label>
-                <label><span>AI strategy</span><select id="enemy-strategy"><option value="simple_patrol">Simple patrol</option><option value="sentry">Sentry</option><option value="hunter">Hunter</option><option value="bomber">Bomber</option></select></label>
+                <label><span>Locomotion</span><select id="enemy-locomotion"><option value="ground">Ground</option><option value="flying">Flying</option><option value="stationary">Stationary</option></select></label>
+                <label><span>AI strategy</span><select id="enemy-strategy"><option value="simple_patrol">Simple patrol</option><option value="sentry">Sentry</option><option value="hunter">Hunter</option><option value="bomber">Bomber</option><option value="periodic">Periodic</option></select></label>
             </div>
             <div class="row">
                 <label><span>Walk speed</span><input id="enemy-walk-speed" type="number" min="0" step="1"></label>
@@ -825,7 +826,8 @@
             <div class="row">
                 <label><span>Attack type</span><select id="enemy-attack-type"><option value="melee">Melee</option><option value="projectile">Projectile</option></select></label>
                 <label><span>Damage</span><input id="enemy-damage" type="number" min="0" step="1"></label>
-                <label><span>Cooldown (s)</span><input id="enemy-attack-cooldown" type="number" min="0" step="0.01"></label>
+                <label title="Body-overlap damage. Leave blank to preserve the legacy value derived from attack damage."><span>Contact damage</span><input id="enemy-contact-damage" type="number" min="0" step="1" placeholder="Legacy"></label>
+                <label title="For Periodic strategy this is the repeat delay after an attack ends."><span>Cooldown (s)</span><input id="enemy-attack-cooldown" type="number" min="0" step="0.01"></label>
             </div>
             <label class="check-row" title="While an attack is already in progress, non-lethal damage still applies and flashes the enemy but does not cancel the attack or committed lunge. Damage received outside an attack still uses the normal hurt reaction."><input id="enemy-immune-to-interrupts" type="checkbox"> Immune to interrupts</label>
             <div class="row">
@@ -861,6 +863,11 @@
                 <label><span>Launch type</span><select id="enemy-projectile-launch-type"><option value="ballistic">ballistic</option><option value="straight">straight</option><option value="homing_lo">homing_lo</option><option value="homing_hi">homing_hi</option><option value="pathing_lo">pathing_lo</option><option value="pathing_hi">pathing_hi</option><option value="drop">drop</option></select></label>
             </div>
             <div class="row">
+                <label><span>Aim mode</span><select id="enemy-projectile-aim-mode"><option value="target">Target</option><option value="local_angle">Local angle</option></select></label>
+                <label id="enemy-projectile-aim-angle-field" title="0° is local forward, -90° is straight upward, +90° is downward."><span>Aim angle (°)</span><input id="enemy-projectile-aim-angle" type="number" step="1"></label>
+                <label title="Independent deterministic random deviation applied to every spawned projectile."><span>Random angle jitter (±°)</span><input id="enemy-projectile-angle-jitter" type="number" min="0" max="180" step="1"></label>
+            </div>
+            <div class="row">
                 <label><span>Speed</span><input id="enemy-projectile-speed" type="number" min="1" step="1"></label>
                 <label><span>Gravity</span><input id="enemy-projectile-gravity" type="number" step="1"></label>
                 <label><span>Lifetime (s)</span><input id="enemy-projectile-lifetime" type="number" min="0.001" step="0.01"></label>
@@ -884,6 +891,7 @@
             <p id="enemy-projectile-visual-summary"></p>
             <div class="row">
                 <label><span>Visual scale</span><input id="enemy-projectile-visual-scale" type="number" min="0.01" step="0.05"></label>
+                <label title="Symmetric cosmetic variation around Visual scale. 0.30 means ±30%; damage and collision radius are unchanged."><span>Random scale jitter</span><input id="enemy-projectile-visual-scale-jitter" type="number" min="0" step="0.05"></label>
                 <label><span>Trail effect</span><select id="enemy-projectile-trail-effect"><option value="none">None</option><option value="fire">Fire</option><option value="undeath">Undeath</option><option value="sparks">Sparkles</option></select></label>
                 <label><span>Impact effect</span><select id="enemy-projectile-impact-effect"><option value="none">None</option><option value="sparks">Sparkles</option></select></label>
                 <label><span>Explosion effect</span><select id="enemy-projectile-explosion-effect"><option value="impact">Impact</option><option value="rocket">Rocket</option></select></label>
@@ -1022,7 +1030,7 @@
                 <button id="copy-key" type="button">Copy key</button>
                 <button id="paste-key" type="button">Paste at playhead</button>
             </div>
-            <p>For X, Y and Angle mode, drag inside the selected yellow rectangle to move the part and drag a yellow corner handle to rotate it. The interpolation selector applies to every editable transform key represented by the selected diamond. When a parent pivot constraint is active, dragging inside the part moves its cyan parent point instead; X/Y tracks are read-only and regenerated automatically. Drag a diamond in the bottom timeline to move its editable key time. For single properties, edit the numeric value directly; typing at an unkeyed playhead creates a key automatically.</p>
+            <p>For X, Y and Angle mode, drag inside the selected yellow rectangle to move the part and drag a yellow corner handle to rotate it. If a scalar X/Y/Rotation/Scale/Alpha track was selected in the dopesheet, grabbing the selected part on the canvas automatically returns to X, Y and Angle mode instead of disabling direct manipulation. The interpolation selector applies to every editable transform key represented by the selected diamond. When a parent pivot constraint is active, dragging inside the part moves its cyan parent point instead; X/Y tracks are read-only and regenerated automatically. Drag a diamond in the bottom timeline to move its editable key time. For looping clips the exact duration endpoint is the same phase as time zero, so authored endpoint edits resolve to time zero rather than creating an ignored terminal key. For single properties, edit the numeric value directly; typing at an unkeyed playhead creates a key automatically.</p>
         </section>
         <section class="box mode-panel animation-panel">
             <h2>Rigging</h2>
@@ -1200,6 +1208,7 @@ import {
 } from "./src/tools/character-editor/character-project.js";
 import {
     animationTrackSummary,
+    canonicalAnimationKeyframeTime,
     createEditableAnimationClip,
     deleteAnimationKeyframe,
     disableExclusiveFramePresentation,
@@ -1349,6 +1358,7 @@ const els = {
     enemyRenderOffsetX: document.getElementById("enemy-render-offset-x"),
     enemyRenderOffsetY: document.getElementById("enemy-render-offset-y"),
     enemyHealth: document.getElementById("enemy-health"),
+    enemyInvulnerable: document.getElementById("enemy-invulnerable"),
     enemyLocomotion: document.getElementById("enemy-locomotion"),
     enemyStrategy: document.getElementById("enemy-strategy"),
     enemyWalkSpeed: document.getElementById("enemy-walk-speed"),
@@ -1356,6 +1366,7 @@ const els = {
     enemyJumpHeight: document.getElementById("enemy-jump-height"),
     enemyAttackType: document.getElementById("enemy-attack-type"),
     enemyDamage: document.getElementById("enemy-damage"),
+    enemyContactDamage: document.getElementById("enemy-contact-damage"),
     enemyAttackCooldown: document.getElementById("enemy-attack-cooldown"),
     enemyImmuneToInterrupts: document.getElementById("enemy-immune-to-interrupts"),
     enemyAttackRange: document.getElementById("enemy-attack-range"),
@@ -1374,6 +1385,10 @@ const els = {
     enemyProjectileBehavior: document.getElementById("enemy-projectile-behavior"),
     enemyProjectileKind: document.getElementById("enemy-projectile-kind"),
     enemyProjectileLaunchType: document.getElementById("enemy-projectile-launch-type"),
+    enemyProjectileAimMode: document.getElementById("enemy-projectile-aim-mode"),
+    enemyProjectileAimAngleField: document.getElementById("enemy-projectile-aim-angle-field"),
+    enemyProjectileAimAngle: document.getElementById("enemy-projectile-aim-angle"),
+    enemyProjectileAngleJitter: document.getElementById("enemy-projectile-angle-jitter"),
     enemyProjectileSpeed: document.getElementById("enemy-projectile-speed"),
     enemyProjectileGravity: document.getElementById("enemy-projectile-gravity"),
     enemyProjectileLifetime: document.getElementById("enemy-projectile-lifetime"),
@@ -1391,6 +1406,7 @@ const els = {
     enemyProjectileVisualCharacterOptions: document.getElementById("enemy-projectile-visual-character-options"),
     enemyProjectileVisualSummary: document.getElementById("enemy-projectile-visual-summary"),
     enemyProjectileVisualScale: document.getElementById("enemy-projectile-visual-scale"),
+    enemyProjectileVisualScaleJitter: document.getElementById("enemy-projectile-visual-scale-jitter"),
     enemyProjectileTrailEffect: document.getElementById("enemy-projectile-trail-effect"),
     enemyProjectileImpactEffect: document.getElementById("enemy-projectile-impact-effect"),
     enemyProjectileExplosionEffect: document.getElementById("enemy-projectile-explosion-effect"),
@@ -2355,6 +2371,7 @@ function syncEnemyAttackFieldVisibility() {
     if (els.enemyProjectileBehavior) els.enemyProjectileBehavior.hidden = !projectile;
     for (const node of document.querySelectorAll(".enemy-melee-field")) node.hidden = projectile;
     for (const node of document.querySelectorAll(".enemy-projectile-engagement-field")) node.hidden = !projectile;
+    if (els.enemyProjectileAimAngleField) els.enemyProjectileAimAngleField.hidden = String(els.enemyProjectileAimMode?.value || "target") !== "local_angle";
 }
 
 function refreshEnemyTypeFields() {
@@ -2362,19 +2379,20 @@ function refreshEnemyTypeFields() {
     const enabled = Boolean(definition);
     const controls = [
         els.enemyLabel, els.enemyIcon, els.enemyDescription, els.enemyDefaultWidth, els.enemyDefaultHeight,
-        els.enemyRenderScale, els.enemyRenderOffsetX, els.enemyRenderOffsetY, els.enemyHealth,
+        els.enemyRenderScale, els.enemyRenderOffsetX, els.enemyRenderOffsetY, els.enemyHealth, els.enemyInvulnerable,
         els.enemyLocomotion, els.enemyStrategy, els.enemyWalkSpeed, els.enemyRunSpeed, els.enemyJumpHeight,
-        els.enemyAttackType, els.enemyDamage, els.enemyAttackCooldown, els.enemyImmuneToInterrupts, els.enemyAttackRange,
+        els.enemyAttackType, els.enemyDamage, els.enemyContactDamage, els.enemyAttackCooldown, els.enemyImmuneToInterrupts, els.enemyAttackRange,
         els.enemyAttackVerticalRange, els.enemyMeleeHitRange,
         els.enemyLungeRangeMin, els.enemyLungeRangeMax, els.enemyLungeSpeed, els.enemyLungeTargetDist, els.enemyAwarenessRange, els.enemyDeaf,
         els.enemyAwarenessViewHalfAngle, els.enemyAwarenessHoldDuration, els.enemyPreferredAttackRange,
         els.enemyPreferredAttackMinRange, els.enemyProjectileKind,
-        els.enemyProjectileLaunchType, els.enemyProjectileSpeed, els.enemyProjectileGravity,
+        els.enemyProjectileLaunchType, els.enemyProjectileAimMode, els.enemyProjectileAimAngle, els.enemyProjectileAngleJitter,
+        els.enemyProjectileSpeed, els.enemyProjectileGravity,
         els.enemyProjectileLifetime, els.enemyProjectileRadius, els.enemyProjectileHoming,
         els.enemySpreadCount, els.enemySpreadAngle, els.enemyProjectileRotationSpeed,
         els.enemyProjectileVisualSource, els.enemyProjectileHandoffVisual,
         els.enemyProjectileVisualCharacterId, els.enemyProjectileVisualFrameId,
-        els.enemyProjectileVisualScale, els.enemyProjectileTrailEffect, els.enemyProjectileImpactEffect,
+        els.enemyProjectileVisualScale, els.enemyProjectileVisualScaleJitter, els.enemyProjectileTrailEffect, els.enemyProjectileImpactEffect,
         els.enemyProjectileExplosionEffect, els.enemyProjectileAoeRadius, els.enemyProjectileOrientVelocity,
         els.resetProjectileArchetype
     ];
@@ -2398,6 +2416,7 @@ function refreshEnemyTypeFields() {
     els.enemyRenderOffsetX.value = Number(defaults.renderOffsetX) || 0;
     els.enemyRenderOffsetY.value = Number(defaults.renderOffsetY) || 0;
     els.enemyHealth.value = Number.isFinite(Number(defaults.health)) ? Number(defaults.health) : 90;
+    els.enemyInvulnerable.checked = defaults.invulnerable === true;
     els.enemyLocomotion.value = String(defaults.locomotion || "ground");
     els.enemyStrategy.value = String(defaults.strategy || "simple_patrol");
     els.enemyWalkSpeed.value = Number.isFinite(Number(defaults.walkSpeed)) ? Number(defaults.walkSpeed) : 0;
@@ -2405,6 +2424,7 @@ function refreshEnemyTypeFields() {
     els.enemyJumpHeight.value = Number.isFinite(Number(defaults.jumpHeight)) ? Number(defaults.jumpHeight) : 0;
     els.enemyAttackType.value = String(defaults.attackType || "melee") === "projectile" ? "projectile" : "melee";
     els.enemyDamage.value = Number.isFinite(Number(defaults.damage)) ? Number(defaults.damage) : 0;
+    els.enemyContactDamage.value = Object.prototype.hasOwnProperty.call(defaults, "contactDamage") ? Number(defaults.contactDamage) : "";
     els.enemyAttackCooldown.value = Number.isFinite(Number(defaults.attackCooldown)) ? Number(defaults.attackCooldown) : 0;
     els.enemyImmuneToInterrupts.checked = defaults.immuneToInterrupts === true;
     els.enemyAttackRange.value = Number.isFinite(Number(defaults.attackRange)) ? Number(defaults.attackRange) : 1;
@@ -2425,6 +2445,9 @@ function refreshEnemyTypeFields() {
 
     refreshEnemyProjectileKindOptions(defaults.projectileKind || "fireball");
     els.enemyProjectileLaunchType.value = String(defaults.projectileLaunchType || "straight");
+    els.enemyProjectileAimMode.value = String(defaults.projectileAimMode || "target") === "local_angle" ? "local_angle" : "target";
+    els.enemyProjectileAimAngle.value = Number(defaults.projectileAimAngleDegrees ?? 0);
+    els.enemyProjectileAngleJitter.value = Number(defaults.projectileAngleJitterDegrees ?? 0);
     els.enemyProjectileSpeed.value = Number(defaults.projectileSpeed ?? 1);
     els.enemyProjectileGravity.value = Number(defaults.projectileGravity ?? 0);
     els.enemyProjectileLifetime.value = Number(defaults.projectileLifetime ?? 1);
@@ -2435,6 +2458,7 @@ function refreshEnemyTypeFields() {
     els.enemyProjectileRotationSpeed.value = Number(enemyProjectilePresentationValue(defaults, "projectileRotationSpeedDegrees", "rotationSpeedDegrees", 0));
     refreshEnemyProjectileVisualControls(defaults);
     els.enemyProjectileVisualScale.value = Number(enemyProjectilePresentationValue(defaults, "projectileVisualScale", "visualScale", 1));
+    els.enemyProjectileVisualScaleJitter.value = Number(defaults.projectileVisualScaleJitter ?? 0);
     els.enemyProjectileTrailEffect.value = String(enemyProjectilePresentationValue(defaults, "projectileTrailEffect", "trailEffect", "none"));
     els.enemyProjectileImpactEffect.value = String(enemyProjectilePresentationValue(defaults, "projectileImpactEffect", "impactEffect", "sparks"));
     els.enemyProjectileExplosionEffect.value = String(enemyProjectilePresentationValue(defaults, "projectileExplosionEffect", "explosionEffect", "impact"));
@@ -2455,6 +2479,8 @@ function writeEnemyStructuredFields(definition, defaults) {
     defaults.renderOffsetX = Number(els.enemyRenderOffsetX.value) || 0;
     defaults.renderOffsetY = Number(els.enemyRenderOffsetY.value) || 0;
     defaults.health = els.enemyHealth.value.trim() === "" ? 90 : Math.max(0, Number(els.enemyHealth.value) || 0);
+    if (els.enemyInvulnerable.checked) defaults.invulnerable = true;
+    else delete defaults.invulnerable;
     defaults.locomotion = String(els.enemyLocomotion.value || "ground");
     defaults.strategy = String(els.enemyStrategy.value || "simple_patrol");
     defaults.walkSpeed = Math.max(0, Number(els.enemyWalkSpeed.value) || 0);
@@ -2462,6 +2488,8 @@ function writeEnemyStructuredFields(definition, defaults) {
     defaults.jumpHeight = Math.max(0, Number(els.enemyJumpHeight.value) || 0);
     defaults.attackType = String(els.enemyAttackType.value || "melee") === "projectile" ? "projectile" : "melee";
     defaults.damage = Math.max(0, Number(els.enemyDamage.value) || 0);
+    if (els.enemyContactDamage.value.trim() === "") delete defaults.contactDamage;
+    else defaults.contactDamage = Math.max(0, Number(els.enemyContactDamage.value) || 0);
     defaults.attackCooldown = Math.max(0, Number(els.enemyAttackCooldown.value) || 0);
     if (els.enemyImmuneToInterrupts.checked) defaults.immuneToInterrupts = true;
     else delete defaults.immuneToInterrupts;
@@ -2492,6 +2520,9 @@ function writeEnemyStructuredFields(definition, defaults) {
         defaults.attackRange = Math.max(1, Number(els.enemyAttackRange.value) || 1);
         defaults.projectileKind = String(els.enemyProjectileKind.value || "fireball");
         defaults.projectileLaunchType = String(els.enemyProjectileLaunchType.value || "straight");
+        defaults.projectileAimMode = String(els.enemyProjectileAimMode.value || "target") === "local_angle" ? "local_angle" : "target";
+        defaults.projectileAimAngleDegrees = Number(els.enemyProjectileAimAngle.value) || 0;
+        defaults.projectileAngleJitterDegrees = Math.max(0, Number(els.enemyProjectileAngleJitter.value) || 0);
         defaults.projectileSpeed = Math.max(1, Number(els.enemyProjectileSpeed.value) || 1);
         defaults.projectileGravity = Number(els.enemyProjectileGravity.value) || 0;
         defaults.projectileLifetime = Math.max(0.001, Number(els.enemyProjectileLifetime.value) || 1);
@@ -2504,6 +2535,8 @@ function writeEnemyStructuredFields(definition, defaults) {
         writeEnemyProjectileVisualFields(defaults);
         setEnemyProjectilePresentationOverride(defaults, "projectileRotationSpeedDegrees", "rotationSpeedDegrees", Number(els.enemyProjectileRotationSpeed.value) || 0, 0);
         setEnemyProjectilePresentationOverride(defaults, "projectileVisualScale", "visualScale", Math.max(0.01, Number(els.enemyProjectileVisualScale.value) || 1), 1);
+        defaults.projectileVisualScaleJitter = Math.max(0, Number(els.enemyProjectileVisualScaleJitter.value) || 0);
+        if (defaults.projectileVisualScaleJitter === 0) delete defaults.projectileVisualScaleJitter;
         setEnemyProjectilePresentationOverride(defaults, "projectileTrailEffect", "trailEffect", String(els.enemyProjectileTrailEffect.value || "none"), "none");
         setEnemyProjectilePresentationOverride(defaults, "projectileImpactEffect", "impactEffect", String(els.enemyProjectileImpactEffect.value || "sparks"), "sparks");
         setEnemyProjectilePresentationOverride(defaults, "projectileExplosionEffect", "explosionEffect", String(els.enemyProjectileExplosionEffect.value || "impact"), "impact");
@@ -4633,24 +4666,41 @@ function updateKeyButtons() {
     els.pasteKey.disabled = transformMode || generated || !state.copiedKey;
 }
 
+function canonicalizePlayheadForKeyframeEdit() {
+    if (!state.animation) {
+        return state.time;
+    }
+    const editTime = canonicalAnimationKeyframeTime(state.animation, state.time);
+    if (Math.abs(editTime - state.time) > 0.0000001) {
+        state.time = editTime;
+        state.selectedKeyIndex = -1;
+        state.selectedTransformTime = null;
+        state.syncing = true;
+        els.time.value = editTime;
+        state.syncing = false;
+    }
+    return editTime;
+}
+
 function ensureTransformKeysAtPlayhead(partName, pose = null) {
+    const editTime = canonicalizePlayheadForKeyframeEdit();
     const sampled = pose || samplePose()?.[partName];
     if (!sampled) {
         throw new Error(`No sampled transform is available for ${partName}.`);
     }
     const indices = {};
     for (const property of editableTransformProperties(partName)) {
-        let index = findKeyframeIndex(state.animation, partName, property, state.time);
+        let index = findKeyframeIndex(state.animation, partName, property, editTime);
         if (index < 0) {
             index = upsertAnimationKeyframe(state.animation, partName, property, {
-                time: state.time,
+                time: editTime,
                 value: Number(sampled[property]),
                 easing: els.keyEasing.value || "linear"
             });
         }
         indices[property] = index;
     }
-    state.selectedTransformTime = state.time;
+    state.selectedTransformTime = editTime;
     state.selectedKeyIndex = -1;
     invalidateAnimation(false);
     return indices;
@@ -4900,7 +4950,7 @@ function dragTransformKey(event) {
         return;
     }
     event.preventDefault();
-    const time = timelineTimeFromClientX(event.clientX);
+    const time = canonicalAnimationKeyframeTime(state.animation, timelineTimeFromClientX(event.clientX));
     restoreTransformDragTracks(drag);
     try {
         for (const property of drag.properties) {
@@ -4961,9 +5011,9 @@ function dragSelectedKey(event) {
             { time }
         );
         state.selectedKeyIndex = index;
-        state.time = time;
-        invalidateAnimation(false);
         const track = getAnimationTrack(state.animation, selectedPartName(), selectedProperty(), false);
+        state.time = Number(track[index].time);
+        invalidateAnimation(false);
         els.keyTime.value = Number(track[index].time).toFixed(3);
         els.keyValue.value = formatValue(Number(track[index].value));
         els.keyEasing.value = track[index].easing;
@@ -5571,7 +5621,7 @@ function drawSelectionOverlay(pose) {
 }
 
 function stageTransformHit(clientX, clientY) {
-    if (!isTransformEditMode() || isPartEditorHidden(selectedPartName())) {
+    if (state.animationTool !== "adjust" || !state.animation || isPartEditorHidden(selectedPartName())) {
         return null;
     }
     const geometry = selectedPartCanvasGeometry();
@@ -5651,7 +5701,7 @@ function beginPartTransformDrag(event) {
         selectPartFromCanvas(event);
         return;
     }
-    if (!state.animation || !isTransformEditMode()) {
+    if (!state.animation) {
         return;
     }
     const hit = stageTransformHit(event.clientX, event.clientY);
@@ -5659,6 +5709,9 @@ function beginPartTransformDrag(event) {
         return;
     }
     event.preventDefault();
+    if (!isTransformEditMode()) {
+        setAnimationTool("adjust");
+    }
     const partName = selectedPartName();
     pauseForDirectEditing();
     const sampledPose = samplePose();
@@ -6045,19 +6098,20 @@ els.enemyProjectileKind.addEventListener("change", () => {
 
 const enemyStructuredControls = [
     els.enemyLabel, els.enemyIcon, els.enemyDescription, els.enemyDefaultWidth, els.enemyDefaultHeight,
-    els.enemyRenderScale, els.enemyRenderOffsetX, els.enemyRenderOffsetY, els.enemyHealth,
+    els.enemyRenderScale, els.enemyRenderOffsetX, els.enemyRenderOffsetY, els.enemyHealth, els.enemyInvulnerable,
     els.enemyLocomotion, els.enemyStrategy, els.enemyWalkSpeed, els.enemyRunSpeed, els.enemyJumpHeight,
-    els.enemyAttackType, els.enemyDamage, els.enemyAttackCooldown, els.enemyImmuneToInterrupts, els.enemyAttackRange,
+    els.enemyAttackType, els.enemyDamage, els.enemyContactDamage, els.enemyAttackCooldown, els.enemyImmuneToInterrupts, els.enemyAttackRange,
     els.enemyAttackVerticalRange, els.enemyMeleeHitRange,
     els.enemyLungeRangeMin, els.enemyLungeRangeMax, els.enemyLungeSpeed, els.enemyLungeTargetDist, els.enemyAwarenessRange, els.enemyDeaf,
     els.enemyAwarenessViewHalfAngle, els.enemyAwarenessHoldDuration, els.enemyPreferredAttackRange,
     els.enemyPreferredAttackMinRange,
-    els.enemyProjectileLaunchType, els.enemyProjectileSpeed, els.enemyProjectileGravity,
+    els.enemyProjectileLaunchType, els.enemyProjectileAimMode, els.enemyProjectileAimAngle, els.enemyProjectileAngleJitter,
+    els.enemyProjectileSpeed, els.enemyProjectileGravity,
     els.enemyProjectileLifetime, els.enemyProjectileRadius, els.enemyProjectileHoming,
     els.enemySpreadCount, els.enemySpreadAngle, els.enemyProjectileRotationSpeed,
     els.enemyProjectileVisualSource, els.enemyProjectileHandoffVisual,
     els.enemyProjectileVisualCharacterId, els.enemyProjectileVisualFrameId,
-    els.enemyProjectileVisualScale, els.enemyProjectileTrailEffect, els.enemyProjectileImpactEffect,
+    els.enemyProjectileVisualScale, els.enemyProjectileVisualScaleJitter, els.enemyProjectileTrailEffect, els.enemyProjectileImpactEffect,
     els.enemyProjectileExplosionEffect, els.enemyProjectileAoeRadius, els.enemyProjectileOrientVelocity
 ].filter(Boolean);
 for (const input of enemyStructuredControls) {

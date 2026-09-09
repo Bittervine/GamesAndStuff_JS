@@ -237,6 +237,19 @@ export function getAnimationTrack(rawClip, partName, property, create = false) {
     return rawClip.tracks[partName][property];
 }
 
+export function canonicalAnimationKeyframeTime(rawClip, timeSeconds) {
+    const duration = positiveDuration(rawClip);
+    const numericTime = Number(timeSeconds);
+    if (!Number.isFinite(numericTime)) {
+        throw new Error("Keyframe time must be finite.");
+    }
+    const time = clamp(numericTime, 0, duration);
+    if (rawClip?.loop !== false && Math.abs(time - duration) <= 0.0000001) {
+        return 0;
+    }
+    return time;
+}
+
 export function findKeyframeIndex(rawClip, partName, property, timeSeconds, tolerance = 0.0005) {
     const track = getAnimationTrack(rawClip, partName, property, false) || [];
     const time = Number(timeSeconds);
@@ -254,7 +267,10 @@ export function findKeyframeIndex(rawClip, partName, property, timeSeconds, tole
 
 export function upsertAnimationKeyframe(rawClip, partName, property, keyframe, tolerance = 0.0005) {
     const duration = positiveDuration(rawClip);
-    const normalizedKey = normalizeEditableKeyframe(keyframe, duration);
+    const normalizedKey = normalizeEditableKeyframe({
+        ...keyframe,
+        time: canonicalAnimationKeyframeTime(rawClip, keyframe?.time)
+    }, duration);
     const track = getAnimationTrack(rawClip, partName, property, true);
     const existingIndex = findKeyframeIndex(rawClip, partName, property, normalizedKey.time, tolerance);
     if (existingIndex >= 0) {
@@ -273,7 +289,11 @@ export function updateAnimationKeyframe(rawClip, partName, property, index, upda
     if (!track || !Number.isInteger(index) || index < 0 || index >= track.length) {
         throw new Error("The selected keyframe no longer exists.");
     }
-    const updated = normalizeEditableKeyframe({ ...track[index], ...updates }, duration);
+    const updateValues = { ...track[index], ...updates };
+    const updated = normalizeEditableKeyframe({
+        ...updateValues,
+        time: canonicalAnimationKeyframeTime(rawClip, updateValues.time)
+    }, duration);
     for (let otherIndex = 0; otherIndex < track.length; otherIndex += 1) {
         if (otherIndex !== index && Math.abs(Number(track[otherIndex].time) - updated.time) < 0.0000001) {
             throw new Error(`A keyframe already exists at ${updated.time.toFixed(3)} seconds.`);

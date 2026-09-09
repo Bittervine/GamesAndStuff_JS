@@ -234,7 +234,7 @@ const launchRecordRequested = ["1", "true", "on", "yes"].includes(String(launchP
 const launchPlaybackUrl = playbackUrlFromQueryValue(launchParams.get("playback"));
 const launchPlaybackPauseAtSec = finiteNonNegativeNumber(launchParams.get("playback_pause"), null);
 const STARTUP_STUDIO_SPLASH_FADE_IN_MS = 500;
-const STARTUP_STUDIO_SPLASH_HOLD_MS = 2000;
+const STARTUP_STUDIO_SPLASH_HOLD_MS = 1500;
 const STARTUP_STUDIO_SPLASH_FADE_OUT_MS = 500;
 const STARTUP_STUDIO_SPLASH_TOTAL_MS = STARTUP_STUDIO_SPLASH_FADE_IN_MS
     + STARTUP_STUDIO_SPLASH_HOLD_MS
@@ -263,7 +263,7 @@ let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
 let renderer;
 const electronWindowBridge = detectElectronWindowBridge(window);
-const storedGameSettings = loadStoredGameSettings();
+let storedGameSettings = loadStoredGameSettings();
 const installedGameTuning = await loadInstalledGameTuning({
     fallback: DEFAULT_TUNING,
     onException: (incident) => pendingStartupExceptionAlerts.push(incident)
@@ -407,6 +407,9 @@ setupPanelToggleButtons();
 setupTitleScreen();
 setupMinimap();
 setupGameMenuAndSettings();
+if (storedGameSettings.debugLoggingEnabled) {
+    startGameplayDebugLogging("persistent-preference");
+}
 setLoadingProgress(1, "Ready");
 const shouldAutoStartGameplay = loadedBrowserCopy || launchLevelSpecified || launchRecordRequested;
 const shouldShowStartupStudioSplash = !launchPlaybackRecording && !shouldAutoStartGameplay;
@@ -639,6 +642,57 @@ function stopGameplayRecordingAfterFailure(message, error = null) {
     addEvent(gameState, "GAMEPLAY_RECORDING_STOPPED", { reason: "storage-failure", frames });
 }
 
+function gameplayRecordingPreferenceEnabled() {
+    return Boolean(normalizeGameSettings(storedGameSettings).gameplayRecordingEnabled);
+}
+
+function debugLoggingPreferenceEnabled() {
+    return Boolean(normalizeGameSettings(storedGameSettings).debugLoggingEnabled);
+}
+
+function persistDiagnosticPreference(key, enabled) {
+    storedGameSettings = saveStoredGameSettings({
+        ...normalizeGameSettings(storedGameSettings),
+        [key]: Boolean(enabled)
+    });
+    gameState.settings = normalizeGameSettings({
+        ...normalizeGameSettings(gameState.settings),
+        [key]: Boolean(storedGameSettings[key])
+    });
+    return Boolean(storedGameSettings[key]);
+}
+
+function startPreferredGameplayRecording(source = "persistent-preference") {
+    if (!gameplayRecordingPreferenceEnabled()
+        || gameplayPlayback?.active
+        || titleScreenActive
+        || !gameHasStarted
+        || fatalRuntimeFailure) {
+        updateGameplayRecordingControls();
+        return null;
+    }
+    return startGameplayRecording(source);
+}
+
+function setGameplayRecordingPreference(enabled, source = "development-menu") {
+    const preferred = persistDiagnosticPreference("gameplayRecordingEnabled", enabled);
+    if (!preferred) {
+        if (gameplayRecording) stopGameplayRecording(`${source}-disabled`);
+        else updateGameplayRecordingControls();
+    } else {
+        startPreferredGameplayRecording(`${source}-enabled`);
+    }
+    return preferred;
+}
+
+function setGameplayDebugLoggingPreference(enabled, source = "development-menu") {
+    const preferred = persistDiagnosticPreference("debugLoggingEnabled", enabled);
+    if (preferred) startGameplayDebugLogging(`${source}-enabled`);
+    else stopGameplayDebugLogging(`${source}-disabled`);
+    updateDebugLoggingControls();
+    return preferred;
+}
+
 function rememberGameplayRecordingSpool(recording, spool, state = "retained") {
     if (!spool) return;
     gameplayRetainedRecordings.set(spool.recordingId, { recording, spool, state });
@@ -804,6 +858,7 @@ function toggleGameplayDebugLogging(source = "development-menu") {
         ? stopGameplayDebugLogging(source)
         : startGameplayDebugLogging(source);
 }
+
 
 function processDebugExceptionAlerts() {
     const latestSequence = Number(gameState.debug?.exceptionAlertSequence) || 0;
@@ -1107,7 +1162,7 @@ function createGameplayPlaybackRuntime(recording, { source = "manual", pauseAtSe
 async function startGameplayPlayback(recordingLike, { source = "manual", pauseAtSec = null, restoreInitialState = true } = {}) {
     const recording = normalizeGameplayRecording(recordingLike);
     if (gameplayRecording) {
-        stopGameplayRecording("playback-started", { save: false });
+        stopGameplayRecording("playback-started");
     }
     if (restoreInitialState && !(await restoreGameplayPlaybackInitialState(recording))) {
         return null;
@@ -1206,6 +1261,7 @@ function stopGameplayPlayback(reason = "manual") {
     addEvent(gameState, "GAMEPLAY_PLAYBACK_STOPPED", { reason, levelId, framesPlayed });
     updateGameplayPlaybackControls(`Playback ${reason}. Played ${framesPlayed} frame${framesPlayed === 1 ? "" : "s"}.`);
     updateGameplayRecordingControls();
+    if (reason !== "level-restart") startPreferredGameplayRecording("playback-stop");
     return true;
 }
 
@@ -1682,6 +1738,7 @@ async function loadRequestedLevel(request) {
         setLoadingProgress(1, "Level ready");
         await nextPaint();
         void attemptVisibleLevelMusicStart();
+        startPreferredGameplayRecording("level-transition");
         return true;
     } catch (error) {
         setGamePaused(true, { clearInput: true });
@@ -1907,6 +1964,7 @@ async function playStartupStudioSplash() {
 }
 
 function showTitleScreen() {
+    if (gameplayRecording) stopGameplayRecording("title-screen");
     creditsActive = false;
     creditsElapsedSeconds = 0;
     creditsHeldGamepadButtons = new Set();
@@ -1929,6 +1987,7 @@ function startGameFromTitle() {
     void musicDirector.unlock();
     void soundEffectsDirector.unlock();
     void applyFullscreenPreference();
+    startPreferredGameplayRecording("gameplay-start");
 }
 
 async function startNewGameFromTitle() {
@@ -1943,7 +2002,8 @@ async function startNewGameFromTitle() {
         playerProgression: {
             lungeUnlocked: true,
             fallImpactExplosionUnlocked: true,
-            fallDamageReductionUnlocked: false
+            fallDamageReductionUnlocked: false,
+            stealthRocketUnlocked: false
         }
     });
     if (!loaded) return false;
@@ -2685,6 +2745,9 @@ async function restartCurrentLevel() {
     showLoadingScreen(options.loadingLabel || "Restarting level", 0.04);
     setGamePaused(true, { clearInput: true });
     try {
+        if (gameplayRecording) {
+            stopGameplayRecording("level-restart");
+        }
         const preservedSettings = normalizeGameSettings(gameState.settings);
         const preservedProgression = normalizePlayerProgression(
             options.playerProgression !== undefined ? options.playerProgression : gameState.playerProgression
@@ -2695,9 +2758,6 @@ async function restartCurrentLevel() {
             randomSeed: browserRandomSeed(),
             playerProgression: preservedProgression
         });
-        if (gameplayRecording) {
-            stopGameplayRecording("level-restart", { save: false });
-        }
         if (gameplayPlayback) {
             stopGameplayPlayback("level-restart");
         }
@@ -2739,6 +2799,7 @@ async function restartCurrentLevel() {
         updateDebugText();
         setLoadingProgress(1, "Level ready");
         await nextPaint();
+        startPreferredGameplayRecording("level-restart");
         return true;
     } catch (error) {
         const detail = error instanceof Error ? error.message : String(error || "unknown error");
@@ -3014,6 +3075,7 @@ function updatePersistentGameSettings(patch) {
         ...normalizeGameSettings(gameState.settings),
         ...patch
     });
+    storedGameSettings = normalizeGameSettings(gameState.settings);
     syncGameSettingsUi();
 }
 
@@ -3208,29 +3270,32 @@ function setupPanelToggleButtons() {
 
     updateGameplayRecordingControls = (message = "") => {
         const active = Boolean(gameplayRecording);
+        const preferred = gameplayRecordingPreferenceEnabled();
         const saving = gameplayRecordingSaveTasks.size > 0;
         const retainedCount = gameplayRetainedRecordings.size;
-        const disabled = Boolean(gameplayPlayback?.active);
-        const stateLabel = active ? "On" : saving ? "Saving" : retainedCount ? `Retained ${retainedCount}` : "Off";
-        const title = message || (disabled
-            ? "Gameplay recording is disabled while playback is active."
-            : active
-                ? "Click to stop gameplay recording and save JSON."
-                : saving
-                    ? "A stopped recording is being saved. You may start another capture without invalidating it."
-                    : retainedCount
-                        ? `${retainedCount} recording${retainedCount === 1 ? " is" : "s are"} retained in browser storage. A new capture will not delete them.`
-                        : "Click to start gameplay recording from the current state.");
+        const playbackActive = Boolean(gameplayPlayback?.active);
+        const stateLabel = preferred
+            ? (active ? "On" : playbackActive ? "On (waiting)" : "On")
+            : saving ? "Saving" : retainedCount ? `Retained ${retainedCount}` : "Off";
+        const title = message || (preferred
+            ? active
+                ? "Persistent gameplay recording is enabled. Click to turn it off and save the current level recording."
+                : playbackActive
+                    ? "Persistent gameplay recording is enabled and will start a fresh recording after playback ends."
+                    : "Persistent gameplay recording is enabled. A fresh recording starts with each level session."
+            : retainedCount
+                ? `${retainedCount} recording${retainedCount === 1 ? " is" : "s are"} retained in browser storage. Click to enable persistent per-level recording.`
+                : "Click to enable persistent gameplay recording. Each level session gets a fresh recording.");
         if (gameplayRecordingButton) {
             gameplayRecordingButton.textContent = `Recording: ${stateLabel}`;
-            gameplayRecordingButton.setAttribute("aria-pressed", active ? "true" : "false");
-            gameplayRecordingButton.disabled = disabled;
+            gameplayRecordingButton.setAttribute("aria-pressed", preferred ? "true" : "false");
+            gameplayRecordingButton.disabled = false;
             gameplayRecordingButton.title = title;
         }
         if (developmentRecordingButton) {
             developmentRecordingButton.textContent = `Recording: ${stateLabel}`;
-            developmentRecordingButton.setAttribute("aria-pressed", active ? "true" : "false");
-            developmentRecordingButton.disabled = disabled;
+            developmentRecordingButton.setAttribute("aria-pressed", preferred ? "true" : "false");
+            developmentRecordingButton.disabled = false;
             developmentRecordingButton.title = title;
         }
     };
@@ -3259,11 +3324,14 @@ function setupPanelToggleButtons() {
 
     updateDebugLoggingControls = (message = "") => {
         const active = Boolean(gameplayDebugLog);
+        const preferred = debugLoggingPreferenceEnabled();
         if (developmentDebugLoggingInput) {
-            developmentDebugLoggingInput.checked = active;
-            developmentDebugLoggingInput.title = message || (active
-                ? "One structured runtime snapshot is being collected per second. Disable to download the log."
-                : "Enable periodic structured runtime snapshots. The browser downloads the NDJSON log when disabled.");
+            developmentDebugLoggingInput.checked = preferred;
+            developmentDebugLoggingInput.title = message || (preferred
+                ? active
+                    ? "Persistent debug logging is enabled. This run has a fresh NDJSON log; disable to download it."
+                    : "Persistent debug logging is enabled, but this run could not start a log."
+                : "Enable persistent debug logging. Each game start begins a fresh structured log.");
         }
     };
 
@@ -3321,8 +3389,7 @@ function setupPanelToggleButtons() {
     });
 
     developmentDebugLoggingInput?.addEventListener("change", () => {
-        if (developmentDebugLoggingInput.checked) startGameplayDebugLogging("development-menu");
-        else stopGameplayDebugLogging("development-menu");
+        setGameplayDebugLoggingPreference(developmentDebugLoggingInput.checked, "development-menu");
     });
 
     helpPanelButton?.addEventListener("click", () => {
@@ -3348,11 +3415,7 @@ function setupPanelToggleButtons() {
 
 
     gameplayRecordingButton?.addEventListener("click", () => {
-        if (gameplayRecording) {
-            stopGameplayRecording("button");
-            return;
-        }
-        startGameplayRecording("button");
+        setGameplayRecordingPreference(!gameplayRecordingPreferenceEnabled(), "button");
     });
 
     gameplayPlaybackButton?.addEventListener("click", () => {
@@ -3365,8 +3428,7 @@ function setupPanelToggleButtons() {
 
 
     developmentRecordingButton?.addEventListener("click", () => {
-        if (gameplayRecording) stopGameplayRecording("development-menu");
-        else startGameplayRecording("development-menu");
+        setGameplayRecordingPreference(!gameplayRecordingPreferenceEnabled(), "development-menu");
     });
 
     developmentPlaybackButton?.addEventListener("click", () => {
@@ -3649,7 +3711,7 @@ function displayedLevelNumber(levelId) {
 
 
 function activeBossEnemy() {
-    const bosses = (gameState.enemies || []).filter((enemy) => enemy?.isBoss === true && Number(enemy.health) > 0);
+    const bosses = (gameState.enemies || []).filter((enemy) => enemy?.isBoss === true && enemy?.invulnerable !== true && Number(enemy.health) > 0);
     return bosses.find((enemy) => enemy.engaged === true || enemy.alerted === true || Number(enemy.health) < Number(enemy.maxHealth)) || null;
 }
 

@@ -66,8 +66,7 @@ function traceSampledClosedPath(context, sampled, view, parallaxOffset) {
 }
 
 export function caveGradientOpacityAtProgress(progress) {
-    const t = Math.max(0, Math.min(1, finiteNumber(progress, 0)));
-    return t * t * t * (t * (t * 6 - 15) + 10);
+    return Math.max(0, Math.min(1, finiteNumber(progress, 0)));
 }
 
 function incrementalAlpha(previousOpacity, targetOpacity) {

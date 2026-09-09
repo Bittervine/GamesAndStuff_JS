@@ -1,0 +1,165 @@
+{
+  "meta": {
+    "version": 1,
+    "note": "Revision 595 mini-volcano atlas manifest. The bitmap is unchanged from baseline 591; this manifest exposes the rocky body, pulsing lava overlay, and seven varied eruption rocks."
+  },
+  "atlasId": "ct_atlas_enemy_910",
+  "image": "ct_atlas_enemy_910.png",
+  "frames": {
+    "volcanoRock": {
+      "x": 50,
+      "y": 170,
+      "w": 670,
+      "h": 435
+    },
+    "lavaStreams": {
+      "x": 740,
+      "y": 145,
+      "w": 660,
+      "h": 445
+    },
+    "lavaRock1": {
+      "x": 20,
+      "y": 690,
+      "w": 215,
+      "h": 190
+    },
+    "lavaRock2": {
+      "x": 260,
+      "y": 725,
+      "w": 165,
+      "h": 175
+    },
+    "lavaRock3": {
+      "x": 455,
+      "y": 705,
+      "w": 180,
+      "h": 225
+    },
+    "lavaRock4": {
+      "x": 645,
+      "y": 695,
+      "w": 190,
+      "h": 240
+    },
+    "lavaRock5": {
+      "x": 855,
+      "y": 715,
+      "w": 190,
+      "h": 210
+    },
+    "lavaRock6": {
+      "x": 1065,
+      "y": 725,
+      "w": 185,
+      "h": 200
+    },
+    "lavaRock7": {
+      "x": 1255,
+      "y": 735,
+      "w": 180,
+      "h": 180
+    }
+  },
+  "objects": {
+    "volcanoRock": {
+      "id": "volcanoRock",
+      "frame": "volcanoRock",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": false,
+      "tags": [
+        "volcano",
+        "body"
+      ]
+    },
+    "lavaStreams": {
+      "id": "lavaStreams",
+      "frame": "lavaStreams",
+      "type": "characterPart",
+      "layer": "character",
+      "mirrorable": false,
+      "tags": [
+        "volcano",
+        "lava"
+      ]
+    },
+    "lavaRock1": {
+      "id": "lavaRock1",
+      "frame": "lavaRock1",
+      "type": "projectileSprite",
+      "layer": "projectile",
+      "mirrorable": false,
+      "tags": [
+        "volcano",
+        "projectile"
+      ]
+    },
+    "lavaRock2": {
+      "id": "lavaRock2",
+      "frame": "lavaRock2",
+      "type": "projectileSprite",
+      "layer": "projectile",
+      "mirrorable": false,
+      "tags": [
+        "volcano",
+        "projectile"
+      ]
+    },
+    "lavaRock3": {
+      "id": "lavaRock3",
+      "frame": "lavaRock3",
+      "type": "projectileSprite",
+      "layer": "projectile",
+      "mirrorable": false,
+      "tags": [
+        "volcano",
+        "projectile"
+      ]
+    },
+    "lavaRock4": {
+      "id": "lavaRock4",
+      "frame": "lavaRock4",
+      "type": "projectileSprite",
+      "layer": "projectile",
+      "mirrorable": false,
+      "tags": [
+        "volcano",
+        "projectile"
+      ]
+    },
+    "lavaRock5": {
+      "id": "lavaRock5",
+      "frame": "lavaRock5",
+      "type": "projectileSprite",
+      "layer": "projectile",
+      "mirrorable": false,
+      "tags": [
+        "volcano",
+        "projectile"
+      ]
+    },
+    "lavaRock6": {
+      "id": "lavaRock6",
+      "frame": "lavaRock6",
+      "type": "projectileSprite",
+      "layer": "projectile",
+      "mirrorable": false,
+      "tags": [
+        "volcano",
+        "projectile"
+      ]
+    },
+    "lavaRock7": {
+      "id": "lavaRock7",
+      "frame": "lavaRock7",
+      "type": "projectileSprite",
+      "layer": "projectile",
+      "mirrorable": false,
+      "tags": [
+        "volcano",
+        "projectile"
+      ]
+    }
+  }
+}

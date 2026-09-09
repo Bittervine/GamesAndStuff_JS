@@ -79,8 +79,52 @@ export async function loadJsonResourceWithRetry(requestPath, options = {}) {
     }
 }
 
+function nativeProjectImageUrl(requestPath, attempt = 0) {
+    const host = projectHost();
+    if (!host || host.mode !== "native" || !isProjectResourceRequest(requestPath)) return null;
+    const pageUrl = globalThis.window?.location?.href || globalThis.location?.href || "https://appassets.example/";
+    const url = new URL(resourceUrl(requestPath), pageUrl);
+    const selectionVersion = Number(host.snapshot?.().selectionVersion) || 0;
+    url.searchParams.set("ignatius_project_root", String(selectionVersion));
+    if (attempt > 0) url.searchParams.set("ignatius_retry", String(attempt));
+    return url.href;
+}
+
+async function loadNativeProjectImageWithRetry(requestPath, delays) {
+    let lastError = null;
+    for (let attempt = 0; attempt < delays.length; attempt += 1) {
+        if (delays[attempt] > 0) await sleep(delays[attempt]);
+        const imageUrl = nativeProjectImageUrl(requestPath, attempt);
+        try {
+            return await new Promise((resolve, reject) => {
+                const image = new Image();
+                image.decoding = "async";
+                image.onload = () => resolve(image);
+                image.onerror = () => reject(new Error(`Could not load ${imageUrl}`));
+                image.src = imageUrl;
+            });
+        } catch (error) {
+            lastError = error;
+        }
+    }
+    throw new Error(`Could not load ${resourceUrl(requestPath)} after ${delays.length} attempts: ${lastError?.message || lastError}`);
+}
+
 export async function loadImageResourceWithRetry(requestPath, options = {}) {
-    const response = await fetchResourceWithRetry(requestPath, options);
+    const delays = Array.isArray(options.retryDelaysMs) && options.retryDelaysMs.length
+        ? options.retryDelaysMs
+        : RESOURCE_LOAD_RETRY_DELAYS_MS;
+
+    // In the native WebView2 Dev Tool, use the same same-origin image request path
+    // as the production renderer. Large atlases can fail while fetch() materializes
+    // their response body into a JS Blob even though WebView2 can stream/decode the
+    // exact same selected-root resource successfully as an <img>. This also avoids
+    // holding the compressed PNG Blob alongside its much larger decoded pixels.
+    if (nativeProjectImageUrl(requestPath, 0)) {
+        return loadNativeProjectImageWithRetry(requestPath, delays);
+    }
+
+    const response = await fetchResourceWithRetry(requestPath, { ...options, retryDelaysMs: delays });
     const blob = await response.blob();
     const objectUrl = URL.createObjectURL(blob);
     try {

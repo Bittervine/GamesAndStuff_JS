@@ -266,6 +266,130 @@
             font-weight: 800;
         }
 
+
+        #background-effects-dialog {
+            width: min(1180px, 96vw);
+            max-width: none;
+            height: min(760px, 92vh);
+            padding: 0;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #111722;
+            color: var(--text);
+        }
+
+        #background-effects-dialog::backdrop {
+            background: rgba(0, 0, 0, 0.72);
+        }
+
+        .background-effects-dialog-shell {
+            height: 100%;
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr) auto;
+        }
+
+        .background-effects-dialog-header,
+        .background-effects-dialog-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .background-effects-dialog-footer {
+            border-top: 1px solid var(--line);
+            border-bottom: 0;
+            justify-content: flex-end;
+        }
+
+        .background-effects-dialog-header h2 {
+            margin: 0;
+        }
+
+        .background-effects-dialog-body {
+            min-height: 0;
+            display: grid;
+            grid-template-columns: minmax(420px, 1.55fr) minmax(340px, 1fr);
+            gap: 12px;
+            padding: 12px;
+        }
+
+        .background-effects-preview-wrap {
+            min-width: 0;
+            min-height: 0;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #080d16;
+        }
+
+        #background-effects-preview {
+            display: block;
+            width: 100%;
+            height: 100%;
+            min-height: 360px;
+        }
+
+        #background-effects-preview-status {
+            position: absolute;
+            inset: 0;
+            display: none;
+            place-items: center;
+            padding: 24px;
+            text-align: center;
+            background: rgba(7, 10, 16, 0.88);
+            color: var(--muted);
+        }
+
+        .background-effects-controls {
+            min-height: 0;
+            overflow: auto;
+            padding-right: 4px;
+        }
+
+        .background-effects-controls h3 {
+            margin: 2px 0 7px;
+        }
+
+        .effect-slider-grid {
+            display: grid;
+            gap: 5px;
+            margin-bottom: 14px;
+        }
+
+        .effect-slider-row {
+            display: grid;
+            grid-template-columns: minmax(124px, 0.9fr) minmax(120px, 1.35fr) 42px;
+            gap: 8px;
+            align-items: center;
+            font-size: 12px;
+        }
+
+        .effect-slider-row input[type="range"] {
+            width: 100%;
+            margin: 0;
+        }
+
+        .effect-slider-value {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            color: var(--accent);
+        }
+
+        @media (max-width: 850px) {
+            .background-effects-dialog-body {
+                grid-template-columns: 1fr;
+                grid-template-rows: minmax(260px, 0.9fr) minmax(260px, 1.1fr);
+            }
+
+            #background-effects-preview {
+                min-height: 260px;
+            }
+        }
+
         .level-section-label {
             margin: 4px 0 5px;
             color: var(--muted);
@@ -894,8 +1018,16 @@
                     <label title="Vertical camera response. 1.0 follows the world; lower values move the Background more slowly.">Parallax Y<input id="background-parallax-y" title="Vertical camera response. 1.0 follows the world; lower values move the Background more slowly." type="number" min="0.01" max="1" step="0.001"></label>
                     <label title="Layer-wide lightness multiplier. 1.0 keeps the source colours.">Brightness<input id="background-brightness" title="Layer-wide lightness multiplier. 1.0 keeps the source colours." type="number" min="0.05" max="2" step="0.05"></label>
                     <label title="Layer-wide size multiplier around each asset centre and the repeating background tile.">Scale<input id="background-scale" title="Layer-wide size multiplier around each asset centre and the repeating background tile." type="number" min="0.1" max="5" step="0.05"></label>
-                    <button id="background-asset-toggle" type="button" title="Use the currently selected Asset palette item as the repeating Background pattern.">Set background asset</button>
                 </fieldset>
+            </div>
+        </div>
+
+
+        <div class="box" data-panel-key="background">
+            <h2>Background</h2>
+            <div class="compact-button-stack">
+                <button id="background-asset-toggle" type="button" title="Use the currently selected Asset palette item as the repeating Background pattern.">Set background asset</button>
+                <button id="edit-background-effects" type="button">Edit background effects</button>
             </div>
         </div>
 
@@ -1347,63 +1479,132 @@ DELAY 1'></textarea>
             <div id="enemy-settings-row" style="display:none">
                 <h3>Character enemy</h3>
                 <label class="inline"><input id="inspect-enemy-is-boss" type="checkbox"> Boss encounter</label>
+                <h4>Placement</h4>
                 <div class="row">
-                    <label>Boss name<input id="inspect-enemy-boss-name" value="Boss"></label>
-                    <label>Defeat signal<input id="inspect-enemy-boss-signal" maxlength="64" placeholder="BOSS_DEFEATED"></label>
-                </div>
-                <label>Character project<input id="inspect-enemy-character" value="ct_char_enemy_001"></label>
-                <div class="row">
-                    <label>AI strategy
-                        <select id="inspect-enemy-strategy">
-                            <option value="simple_patrol">Simple-minded patrol</option>
-                            <option value="hunter">Hunter</option>
-                            <option value="sentry">Stationary sentry</option>
-                            <option value="passive">Passive</option>
-                        </select>
-                    </label>
                     <label>Facing
                         <select id="inspect-enemy-facing">
                             <option value="-1">Left</option>
                             <option value="1">Right</option>
                         </select>
                     </label>
-                </div>
-                <div class="row">
                     <label>Patrol distance<input id="inspect-enemy-patrol-distance" type="number" min="0" step="8"></label>
-                    <label>Patrol speed<input id="inspect-enemy-walk-speed" type="number" min="0" step="1"></label>
+                    <label title="Per-placement start offset for Periodic strategy; use this to stagger otherwise identical hazards.">Periodic initial delay (s)<input id="inspect-enemy-periodic-initial-delay" type="number" min="0" step="0.05"></label>
                 </div>
-                <div class="row">
-                    <label>Run speed<input id="inspect-enemy-run-speed" type="number" min="0" step="1"></label>
-                    <label>Awareness range<input id="inspect-enemy-awareness-range" type="number" min="0" step="8"></label>
-                </div>
-                <div class="row">
-                    <label>View half-angle<input id="inspect-enemy-view-half-angle" type="number" min="0" max="180" step="5"></label>
-                    <label>Maximum jump height<input id="inspect-enemy-jump-height" type="number" min="0" step="4"></label>
-                </div>
-                <label>Unreachable glare seconds<input id="inspect-enemy-glare-duration" type="number" min="0" step="0.25"></label>
-                <div class="row">
-                    <label>Initial idle seconds<input id="inspect-enemy-idle-duration" type="number" min="0" step="0.1"></label>
-                    <label>Turn pause seconds<input id="inspect-enemy-turn-pause" type="number" min="0" step="0.1"></label>
-                </div>
-                <div class="row">
-                    <label>Health<input id="inspect-enemy-health" type="number" min="1" step="5"></label>
+                <div id="enemy-boss-overrides" style="display:none">
+                    <h4>Boss overrides</h4>
+                    <div class="row">
+                        <label>Boss name<input id="inspect-enemy-boss-name" value="Boss"></label>
+                        <label>Defeat signal<input id="inspect-enemy-boss-signal" maxlength="64" placeholder="BOSS_DEFEATED"></label>
+                    </div>
+                    <label>Character project<input id="inspect-enemy-character" value="ct_char_enemy_001"></label>
+                    <div class="row">
+                        <label>AI strategy
+                            <select id="inspect-enemy-strategy">
+                                <option value="simple_patrol">Simple-minded patrol</option>
+                                <option value="hunter">Hunter</option>
+                                <option value="sentry">Stationary sentry</option>
+                                <option value="bomber">Bomber</option>
+                                <option value="periodic">Periodic</option>
+                                <option value="passive">Passive</option>
+                            </select>
+                        </label>
+                        <label>Patrol speed<input id="inspect-enemy-walk-speed" type="number" min="0" step="1"></label>
+                    </div>
+                    <div class="row">
+                        <label>Run speed<input id="inspect-enemy-run-speed" type="number" min="0" step="1"></label>
+                        <label>Maximum jump height<input id="inspect-enemy-jump-height" type="number" min="0" step="4"></label>
+                    </div>
+                    <div class="row">
+                        <label>Unreachable glare seconds<input id="inspect-enemy-glare-duration" type="number" min="0" step="0.25"></label>
+                        <label>Initial idle seconds<input id="inspect-enemy-idle-duration" type="number" min="0" step="0.1"></label>
+                    </div>
+                    <div class="row">
+                        <label>Turn pause seconds<input id="inspect-enemy-turn-pause" type="number" min="0" step="0.1"></label>
+                        <label>Health<input id="inspect-enemy-health" type="number" min="1" step="5"></label>
+                    </div>
                     <label>Enemy scale<input id="inspect-enemy-render-scale" type="number" min="0.05" step="0.05"></label>
-                </div>
-                <div class="row">
-                    <label>Damage<input id="inspect-enemy-attack-damage" type="number" min="0" step="1"></label>
-                    <label id="inspect-enemy-attack-range-label" title="Ranged approach/range hint and fallback when no preferred ranged distance is authored.">Projectile attack reach<input id="inspect-enemy-attack-range" type="number" min="0" step="1"></label>
-                </div>
-                <div class="row">
-                    <label id="inspect-enemy-melee-hit-range-label" title="Forward horizontal reach from the enemy grounded base at the critical attack handoff. Active melee enemies require a positive value.">Melee hit range<input id="inspect-enemy-melee-hit-range" type="number" min="0" step="1"></label>
-                    <label id="inspect-enemy-lunge-target-dist-label" title="Desired separation when a committed lunge ends. A positive value is required for lunging.">Lunge target distance<input id="inspect-enemy-lunge-target-dist" type="number" min="0" step="1"></label>
-                </div>
-                <div class="row">
-                    <label id="inspect-enemy-lunge-range-min-label">Lunge minimum range<input id="inspect-enemy-lunge-range-min" type="number" min="0" step="1"></label>
-                    <label id="inspect-enemy-lunge-range-max-label" title="Zero disables lunging. A positive maximum below the minimum range is invalid and also disables lunging.">Lunge maximum range<input id="inspect-enemy-lunge-range-max" type="number" min="0" step="1"></label>
-                </div>
-                <div class="row">
+
+                    <h4>Attack behavior</h4>
+                    <div class="row">
+                        <label>Damage<input id="inspect-enemy-attack-damage" type="number" min="0" step="1"></label>
+                        <label>Attack cooldown seconds<input id="inspect-enemy-attack-cooldown" type="number" min="0" step="0.05"></label>
+                    </div>
+                    <label class="inline" title="While an attack is already in progress, non-lethal damage still applies but does not cancel that attack or committed lunge."><input id="inspect-enemy-immune-to-interrupts" type="checkbox"> Immune to interrupts</label>
+                    <div class="row">
+                        <label id="inspect-enemy-attack-range-label" title="Ranged approach/range hint and fallback when no preferred ranged distance is authored.">Projectile attack reach<input id="inspect-enemy-attack-range" type="number" min="0" step="1"></label>
+                        <label>Vertical reach<input id="inspect-enemy-attack-vertical-range" type="number" min="1" step="1"></label>
+                    </div>
+                    <div class="row">
+                        <label id="inspect-enemy-melee-hit-range-label" title="Forward horizontal reach from the enemy grounded base at the critical attack handoff. Active melee enemies require a positive value.">Melee hit range<input id="inspect-enemy-melee-hit-range" type="number" min="0" step="1"></label>
+                        <label id="inspect-enemy-lunge-target-dist-label" title="Desired separation when a committed lunge ends. A positive value is required for lunging.">Lunge target distance<input id="inspect-enemy-lunge-target-dist" type="number" min="0" step="1"></label>
+                    </div>
+                    <div class="row">
+                        <label id="inspect-enemy-lunge-range-min-label">Lunge minimum range<input id="inspect-enemy-lunge-range-min" type="number" min="0" step="1"></label>
+                        <label id="inspect-enemy-lunge-range-max-label" title="Zero disables lunging. A positive maximum below the minimum range is invalid and also disables lunging.">Lunge maximum range<input id="inspect-enemy-lunge-range-max" type="number" min="0" step="1"></label>
+                    </div>
                     <label id="inspect-enemy-lunge-speed-label">Lunge speed<input id="inspect-enemy-lunge-speed" type="number" min="0" step="25"></label>
-                    <label>Attack cooldown seconds<input id="inspect-enemy-attack-cooldown" type="number" min="0" step="0.05"></label>
+                    <h4>Awareness / engagement</h4>
+                    <div class="row">
+                        <label>Awareness range<input id="inspect-enemy-awareness-range" type="number" min="0" step="8"></label>
+                        <label>View half-angle<input id="inspect-enemy-view-half-angle" type="number" min="0" max="180" step="5"></label>
+                    </div>
+                    <div class="row">
+                        <label>Awareness hold seconds<input id="inspect-enemy-awareness-hold-duration" type="number" min="0" step="0.05"></label>
+                        <label class="inline" title="Deaf enemies do not become aware from nearby Ignatius rocket explosions or body-slam impacts. Ordinary visual awareness is unchanged."><input id="inspect-enemy-deaf" type="checkbox"> Deaf</label>
+                    </div>
+                    <div class="row">
+                        <label id="inspect-enemy-preferred-attack-range-label">Preferred attack range<input id="inspect-enemy-preferred-attack-range" type="number" min="0" step="1"></label>
+                        <label id="inspect-enemy-preferred-attack-min-range-label">Preferred minimum range<input id="inspect-enemy-preferred-attack-min-range" type="number" min="0" step="1"></label>
+                    </div>
+
+                    <div id="enemy-boss-projectile-overrides">
+                        <h4>Projectile behavior</h4>
+                        <label>Launch type
+                            <select id="inspect-enemy-projectile-launch-type">
+                                <option value="ballistic">ballistic</option>
+                                <option value="straight">straight</option>
+                                <option value="homing_lo">homing_lo</option>
+                                <option value="homing_hi">homing_hi</option>
+                                <option value="pathing_lo">pathing_lo</option>
+                                <option value="pathing_hi">pathing_hi</option>
+                                <option value="drop">drop</option>
+                            </select>
+                        </label>
+                        <div class="row">
+                            <label>Speed<input id="inspect-enemy-projectile-speed" type="number" min="1" step="1"></label>
+                            <label>Gravity<input id="inspect-enemy-projectile-gravity" type="number" step="1"></label>
+                        </div>
+                        <div class="row">
+                            <label>Lifetime seconds<input id="inspect-enemy-projectile-lifetime" type="number" min="0.001" step="0.01"></label>
+                            <label>Radius<input id="inspect-enemy-projectile-radius" type="number" min="1" step="1"></label>
+                        </div>
+                        <div class="row">
+                            <label>Homing strength<input id="inspect-enemy-projectile-homing" type="number" min="0" step="0.05"></label>
+                            <label>Spread count<input id="inspect-enemy-spread-count" type="number" min="1" max="15" step="1"></label>
+                        </div>
+                        <div class="row">
+                            <label title="Half-angle: 15° means shots fan from -15° to +15°.">Spread angle (±°)<input id="inspect-enemy-spread-angle" type="number" min="0" max="180" step="1"></label>
+                            <label>Rotation speed (°/s)<input id="inspect-enemy-projectile-rotation-speed" type="number" step="1"></label>
+                        </div>
+                        <div class="row">
+                            <label>Visual scale<input id="inspect-enemy-projectile-visual-scale" type="number" min="0.01" step="0.05"></label>
+                            <label>Trail effect
+                                <select id="inspect-enemy-projectile-trail-effect"><option value="none">None</option><option value="fire">Fire</option><option value="undeath">Undeath</option><option value="sparks">Sparkles</option></select>
+                            </label>
+                        </div>
+                        <div class="row">
+                            <label>Impact effect
+                                <select id="inspect-enemy-projectile-impact-effect"><option value="none">None</option><option value="sparks">Sparkles</option></select>
+                            </label>
+                            <label>Explosion effect
+                                <select id="inspect-enemy-projectile-explosion-effect"><option value="impact">Impact</option><option value="rocket">Rocket</option></select>
+                            </label>
+                        </div>
+                        <div class="row">
+                            <label>AoE radius (WH)<input id="inspect-enemy-projectile-aoe-radius" type="number" min="0" step="0.1"></label>
+                            <label class="inline"><input id="inspect-enemy-projectile-orient-velocity" type="checkbox"> Point along flight direction</label>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div id="enemy-spawner-settings-row" style="display:none">
@@ -1447,6 +1648,55 @@ DELAY 1'></textarea>
     </aside>
 </main>
 
+<dialog id="background-effects-dialog">
+    <div class="background-effects-dialog-shell">
+        <div class="background-effects-dialog-header">
+            <h2>Edit background effects</h2>
+            <button id="background-effects-trigger-rare" type="button">Trigger rare effects</button>
+        </div>
+        <div class="background-effects-dialog-body">
+            <div class="background-effects-preview-wrap">
+                <canvas id="background-effects-preview" width="960" height="540"></canvas>
+                <div id="background-effects-preview-status"></div>
+            </div>
+            <div class="background-effects-controls">
+                <h3>Behind authored background</h3>
+                <div class="effect-slider-grid">
+                    <label class="effect-slider-row"><span>Twinkling stars</span><input id="atmosphere-stars" type="range" min="0" max="2" step="0.01"><output id="atmosphere-stars-value" class="effect-slider-value">0.00</output></label>
+                    <label class="effect-slider-row"><span>Aurora curtains</span><input id="atmosphere-aurora" type="range" min="0" max="2" step="0.01"><output id="atmosphere-aurora-value" class="effect-slider-value">0.00</output></label>
+                    <label class="effect-slider-row"><span>Starfall / meteors</span><input id="atmosphere-meteor" type="range" min="0" max="2" step="0.01"><output id="atmosphere-meteor-value" class="effect-slider-value">0.00</output></label>
+                    <label class="effect-slider-row"><span>Lightning</span><input id="atmosphere-lightning" type="range" min="0" max="2" step="0.01"><output id="atmosphere-lightning-value" class="effect-slider-value">0.00</output></label>
+                    <label class="effect-slider-row"><span>Heat shimmer</span><input id="atmosphere-heat" type="range" min="0" max="2" step="0.01"><output id="atmosphere-heat-value" class="effect-slider-value">0.00</output></label>
+                </div>
+                <h3>In front of authored background</h3>
+                <div class="effect-slider-grid">
+                    <label class="effect-slider-row"><span>Cloud shadows</span><input id="atmosphere-cloudShadow" type="range" min="0" max="2" step="0.01"><output id="atmosphere-cloudShadow-value" class="effect-slider-value">0.00</output></label>
+                    <label class="effect-slider-row"><span>Upper clouds</span><input id="atmosphere-upperClouds" type="range" min="0" max="2" step="0.01"><output id="atmosphere-upperClouds-value" class="effect-slider-value">0.00</output></label>
+                    <label class="effect-slider-row"><span>Lower clouds</span><input id="atmosphere-lowerClouds" type="range" min="0" max="2" step="0.01"><output id="atmosphere-lowerClouds-value" class="effect-slider-value">0.00</output></label>
+                    <label class="effect-slider-row"><span>Bat silhouettes</span><input id="atmosphere-bats" type="range" min="0" max="2" step="0.01"><output id="atmosphere-bats-value" class="effect-slider-value">0.00</output></label>
+                    <label class="effect-slider-row"><span>Fireflies</span><input id="atmosphere-fireflies" type="range" min="0" max="2" step="0.01"><output id="atmosphere-fireflies-value" class="effect-slider-value">0.00</output></label>
+                    <label class="effect-slider-row"><span>Will-o-wisps</span><input id="atmosphere-wisps" type="range" min="0" max="2" step="0.01"><output id="atmosphere-wisps-value" class="effect-slider-value">0.00</output></label>
+                    <label class="effect-slider-row"><span>Floating spores</span><input id="atmosphere-spores" type="range" min="0" max="2" step="0.01"><output id="atmosphere-spores-value" class="effect-slider-value">0.00</output></label>
+                    <label class="effect-slider-row"><span>Rain + curtains</span><input id="atmosphere-rain" type="range" min="0" max="2" step="0.01"><output id="atmosphere-rain-value" class="effect-slider-value">0.00</output></label>
+                    <label class="effect-slider-row"><span>Snow + flurries</span><input id="atmosphere-snow" type="range" min="0" max="2" step="0.01"><output id="atmosphere-snow-value" class="effect-slider-value">0.00</output></label>
+                    <label class="effect-slider-row"><span>Falling leaves</span><input id="atmosphere-leaves" type="range" min="0" max="2" step="0.01"><output id="atmosphere-leaves-value" class="effect-slider-value">0.00</output></label>
+                    <label class="effect-slider-row"><span>Falling petals</span><input id="atmosphere-petals" type="range" min="0" max="2" step="0.01"><output id="atmosphere-petals-value" class="effect-slider-value">0.00</output></label>
+                    <label class="effect-slider-row"><span>Butterflies</span><input id="atmosphere-butterflies" type="range" min="0" max="2" step="0.01"><output id="atmosphere-butterflies-value" class="effect-slider-value">0.00</output></label>
+                    <label class="effect-slider-row"><span>Rising embers</span><input id="atmosphere-embers" type="range" min="0" max="2" step="0.01"><output id="atmosphere-embers-value" class="effect-slider-value">0.00</output></label>
+                    <label class="effect-slider-row"><span>Eyes in darkness</span><input id="atmosphere-eyes" type="range" min="0" max="2" step="0.01"><output id="atmosphere-eyes-value" class="effect-slider-value">0.00</output></label>
+                </div>
+                <h3>In front of terrain</h3>
+                <div class="effect-slider-grid">
+                    <label class="effect-slider-row"><span>Ground fog banks</span><input id="atmosphere-groundFog" type="range" min="0" max="2" step="0.01"><output id="atmosphere-groundFog-value" class="effect-slider-value">0.00</output></label>
+                </div>
+            </div>
+        </div>
+        <div class="background-effects-dialog-footer">
+            <button id="background-effects-close" type="button">Done</button>
+        </div>
+    </div>
+</dialog>
+
 <script src="./src/tools/ignatius-project-host.js"></script>
 <script type="module">
 import {
@@ -1486,6 +1736,7 @@ import {
     computeWorldParallaxOffsetAtPoint
 } from "./src/presentation/world-parallax.js";
 import {
+    ATMOSPHERE_EFFECT_IDS,
     BACKGROUND_LAYER,
     normalizeLevelLayerVisuals
 } from "./src/shared/level-layer-data.js";
@@ -1560,6 +1811,7 @@ import {
 } from "./src/core/simulation.js";
 import { loadInstalledGameTuning } from "./src/shared/game-tuning-data.js";
 import { createRenderer as createGameCanvasRenderer } from "./src/presentation/canvas-renderer.js";
+import { AtmospherePreviewRenderer } from "./src/tools/atmosphere-preview.js";
 import {
     buildWorldVisualCache,
     queryWorldVisualEntries
@@ -1586,10 +1838,12 @@ import {
 import { normalizeEnemyScale, scaledEnemyDimensions, scaledEnemyRenderScale } from "./src/shared/enemy-scale-data.js";
 import { nextOverlappingHit } from "./src/tools/level-editor-selection.js";
 import {
+    CHARACTER_ENEMY_BOSS_OVERRIDE_FIELDS,
     DEFAULT_AUTO_SPAWN_ENEMIES,
     DEFAULT_ENEMY_SPAWNER,
     normalizeAutoSpawnEnemies,
-    normalizeEnemySpawner
+    normalizeEnemySpawner,
+    resolveLevelCharacterEnemy
 } from "./src/shared/auto-spawn-enemy-data.js";
 
 (() => {
@@ -1898,6 +2152,14 @@ import {
         backgroundBrightness: document.getElementById("background-brightness"),
         backgroundScale: document.getElementById("background-scale"),
         backgroundAssetToggle: document.getElementById("background-asset-toggle"),
+        editBackgroundEffects: document.getElementById("edit-background-effects"),
+        backgroundEffectsDialog: document.getElementById("background-effects-dialog"),
+        backgroundEffectsPreview: document.getElementById("background-effects-preview"),
+        backgroundEffectsPreviewStatus: document.getElementById("background-effects-preview-status"),
+        backgroundEffectsTriggerRare: document.getElementById("background-effects-trigger-rare"),
+        backgroundEffectsClose: document.getElementById("background-effects-close"),
+        atmosphereEffects: Object.fromEntries(ATMOSPHERE_EFFECT_IDS.map((id) => [id, document.getElementById(`atmosphere-${id}`)])),
+        atmosphereEffectValues: Object.fromEntries(ATMOSPHERE_EFFECT_IDS.map((id) => [id, document.getElementById(`atmosphere-${id}-value`)])),
         autoSpawnEnemiesEnabled: document.getElementById("auto-spawn-enemies-enabled"),
         autoSpawnEnemiesProbability: document.getElementById("auto-spawn-enemies-probability"),
         autoSpawnEnemiesPool: document.getElementById("auto-spawn-enemies-pool"),
@@ -2086,12 +2348,15 @@ import {
         inspectEnemySpawnerDisableSignal: document.getElementById("inspect-enemy-spawner-disable-signal"),
         inspectEnemySpawnerPreview: document.getElementById("inspect-enemy-spawner-preview"),
         inspectEnemyIsBoss: document.getElementById("inspect-enemy-is-boss"),
+        enemyBossOverrides: document.getElementById("enemy-boss-overrides"),
+        enemyBossProjectileOverrides: document.getElementById("enemy-boss-projectile-overrides"),
         inspectEnemyBossName: document.getElementById("inspect-enemy-boss-name"),
         inspectEnemyBossSignal: document.getElementById("inspect-enemy-boss-signal"),
         inspectEnemyCharacter: document.getElementById("inspect-enemy-character"),
         inspectEnemyStrategy: document.getElementById("inspect-enemy-strategy"),
         inspectEnemyFacing: document.getElementById("inspect-enemy-facing"),
         inspectEnemyPatrolDistance: document.getElementById("inspect-enemy-patrol-distance"),
+        inspectEnemyPeriodicInitialDelay: document.getElementById("inspect-enemy-periodic-initial-delay"),
         inspectEnemyWalkSpeed: document.getElementById("inspect-enemy-walk-speed"),
         inspectEnemyRunSpeed: document.getElementById("inspect-enemy-run-speed"),
         inspectEnemyAwarenessRange: document.getElementById("inspect-enemy-awareness-range"),
@@ -2103,8 +2368,10 @@ import {
         inspectEnemyHealth: document.getElementById("inspect-enemy-health"),
         inspectEnemyRenderScale: document.getElementById("inspect-enemy-render-scale"),
         inspectEnemyAttackDamage: document.getElementById("inspect-enemy-attack-damage"),
+        inspectEnemyImmuneToInterrupts: document.getElementById("inspect-enemy-immune-to-interrupts"),
         inspectEnemyAttackRange: document.getElementById("inspect-enemy-attack-range"),
         inspectEnemyAttackRangeLabel: document.getElementById("inspect-enemy-attack-range-label"),
+        inspectEnemyAttackVerticalRange: document.getElementById("inspect-enemy-attack-vertical-range"),
         inspectEnemyMeleeHitRange: document.getElementById("inspect-enemy-melee-hit-range"),
         inspectEnemyMeleeHitRangeLabel: document.getElementById("inspect-enemy-melee-hit-range-label"),
         inspectEnemyLungeTargetDist: document.getElementById("inspect-enemy-lunge-target-dist"),
@@ -2116,6 +2383,27 @@ import {
         inspectEnemyLungeSpeed: document.getElementById("inspect-enemy-lunge-speed"),
         inspectEnemyLungeSpeedLabel: document.getElementById("inspect-enemy-lunge-speed-label"),
         inspectEnemyAttackCooldown: document.getElementById("inspect-enemy-attack-cooldown"),
+        inspectEnemyAwarenessHoldDuration: document.getElementById("inspect-enemy-awareness-hold-duration"),
+        inspectEnemyDeaf: document.getElementById("inspect-enemy-deaf"),
+        inspectEnemyPreferredAttackRange: document.getElementById("inspect-enemy-preferred-attack-range"),
+        inspectEnemyPreferredAttackMinRange: document.getElementById("inspect-enemy-preferred-attack-min-range"),
+        inspectEnemyPreferredAttackRangeLabel: document.getElementById("inspect-enemy-preferred-attack-range-label"),
+        inspectEnemyPreferredAttackMinRangeLabel: document.getElementById("inspect-enemy-preferred-attack-min-range-label"),
+        inspectEnemyProjectileLaunchType: document.getElementById("inspect-enemy-projectile-launch-type"),
+        inspectEnemyProjectileSpeed: document.getElementById("inspect-enemy-projectile-speed"),
+        inspectEnemyProjectileGravity: document.getElementById("inspect-enemy-projectile-gravity"),
+        inspectEnemyProjectileLifetime: document.getElementById("inspect-enemy-projectile-lifetime"),
+        inspectEnemyProjectileRadius: document.getElementById("inspect-enemy-projectile-radius"),
+        inspectEnemyProjectileHoming: document.getElementById("inspect-enemy-projectile-homing"),
+        inspectEnemySpreadCount: document.getElementById("inspect-enemy-spread-count"),
+        inspectEnemySpreadAngle: document.getElementById("inspect-enemy-spread-angle"),
+        inspectEnemyProjectileRotationSpeed: document.getElementById("inspect-enemy-projectile-rotation-speed"),
+        inspectEnemyProjectileVisualScale: document.getElementById("inspect-enemy-projectile-visual-scale"),
+        inspectEnemyProjectileTrailEffect: document.getElementById("inspect-enemy-projectile-trail-effect"),
+        inspectEnemyProjectileImpactEffect: document.getElementById("inspect-enemy-projectile-impact-effect"),
+        inspectEnemyProjectileExplosionEffect: document.getElementById("inspect-enemy-projectile-explosion-effect"),
+        inspectEnemyProjectileAoeRadius: document.getElementById("inspect-enemy-projectile-aoe-radius"),
+        inspectEnemyProjectileOrientVelocity: document.getElementById("inspect-enemy-projectile-orient-velocity"),
         reactiveSettingsRow: document.getElementById("reactive-settings-row"),
         inspectReactiveHealth: document.getElementById("inspect-reactive-health"),
         inspectReactiveDamagedHealth: document.getElementById("inspect-reactive-damaged-health"),
@@ -2181,6 +2469,7 @@ import {
         availableLevels: [],
         entityCatalog: new Map(),
         enemyCatalog: new Map(),
+        enemyProjectileKinds: new Map(),
         characterProjects: new Map(),
         characterProjectLoads: new Map(),
         navigationPreviewGraphId: "",
@@ -3416,6 +3705,50 @@ import {
         return type === "targetDummy" || characterId === "ct_char_enemy_900" || enemyCatalogId === "enemy_900";
     }
 
+    const CHARACTER_ENEMY_BOSS_OVERRIDE_FIELD_SET = new Set(CHARACTER_ENEMY_BOSS_OVERRIDE_FIELDS);
+    const CHARACTER_ENEMY_PLACEMENT_FIELD_SET = new Set([
+        "facing",
+        "patrolDistance",
+        "bomberInitialDelay",
+        "periodicInitialDelay",
+        "flightPhaseOffset",
+        "targetRadius"
+    ]);
+    const CHARACTER_ENEMY_ALWAYS_CATALOG_FIELD_SET = new Set([
+        "characterId",
+        "characterProject",
+        "w",
+        "width",
+        "h",
+        "height",
+        "scale",
+        "attackType",
+        "projectileKind",
+        "projectilePartName",
+        "projectileFrameId",
+        "projectileVisualCharacterId",
+        "projectileVisualFrameId",
+        "projectileOriginLocalX",
+        "projectileOriginLocalY",
+        "projectileRigScale",
+        "projectileRendererKind"
+    ]);
+    const ENEMY_PROJECTILE_PRESENTATION_KIND_KEYS = Object.freeze({
+        projectileRotationSpeedDegrees: "rotationSpeedDegrees",
+        projectileVisualScale: "visualScale",
+        projectileTrailEffect: "trailEffect",
+        projectileImpactEffect: "impactEffect",
+        projectileExplosionEffect: "explosionEffect",
+        projectileAreaDamageRadiusWizardHeights: "areaDamageRadiusWizardHeights",
+        projectileOrientToVelocity: "orientToVelocity"
+    });
+
+    function characterEnemyCatalogOwnsField(definition, key) {
+        return CHARACTER_ENEMY_ALWAYS_CATALOG_FIELD_SET.has(key)
+            || CHARACTER_ENEMY_BOSS_OVERRIDE_FIELD_SET.has(key)
+            || Object.prototype.hasOwnProperty.call(definition?.defaults || {}, key);
+    }
+
     function enemyCatalogBaseValue(record, key, fallback = undefined) {
         const definition = enemyCatalogDefinition(String(record?.enemyCatalogId || ""));
         if (!definition) return fallback;
@@ -3423,21 +3756,37 @@ import {
         if (key === "w") return definition.defaultSize?.w ?? fallback;
         if (key === "h") return definition.defaultSize?.h ?? fallback;
         if (key === "scale") return definition.defaults?.scale ?? 1;
-        return definition.defaults?.[key] ?? fallback;
+        if (Object.prototype.hasOwnProperty.call(definition.defaults || {}, key)) return definition.defaults[key];
+        const kindKey = ENEMY_PROJECTILE_PRESENTATION_KIND_KEYS[key];
+        if (kindKey) {
+            const projectileKind = String(definition.defaults?.projectileKind || "");
+            const projectileDefinition = state.enemyProjectileKinds.get(projectileKind);
+            if (projectileDefinition && Object.prototype.hasOwnProperty.call(projectileDefinition, kindKey)) {
+                return projectileDefinition[kindKey];
+            }
+        }
+        return fallback;
     }
 
     function resolvedCharacterEnemy(record) {
         if (!isCharacterEnemy(record)) return record;
         const definition = enemyCatalogDefinition(String(record?.enemyCatalogId || ""));
         if (!definition) return record;
-        return {
+        const resolved = {
             ...cloneData(definition.defaults || {}),
             characterId: definition.characterId || "ct_char_enemy_001",
             w: Math.max(1, Number(definition.defaultSize?.w) || 72),
             h: Math.max(1, Number(definition.defaultSize?.h) || 150),
-            scale: finiteEditorNumber(definition.defaults?.scale, 1),
-            ...record
+            scale: finiteEditorNumber(definition.defaults?.scale, 1)
         };
+        const isBoss = record.isBoss === true;
+        for (const [key, value] of Object.entries(record)) {
+            const placementField = CHARACTER_ENEMY_PLACEMENT_FIELD_SET.has(key);
+            const catalogField = characterEnemyCatalogOwnsField(definition, key);
+            if (catalogField && !placementField && !(isBoss && CHARACTER_ENEMY_BOSS_OVERRIDE_FIELD_SET.has(key))) continue;
+            resolved[key] = cloneData(value);
+        }
+        return resolved;
     }
 
     function enemyOverrideEqualsBase(value, base) {
@@ -3459,8 +3808,20 @@ import {
         else record[key] = value;
     }
 
+    function setCharacterEnemyBossOverride(record, key, value, fallback = undefined) {
+        if (record?.isBoss !== true || !CHARACTER_ENEMY_BOSS_OVERRIDE_FIELD_SET.has(key)) {
+            delete record[key];
+            return;
+        }
+        setCharacterEnemyOverride(record, key, value, fallback);
+    }
+
+    function clearCharacterEnemyBossOverrides(record) {
+        for (const key of CHARACTER_ENEMY_BOSS_OVERRIDE_FIELDS) delete record[key];
+    }
+
     function characterEnemyCharacterId(record) {
-        const requested = String(record?.characterId || record?.characterProject || "").trim();
+        const requested = record?.isBoss === true ? String(record?.characterId || record?.characterProject || "").trim() : "";
         if (requested) return requested;
         const inherited = String(enemyCatalogBaseValue(record, "characterId", "")).trim();
         if (inherited) return inherited;
@@ -3468,10 +3829,10 @@ import {
     }
 
     function characterEnemyStrategy(record) {
-        const requested = String(record?.strategy || "").trim().toLowerCase();
-        if (["simple_patrol", "hunter", "sentry", "bomber", "passive"].includes(requested)) return requested;
+        const requested = record?.isBoss === true ? String(record?.strategy || "").trim().toLowerCase() : "";
+        if (["simple_patrol", "hunter", "sentry", "bomber", "periodic", "passive"].includes(requested)) return requested;
         const inherited = String(enemyCatalogBaseValue(record, "strategy", "")).trim().toLowerCase();
-        if (["simple_patrol", "hunter", "sentry", "bomber", "passive"].includes(inherited)) return inherited;
+        if (["simple_patrol", "hunter", "sentry", "bomber", "periodic", "passive"].includes(inherited)) return inherited;
         return isTrainingEnemy(record) ? "passive" : "sentry";
     }
 
@@ -3600,7 +3961,7 @@ import {
     function snapCharacterEnemyToNearbyGround(enemy, { announce = false } = {}) {
         if (!isCharacterEnemy(enemy)) return null;
         const resolvedEnemy = resolvedCharacterEnemy(enemy);
-        if (String(resolvedEnemy.locomotion || "").trim().toLowerCase() === "flying") return null;
+        if (["flying", "stationary"].includes(String(resolvedEnemy.locomotion || "").trim().toLowerCase())) return null;
         const enemyX = Number(enemy.x);
         const enemyY = Number(enemy.y);
         if (!Number.isFinite(enemyX) || !Number.isFinite(enemyY)) return null;
@@ -4884,7 +5245,7 @@ import {
 
     const WRENCH_POWER_UP_OPTIONS = WRENCH_POWER_UP_EFFECT_IDS.map((effectId) => ({
         effectId,
-        label: effectId
+        label: powerUpEffectDefinition(effectId)?.label || effectId
     }));
 
     function isWrenchPickupEntity(entity) {
@@ -5170,6 +5531,10 @@ import {
         try {
             const catalog = await loadJsonUrl(ENEMY_CATALOG_URL);
             state.enemyCatalog.clear();
+            state.enemyProjectileKinds.clear();
+            for (const [projectileKind, rawDefinition] of Object.entries(catalog.projectileKinds || {})) {
+                state.enemyProjectileKinds.set(projectileKind, cloneData(rawDefinition));
+            }
             for (const [enemyId, rawDefinition] of Object.entries(catalog.enemies || {})) {
                 const definition = { ...cloneData(rawDefinition), enemyId, catalogId: catalog.catalogId || "ct_enemies_001" };
                 state.enemyCatalog.set(enemyId, definition);
@@ -7033,6 +7398,10 @@ import {
     function editorRuntimeEnemyCatalog() {
         return {
             catalogId: "ct_enemies_001",
+            projectileKinds: Object.fromEntries([...state.enemyProjectileKinds.entries()].map(([projectileKind, definition]) => [
+                projectileKind,
+                cloneData(definition)
+            ])),
             enemies: Object.fromEntries([...state.enemyCatalog.entries()].map(([enemyId, definition]) => [
                 enemyId,
                 cloneData(definition)
@@ -7042,11 +7411,15 @@ import {
 
     function editorRuntimeEnemyCharacterUrls(level = state.level) {
         const urls = [];
+        const runtimeEnemyCatalog = editorRuntimeEnemyCatalog();
         for (const entity of level?.entities || []) {
             if (entity?.type !== "characterEnemy") continue;
-            const definition = enemyCatalogDefinition(entity.enemyCatalogId) || {
-                characterId: String(entity.characterId || entity.characterProject || ""),
-                characterUrl: String(entity.characterUrl || "")
+            const resolvedEntity = resolveLevelCharacterEnemy(runtimeEnemyCatalog, entity);
+            const catalogDefinition = enemyCatalogDefinition(entity.enemyCatalogId);
+            const definition = {
+                ...(catalogDefinition || {}),
+                characterId: String(resolvedEntity?.characterId || resolvedEntity?.characterProject || catalogDefinition?.characterId || ""),
+                characterUrl: String(resolvedEntity?.characterUrl || catalogDefinition?.characterUrl || "")
             };
             const url = characterProjectUrlForDefinition(definition);
             if (url) urls.push(url);
@@ -8933,6 +9306,7 @@ import {
             els.inspectEnemyStrategy.value = characterEnemyStrategy(rec);
             els.inspectEnemyFacing.value = Number(resolvedEnemy.facing) < 0 ? "-1" : "1";
             els.inspectEnemyPatrolDistance.value = Math.max(0, finiteEditorNumber(resolvedEnemy.patrolDistance, 0));
+            els.inspectEnemyPeriodicInitialDelay.value = Math.max(0, finiteEditorNumber(rec.periodicInitialDelay, 0));
             els.inspectEnemyWalkSpeed.value = Math.max(0, finiteEditorNumber(resolvedEnemy.walkSpeed, 56));
             els.inspectEnemyRunSpeed.value = Math.max(0, finiteEditorNumber(resolvedEnemy.runSpeed, 150));
             els.inspectEnemyAwarenessRange.value = Math.max(0, finiteEditorNumber(resolvedEnemy.awarenessRange, 300));
@@ -8944,10 +9318,14 @@ import {
             els.inspectEnemyHealth.value = Math.max(1, finiteEditorNumber(resolvedEnemy.health, 90));
             els.inspectEnemyRenderScale.value = normalizeEnemyScale(resolvedEnemy.scale, 1);
             els.inspectEnemyAttackDamage.value = Math.max(0, finiteEditorNumber(resolvedEnemy.damage, 24));
+            els.inspectEnemyImmuneToInterrupts.checked = resolvedEnemy.immuneToInterrupts === true;
             const resolvedEnemyAttackType = String(resolvedEnemy.attackType || "melee") === "projectile" ? "projectile" : "melee";
             const resolvedEnemyIsProjectile = resolvedEnemyAttackType === "projectile";
             els.inspectEnemyAttackRange.value = Math.max(0, finiteEditorNumber(resolvedEnemy.attackRange, 66));
+            els.inspectEnemyAttackVerticalRange.value = Math.max(1, finiteEditorNumber(resolvedEnemy.attackVerticalRange, 104));
             els.inspectEnemyAttackRangeLabel.hidden = !resolvedEnemyIsProjectile;
+            els.inspectEnemyPreferredAttackRangeLabel.hidden = !resolvedEnemyIsProjectile;
+            els.inspectEnemyPreferredAttackMinRangeLabel.hidden = !resolvedEnemyIsProjectile;
             for (const label of [els.inspectEnemyMeleeHitRangeLabel, els.inspectEnemyLungeTargetDistLabel, els.inspectEnemyLungeRangeMinLabel, els.inspectEnemyLungeRangeMaxLabel, els.inspectEnemyLungeSpeedLabel]) {
                 label.hidden = resolvedEnemyIsProjectile;
             }
@@ -8957,7 +9335,28 @@ import {
             els.inspectEnemyLungeRangeMax.value = Math.max(0, finiteEditorNumber(resolvedEnemy.lungeRangeMax, 0));
             els.inspectEnemyLungeSpeed.value = Math.max(0, finiteEditorNumber(resolvedEnemy.lungeSpeed, 0));
             els.inspectEnemyAttackCooldown.value = Math.max(0, finiteEditorNumber(resolvedEnemy.attackCooldown, 0.12));
+            els.inspectEnemyAwarenessHoldDuration.value = Math.max(0, finiteEditorNumber(resolvedEnemy.awarenessHoldDuration, 1.2));
+            els.inspectEnemyDeaf.checked = resolvedEnemy.deaf === true;
+            els.inspectEnemyPreferredAttackRange.value = Math.max(0, finiteEditorNumber(resolvedEnemy.preferredAttackRange, 180));
+            els.inspectEnemyPreferredAttackMinRange.value = Math.max(0, finiteEditorNumber(resolvedEnemy.preferredAttackMinRange, Math.min(Number(resolvedEnemy.attackRange || 1) * 0.45, 108)));
+            els.inspectEnemyProjectileLaunchType.value = String(resolvedEnemy.projectileLaunchType || "straight");
+            els.inspectEnemyProjectileSpeed.value = Math.max(1, finiteEditorNumber(resolvedEnemy.projectileSpeed, 1));
+            els.inspectEnemyProjectileGravity.value = finiteEditorNumber(resolvedEnemy.projectileGravity, 0);
+            els.inspectEnemyProjectileLifetime.value = Math.max(0.001, finiteEditorNumber(resolvedEnemy.projectileLifetime, 1));
+            els.inspectEnemyProjectileRadius.value = Math.max(1, finiteEditorNumber(resolvedEnemy.projectileRadius, 1));
+            els.inspectEnemyProjectileHoming.value = Math.max(0, finiteEditorNumber(resolvedEnemy.projectileHomingStrength, 0));
+            els.inspectEnemySpreadCount.value = Math.max(1, Math.min(15, Math.round(finiteEditorNumber(resolvedEnemy.spreadCount, 1))));
+            els.inspectEnemySpreadAngle.value = Math.max(0, Math.min(180, finiteEditorNumber(resolvedEnemy.spreadAngle, 0)));
+            els.inspectEnemyProjectileRotationSpeed.value = finiteEditorNumber(resolvedEnemy.projectileRotationSpeedDegrees, enemyCatalogBaseValue(rec, "projectileRotationSpeedDegrees", 0));
+            els.inspectEnemyProjectileVisualScale.value = Math.max(0.01, finiteEditorNumber(resolvedEnemy.projectileVisualScale, enemyCatalogBaseValue(rec, "projectileVisualScale", 1)));
+            els.inspectEnemyProjectileTrailEffect.value = String(resolvedEnemy.projectileTrailEffect ?? enemyCatalogBaseValue(rec, "projectileTrailEffect", "none"));
+            els.inspectEnemyProjectileImpactEffect.value = String(resolvedEnemy.projectileImpactEffect ?? enemyCatalogBaseValue(rec, "projectileImpactEffect", "sparks"));
+            els.inspectEnemyProjectileExplosionEffect.value = String(resolvedEnemy.projectileExplosionEffect ?? enemyCatalogBaseValue(rec, "projectileExplosionEffect", "impact"));
+            els.inspectEnemyProjectileAoeRadius.value = Math.max(0, finiteEditorNumber(resolvedEnemy.projectileAreaDamageRadiusWizardHeights, enemyCatalogBaseValue(rec, "projectileAreaDamageRadiusWizardHeights", 0)));
+            els.inspectEnemyProjectileOrientVelocity.checked = Boolean(resolvedEnemy.projectileOrientToVelocity ?? enemyCatalogBaseValue(rec, "projectileOrientToVelocity", false));
             els.inspectEnemyIsBoss.checked = rec.isBoss === true;
+            els.enemyBossOverrides.style.display = rec.isBoss === true ? "block" : "none";
+            els.enemyBossProjectileOverrides.style.display = rec.isBoss === true && resolvedEnemyIsProjectile ? "block" : "none";
             els.inspectEnemyBossName.value = String(rec.bossName || "Boss");
             els.inspectEnemyBossSignal.value = String(rec.bossDefeatSignalChannel || "");
             els.inspectGateChannel.value = normalizeSignalChannel(rec.channel);
@@ -9094,9 +9493,13 @@ import {
             syncInspector();
             return false;
         }
+        if (rec.isBoss !== true) {
+            syncInspector();
+            return false;
+        }
         if (commit) beginEditHistory("Scale enemy");
         const requestedScale = normalizeEnemyScale(els.inspectEnemyRenderScale.value, 1);
-        setCharacterEnemyOverride(rec, "scale", requestedScale, 1);
+        setCharacterEnemyBossOverride(rec, "scale", requestedScale, 1);
         const dimensions = scaledEnemyDimensions(resolvedCharacterEnemy(rec), 72, 150);
         els.inspectW.value = String(Math.round(dimensions.width * 100) / 100);
         els.inspectH.value = String(Math.round(dimensions.height * 100) / 100);
@@ -9399,49 +9802,117 @@ import {
             if (isCharacterEnemy(rec)) {
                 rec.type = "characterEnemy";
                 rec.isBoss = els.inspectEnemyIsBoss.checked;
+                setCharacterEnemyOverride(rec, "facing", Number(els.inspectEnemyFacing.value) < 0 ? -1 : 1, -1);
+                setCharacterEnemyOverride(rec, "patrolDistance", Math.max(0, Number(els.inspectEnemyPatrolDistance.value) || 0), 0);
+                const periodicInitialDelay = Math.max(0, Number(els.inspectEnemyPeriodicInitialDelay.value) || 0);
+                if (periodicInitialDelay > 0) rec.periodicInitialDelay = periodicInitialDelay;
+                else delete rec.periodicInitialDelay;
+
+                // These structural choices belong to the catalog even for bosses.
+                for (const key of [
+                    "attackType",
+                    "projectileKind",
+                    "projectilePartName",
+                    "projectileFrameId",
+                    "projectileVisualCharacterId",
+                    "projectileVisualFrameId",
+                    "projectileOriginLocalX",
+                    "projectileOriginLocalY",
+                    "projectileRigScale",
+                    "projectileRendererKind"
+                ]) delete rec[key];
+
                 if (rec.isBoss) {
                     rec.bossName = els.inspectEnemyBossName.value.trim() || "Boss";
                     const bossSignal = els.inspectEnemyBossSignal.value.trim();
                     if (bossSignal) rec.bossDefeatSignalChannel = normalizeSignalChannel(bossSignal);
                     else delete rec.bossDefeatSignalChannel;
+
+                    const catalogCharacterId = String(enemyCatalogBaseValue(rec, "characterId", isTrainingEnemy(rec) ? "ct_char_enemy_900" : "ct_char_enemy_001"));
+                    const catalogStrategy = String(enemyCatalogBaseValue(rec, "strategy", isTrainingEnemy(rec) ? "passive" : "sentry"));
+                    setCharacterEnemyBossOverride(rec, "characterId", els.inspectEnemyCharacter.value.trim() || catalogCharacterId, catalogCharacterId);
+                    setCharacterEnemyBossOverride(rec, "strategy", ["simple_patrol", "hunter", "sentry", "bomber", "passive"].includes(els.inspectEnemyStrategy.value)
+                        ? els.inspectEnemyStrategy.value
+                        : catalogStrategy, catalogStrategy);
+                    setCharacterEnemyBossOverride(rec, "walkSpeed", Math.max(0, Number(els.inspectEnemyWalkSpeed.value) || 0), 56);
+                    setCharacterEnemyBossOverride(rec, "runSpeed", Math.max(0, Number(els.inspectEnemyRunSpeed.value) || 0), 150);
+                    setCharacterEnemyBossOverride(rec, "jumpHeight", Math.max(0, Number(els.inspectEnemyJumpHeight.value) || 0), 118);
+                    setCharacterEnemyBossOverride(rec, "unreachableGlareDuration", Math.max(0, Number(els.inspectEnemyGlareDuration.value) || 0), 5);
+                    setCharacterEnemyBossOverride(rec, "idleDuration", Math.max(0, Number(els.inspectEnemyIdleDuration.value) || 0), 1.1);
+                    setCharacterEnemyBossOverride(rec, "turnPause", Math.max(0, Number(els.inspectEnemyTurnPause.value) || 0), 0.5);
+                    setCharacterEnemyBossOverride(rec, "health", Math.max(1, Number(els.inspectEnemyHealth.value) || 60), 90);
+                    setCharacterEnemyBossOverride(rec, "scale", normalizeEnemyScale(els.inspectEnemyRenderScale.value, 1), 1);
+                    setCharacterEnemyBossOverride(rec, "damage", Math.max(0, Number(els.inspectEnemyAttackDamage.value) || 0), 24);
+                    setCharacterEnemyBossOverride(rec, "attackCooldown", Math.max(0, Number(els.inspectEnemyAttackCooldown.value) || 0), 0.12);
+                    setCharacterEnemyBossOverride(rec, "immuneToInterrupts", els.inspectEnemyImmuneToInterrupts.checked, false);
+                    setCharacterEnemyBossOverride(rec, "attackVerticalRange", Math.max(1, Number(els.inspectEnemyAttackVerticalRange.value) || 1), 104);
+                    setCharacterEnemyBossOverride(rec, "awarenessRange", Math.max(0, Number(els.inspectEnemyAwarenessRange.value) || 0), 300);
+                    setCharacterEnemyBossOverride(rec, "awarenessViewHalfAngle", Math.max(0, Math.min(180, Number(els.inspectEnemyViewHalfAngle.value) || 0)), 60);
+                    setCharacterEnemyBossOverride(rec, "awarenessHoldDuration", Math.max(0, Number(els.inspectEnemyAwarenessHoldDuration.value) || 0), 1.2);
+                    setCharacterEnemyBossOverride(rec, "deaf", els.inspectEnemyDeaf.checked, false);
+
+                    const resolvedAttackType = String(resolvedCharacterEnemy(rec).attackType || "melee") === "projectile" ? "projectile" : "melee";
+                    if (resolvedAttackType === "projectile") {
+                        const requestedAttackRange = Math.max(1, Number(els.inspectEnemyAttackRange.value) || 1);
+                        setCharacterEnemyBossOverride(rec, "attackRange", requestedAttackRange, 66);
+                        setCharacterEnemyBossOverride(rec, "preferredAttackRange", Math.max(0, Number(els.inspectEnemyPreferredAttackRange.value) || 0), 180);
+                        const inheritedPreferredAttackMinRange = Math.max(0, finiteEditorNumber(
+                            enemyCatalogBaseValue(rec, "preferredAttackMinRange", Math.min(requestedAttackRange * 0.45, 108)),
+                            Math.min(requestedAttackRange * 0.45, 108)));
+                        setCharacterEnemyBossOverride(rec, "preferredAttackMinRange", Math.max(0, Number(els.inspectEnemyPreferredAttackMinRange.value) || 0), inheritedPreferredAttackMinRange);
+                        delete rec.meleeHitRange;
+                        delete rec.lungeTargetDist;
+                        delete rec.lungeRangeMin;
+                        delete rec.lungeRangeMax;
+                        delete rec.lungeSpeed;
+
+                        setCharacterEnemyBossOverride(rec, "projectileLaunchType", String(els.inspectEnemyProjectileLaunchType.value || "straight"), "straight");
+                        setCharacterEnemyBossOverride(rec, "projectileSpeed", Math.max(1, Number(els.inspectEnemyProjectileSpeed.value) || 1), 1);
+                        setCharacterEnemyBossOverride(rec, "projectileGravity", Number(els.inspectEnemyProjectileGravity.value) || 0, 0);
+                        setCharacterEnemyBossOverride(rec, "projectileLifetime", Math.max(0.001, Number(els.inspectEnemyProjectileLifetime.value) || 1), 1);
+                        setCharacterEnemyBossOverride(rec, "projectileRadius", Math.max(1, Number(els.inspectEnemyProjectileRadius.value) || 1), 1);
+                        setCharacterEnemyBossOverride(rec, "projectileHomingStrength", Math.max(0, Number(els.inspectEnemyProjectileHoming.value) || 0), 0);
+                        setCharacterEnemyBossOverride(rec, "spreadCount", Math.max(1, Math.min(15, Math.round(Number(els.inspectEnemySpreadCount.value) || 1))), 1);
+                        setCharacterEnemyBossOverride(rec, "spreadAngle", Math.max(0, Math.min(180, Number(els.inspectEnemySpreadAngle.value) || 0)), 0);
+                        setCharacterEnemyBossOverride(rec, "projectileRotationSpeedDegrees", Number(els.inspectEnemyProjectileRotationSpeed.value) || 0, 0);
+                        setCharacterEnemyBossOverride(rec, "projectileVisualScale", Math.max(0.01, Number(els.inspectEnemyProjectileVisualScale.value) || 1), 1);
+                        setCharacterEnemyBossOverride(rec, "projectileTrailEffect", String(els.inspectEnemyProjectileTrailEffect.value || "none"), "none");
+                        setCharacterEnemyBossOverride(rec, "projectileImpactEffect", String(els.inspectEnemyProjectileImpactEffect.value || "sparks"), "sparks");
+                        setCharacterEnemyBossOverride(rec, "projectileExplosionEffect", String(els.inspectEnemyProjectileExplosionEffect.value || "impact"), "impact");
+                        setCharacterEnemyBossOverride(rec, "projectileAreaDamageRadiusWizardHeights", Math.max(0, Number(els.inspectEnemyProjectileAoeRadius.value) || 0), 0);
+                        setCharacterEnemyBossOverride(rec, "projectileOrientToVelocity", els.inspectEnemyProjectileOrientVelocity.checked, false);
+                    } else {
+                        delete rec.attackRange;
+                        delete rec.preferredAttackRange;
+                        delete rec.preferredAttackMinRange;
+                        setCharacterEnemyBossOverride(rec, "meleeHitRange", Math.max(0, Number(els.inspectEnemyMeleeHitRange.value) || 0), 0);
+                        setCharacterEnemyBossOverride(rec, "lungeTargetDist", Math.max(0, Number(els.inspectEnemyLungeTargetDist.value) || 0), 0);
+                        setCharacterEnemyBossOverride(rec, "lungeRangeMin", Math.max(0, Number(els.inspectEnemyLungeRangeMin.value) || 0), 0);
+                        setCharacterEnemyBossOverride(rec, "lungeRangeMax", Math.max(0, Number(els.inspectEnemyLungeRangeMax.value) || 0), 0);
+                        setCharacterEnemyBossOverride(rec, "lungeSpeed", Math.max(0, Number(els.inspectEnemyLungeSpeed.value) || 0), 0);
+                        for (const key of [
+                            "projectileLaunchType",
+                            "projectileSpeed",
+                            "projectileGravity",
+                            "projectileLifetime",
+                            "projectileRadius",
+                            "projectileHomingStrength",
+                            "spreadCount",
+                            "spreadAngle",
+                            "projectileRotationSpeedDegrees",
+                            "projectileVisualScale",
+                            "projectileTrailEffect",
+                            "projectileImpactEffect",
+                            "projectileExplosionEffect",
+                            "projectileAreaDamageRadiusWizardHeights",
+                            "projectileOrientToVelocity"
+                        ]) delete rec[key];
+                    }
                 } else {
                     delete rec.bossName;
                     delete rec.bossDefeatSignalChannel;
+                    clearCharacterEnemyBossOverrides(rec);
                 }
-                setCharacterEnemyOverride(rec, "characterId", els.inspectEnemyCharacter.value.trim() || characterEnemyCharacterId(rec), characterEnemyCharacterId(rec));
-                setCharacterEnemyOverride(rec, "strategy", ["simple_patrol", "hunter", "sentry", "bomber", "passive"].includes(els.inspectEnemyStrategy.value)
-                    ? els.inspectEnemyStrategy.value
-                    : characterEnemyStrategy(rec), characterEnemyStrategy(rec));
-                setCharacterEnemyOverride(rec, "facing", Number(els.inspectEnemyFacing.value) < 0 ? -1 : 1, -1);
-                setCharacterEnemyOverride(rec, "patrolDistance", Math.max(0, Number(els.inspectEnemyPatrolDistance.value) || 0), 0);
-                setCharacterEnemyOverride(rec, "walkSpeed", Math.max(0, Number(els.inspectEnemyWalkSpeed.value) || 0), 56);
-                setCharacterEnemyOverride(rec, "runSpeed", Math.max(0, Number(els.inspectEnemyRunSpeed.value) || 0), 150);
-                setCharacterEnemyOverride(rec, "awarenessRange", Math.max(0, Number(els.inspectEnemyAwarenessRange.value) || 0), 300);
-                setCharacterEnemyOverride(rec, "awarenessViewHalfAngle", Math.max(0, Math.min(180, Number(els.inspectEnemyViewHalfAngle.value) || 0)), 60);
-                setCharacterEnemyOverride(rec, "jumpHeight", Math.max(0, Number(els.inspectEnemyJumpHeight.value) || 0), 118);
-                setCharacterEnemyOverride(rec, "unreachableGlareDuration", Math.max(0, Number(els.inspectEnemyGlareDuration.value) || 0), 5);
-                setCharacterEnemyOverride(rec, "idleDuration", Math.max(0, Number(els.inspectEnemyIdleDuration.value) || 0), 1.1);
-                setCharacterEnemyOverride(rec, "turnPause", Math.max(0, Number(els.inspectEnemyTurnPause.value) || 0), 0.5);
-                setCharacterEnemyOverride(rec, "health", Math.max(1, Number(els.inspectEnemyHealth.value) || 60), 90);
-                setCharacterEnemyOverride(rec, "scale", normalizeEnemyScale(els.inspectEnemyRenderScale.value, 1), 1);
-                setCharacterEnemyOverride(rec, "damage", Math.max(0, Number(els.inspectEnemyAttackDamage.value) || 0), 24);
-                const resolvedAttackType = String(resolvedCharacterEnemy(rec).attackType || "melee") === "projectile" ? "projectile" : "melee";
-                if (resolvedAttackType === "projectile") {
-                    setCharacterEnemyOverride(rec, "attackRange", Math.max(1, Number(els.inspectEnemyAttackRange.value) || 66), 66);
-                    delete rec.meleeHitRange;
-                    delete rec.lungeTargetDist;
-                    delete rec.lungeRangeMin;
-                    delete rec.lungeRangeMax;
-                    delete rec.lungeSpeed;
-                } else {
-                    delete rec.attackRange;
-                    setCharacterEnemyOverride(rec, "meleeHitRange", Math.max(0, Number(els.inspectEnemyMeleeHitRange.value) || 0), 0);
-                    setCharacterEnemyOverride(rec, "lungeTargetDist", Math.max(0, Number(els.inspectEnemyLungeTargetDist.value) || 0), 0);
-                    setCharacterEnemyOverride(rec, "lungeRangeMin", Math.max(0, Number(els.inspectEnemyLungeRangeMin.value) || 0), 0);
-                    setCharacterEnemyOverride(rec, "lungeRangeMax", Math.max(0, Number(els.inspectEnemyLungeRangeMax.value) || 0), 0);
-                    setCharacterEnemyOverride(rec, "lungeSpeed", Math.max(0, Number(els.inspectEnemyLungeSpeed.value) || 0), 0);
-                }
-                setCharacterEnemyOverride(rec, "attackCooldown", Math.max(0, Number(els.inspectEnemyAttackCooldown.value) || 0), 0.12);
                 delete rec.attackHitTime;
                 delete rec.projectileReleaseTime;
                 delete rec.animationSlot;
@@ -10919,6 +11390,63 @@ import {
         }
     }
 
+    let backgroundEffectsPreviewRenderer = null;
+    let backgroundEffectsPreviewAnimationFrame = 0;
+    let backgroundEffectsPreviewStartedAt = 0;
+
+    function atmosphereEffectsFromUi() {
+        return Object.fromEntries(ATMOSPHERE_EFFECT_IDS.map((id) => [id, Number(els.atmosphereEffects[id]?.value) || 0]));
+    }
+
+    function syncAtmosphereEffectReadouts() {
+        for (const id of ATMOSPHERE_EFFECT_IDS) {
+            const value = Math.max(0, Math.min(2, Number(els.atmosphereEffects[id]?.value) || 0));
+            if (els.atmosphereEffectValues[id]) els.atmosphereEffectValues[id].value = value.toFixed(2);
+        }
+    }
+
+    function stopBackgroundEffectsPreview() {
+        if (backgroundEffectsPreviewAnimationFrame) cancelAnimationFrame(backgroundEffectsPreviewAnimationFrame);
+        backgroundEffectsPreviewAnimationFrame = 0;
+    }
+
+    function renderBackgroundEffectsPreview(timestamp) {
+        if (!els.backgroundEffectsDialog?.open) {
+            stopBackgroundEffectsPreview();
+            return;
+        }
+        if (!backgroundEffectsPreviewRenderer) {
+            backgroundEffectsPreviewRenderer = new AtmospherePreviewRenderer(els.backgroundEffectsPreview);
+        }
+        if (!backgroundEffectsPreviewStartedAt) backgroundEffectsPreviewStartedAt = timestamp;
+        const rendered = backgroundEffectsPreviewRenderer.render({
+            effects: atmosphereEffectsFromUi(),
+            levelId: `${state.level.levelId || "level"}:editor-atmosphere-preview`,
+            timeSeconds: Math.max(0, (timestamp - backgroundEffectsPreviewStartedAt) / 1000)
+        });
+        if (els.backgroundEffectsPreviewStatus) {
+            els.backgroundEffectsPreviewStatus.style.display = rendered ? "none" : "grid";
+            els.backgroundEffectsPreviewStatus.textContent = rendered
+                ? ""
+                : (backgroundEffectsPreviewRenderer.lastError || "Background effects preview is unavailable.");
+        }
+        backgroundEffectsPreviewAnimationFrame = requestAnimationFrame(renderBackgroundEffectsPreview);
+    }
+
+    function openBackgroundEffectsEditor() {
+        syncMetadataToUi();
+        syncAtmosphereEffectReadouts();
+        backgroundEffectsPreviewStartedAt = 0;
+        if (!els.backgroundEffectsDialog.open) els.backgroundEffectsDialog.showModal();
+        stopBackgroundEffectsPreview();
+        backgroundEffectsPreviewAnimationFrame = requestAnimationFrame(renderBackgroundEffectsPreview);
+    }
+
+    function closeBackgroundEffectsEditor() {
+        if (els.backgroundEffectsDialog?.open) els.backgroundEffectsDialog.close();
+        stopBackgroundEffectsPreview();
+    }
+
     function syncMetadataFromUi() {
         markEditorRuntimeWorldDirty();
         syncCaveWindowFromUi();
@@ -10941,7 +11469,8 @@ import {
                 parallaxY: els.backgroundParallaxY.value,
                 brightness: els.backgroundBrightness.value,
                 scale: els.backgroundScale.value,
-                asset: previousLayerVisuals.background.asset
+                asset: previousLayerVisuals.background.asset,
+                effects: atmosphereEffectsFromUi()
             }
         });
         state.level.world.bounds.w = Number(els.worldW.value) || state.level.world.bounds.w;
@@ -10966,6 +11495,10 @@ import {
         els.backgroundParallaxY.value = String(Math.round(layerVisuals.background.parallaxY * 1000000) / 1000000);
         els.backgroundBrightness.value = String(Math.round(layerVisuals.background.brightness * 1000) / 1000);
         els.backgroundScale.value = String(Math.round(layerVisuals.background.scale * 1000) / 1000);
+        for (const id of ATMOSPHERE_EFFECT_IDS) {
+            els.atmosphereEffects[id].value = String(Math.round(layerVisuals.background.effects[id] * 100) / 100);
+        }
+        syncAtmosphereEffectReadouts();
         refreshBackgroundAssetButton();
         syncColorMapToUi();
         syncAutoSpawnEnemiesToUi();
@@ -11786,6 +12319,25 @@ import {
     els.toggleTerrainLayer.addEventListener("click", () => toggleEditorLayerVisibility("terrain"));
     els.toggleBackgroundLayer.addEventListener("click", () => toggleEditorLayerVisibility("background"));
     els.backgroundAssetToggle.addEventListener("click", setBackgroundAssetFromPalette);
+    els.editBackgroundEffects.addEventListener("click", openBackgroundEffectsEditor);
+    els.backgroundEffectsClose.addEventListener("click", closeBackgroundEffectsEditor);
+    els.backgroundEffectsDialog.addEventListener("close", stopBackgroundEffectsPreview);
+    els.backgroundEffectsDialog.addEventListener("cancel", () => {
+        stopBackgroundEffectsPreview();
+    });
+    els.backgroundEffectsTriggerRare.addEventListener("click", () => {
+        if (!backgroundEffectsPreviewRenderer) {
+            backgroundEffectsPreviewRenderer = new AtmospherePreviewRenderer(els.backgroundEffectsPreview);
+        }
+        backgroundEffectsPreviewRenderer.triggerRareEffects();
+    });
+    for (const id of ATMOSPHERE_EFFECT_IDS) {
+        els.atmosphereEffects[id].addEventListener("input", () => {
+            syncAtmosphereEffectReadouts();
+            syncMetadataFromUi();
+            scheduleJsonUpdate();
+        });
+    }
 
     const layerVisualControls = [
         els.foregroundParallaxX,
@@ -11795,7 +12347,8 @@ import {
         els.backgroundParallaxX,
         els.backgroundParallaxY,
         els.backgroundBrightness,
-        els.backgroundScale
+        els.backgroundScale,
+        ...ATMOSPHERE_EFFECT_IDS.map((id) => els.atmosphereEffects[id])
     ];
     [els.showGrid, els.showAssetGuides, els.showLabels, els.showGameplayCameraFrame, els.showGameplayRulers, els.showCaveInteractionBoundary, els.snapEnabled, els.snap, els.worldW, els.worldH, ...layerVisualControls, els.levelId, els.levelTitle, els.levelMusic].forEach((el) => el.addEventListener("change", () => {
         syncMetadataFromUi();

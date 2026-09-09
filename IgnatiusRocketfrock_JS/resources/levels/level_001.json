@@ -76,7 +76,28 @@
             "parallaxY": 1,
             "brightness": 0.9,
             "scale": 0.5,
-            "asset": null
+            "asset": null,
+            "effects": {
+                "stars": 2,
+                "aurora": 0.5,
+                "meteor": 0.3,
+                "lightning": 0,
+                "bats": 0,
+                "heat": 0,
+                "cloudShadow": 0,
+                "mist": 0,
+                "groundFog": 0,
+                "fireflies": 0,
+                "wisps": 0,
+                "spores": 0,
+                "rain": 0,
+                "snow": 0,
+                "leaves": 0,
+                "petals": 0,
+                "butterflies": 0,
+                "embers": 0,
+                "eyes": 0
+            }
         },
         "foreground": {
             "parallaxX": 1.08,
@@ -2430,8 +2451,8 @@
             "id": "wrenchPickup_001",
             "type": "wrenchPickup",
             "catalogId": "it_entities_001",
-            "x": -304,
-            "y": -256,
+            "x": -272,
+            "y": -80,
             "w": 96,
             "h": 96,
             "state": "available",
@@ -2518,6 +2539,31 @@
             "speechAtlasId": "it_atlas_001",
             "speechAssetId": "speech_bubble_large",
             "script": "GOTO wizard 28540 500\nANIM wizard wink\nDELAY 2.4\nGOTO wizard 28770 500\n"
+        },
+        {
+            "id": "overdrivePickup_001",
+            "type": "overdrivePickup",
+            "catalogId": "it_entities_001",
+            "x": -272,
+            "y": -80,
+            "w": 96,
+            "h": 96,
+            "state": "available",
+            "visualStates": {
+                "available": [],
+                "collected": []
+            },
+            "stateLabels": {
+                "available": "Available",
+                "collected": "Collected"
+            },
+            "effectId": "overdrive",
+            "respawnSeconds": 60,
+            "radius": 30,
+            "atlasId": "it_atlas_001",
+            "glowFrame": "powerup_glow_white",
+            "iconFrame": "powerup_icon_lightning",
+            "glowTint": "#ffb52f"
         }
     ],
     "navigationGraphs": {
@@ -21649,66 +21695,6 @@
                     },
                     {
                         "id": "nav_edge_159",
-                        "type": "jump",
-                        "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
-                        "to": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "launchX": -222.848,
-                        "launchY": 403,
-                        "landingX": 25.115,
-                        "landingY": 500,
-                        "vx": 180,
-                        "vy": -790.569,
-                        "flightTime": 1.377573,
-                        "fromObstacleId": "forest_crate_small_blockable_001_area_20",
-                        "toObstacleId": "forest_grass_ground_block_001_area_17",
-                        "cost": 688.967,
-                        "runUpX": -243.265,
-                        "runUpY": 403,
-                        "runUpDistance": 20.417,
-                        "runUpSupportIds": [
-                            "forest_crate_small_blockable_001_blockable_1_nav_1"
-                        ],
-                        "requiredLaunchSpeed": 180,
-                        "groundAcceleration": 950,
-                        "blockerIds": [],
-                        "verification": "failed",
-                        "verificationFailure": "run_up_blocked",
-                        "verificationDiagnostics": {
-                            "collisionId": null,
-                            "landingCollisionId": null,
-                            "resolvedSupportId": null,
-                            "landedSupportId": null,
-                            "landingTargetCompatibility": null,
-                            "landingContactX": null,
-                            "landingContactY": null,
-                            "runUpTicks": 1,
-                            "stepTicks": 0,
-                            "airTicks": 0,
-                            "finalX": -243.265,
-                            "finalY": 403
-                        },
-                        "geometryDependencyIds": [
-                            "visual:forest_crate_small_blockable_001",
-                            "visual:forest_grass_ground_block_001",
-                            "visual:forest_grass_ground_block_008",
-                            "visual:vertical_blocker_001"
-                        ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": -243.265,
-                                "startY": 403,
-                                "attemptedX": -243.001
-                            }
-                        },
-                        "verificationInputHash": "navproof-v3-35a6f550048bfa7b"
-                    },
-                    {
-                        "id": "nav_edge_160",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -21745,7 +21731,7 @@
                         "verificationInputHash": "navproof-v3-c047774b2c7c55d1"
                     },
                     {
-                        "id": "nav_edge_161",
+                        "id": "nav_edge_160",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -21782,7 +21768,7 @@
                         "verificationInputHash": "navproof-v3-7114c545809215c0"
                     },
                     {
-                        "id": "nav_edge_162",
+                        "id": "nav_edge_161",
                         "type": "jump",
                         "direction": "up",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -21830,81 +21816,7 @@
                         "verificationInputHash": "navproof-v3-a7f129b6f0c41d78"
                     },
                     {
-                        "id": "nav_edge_163",
-                        "type": "drop",
-                        "direction": "right",
-                        "from": "forest_hay_bale_rect_blockable_001_walkable_1",
-                        "to": "forest_grass_ground_block_011_blockable_1_nav_2",
-                        "launchX": 6790,
-                        "launchY": 374,
-                        "landingX": 6827,
-                        "landingY": 500,
-                        "vx": 82.406,
-                        "vy": 0,
-                        "flightTime": 0.448999,
-                        "fromObstacleId": null,
-                        "toObstacleId": "forest_grass_ground_block_011_area_10",
-                        "walkOff": true,
-                        "cost": 139.791,
-                        "runUpX": 6784.668,
-                        "runUpY": 374,
-                        "runUpDistance": 5.332,
-                        "runUpSupportIds": [
-                            "forest_hay_bale_rect_blockable_001_walkable_1"
-                        ],
-                        "requiredLaunchSpeed": 82.406,
-                        "groundAcceleration": 950,
-                        "blockerIds": [],
-                        "verification": "verified",
-                        "geometryDependencyIds": [
-                            "visual:forest_grass_ground_block_010",
-                            "visual:forest_grass_ground_block_011",
-                            "visual:forest_grass_ground_block_013",
-                            "visual:forest_hay_bale_rect_blockable_001"
-                        ],
-                        "heuristicRejectors": [],
-                        "heuristicDiagnostics": {},
-                        "verificationInputHash": "navproof-v3-2adf4404a7e25669"
-                    },
-                    {
-                        "id": "nav_edge_164",
-                        "type": "drop",
-                        "direction": "left",
-                        "from": "forest_hay_bale_rect_blockable_001_walkable_1",
-                        "to": "forest_grass_ground_block_011_blockable_1_nav_2",
-                        "launchX": 6541,
-                        "launchY": 374,
-                        "landingX": 6439.975,
-                        "landingY": 500,
-                        "vx": -225,
-                        "vy": 0,
-                        "flightTime": 0.448999,
-                        "fromObstacleId": null,
-                        "toObstacleId": "forest_grass_ground_block_011_area_10",
-                        "walkOff": true,
-                        "cost": 200.521,
-                        "runUpX": 6572.458,
-                        "runUpY": 374,
-                        "runUpDistance": 31.458,
-                        "runUpSupportIds": [
-                            "forest_hay_bale_rect_blockable_001_walkable_1"
-                        ],
-                        "requiredLaunchSpeed": 225,
-                        "groundAcceleration": 950,
-                        "blockerIds": [],
-                        "verification": "verified",
-                        "geometryDependencyIds": [
-                            "visual:forest_grass_ground_block_010",
-                            "visual:forest_grass_ground_block_011",
-                            "visual:forest_grass_ground_block_013",
-                            "visual:forest_hay_bale_rect_blockable_001"
-                        ],
-                        "heuristicRejectors": [],
-                        "heuristicDiagnostics": {},
-                        "verificationInputHash": "navproof-v3-59255f6dc8914829"
-                    },
-                    {
-                        "id": "nav_edge_165",
+                        "id": "nav_edge_162",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -21941,7 +21853,7 @@
                         "verificationInputHash": "navproof-v3-727e7f48d9ab687c"
                     },
                     {
-                        "id": "nav_edge_166",
+                        "id": "nav_edge_163",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -21978,7 +21890,7 @@
                         "verificationInputHash": "navproof-v3-c1fcc24c2261d6bb"
                     },
                     {
-                        "id": "nav_edge_167",
+                        "id": "nav_edge_164",
                         "type": "jump",
                         "direction": "up",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -22026,177 +21938,7 @@
                         "verificationInputHash": "navproof-v3-01ef084ea6617ce5"
                     },
                     {
-                        "id": "nav_edge_168",
-                        "type": "jump",
-                        "direction": "up",
-                        "from": "forest_hay_bale_rect_blockable_002_walkable_1",
-                        "to": "forest_grass_ground_block_011_blockable_1_nav_2",
-                        "launchX": 6958.8,
-                        "launchY": 374,
-                        "landingX": 6958.8,
-                        "landingY": 500,
-                        "vx": 0,
-                        "vy": -790.569,
-                        "flightTime": 1.408084,
-                        "fromObstacleId": null,
-                        "toObstacleId": "forest_grass_ground_block_011_area_10",
-                        "cost": 626,
-                        "blockerIds": [],
-                        "verification": "verified",
-                        "geometryDependencyIds": [
-                            "visual:forest_grass_ground_block_010",
-                            "visual:forest_grass_ground_block_011",
-                            "visual:forest_grass_ground_block_013",
-                            "visual:forest_hay_bale_rect_blockable_002"
-                        ],
-                        "heuristicRejectors": [
-                            "source_support_recapture",
-                            "source_support_return"
-                        ],
-                        "heuristicDiagnostics": {
-                            "source_support_recapture": {
-                                "supportId": "forest_hay_bale_rect_blockable_002_walkable_1",
-                                "tick": 75,
-                                "sample": "center",
-                                "contactX": 6958.8,
-                                "surfaceY": 374,
-                                "centerX": 6958.8
-                            },
-                            "source_support_return": {
-                                "supportId": "forest_hay_bale_rect_blockable_002_walkable_1",
-                                "tick": 75,
-                                "sample": "center",
-                                "contactX": 6958.8,
-                                "surfaceY": 374,
-                                "centerX": 6958.8
-                            }
-                        },
-                        "verificationInputHash": "navproof-v3-685b9576886909e9"
-                    },
-                    {
-                        "id": "nav_edge_169",
-                        "type": "drop",
-                        "direction": "right",
-                        "from": "forest_hay_bale_rect_blockable_002_walkable_1",
-                        "to": "forest_grass_ground_block_011_blockable_1_nav_2",
-                        "launchX": 7158,
-                        "launchY": 374,
-                        "landingX": 7195,
-                        "landingY": 500,
-                        "vx": 82.406,
-                        "vy": 0,
-                        "flightTime": 0.448999,
-                        "fromObstacleId": null,
-                        "toObstacleId": "forest_grass_ground_block_011_area_10",
-                        "walkOff": true,
-                        "cost": 139.791,
-                        "runUpX": 7152.668,
-                        "runUpY": 374,
-                        "runUpDistance": 5.332,
-                        "runUpSupportIds": [
-                            "forest_hay_bale_rect_blockable_002_walkable_1"
-                        ],
-                        "requiredLaunchSpeed": 82.406,
-                        "groundAcceleration": 950,
-                        "blockerIds": [],
-                        "verification": "verified",
-                        "geometryDependencyIds": [
-                            "visual:forest_grass_ground_block_010",
-                            "visual:forest_grass_ground_block_011",
-                            "visual:forest_grass_ground_block_013",
-                            "visual:forest_hay_bale_rect_blockable_002"
-                        ],
-                        "heuristicRejectors": [],
-                        "heuristicDiagnostics": {},
-                        "verificationInputHash": "navproof-v3-d8efafbb6f7bfadb"
-                    },
-                    {
-                        "id": "nav_edge_170",
-                        "type": "drop",
-                        "direction": "left",
-                        "from": "forest_hay_bale_rect_blockable_002_walkable_1",
-                        "to": "forest_grass_ground_block_011_blockable_1_nav_2",
-                        "launchX": 6909,
-                        "launchY": 374,
-                        "landingX": 6796.75,
-                        "landingY": 500,
-                        "vx": -250,
-                        "vy": 0,
-                        "flightTime": 0.448999,
-                        "fromObstacleId": null,
-                        "toObstacleId": "forest_grass_ground_block_011_area_10",
-                        "walkOff": true,
-                        "cost": 212.471,
-                        "runUpX": 6944.833,
-                        "runUpY": 374,
-                        "runUpDistance": 35.833,
-                        "runUpSupportIds": [
-                            "forest_hay_bale_rect_blockable_002_walkable_1"
-                        ],
-                        "requiredLaunchSpeed": 250,
-                        "groundAcceleration": 950,
-                        "blockerIds": [],
-                        "verification": "verified",
-                        "geometryDependencyIds": [
-                            "visual:forest_grass_ground_block_010",
-                            "visual:forest_grass_ground_block_011",
-                            "visual:forest_grass_ground_block_013",
-                            "visual:forest_hay_bale_rect_blockable_002"
-                        ],
-                        "heuristicRejectors": [],
-                        "heuristicDiagnostics": {},
-                        "verificationInputHash": "navproof-v3-faf89ad275bc3a57"
-                    },
-                    {
-                        "id": "nav_edge_171",
-                        "type": "jump",
-                        "direction": "up",
-                        "from": "forest_hay_bale_rect_blockable_002_walkable_1",
-                        "to": "forest_grass_ground_block_011_blockable_1_nav_2",
-                        "launchX": 7033.5,
-                        "launchY": 374,
-                        "landingX": 7033.5,
-                        "landingY": 500,
-                        "vx": 0,
-                        "vy": -790.569,
-                        "flightTime": 1.408084,
-                        "fromObstacleId": null,
-                        "toObstacleId": "forest_grass_ground_block_011_area_10",
-                        "cost": 626,
-                        "blockerIds": [],
-                        "verification": "verified",
-                        "geometryDependencyIds": [
-                            "visual:forest_grass_ground_block_010",
-                            "visual:forest_grass_ground_block_011",
-                            "visual:forest_grass_ground_block_013",
-                            "visual:forest_hay_bale_rect_blockable_002"
-                        ],
-                        "heuristicRejectors": [
-                            "source_support_recapture",
-                            "source_support_return"
-                        ],
-                        "heuristicDiagnostics": {
-                            "source_support_recapture": {
-                                "supportId": "forest_hay_bale_rect_blockable_002_walkable_1",
-                                "tick": 75,
-                                "sample": "center",
-                                "contactX": 7033.5,
-                                "surfaceY": 374,
-                                "centerX": 7033.5
-                            },
-                            "source_support_return": {
-                                "supportId": "forest_hay_bale_rect_blockable_002_walkable_1",
-                                "tick": 75,
-                                "sample": "center",
-                                "contactX": 7033.5,
-                                "surfaceY": 374,
-                                "centerX": 7033.5
-                            }
-                        },
-                        "verificationInputHash": "navproof-v3-bd152a17b50905be"
-                    },
-                    {
-                        "id": "nav_edge_172",
+                        "id": "nav_edge_165",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -22233,7 +21975,7 @@
                         "verificationInputHash": "navproof-v3-62f8527a905f476f"
                     },
                     {
-                        "id": "nav_edge_173",
+                        "id": "nav_edge_166",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -22270,7 +22012,7 @@
                         "verificationInputHash": "navproof-v3-0d76aa4b8c2fd063"
                     },
                     {
-                        "id": "nav_edge_174",
+                        "id": "nav_edge_167",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -22307,7 +22049,7 @@
                         "verificationInputHash": "navproof-v3-ea4844fd8f28f272"
                     },
                     {
-                        "id": "nav_edge_175",
+                        "id": "nav_edge_168",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -22344,7 +22086,7 @@
                         "verificationInputHash": "navproof-v3-4ce0c215504cc7ca"
                     },
                     {
-                        "id": "nav_edge_176",
+                        "id": "nav_edge_169",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_1_nav_1",
@@ -22387,7 +22129,7 @@
                         "verificationInputHash": "navproof-v3-2a7719a13aef5d12"
                     },
                     {
-                        "id": "nav_edge_177",
+                        "id": "nav_edge_170",
                         "type": "step",
                         "direction": "left",
                         "from": "forest_arched_bridge_walkable_001_walkable_1_nav_1",
@@ -22431,7 +22173,7 @@
                         "verificationInputHash": "navproof-v3-37cc0b90f0549918"
                     },
                     {
-                        "id": "nav_edge_178",
+                        "id": "nav_edge_171",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_2",
@@ -22473,7 +22215,7 @@
                         "verificationInputHash": "navproof-v3-2fd3e60cfdfa4f84"
                     },
                     {
-                        "id": "nav_edge_179",
+                        "id": "nav_edge_172",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_2",
@@ -22515,7 +22257,7 @@
                         "verificationInputHash": "navproof-v3-7c61dd0651f82fa3"
                     },
                     {
-                        "id": "nav_edge_180",
+                        "id": "nav_edge_173",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_3",
@@ -22557,7 +22299,7 @@
                         "verificationInputHash": "navproof-v3-165bd9dccd09c626"
                     },
                     {
-                        "id": "nav_edge_181",
+                        "id": "nav_edge_174",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_3",
@@ -22599,7 +22341,7 @@
                         "verificationInputHash": "navproof-v3-92d70720f376b62d"
                     },
                     {
-                        "id": "nav_edge_182",
+                        "id": "nav_edge_175",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_4",
@@ -22641,7 +22383,7 @@
                         "verificationInputHash": "navproof-v3-628069a089dbca85"
                     },
                     {
-                        "id": "nav_edge_183",
+                        "id": "nav_edge_176",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_4",
@@ -22684,7 +22426,7 @@
                         "verificationInputHash": "navproof-v3-45dd814d01829d7e"
                     },
                     {
-                        "id": "nav_edge_184",
+                        "id": "nav_edge_177",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_5",
@@ -22726,7 +22468,7 @@
                         "verificationInputHash": "navproof-v3-f7a0b0afccf58556"
                     },
                     {
-                        "id": "nav_edge_185",
+                        "id": "nav_edge_178",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_5",
@@ -22768,7 +22510,7 @@
                         "verificationInputHash": "navproof-v3-a0a905ddb704a050"
                     },
                     {
-                        "id": "nav_edge_186",
+                        "id": "nav_edge_179",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_6",
@@ -22811,7 +22553,7 @@
                         "verificationInputHash": "navproof-v3-7404ad7b2e554c0a"
                     },
                     {
-                        "id": "nav_edge_187",
+                        "id": "nav_edge_180",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_6",
@@ -22853,7 +22595,7 @@
                         "verificationInputHash": "navproof-v3-29a9a7e3cb0a0b9c"
                     },
                     {
-                        "id": "nav_edge_188",
+                        "id": "nav_edge_181",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_7_nav_1",
@@ -22896,7 +22638,7 @@
                         "verificationInputHash": "navproof-v3-94e0ae184bd38ab1"
                     },
                     {
-                        "id": "nav_edge_189",
+                        "id": "nav_edge_182",
                         "type": "step",
                         "direction": "right",
                         "from": "forest_arched_bridge_walkable_001_walkable_7_nav_1",
@@ -22946,7 +22688,7 @@
                     "stepTransitionMethod": "stride_arc",
                     "samplesPerSecond": 60,
                     "generatedBy": "Ignatius Rocketfrock Level Editor",
-                    "nrOfAltJumps": 6,
+                    "nrOfAltJumps": 2,
                     "advisoryHeuristicSchema": 13,
                     "advisoryHeuristics": [
                         "intervening_walkable_support",
@@ -31643,66 +31385,6 @@
                     },
                     {
                         "id": "nav_edge_159",
-                        "type": "jump",
-                        "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
-                        "to": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "launchX": -223.297,
-                        "launchY": 403,
-                        "landingX": 24.666,
-                        "landingY": 500,
-                        "vx": 180,
-                        "vy": -790.569,
-                        "flightTime": 1.377573,
-                        "fromObstacleId": "forest_crate_small_blockable_001_area_20",
-                        "toObstacleId": "forest_grass_ground_block_001_area_17",
-                        "cost": 688.967,
-                        "runUpX": -243.713,
-                        "runUpY": 403,
-                        "runUpDistance": 20.417,
-                        "runUpSupportIds": [
-                            "forest_crate_small_blockable_001_blockable_1_nav_1"
-                        ],
-                        "requiredLaunchSpeed": 180,
-                        "groundAcceleration": 950,
-                        "blockerIds": [],
-                        "verification": "failed",
-                        "verificationFailure": "run_up_blocked",
-                        "verificationDiagnostics": {
-                            "collisionId": null,
-                            "landingCollisionId": null,
-                            "resolvedSupportId": null,
-                            "landedSupportId": null,
-                            "landingTargetCompatibility": null,
-                            "landingContactX": null,
-                            "landingContactY": null,
-                            "runUpTicks": 1,
-                            "stepTicks": 0,
-                            "airTicks": 0,
-                            "finalX": -243.713,
-                            "finalY": 403
-                        },
-                        "geometryDependencyIds": [
-                            "visual:forest_crate_small_blockable_001",
-                            "visual:forest_grass_ground_block_001",
-                            "visual:forest_grass_ground_block_008",
-                            "visual:vertical_blocker_001"
-                        ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": -243.713,
-                                "startY": 403,
-                                "attemptedX": -243.449
-                            }
-                        },
-                        "verificationInputHash": "navproof-v3-12d18f71ec82c940"
-                    },
-                    {
-                        "id": "nav_edge_160",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -31739,7 +31421,7 @@
                         "verificationInputHash": "navproof-v3-0bc5fe3fc865b74d"
                     },
                     {
-                        "id": "nav_edge_161",
+                        "id": "nav_edge_160",
                         "type": "jump",
                         "direction": "right",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -31801,7 +31483,7 @@
                         "verificationInputHash": "navproof-v3-0bc6b636a032aebf"
                     },
                     {
-                        "id": "nav_edge_162",
+                        "id": "nav_edge_161",
                         "type": "jump",
                         "direction": "up",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -31849,44 +31531,109 @@
                         "verificationInputHash": "navproof-v3-13bbc5e807f75cd3"
                     },
                     {
-                        "id": "nav_edge_163",
-                        "type": "drop",
+                        "id": "nav_edge_162",
+                        "type": "jump",
                         "direction": "right",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
-                        "to": "forest_grass_ground_block_011_blockable_1_nav_2",
-                        "launchX": 6790,
+                        "to": "forest_hay_bale_rect_blockable_002_walkable_1",
+                        "launchX": 6782.91,
                         "launchY": 374,
-                        "landingX": 6835.5,
-                        "landingY": 500,
-                        "vx": 101.337,
-                        "vy": 0,
-                        "flightTime": 0.448999,
+                        "landingX": 6916.09,
+                        "landingY": 374,
+                        "vx": 105.288,
+                        "vy": -790.569,
+                        "flightTime": 1.264911,
                         "fromObstacleId": null,
-                        "toObstacleId": "forest_grass_ground_block_011_area_10",
-                        "walkOff": true,
-                        "cost": 145.179,
-                        "runUpX": 6782.769,
+                        "toObstacleId": null,
+                        "cost": 535.777,
+                        "runUpX": 6775.614,
                         "runUpY": 374,
-                        "runUpDistance": 7.231,
+                        "runUpDistance": 7.296,
                         "runUpSupportIds": [
                             "forest_hay_bale_rect_blockable_001_walkable_1"
                         ],
-                        "requiredLaunchSpeed": 101.337,
+                        "requiredLaunchSpeed": 105.288,
                         "groundAcceleration": 950,
                         "blockerIds": [],
-                        "verification": "verified",
+                        "verification": "unverified",
                         "geometryDependencyIds": [
-                            "visual:forest_grass_ground_block_010",
-                            "visual:forest_grass_ground_block_011",
-                            "visual:forest_grass_ground_block_013",
-                            "visual:forest_hay_bale_rect_blockable_001"
+                            "visual:forest_hay_bale_rect_blockable_001",
+                            "visual:forest_hay_bale_rect_blockable_002"
                         ],
                         "heuristicRejectors": [],
                         "heuristicDiagnostics": {},
-                        "verificationInputHash": "navproof-v3-fd33443d6c6551c4"
+                        "verificationInputHash": "navproof-v3-5bb5de31ed33f836"
+                    },
+                    {
+                        "id": "nav_edge_163",
+                        "type": "jump",
+                        "direction": "right",
+                        "from": "forest_hay_bale_rect_blockable_001_walkable_1",
+                        "to": "forest_hay_bale_rect_blockable_002_walkable_1",
+                        "launchX": 6782.91,
+                        "launchY": 374,
+                        "landingX": 7033.5,
+                        "landingY": 374,
+                        "vx": 198.109,
+                        "vy": -790.569,
+                        "flightTime": 1.264911,
+                        "fromObstacleId": null,
+                        "toObstacleId": null,
+                        "cost": 605.042,
+                        "runUpX": 6759.025,
+                        "runUpY": 374,
+                        "runUpDistance": 23.885,
+                        "runUpSupportIds": [
+                            "forest_hay_bale_rect_blockable_001_walkable_1"
+                        ],
+                        "requiredLaunchSpeed": 198.109,
+                        "groundAcceleration": 950,
+                        "blockerIds": [],
+                        "verification": "unverified",
+                        "geometryDependencyIds": [
+                            "visual:forest_hay_bale_rect_blockable_001",
+                            "visual:forest_hay_bale_rect_blockable_002"
+                        ],
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
+                        "verificationInputHash": "navproof-v3-953b475068d2d988"
                     },
                     {
                         "id": "nav_edge_164",
+                        "type": "jump",
+                        "direction": "right",
+                        "from": "forest_hay_bale_rect_blockable_001_walkable_1",
+                        "to": "forest_hay_bale_rect_blockable_002_walkable_1",
+                        "launchX": 6665.5,
+                        "launchY": 374,
+                        "landingX": 6916.09,
+                        "landingY": 374,
+                        "vx": 198.109,
+                        "vy": -790.569,
+                        "flightTime": 1.264911,
+                        "fromObstacleId": null,
+                        "toObstacleId": null,
+                        "cost": 605.042,
+                        "runUpX": 6641.615,
+                        "runUpY": 374,
+                        "runUpDistance": 23.885,
+                        "runUpSupportIds": [
+                            "forest_hay_bale_rect_blockable_001_walkable_1"
+                        ],
+                        "requiredLaunchSpeed": 198.109,
+                        "groundAcceleration": 950,
+                        "blockerIds": [],
+                        "verification": "unverified",
+                        "geometryDependencyIds": [
+                            "visual:forest_hay_bale_rect_blockable_001",
+                            "visual:forest_hay_bale_rect_blockable_002"
+                        ],
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
+                        "verificationInputHash": "navproof-v3-2d78411ec14146b6"
+                    },
+                    {
+                        "id": "nav_edge_165",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -31923,7 +31670,7 @@
                         "verificationInputHash": "navproof-v3-6ba3bba0fce6f04d"
                     },
                     {
-                        "id": "nav_edge_165",
+                        "id": "nav_edge_166",
                         "type": "jump",
                         "direction": "right",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -31959,7 +31706,7 @@
                         "verificationInputHash": "navproof-v3-4556aa25a9bba18c"
                     },
                     {
-                        "id": "nav_edge_166",
+                        "id": "nav_edge_167",
                         "type": "jump",
                         "direction": "up",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -32007,202 +31754,7 @@
                         "verificationInputHash": "navproof-v3-d0dd2c3ee60656ae"
                     },
                     {
-                        "id": "nav_edge_167",
-                        "type": "jump",
-                        "direction": "up",
-                        "from": "forest_hay_bale_rect_blockable_002_walkable_1",
-                        "to": "forest_grass_ground_block_011_blockable_1_nav_2",
-                        "launchX": 6958.8,
-                        "launchY": 374,
-                        "landingX": 6958.8,
-                        "landingY": 500,
-                        "vx": 0,
-                        "vy": -790.569,
-                        "flightTime": 1.408084,
-                        "fromObstacleId": null,
-                        "toObstacleId": "forest_grass_ground_block_011_area_10",
-                        "cost": 626,
-                        "blockerIds": [],
-                        "verification": "verified",
-                        "geometryDependencyIds": [
-                            "visual:forest_grass_ground_block_010",
-                            "visual:forest_grass_ground_block_011",
-                            "visual:forest_grass_ground_block_013",
-                            "visual:forest_hay_bale_rect_blockable_002"
-                        ],
-                        "heuristicRejectors": [
-                            "source_support_recapture",
-                            "source_support_return"
-                        ],
-                        "heuristicDiagnostics": {
-                            "source_support_recapture": {
-                                "supportId": "forest_hay_bale_rect_blockable_002_walkable_1",
-                                "tick": 75,
-                                "sample": "center",
-                                "contactX": 6958.8,
-                                "surfaceY": 374,
-                                "centerX": 6958.8
-                            },
-                            "source_support_return": {
-                                "supportId": "forest_hay_bale_rect_blockable_002_walkable_1",
-                                "tick": 75,
-                                "sample": "center",
-                                "contactX": 6958.8,
-                                "surfaceY": 374,
-                                "centerX": 6958.8
-                            }
-                        },
-                        "verificationInputHash": "navproof-v3-1254ad79afdaa389"
-                    },
-                    {
                         "id": "nav_edge_168",
-                        "type": "jump",
-                        "direction": "up",
-                        "from": "forest_hay_bale_rect_blockable_002_walkable_1",
-                        "to": "forest_grass_ground_block_011_blockable_1_nav_2",
-                        "launchX": 7108.2,
-                        "launchY": 374,
-                        "landingX": 7108.2,
-                        "landingY": 500,
-                        "vx": 0,
-                        "vy": -790.569,
-                        "flightTime": 1.408084,
-                        "fromObstacleId": null,
-                        "toObstacleId": "forest_grass_ground_block_011_area_10",
-                        "cost": 626,
-                        "blockerIds": [],
-                        "verification": "verified",
-                        "geometryDependencyIds": [
-                            "visual:forest_grass_ground_block_010",
-                            "visual:forest_grass_ground_block_011",
-                            "visual:forest_grass_ground_block_013",
-                            "visual:forest_hay_bale_rect_blockable_002"
-                        ],
-                        "heuristicRejectors": [
-                            "source_support_recapture",
-                            "source_support_return"
-                        ],
-                        "heuristicDiagnostics": {
-                            "source_support_recapture": {
-                                "supportId": "forest_hay_bale_rect_blockable_002_walkable_1",
-                                "tick": 75,
-                                "sample": "center",
-                                "contactX": 7108.2,
-                                "surfaceY": 374,
-                                "centerX": 7108.2
-                            },
-                            "source_support_return": {
-                                "supportId": "forest_hay_bale_rect_blockable_002_walkable_1",
-                                "tick": 75,
-                                "sample": "center",
-                                "contactX": 7108.2,
-                                "surfaceY": 374,
-                                "centerX": 7108.2
-                            }
-                        },
-                        "verificationInputHash": "navproof-v3-4f05d1fabc91238b"
-                    },
-                    {
-                        "id": "nav_edge_169",
-                        "type": "drop",
-                        "direction": "right",
-                        "from": "forest_hay_bale_rect_blockable_002_walkable_1",
-                        "to": "forest_grass_ground_block_011_blockable_1_nav_2",
-                        "launchX": 7158,
-                        "launchY": 374,
-                        "landingX": 7203.5,
-                        "landingY": 500,
-                        "vx": 101.337,
-                        "vy": 0,
-                        "flightTime": 0.448999,
-                        "fromObstacleId": null,
-                        "toObstacleId": "forest_grass_ground_block_011_area_10",
-                        "walkOff": true,
-                        "cost": 145.179,
-                        "runUpX": 7150.769,
-                        "runUpY": 374,
-                        "runUpDistance": 7.231,
-                        "runUpSupportIds": [
-                            "forest_hay_bale_rect_blockable_002_walkable_1"
-                        ],
-                        "requiredLaunchSpeed": 101.337,
-                        "groundAcceleration": 950,
-                        "blockerIds": [],
-                        "verification": "verified",
-                        "geometryDependencyIds": [
-                            "visual:forest_grass_ground_block_010",
-                            "visual:forest_grass_ground_block_011",
-                            "visual:forest_grass_ground_block_013",
-                            "visual:forest_hay_bale_rect_blockable_002"
-                        ],
-                        "heuristicRejectors": [],
-                        "heuristicDiagnostics": {},
-                        "verificationInputHash": "navproof-v3-5b8567a5cf87df48"
-                    },
-                    {
-                        "id": "nav_edge_170",
-                        "type": "jump",
-                        "direction": "left",
-                        "from": "forest_hay_bale_rect_blockable_002_walkable_1",
-                        "to": "forest_grass_ground_block_011_blockable_1_nav_2",
-                        "launchX": 6909,
-                        "launchY": 374,
-                        "landingX": 6793.9,
-                        "landingY": 500,
-                        "vx": -81.742,
-                        "vy": -790.569,
-                        "flightTime": 1.408084,
-                        "fromObstacleId": null,
-                        "toObstacleId": "forest_grass_ground_block_011_area_10",
-                        "cost": 650.38,
-                        "runUpX": 6914.321,
-                        "runUpY": 374,
-                        "runUpDistance": 5.321,
-                        "runUpSupportIds": [
-                            "forest_hay_bale_rect_blockable_002_walkable_1"
-                        ],
-                        "requiredLaunchSpeed": 81.742,
-                        "groundAcceleration": 950,
-                        "blockerIds": [],
-                        "verification": "failed",
-                        "verificationFailure": "landed_wrong_support",
-                        "verificationDiagnostics": {
-                            "collisionId": "forest_hay_bale_rect_blockable_001_walkable_1",
-                            "landingCollisionId": "forest_hay_bale_rect_blockable_001_walkable_1",
-                            "resolvedSupportId": "forest_hay_bale_rect_blockable_001_walkable_1",
-                            "landedSupportId": "forest_hay_bale_rect_blockable_001_walkable_1",
-                            "landingTargetCompatibility": null,
-                            "landingContactX": 6770.283,
-                            "landingContactY": 374,
-                            "runUpTicks": 6,
-                            "stepTicks": 0,
-                            "airTicks": 75,
-                            "finalX": 6781.3,
-                            "finalY": 374
-                        },
-                        "geometryDependencyIds": [
-                            "visual:forest_grass_ground_block_010",
-                            "visual:forest_grass_ground_block_011",
-                            "visual:forest_grass_ground_block_013",
-                            "visual:forest_hay_bale_rect_blockable_002"
-                        ],
-                        "heuristicRejectors": [
-                            "intervening_walkable_support_body_span"
-                        ],
-                        "heuristicDiagnostics": {
-                            "intervening_walkable_support_body_span": {
-                                "supportId": "forest_hay_bale_rect_blockable_001_walkable_1",
-                                "tick": 75,
-                                "sample": "left",
-                                "contactX": 6770.283,
-                                "surfaceY": 374,
-                                "centerX": 6806.823
-                            }
-                        },
-                        "verificationInputHash": "navproof-v3-a1db00bfa50928ff"
-                    },
-                    {
-                        "id": "nav_edge_171",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -32239,7 +31791,7 @@
                         "verificationInputHash": "navproof-v3-ff329e662a3c85de"
                     },
                     {
-                        "id": "nav_edge_172",
+                        "id": "nav_edge_169",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -32276,7 +31828,7 @@
                         "verificationInputHash": "navproof-v3-0560c4403ef7417b"
                     },
                     {
-                        "id": "nav_edge_173",
+                        "id": "nav_edge_170",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -32313,7 +31865,7 @@
                         "verificationInputHash": "navproof-v3-df5030eed6066980"
                     },
                     {
-                        "id": "nav_edge_174",
+                        "id": "nav_edge_171",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -32350,7 +31902,7 @@
                         "verificationInputHash": "navproof-v3-3d1c3e4bb914235c"
                     },
                     {
-                        "id": "nav_edge_175",
+                        "id": "nav_edge_172",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_1_nav_1",
@@ -32393,7 +31945,7 @@
                         "verificationInputHash": "navproof-v3-6b1ffc517d453681"
                     },
                     {
-                        "id": "nav_edge_176",
+                        "id": "nav_edge_173",
                         "type": "step",
                         "direction": "left",
                         "from": "forest_arched_bridge_walkable_001_walkable_1_nav_1",
@@ -32452,7 +32004,7 @@
                         "verificationInputHash": "navproof-v3-1a270af6f969e7c3"
                     },
                     {
-                        "id": "nav_edge_177",
+                        "id": "nav_edge_174",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_2",
@@ -32494,7 +32046,7 @@
                         "verificationInputHash": "navproof-v3-8f139ef2fb8dc8e7"
                     },
                     {
-                        "id": "nav_edge_178",
+                        "id": "nav_edge_175",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_2",
@@ -32536,7 +32088,7 @@
                         "verificationInputHash": "navproof-v3-c5cbc8ae6bcdb86f"
                     },
                     {
-                        "id": "nav_edge_179",
+                        "id": "nav_edge_176",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_3",
@@ -32578,7 +32130,7 @@
                         "verificationInputHash": "navproof-v3-65eb6e36ac491b69"
                     },
                     {
-                        "id": "nav_edge_180",
+                        "id": "nav_edge_177",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_3",
@@ -32620,7 +32172,7 @@
                         "verificationInputHash": "navproof-v3-c3ec5aeafc7ca5b2"
                     },
                     {
-                        "id": "nav_edge_181",
+                        "id": "nav_edge_178",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_4",
@@ -32662,7 +32214,7 @@
                         "verificationInputHash": "navproof-v3-ea5ae22cb3117a28"
                     },
                     {
-                        "id": "nav_edge_182",
+                        "id": "nav_edge_179",
                         "type": "step",
                         "direction": "right",
                         "from": "forest_arched_bridge_walkable_001_walkable_4",
@@ -32706,7 +32258,7 @@
                         "verificationInputHash": "navproof-v3-58f18a3d1f481982"
                     },
                     {
-                        "id": "nav_edge_183",
+                        "id": "nav_edge_180",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_5",
@@ -32748,7 +32300,7 @@
                         "verificationInputHash": "navproof-v3-e454bbc2df51dc29"
                     },
                     {
-                        "id": "nav_edge_184",
+                        "id": "nav_edge_181",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_5",
@@ -32790,7 +32342,7 @@
                         "verificationInputHash": "navproof-v3-d491bc4f84a9de35"
                     },
                     {
-                        "id": "nav_edge_185",
+                        "id": "nav_edge_182",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_6",
@@ -32833,7 +32385,7 @@
                         "verificationInputHash": "navproof-v3-17af19c889010b4d"
                     },
                     {
-                        "id": "nav_edge_186",
+                        "id": "nav_edge_183",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_6",
@@ -32881,7 +32433,7 @@
                     "stepTransitionMethod": "stride_arc",
                     "samplesPerSecond": 60,
                     "generatedBy": "Ignatius Rocketfrock Level Editor",
-                    "nrOfAltJumps": 6,
+                    "nrOfAltJumps": 2,
                     "advisoryHeuristicSchema": 13,
                     "advisoryHeuristics": [
                         "intervening_walkable_support",
@@ -32890,24 +32442,7 @@
                         "source_support_return",
                         "run_up_first_step_blocked"
                     ],
-                    "verificationInputSignature": "navverify-v13-92d96e6531d21eed",
-                    "simulationCheck": {
-                        "enabled": true,
-                        "fixedStep": 0.016666666666666666,
-                        "verifiedTypes": [
-                            "step",
-                            "jump",
-                            "drop"
-                        ],
-                        "checkedEdges": 186,
-                        "simulatedEdges": 186,
-                        "reusedEdges": 0,
-                        "rejectedEdges": 40,
-                        "failedEdges": 40,
-                        "unverifiedEdges": 0,
-                        "salvageProofChecks": 0,
-                        "salvagedEdges": 0
-                    }
+                    "verificationInputSignature": "navverify-v13-92d96e6531d21eed"
                 }
             },
             {
@@ -41603,66 +41138,6 @@
                     },
                     {
                         "id": "nav_edge_159",
-                        "type": "jump",
-                        "direction": "right",
-                        "from": "forest_crate_small_blockable_001_blockable_1_nav_1",
-                        "to": "forest_grass_ground_block_001_blockable_1_nav_1",
-                        "launchX": -222.663,
-                        "launchY": 403,
-                        "landingX": 25.3,
-                        "landingY": 500,
-                        "vx": 180,
-                        "vy": -790.569,
-                        "flightTime": 1.377573,
-                        "fromObstacleId": "forest_crate_small_blockable_001_area_20",
-                        "toObstacleId": "forest_grass_ground_block_001_area_17",
-                        "cost": 688.967,
-                        "runUpX": -243.08,
-                        "runUpY": 403,
-                        "runUpDistance": 20.417,
-                        "runUpSupportIds": [
-                            "forest_crate_small_blockable_001_blockable_1_nav_1"
-                        ],
-                        "requiredLaunchSpeed": 180,
-                        "groundAcceleration": 950,
-                        "blockerIds": [],
-                        "verification": "failed",
-                        "verificationFailure": "run_up_blocked",
-                        "verificationDiagnostics": {
-                            "collisionId": null,
-                            "landingCollisionId": null,
-                            "resolvedSupportId": null,
-                            "landedSupportId": null,
-                            "landingTargetCompatibility": null,
-                            "landingContactX": null,
-                            "landingContactY": null,
-                            "runUpTicks": 1,
-                            "stepTicks": 0,
-                            "airTicks": 0,
-                            "finalX": -243.08,
-                            "finalY": 403
-                        },
-                        "geometryDependencyIds": [
-                            "visual:forest_crate_small_blockable_001",
-                            "visual:forest_grass_ground_block_001",
-                            "visual:forest_grass_ground_block_008",
-                            "visual:vertical_blocker_001"
-                        ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": -243.08,
-                                "startY": 403,
-                                "attemptedX": -242.816
-                            }
-                        },
-                        "verificationInputHash": "navproof-v3-98ddec64f4a7b67c"
-                    },
-                    {
-                        "id": "nav_edge_160",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -41699,7 +41174,7 @@
                         "verificationInputHash": "navproof-v3-fd7ddedd1df330d3"
                     },
                     {
-                        "id": "nav_edge_161",
+                        "id": "nav_edge_160",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -41736,7 +41211,7 @@
                         "verificationInputHash": "navproof-v3-d4f9040d266decbd"
                     },
                     {
-                        "id": "nav_edge_162",
+                        "id": "nav_edge_161",
                         "type": "jump",
                         "direction": "up",
                         "from": "forest_hay_bale_rect_blockable_001_walkable_1",
@@ -41784,81 +41259,7 @@
                         "verificationInputHash": "navproof-v3-f8c00081e25ebeee"
                     },
                     {
-                        "id": "nav_edge_163",
-                        "type": "drop",
-                        "direction": "right",
-                        "from": "forest_hay_bale_rect_blockable_001_walkable_1",
-                        "to": "forest_grass_ground_block_011_blockable_1_nav_2",
-                        "launchX": 6790,
-                        "launchY": 374,
-                        "landingX": 6823.5,
-                        "landingY": 500,
-                        "vx": 74.61,
-                        "vy": 0,
-                        "flightTime": 0.448999,
-                        "fromObstacleId": null,
-                        "toObstacleId": "forest_grass_ground_block_011_area_10",
-                        "walkOff": true,
-                        "cost": 137.037,
-                        "runUpX": 6786.118,
-                        "runUpY": 374,
-                        "runUpDistance": 3.882,
-                        "runUpSupportIds": [
-                            "forest_hay_bale_rect_blockable_001_walkable_1"
-                        ],
-                        "requiredLaunchSpeed": 74.61,
-                        "groundAcceleration": 950,
-                        "blockerIds": [],
-                        "verification": "verified",
-                        "geometryDependencyIds": [
-                            "visual:forest_grass_ground_block_010",
-                            "visual:forest_grass_ground_block_011",
-                            "visual:forest_grass_ground_block_013",
-                            "visual:forest_hay_bale_rect_blockable_001"
-                        ],
-                        "heuristicRejectors": [],
-                        "heuristicDiagnostics": {},
-                        "verificationInputHash": "navproof-v3-71561c3d10d833e8"
-                    },
-                    {
-                        "id": "nav_edge_164",
-                        "type": "drop",
-                        "direction": "left",
-                        "from": "forest_hay_bale_rect_blockable_001_walkable_1",
-                        "to": "forest_grass_ground_block_011_blockable_1_nav_2",
-                        "launchX": 6541,
-                        "launchY": 374,
-                        "landingX": 6439.975,
-                        "landingY": 500,
-                        "vx": -225,
-                        "vy": 0,
-                        "flightTime": 0.448999,
-                        "fromObstacleId": null,
-                        "toObstacleId": "forest_grass_ground_block_011_area_10",
-                        "walkOff": true,
-                        "cost": 200.521,
-                        "runUpX": 6572.458,
-                        "runUpY": 374,
-                        "runUpDistance": 31.458,
-                        "runUpSupportIds": [
-                            "forest_hay_bale_rect_blockable_001_walkable_1"
-                        ],
-                        "requiredLaunchSpeed": 225,
-                        "groundAcceleration": 950,
-                        "blockerIds": [],
-                        "verification": "verified",
-                        "geometryDependencyIds": [
-                            "visual:forest_grass_ground_block_010",
-                            "visual:forest_grass_ground_block_011",
-                            "visual:forest_grass_ground_block_013",
-                            "visual:forest_hay_bale_rect_blockable_001"
-                        ],
-                        "heuristicRejectors": [],
-                        "heuristicDiagnostics": {},
-                        "verificationInputHash": "navproof-v3-91f220da1c6255fd"
-                    },
-                    {
-                        "id": "nav_edge_165",
+                        "id": "nav_edge_162",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -41895,7 +41296,7 @@
                         "verificationInputHash": "navproof-v3-8f3fa8f67470ab01"
                     },
                     {
-                        "id": "nav_edge_166",
+                        "id": "nav_edge_163",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -41932,7 +41333,7 @@
                         "verificationInputHash": "navproof-v3-ffce2d4cb0daacf5"
                     },
                     {
-                        "id": "nav_edge_167",
+                        "id": "nav_edge_164",
                         "type": "jump",
                         "direction": "up",
                         "from": "forest_hay_bale_rect_blockable_002_walkable_1",
@@ -41980,177 +41381,7 @@
                         "verificationInputHash": "navproof-v3-a8de51279f990298"
                     },
                     {
-                        "id": "nav_edge_168",
-                        "type": "jump",
-                        "direction": "up",
-                        "from": "forest_hay_bale_rect_blockable_002_walkable_1",
-                        "to": "forest_grass_ground_block_011_blockable_1_nav_2",
-                        "launchX": 6958.8,
-                        "launchY": 374,
-                        "landingX": 6958.8,
-                        "landingY": 500,
-                        "vx": 0,
-                        "vy": -790.569,
-                        "flightTime": 1.408084,
-                        "fromObstacleId": null,
-                        "toObstacleId": "forest_grass_ground_block_011_area_10",
-                        "cost": 626,
-                        "blockerIds": [],
-                        "verification": "verified",
-                        "geometryDependencyIds": [
-                            "visual:forest_grass_ground_block_010",
-                            "visual:forest_grass_ground_block_011",
-                            "visual:forest_grass_ground_block_013",
-                            "visual:forest_hay_bale_rect_blockable_002"
-                        ],
-                        "heuristicRejectors": [
-                            "source_support_recapture",
-                            "source_support_return"
-                        ],
-                        "heuristicDiagnostics": {
-                            "source_support_recapture": {
-                                "supportId": "forest_hay_bale_rect_blockable_002_walkable_1",
-                                "tick": 75,
-                                "sample": "center",
-                                "contactX": 6958.8,
-                                "surfaceY": 374,
-                                "centerX": 6958.8
-                            },
-                            "source_support_return": {
-                                "supportId": "forest_hay_bale_rect_blockable_002_walkable_1",
-                                "tick": 75,
-                                "sample": "center",
-                                "contactX": 6958.8,
-                                "surfaceY": 374,
-                                "centerX": 6958.8
-                            }
-                        },
-                        "verificationInputHash": "navproof-v3-c5d1d9c022eae2b9"
-                    },
-                    {
-                        "id": "nav_edge_169",
-                        "type": "drop",
-                        "direction": "right",
-                        "from": "forest_hay_bale_rect_blockable_002_walkable_1",
-                        "to": "forest_grass_ground_block_011_blockable_1_nav_2",
-                        "launchX": 7158,
-                        "launchY": 374,
-                        "landingX": 7191.5,
-                        "landingY": 500,
-                        "vx": 74.61,
-                        "vy": 0,
-                        "flightTime": 0.448999,
-                        "fromObstacleId": null,
-                        "toObstacleId": "forest_grass_ground_block_011_area_10",
-                        "walkOff": true,
-                        "cost": 137.037,
-                        "runUpX": 7154.118,
-                        "runUpY": 374,
-                        "runUpDistance": 3.882,
-                        "runUpSupportIds": [
-                            "forest_hay_bale_rect_blockable_002_walkable_1"
-                        ],
-                        "requiredLaunchSpeed": 74.61,
-                        "groundAcceleration": 950,
-                        "blockerIds": [],
-                        "verification": "verified",
-                        "geometryDependencyIds": [
-                            "visual:forest_grass_ground_block_010",
-                            "visual:forest_grass_ground_block_011",
-                            "visual:forest_grass_ground_block_013",
-                            "visual:forest_hay_bale_rect_blockable_002"
-                        ],
-                        "heuristicRejectors": [],
-                        "heuristicDiagnostics": {},
-                        "verificationInputHash": "navproof-v3-4033e6e835ccc937"
-                    },
-                    {
-                        "id": "nav_edge_170",
-                        "type": "drop",
-                        "direction": "left",
-                        "from": "forest_hay_bale_rect_blockable_002_walkable_1",
-                        "to": "forest_grass_ground_block_011_blockable_1_nav_2",
-                        "launchX": 6909,
-                        "launchY": 374,
-                        "landingX": 6796.75,
-                        "landingY": 500,
-                        "vx": -250,
-                        "vy": 0,
-                        "flightTime": 0.448999,
-                        "fromObstacleId": null,
-                        "toObstacleId": "forest_grass_ground_block_011_area_10",
-                        "walkOff": true,
-                        "cost": 212.471,
-                        "runUpX": 6944.833,
-                        "runUpY": 374,
-                        "runUpDistance": 35.833,
-                        "runUpSupportIds": [
-                            "forest_hay_bale_rect_blockable_002_walkable_1"
-                        ],
-                        "requiredLaunchSpeed": 250,
-                        "groundAcceleration": 950,
-                        "blockerIds": [],
-                        "verification": "verified",
-                        "geometryDependencyIds": [
-                            "visual:forest_grass_ground_block_010",
-                            "visual:forest_grass_ground_block_011",
-                            "visual:forest_grass_ground_block_013",
-                            "visual:forest_hay_bale_rect_blockable_002"
-                        ],
-                        "heuristicRejectors": [],
-                        "heuristicDiagnostics": {},
-                        "verificationInputHash": "navproof-v3-1202f6d44faf9174"
-                    },
-                    {
-                        "id": "nav_edge_171",
-                        "type": "jump",
-                        "direction": "up",
-                        "from": "forest_hay_bale_rect_blockable_002_walkable_1",
-                        "to": "forest_grass_ground_block_011_blockable_1_nav_2",
-                        "launchX": 7033.5,
-                        "launchY": 374,
-                        "landingX": 7033.5,
-                        "landingY": 500,
-                        "vx": 0,
-                        "vy": -790.569,
-                        "flightTime": 1.408084,
-                        "fromObstacleId": null,
-                        "toObstacleId": "forest_grass_ground_block_011_area_10",
-                        "cost": 626,
-                        "blockerIds": [],
-                        "verification": "verified",
-                        "geometryDependencyIds": [
-                            "visual:forest_grass_ground_block_010",
-                            "visual:forest_grass_ground_block_011",
-                            "visual:forest_grass_ground_block_013",
-                            "visual:forest_hay_bale_rect_blockable_002"
-                        ],
-                        "heuristicRejectors": [
-                            "source_support_recapture",
-                            "source_support_return"
-                        ],
-                        "heuristicDiagnostics": {
-                            "source_support_recapture": {
-                                "supportId": "forest_hay_bale_rect_blockable_002_walkable_1",
-                                "tick": 75,
-                                "sample": "center",
-                                "contactX": 7033.5,
-                                "surfaceY": 374,
-                                "centerX": 7033.5
-                            },
-                            "source_support_return": {
-                                "supportId": "forest_hay_bale_rect_blockable_002_walkable_1",
-                                "tick": 75,
-                                "sample": "center",
-                                "contactX": 7033.5,
-                                "surfaceY": 374,
-                                "centerX": 7033.5
-                            }
-                        },
-                        "verificationInputHash": "navproof-v3-0359a42cb1d8b0a6"
-                    },
-                    {
-                        "id": "nav_edge_172",
+                        "id": "nav_edge_165",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -42187,7 +41418,7 @@
                         "verificationInputHash": "navproof-v3-f626c8564c74760c"
                     },
                     {
-                        "id": "nav_edge_173",
+                        "id": "nav_edge_166",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -42224,7 +41455,7 @@
                         "verificationInputHash": "navproof-v3-ccfebe64947aa970"
                     },
                     {
-                        "id": "nav_edge_174",
+                        "id": "nav_edge_167",
                         "type": "drop",
                         "direction": "right",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -42261,7 +41492,7 @@
                         "verificationInputHash": "navproof-v3-a1ff84c56f3d4f8b"
                     },
                     {
-                        "id": "nav_edge_175",
+                        "id": "nav_edge_168",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -42298,7 +41529,7 @@
                         "verificationInputHash": "navproof-v3-f4683bd91cb60c5b"
                     },
                     {
-                        "id": "nav_edge_176",
+                        "id": "nav_edge_169",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -42335,7 +41566,7 @@
                         "verificationInputHash": "navproof-v3-78d382dffa8d26da"
                     },
                     {
-                        "id": "nav_edge_177",
+                        "id": "nav_edge_170",
                         "type": "drop",
                         "direction": "left",
                         "from": "forest_tree_branch_platform_001_walkable_1",
@@ -42372,7 +41603,7 @@
                         "verificationInputHash": "navproof-v3-bab5c9af04ce1f63"
                     },
                     {
-                        "id": "nav_edge_178",
+                        "id": "nav_edge_171",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_1_nav_1",
@@ -42415,7 +41646,7 @@
                         "verificationInputHash": "navproof-v3-4a9d5b87b389b14f"
                     },
                     {
-                        "id": "nav_edge_179",
+                        "id": "nav_edge_172",
                         "type": "step",
                         "direction": "left",
                         "from": "forest_arched_bridge_walkable_001_walkable_1_nav_1",
@@ -42459,7 +41690,7 @@
                         "verificationInputHash": "navproof-v3-363e461b26fb10e2"
                     },
                     {
-                        "id": "nav_edge_180",
+                        "id": "nav_edge_173",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_2",
@@ -42501,7 +41732,7 @@
                         "verificationInputHash": "navproof-v3-62f70d8993541771"
                     },
                     {
-                        "id": "nav_edge_181",
+                        "id": "nav_edge_174",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_2",
@@ -42543,7 +41774,7 @@
                         "verificationInputHash": "navproof-v3-0b1ff1d65d6b9a0c"
                     },
                     {
-                        "id": "nav_edge_182",
+                        "id": "nav_edge_175",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_3",
@@ -42585,7 +41816,7 @@
                         "verificationInputHash": "navproof-v3-d230b0a73b86a682"
                     },
                     {
-                        "id": "nav_edge_183",
+                        "id": "nav_edge_176",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_3",
@@ -42627,7 +41858,7 @@
                         "verificationInputHash": "navproof-v3-1d8ab8b60d59f51c"
                     },
                     {
-                        "id": "nav_edge_184",
+                        "id": "nav_edge_177",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_4",
@@ -42669,7 +41900,7 @@
                         "verificationInputHash": "navproof-v3-df3694ae73c78b6d"
                     },
                     {
-                        "id": "nav_edge_185",
+                        "id": "nav_edge_178",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_4",
@@ -42712,7 +41943,7 @@
                         "verificationInputHash": "navproof-v3-9cd468db98e39480"
                     },
                     {
-                        "id": "nav_edge_186",
+                        "id": "nav_edge_179",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_5",
@@ -42754,7 +41985,7 @@
                         "verificationInputHash": "navproof-v3-de73967749a5f993"
                     },
                     {
-                        "id": "nav_edge_187",
+                        "id": "nav_edge_180",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_5",
@@ -42796,7 +42027,7 @@
                         "verificationInputHash": "navproof-v3-bd19309fd086a6b7"
                     },
                     {
-                        "id": "nav_edge_188",
+                        "id": "nav_edge_181",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_6",
@@ -42839,7 +42070,7 @@
                         "verificationInputHash": "navproof-v3-82c98b461f902973"
                     },
                     {
-                        "id": "nav_edge_189",
+                        "id": "nav_edge_182",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_6",
@@ -42881,7 +42112,7 @@
                         "verificationInputHash": "navproof-v3-2c1872cd0d030ef5"
                     },
                     {
-                        "id": "nav_edge_190",
+                        "id": "nav_edge_183",
                         "type": "step",
                         "direction": "overlap",
                         "from": "forest_arched_bridge_walkable_001_walkable_7_nav_1",
@@ -42924,7 +42155,7 @@
                         "verificationInputHash": "navproof-v3-18f60f6f5355cdeb"
                     },
                     {
-                        "id": "nav_edge_191",
+                        "id": "nav_edge_184",
                         "type": "step",
                         "direction": "left",
                         "from": "forest_arched_bridge_walkable_001_walkable_7_nav_1",
@@ -42989,7 +42220,7 @@
                     "stepTransitionMethod": "stride_arc",
                     "samplesPerSecond": 60,
                     "generatedBy": "Ignatius Rocketfrock Level Editor",
-                    "nrOfAltJumps": 6,
+                    "nrOfAltJumps": 2,
                     "advisoryHeuristicSchema": 13,
                     "advisoryHeuristics": [
                         "intervening_walkable_support",

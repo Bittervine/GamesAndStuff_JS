@@ -1,0 +1,267 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Revision 600 mini-volcano rig. Preserves the tighter user-authored eruption cadence while launching lavaRock1 first and lavaRock7 last."
+    },
+    "rigId": "ct_rig_enemy_910",
+    "atlasId": "ct_atlas_enemy_910",
+    "atlasManifest": "ct_atlas_enemy_910.json",
+    "drawOrder": [
+        "body",
+        "lava",
+        "lavaRock1",
+        "lavaRock2",
+        "lavaRock3",
+        "lavaRock4",
+        "lavaRock5",
+        "lavaRock6",
+        "lavaRock7"
+    ],
+    "global": {
+        "scale": 1,
+        "lean": 0,
+        "rootX": 0,
+        "rootYOffsetFromGround": 0,
+        "groundOffset": 0,
+        "debugPivots": false
+    },
+    "anchors": {
+        "crater": {
+            "x": 0,
+            "y": -202
+        }
+    },
+    "pivots": {
+        "body": {
+            "x": 0.5,
+            "y": 1
+        },
+        "lava": {
+            "x": 0.5,
+            "y": 1
+        },
+        "lavaRock1": {
+            "x": 0.5,
+            "y": 0.5
+        },
+        "lavaRock2": {
+            "x": 0.5,
+            "y": 0.5
+        },
+        "lavaRock3": {
+            "x": 0.5,
+            "y": 0.5
+        },
+        "lavaRock4": {
+            "x": 0.5,
+            "y": 0.5
+        },
+        "lavaRock5": {
+            "x": 0.5,
+            "y": 0.5
+        },
+        "lavaRock6": {
+            "x": 0.5,
+            "y": 0.5
+        },
+        "lavaRock7": {
+            "x": 0.5,
+            "y": 0.5
+        }
+    },
+    "parts": {
+        "body": {
+            "frame": "volcanoRock",
+            "role": "body",
+            "tags": [
+                "volcano",
+                "body",
+                "stationary"
+            ],
+            "offset": {
+                "x": 0,
+                "y": 0
+            },
+            "scale": 1,
+            "targetHeight": 218,
+            "alpha": 1
+        },
+        "lava": {
+            "frame": "lavaStreams",
+            "role": "lava",
+            "tags": [
+                "volcano",
+                "lava",
+                "overlay"
+            ],
+            "offset": {
+                "x": 0,
+                "y": 0
+            },
+            "scale": 1,
+            "targetHeight": 223,
+            "alpha": 0.72
+        },
+        "lavaRock7": {
+            "frame": "lavaRock7",
+            "role": "lavaRock7",
+            "tags": [
+                "volcano",
+                "projectile",
+                "hiddenMarker"
+            ],
+            "offset": {
+                "x": 0,
+                "y": -202
+            },
+            "scale": 1,
+            "targetHeight": 36,
+            "alpha": 0,
+            "attackHandoff": {
+                "enabled": true,
+                "id": "lavaRock7",
+                "animationSlot": "attack",
+                "releaseTime": 0.92,
+                "detach": true
+            }
+        },
+        "lavaRock6": {
+            "frame": "lavaRock6",
+            "role": "lavaRock6",
+            "tags": [
+                "volcano",
+                "projectile",
+                "hiddenMarker"
+            ],
+            "offset": {
+                "x": 0,
+                "y": -202
+            },
+            "scale": 1,
+            "targetHeight": 36,
+            "alpha": 0,
+            "attackHandoff": {
+                "enabled": true,
+                "id": "lavaRock6",
+                "animationSlot": "attack",
+                "releaseTime": 0.9,
+                "detach": true
+            }
+        },
+        "lavaRock5": {
+            "frame": "lavaRock5",
+            "role": "lavaRock5",
+            "tags": [
+                "volcano",
+                "projectile",
+                "hiddenMarker"
+            ],
+            "offset": {
+                "x": 0,
+                "y": -202
+            },
+            "scale": 1,
+            "targetHeight": 36,
+            "alpha": 0,
+            "attackHandoff": {
+                "enabled": true,
+                "id": "lavaRock5",
+                "animationSlot": "attack",
+                "releaseTime": 0.88,
+                "detach": true
+            }
+        },
+        "lavaRock4": {
+            "frame": "lavaRock4",
+            "role": "lavaRock4",
+            "tags": [
+                "volcano",
+                "projectile",
+                "hiddenMarker"
+            ],
+            "offset": {
+                "x": 0,
+                "y": -202
+            },
+            "scale": 1,
+            "targetHeight": 36,
+            "alpha": 0,
+            "attackHandoff": {
+                "enabled": true,
+                "id": "lavaRock4",
+                "animationSlot": "attack",
+                "releaseTime": 0.86,
+                "detach": true
+            }
+        },
+        "lavaRock3": {
+            "frame": "lavaRock3",
+            "role": "lavaRock3",
+            "tags": [
+                "volcano",
+                "projectile",
+                "hiddenMarker"
+            ],
+            "offset": {
+                "x": 0,
+                "y": -202
+            },
+            "scale": 1,
+            "targetHeight": 36,
+            "alpha": 0,
+            "attackHandoff": {
+                "enabled": true,
+                "id": "lavaRock3",
+                "animationSlot": "attack",
+                "releaseTime": 0.84,
+                "detach": true
+            }
+        },
+        "lavaRock2": {
+            "frame": "lavaRock2",
+            "role": "lavaRock2",
+            "tags": [
+                "volcano",
+                "projectile",
+                "hiddenMarker"
+            ],
+            "offset": {
+                "x": 0,
+                "y": -202
+            },
+            "scale": 1,
+            "targetHeight": 36,
+            "alpha": 0,
+            "attackHandoff": {
+                "enabled": true,
+                "id": "lavaRock2",
+                "animationSlot": "attack",
+                "releaseTime": 0.82,
+                "detach": true
+            }
+        },
+        "lavaRock1": {
+            "frame": "lavaRock1",
+            "role": "lavaRock1",
+            "tags": [
+                "volcano",
+                "projectile",
+                "hiddenMarker"
+            ],
+            "offset": {
+                "x": 0,
+                "y": -202
+            },
+            "scale": 1,
+            "targetHeight": 36,
+            "alpha": 0,
+            "attackHandoff": {
+                "enabled": true,
+                "id": "lavaRock1",
+                "animationSlot": "attack",
+                "releaseTime": 0.8,
+                "detach": true
+            }
+        }
+    }
+}

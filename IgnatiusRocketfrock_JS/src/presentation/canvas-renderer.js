@@ -82,6 +82,7 @@ import {
     advanceActorShadowOpacity
 } from "./actor-shadow.js";
 import { createWebGL2RendererBackend } from "./webgl2-renderer.js";
+import { AtmosphereGpuRenderer } from "./atmosphere-renderer.js";
 import { createPixmapPyramid, drawPixmap } from "./pixmap-pyramid.js";
 import {
     createPlayerFlightDangleProfile,
@@ -113,7 +114,30 @@ let pixmapPyramidsEnabled = true;
 
 export const ROCKET_TRAIL_LATERAL_OFFSET_PX = 2;
 export const ROCKET_FLAME_FORWARD_OFFSET_PX = 6;
+export const DELUXE_ROCKET_EXHAUST_TITLE_SCALE = 0.2;
+export const DELUXE_ROCKET_EXHAUST_REFERENCE_HEIGHT = 290;
+export const DELUXE_ROCKET_FLAME_ANIMATION_SPEED = 6.0;
+export const ROCKET_FLAME_ATLAS_FRAME_RATE = 120;
+export const ROCKET_FLAME_ATLAS_FRAME_COUNT = 78;
+export const ROCKET_FLAME_ATLAS_FRAME_WIDTH = 64;
+export const ROCKET_FLAME_ATLAS_FRAME_HEIGHT = 112;
+export const ROCKET_FLAME_ATLAS_ANCHOR_X = 31;
+export const ROCKET_FLAME_ATLAS_ANCHOR_Y = 12;
+export const ROCKET_FLAME_ATLAS_BAKED_TITLE_SCALE = 0.25;
 export const WIZARD_JUMP_POSE_TIME = 0.180;
+
+export function rocketFlameAtlasTargetHeight(rocketTargetHeight) {
+    const safeTargetHeight = Math.max(0, Number(rocketTargetHeight) || 0);
+    const gameplayScale = Math.max(0.035, safeTargetHeight / DELUXE_ROCKET_EXHAUST_REFERENCE_HEIGHT);
+    return ROCKET_FLAME_ATLAS_FRAME_HEIGHT * gameplayScale / ROCKET_FLAME_ATLAS_BAKED_TITLE_SCALE;
+}
+
+export function projectileRocketExhaustTargetHeight(frameId, rocketTargetHeight) {
+    const safeTargetHeight = Math.max(0, Number(rocketTargetHeight) || 0);
+    return String(frameId || "") === "rocket_projectile_rocketpunch"
+        ? safeTargetHeight * (58 / 99)
+        : safeTargetHeight;
+}
 
 export function rocketPresentationOffsets(angle, zoom = 1) {
     const safeAngle = Number.isFinite(Number(angle)) ? Number(angle) : 0;
@@ -978,6 +1002,7 @@ class RocketfrockRenderer {
         this.displayCanvas = options.displayCanvas || canvas;
         this.ctx = ctx;
         this.webglBackend = options.webglBackend || null;
+        this.atmosphereRenderer = this.webglBackend ? new AtmosphereGpuRenderer() : null;
         this.renderBackend = this.webglBackend ? "webgl2-resident" : "canvas2d";
         this.onStaticBakeFailure = typeof options.onStaticBakeFailure === "function" ? options.onStaticBakeFailure : null;
         this.onRecoverableException = typeof options.onRecoverableException === "function" ? options.onRecoverableException : null;
@@ -1146,6 +1171,7 @@ class RocketfrockRenderer {
         this.lastRenderDt = 1 / 60;
         this.lastObservedFrameDt = 1 / 60;
         this.lastRenderStartedAtMs = 0;
+        this.rocketFlamePresentationTime = 0;
         this.viewport = { w: canvas.width, h: canvas.height, dpr: 1 };
         this.fullscreenPresentationEnabled = Boolean(options.fullscreenPresentationEnabled);
         this.viewOverride = null;
@@ -2383,6 +2409,9 @@ class RocketfrockRenderer {
         }
         this.lastRenderStartedAtMs = frameStart;
         this.lastRenderDt = Math.max(0, Math.min(0.08, Number(dt) || 1 / 60));
+        if (!state?.debug?.paused) {
+            this.rocketFlamePresentationTime += this.lastRenderDt;
+        }
         this.resize();
         this.updatePhase(state, dt);
         const view = this.computeView(state);
@@ -4199,7 +4228,12 @@ class RocketfrockRenderer {
         if (!backend.beginFrame(view.w, view.h, LEVEL_BACKGROUND_COLOR)) {
             return;
         }
-        if (!worldHasOnTopVisuals(state)) {
+        const atmosphereActive = Boolean(this.atmosphereRenderer?.beginFrame(
+            state,
+            view,
+            this.frameBackgroundOffset
+        ));
+        if (!worldHasOnTopVisuals(state) && !atmosphereActive) {
             if (this.isStaticTileBakeEnabled() && this.renderWebGL2StaticTiles(state, inputFrame, view, frameStart)) {
                 return;
             }
@@ -4208,9 +4242,14 @@ class RocketfrockRenderer {
             }
         }
 
+        if (atmosphereActive) this.atmosphereRenderer.renderBehindBackground(backend);
         this.drawBackgroundAssetPatternWebGL(state, view);
         this.drawBackgroundVisualsWebGL(state, view);
         this.drawBackgroundVisualsWebGL(state, view, "backgroundOnTop");
+        if (atmosphereActive) {
+            this.atmosphereRenderer.applyHeatShimmerIfNeeded(backend);
+            this.atmosphereRenderer.renderFrontOfBackground(backend);
+        }
         const visualResult = this.drawOrderedWorldVisualsWebGL(state, view, "main");
         const needsWorldCanvasLayer = Boolean(
             state.debug.showCollision ||
@@ -4277,6 +4316,7 @@ class RocketfrockRenderer {
 
         this.drawOrderedWorldVisualsWebGL(state, view, "actorFront");
         this.drawOrderedWorldVisualsWebGL(state, view, "mainOnTop");
+        if (atmosphereActive) this.atmosphereRenderer.renderFrontOfTerrain(backend);
         this.drawCaveForegroundVisualsWebGL(state, view);
         this.drawCaveForegroundVisualsWebGL(state, view, "caveForegroundOnTop");
         backend.flush();
@@ -5431,6 +5471,10 @@ class RocketfrockRenderer {
         const iconFrameName = powerUp?.iconFrame || "powerup_icon_lightning";
         const glowFrame = atlas?.frames?.[glowFrameName];
         const iconFrame = atlas?.frames?.[iconFrameName];
+        const effectId = String(powerUp?.effectId || powerUp?.effect?.id || "").trim();
+        const isWrench = effectId.startsWith("wrench");
+        const glowPasses = isWrench ? 3 : 1;
+        const glowScale = effectId === "overdrive" ? 0.70 : 1.16;
         const ctx = this.ctx;
         const pulse = 0.92 + Math.sin(time * 5.4) * 0.08;
         ctx.save();
@@ -5442,8 +5486,10 @@ class RocketfrockRenderer {
             if (glow) {
                 ctx.save();
                 ctx.globalCompositeOperation = "source-over";
-                ctx.globalAlpha *= 0.92;
-                ctx.drawImage(glow, -size * 0.58, -size * 0.58, size * 1.16, size * 1.16);
+                for (let pass = 0; pass < glowPasses; pass += 1) {
+                    ctx.globalAlpha *= 0.92;
+                    ctx.drawImage(glow, -size * glowScale * 0.5, -size * glowScale * 0.5, size * glowScale, size * glowScale);
+                }
                 ctx.restore();
             }
             const iconSize = size * 0.47;
@@ -5463,14 +5509,17 @@ class RocketfrockRenderer {
             );
         } else {
             const fallbackTint = powerUp?.glowTint || "#ffb52f";
-            const gradient = ctx.createRadialGradient(0, 0, size * 0.08, 0, 0, size * 0.56);
+            const glowRadius = size * glowScale * 0.5;
+            const gradient = ctx.createRadialGradient(0, 0, glowRadius * 0.14, 0, 0, glowRadius);
             gradient.addColorStop(0, fallbackTint);
             gradient.addColorStop(0.5, fallbackTint);
             gradient.addColorStop(1, `${fallbackTint}00`);
             ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(0, 0, size * 0.56, 0, Math.PI * 2);
-            ctx.fill();
+            for (let pass = 0; pass < glowPasses; pass += 1) {
+                ctx.beginPath();
+                ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
+                ctx.fill();
+            }
             ctx.fillStyle = "rgba(255,255,255,0.96)";
             ctx.font = `bold ${Math.max(12, size * 0.48)}px sans-serif`;
             ctx.textAlign = "center";
@@ -5741,10 +5790,14 @@ class RocketfrockRenderer {
         const iconFrameName = powerUp?.iconFrame || "powerup_icon_lightning";
         const glowFrame = atlas?.frames?.[glowFrameName];
         const iconFrame = atlas?.frames?.[iconFrameName];
+        const effectId = String(powerUp?.effectId || powerUp?.effect?.id || "").trim();
+        const isWrench = effectId.startsWith("wrench");
+        const glowPasses = isWrench ? 3 : 1;
+        const glowScale = effectId === "overdrive" ? 0.70 : 1.16;
         const pulse = 0.92 + Math.sin(time * 5.4) * 0.08;
         let drew = false;
         if (atlas?.image && glowFrame && iconFrame) {
-            drew = backend.queueSprite({
+            const glowSprite = {
                 source: atlas.renderImage || atlas.image,
                 sourceX: glowFrame.x,
                 sourceY: glowFrame.y,
@@ -5752,12 +5805,15 @@ class RocketfrockRenderer {
                 sourceHeight: glowFrame.h,
                 centerX,
                 centerY,
-                width: size * 1.16 * pulse,
-                height: size * 1.16 * pulse,
+                width: size * glowScale * pulse,
+                height: size * glowScale * pulse,
                 tint: powerUp?.glowTint || "#ffb52f",
                 alpha: alpha * 0.92,
                 blendMode: "additive"
-            }) || drew;
+            };
+            for (let pass = 0; pass < glowPasses; pass += 1) {
+                drew = backend.queueSprite(glowSprite) || drew;
+            }
             const iconSize = size * 0.47 * pulse;
             const iconAspect = iconFrame.w / Math.max(1, iconFrame.h);
             const iconW = iconAspect >= 1 ? iconSize : iconSize * iconAspect;
@@ -5777,16 +5833,19 @@ class RocketfrockRenderer {
         } else {
             const glow = this.getWebGLParticleSpriteCanvas("softGlow");
             if (glow) {
-                drew = backend.queueSprite({
+                const glowSprite = {
                     source: glow,
                     centerX,
                     centerY,
-                    width: size * 1.12,
-                    height: size * 1.12,
+                    width: size * (effectId === "overdrive" ? 0.70 : 1.12),
+                    height: size * (effectId === "overdrive" ? 0.70 : 1.12),
                     tint: powerUp?.glowTint || "#ffb52f",
                     alpha: alpha * 0.86,
                     blendMode: "additive"
-                }) || drew;
+                };
+                for (let pass = 0; pass < glowPasses; pass += 1) {
+                    drew = backend.queueSprite(glowSprite) || drew;
+                }
             }
         }
         return drew;
@@ -5929,7 +5988,7 @@ class RocketfrockRenderer {
     drawEnemyHealthBarWebGL(enemy, view, actorScale = 1) {
         const maxHealth = Math.max(0, Number(enemy.maxHealth) || 0);
         const health = clamp(Number(enemy.health) || 0, 0, maxHealth || 1);
-        if (health <= 0 || maxHealth <= 0 || health >= maxHealth || (Number(enemy.healthBarTimer) || 0) <= 0) return;
+        if (enemy.invulnerable === true || health <= 0 || maxHealth <= 0 || health >= maxHealth || (Number(enemy.healthBarTimer) || 0) <= 0) return;
         const backend = this.webglBackend;
         const center = this.worldToScreen(view, enemy.shownTransform.x, enemy.shownTransform.y - enemy.height - 10 / Math.max(0.05, actorScale));
         const width = Math.max(34, Math.min(74, enemy.width * Math.max(0.75, actorScale))) * view.zoom;
@@ -6500,7 +6559,7 @@ class RocketfrockRenderer {
     drawEnemyHealthBar(enemy, view, actorScale = 1) {
         const maxHealth = Math.max(0, Number(enemy.maxHealth) || 0);
         const health = clamp(Number(enemy.health) || 0, 0, maxHealth || 1);
-        if (health <= 0 || maxHealth <= 0 || health >= maxHealth || (Number(enemy.healthBarTimer) || 0) <= 0) {
+        if (enemy.invulnerable === true || health <= 0 || maxHealth <= 0 || health >= maxHealth || (Number(enemy.healthBarTimer) || 0) <= 0) {
             return;
         }
 
@@ -6531,6 +6590,9 @@ class RocketfrockRenderer {
         ctx.save();
         ctx.globalCompositeOperation = "source-over";
         for (const puff of puffs) {
+            if (puff.kind === "attachedRocketSmokePuff") {
+                continue;
+            }
             if (puff.kind === "wizardDeathCoverSpark") {
                 continue;
             }
@@ -6706,7 +6768,7 @@ class RocketfrockRenderer {
         const glowSprite = this.getWebGLParticleSpriteCanvas("softGlow");
         const diamondSprite = this.getWebGLParticleSpriteCanvas("diamond");
         for (const puff of puffs) {
-            if (!WEBGL_DIRECT_WORLD_EFFECT_KINDS.has(puff.kind)) {
+            if (puff.kind === "attachedRocketSmokePuff" || !WEBGL_DIRECT_WORLD_EFFECT_KINDS.has(puff.kind)) {
                 continue;
             }
             const ageRatio = clamp(puff.age / Math.max(0.001, puff.lifetime), 0, 1);
@@ -7274,7 +7336,7 @@ class RocketfrockRenderer {
             return false;
         }
         const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
-        const visualScale = Math.max(0.01, Number(projectile.visualScale) || 1);
+        const visualScale = Math.max(0.01, Number(projectile.projectileVisualScale ?? projectile.shownTransform?.scaleX ?? projectile.visualScale) || 1);
         const targetHeight = Math.max(2, Number(projectile.radius) || 1) * 2.45 * visualScale * view.zoom;
         const flightAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
         const rotation = projectile.orientToVelocity === true
@@ -7303,7 +7365,7 @@ class RocketfrockRenderer {
             return false;
         }
         const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
-        const visualScale = Math.max(0.01, Number(projectile.visualScale) || 1);
+        const visualScale = Math.max(0.01, Number(projectile.projectileVisualScale ?? projectile.shownTransform?.scaleX ?? projectile.visualScale) || 1);
         const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2.35 * visualScale * view.zoom;
         const flightAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
         const rotation = projectile.orientToVelocity === true
@@ -7331,7 +7393,7 @@ class RocketfrockRenderer {
             return false;
         }
         const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
-        const visualScale = Math.max(0.01, Number(projectile.visualScale) || 1);
+        const visualScale = Math.max(0.01, Number(projectile.projectileVisualScale ?? projectile.shownTransform?.scaleX ?? projectile.visualScale) || 1);
         const flightAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
         const rotation = projectile.orientToVelocity === true
             ? flightAngle
@@ -7461,22 +7523,401 @@ class RocketfrockRenderer {
         return drew;
     }
 
+    deluxeRocketExhaustEnabled(state) {
+        return Boolean(this.webglBackend?.available && state?.settings?.renderingQuality === "high");
+    }
+
+    animatedRocketFlameAtlasEnabled(state) {
+        const quality = state?.settings?.renderingQuality;
+        return quality === "medium" || (quality === "high" && !this.deluxeRocketExhaustEnabled(state));
+    }
+
+    rocketFlameAtlasFrame(seed = 0) {
+        const phaseOffset = Math.floor(Math.abs(Number(seed) || 0)) % ROCKET_FLAME_ATLAS_FRAME_COUNT;
+        const frameIndex = (
+            Math.floor(Math.max(0, this.rocketFlamePresentationTime) * ROCKET_FLAME_ATLAS_FRAME_RATE)
+            + phaseOffset
+        ) % ROCKET_FLAME_ATLAS_FRAME_COUNT;
+        return this.getCharacterAtlasFrame(
+            "ct_char_wizard_1",
+            `rocket_flame_${String(frameIndex).padStart(3, "0")}`
+        );
+    }
+
+    drawAnimatedRocketFlameAtlasWebGL(state, sourceX, sourceY, exhaustAngle, targetHeight, seed = 0) {
+        const backend = this.webglBackend;
+        if (!backend?.available || !this.animatedRocketFlameAtlasEnabled(state)) return false;
+        const asset = this.rocketFlameAtlasFrame(seed);
+        if (!asset || !(targetHeight > 0)) return false;
+        const scale = targetHeight / ROCKET_FLAME_ATLAS_FRAME_HEIGHT;
+        const rotation = exhaustAngle - Math.PI * 0.5;
+        const localCenterX = (ROCKET_FLAME_ATLAS_FRAME_WIDTH * 0.5 - ROCKET_FLAME_ATLAS_ANCHOR_X) * scale;
+        const localCenterY = (ROCKET_FLAME_ATLAS_FRAME_HEIGHT * 0.5 - ROCKET_FLAME_ATLAS_ANCHOR_Y) * scale;
+        const cosRotation = Math.cos(rotation);
+        const sinRotation = Math.sin(rotation);
+        const centerOffsetX = localCenterX * cosRotation - localCenterY * sinRotation;
+        const centerOffsetY = localCenterX * sinRotation + localCenterY * cosRotation;
+        return backend.queueSprite({
+            source: asset.image || asset.canvas,
+            sourceX: asset.image ? asset.sourceX : 0,
+            sourceY: asset.image ? asset.sourceY : 0,
+            sourceWidth: asset.image ? asset.sourceWidth : asset.width,
+            sourceHeight: asset.image ? asset.sourceHeight : asset.height,
+            centerX: sourceX + centerOffsetX,
+            centerY: sourceY + centerOffsetY,
+            width: ROCKET_FLAME_ATLAS_FRAME_WIDTH * scale,
+            height: targetHeight,
+            rotation,
+            blendMode: "additive"
+        });
+    }
+
+    drawAnimatedRocketFlameAtlasCanvas(state, sourceX, sourceY, exhaustAngle, targetHeight, seed = 0) {
+        if (!this.animatedRocketFlameAtlasEnabled(state)) return false;
+        const asset = this.rocketFlameAtlasFrame(seed);
+        if (!asset?.canvas || !(targetHeight > 0)) return false;
+        const scale = targetHeight / ROCKET_FLAME_ATLAS_FRAME_HEIGHT;
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.translate(sourceX, sourceY);
+        ctx.rotate(exhaustAngle - Math.PI * 0.5);
+        ctx.drawImage(
+            asset.canvas,
+            -ROCKET_FLAME_ATLAS_ANCHOR_X * scale,
+            -ROCKET_FLAME_ATLAS_ANCHOR_Y * scale,
+            ROCKET_FLAME_ATLAS_FRAME_WIDTH * scale,
+            targetHeight
+        );
+        ctx.restore();
+        this.markDynamicDrawn();
+        return true;
+    }
+
+    drawDeluxeRocketExhaustWebGL(state, sourceX, sourceY, exhaustAngle, scale = DELUXE_ROCKET_EXHAUST_TITLE_SCALE, seed = 0) {
+        const backend = this.webglBackend;
+        if (!this.deluxeRocketExhaustEnabled(state) || !backend?.available) {
+            return false;
+        }
+        const softGlow = this.getWebGLParticleSpriteCanvas("softGlow");
+        const sparkSprite = this.getWebGLParticleSpriteCanvas("diamond") || softGlow;
+        if (!softGlow) {
+            return false;
+        }
+
+        // Gameplay uses the title-card recipe at roughly one fifth scale. Counts are
+        // deliberately fixed rather than multiplied by the generic High-quality 1.5x
+        // particle scale, because High is the on/off gate for this already-dense plume.
+        const gameplayScale = Math.max(0.035, Number(scale) || DELUXE_ROCKET_EXHAUST_TITLE_SCALE);
+        const elapsed = Math.max(0, Number(state?.clock?.time) || 0) + Number(seed || 0) * 0.013;
+        const directionX = Math.cos(exhaustAngle);
+        const directionY = Math.sin(exhaustAngle);
+        const perpendicularX = -directionY;
+        const perpendicularY = directionX;
+        const fract = (value) => value - Math.floor(value);
+        const hash01 = (index, salt) => fract(Math.sin((index + 1 + Number(seed || 0) * 0.017) * 12.9898 + salt * 78.233) * 43758.5453123);
+        const queueSoft = (x, y, radiusX, radiusY, tint, alpha, additive = true) => backend.queueSprite({
+            source: softGlow,
+            centerX: x,
+            centerY: y,
+            width: Math.max(0.5, radiusX * gameplayScale * 2),
+            height: Math.max(0.5, radiusY * gameplayScale * 2),
+            rotation: exhaustAngle,
+            tint,
+            alpha: clamp(alpha, 0, 1),
+            blendMode: additive ? "additive" : "alpha"
+        });
+
+        let drew = false;
+        const smokeCount = 14;
+        for (let index = 0; index < smokeCount; index += 1) {
+            const age = fract(elapsed / 2.05 + hash01(index, 3));
+            const distance = 42 + age * 280;
+            const lateral = (hash01(index, 4) - 0.5) * (24 + age * 88)
+                + Math.sin(elapsed * 1.7 + index * 2.41) * (3 + age * 8);
+            const rise = age * (18 + 24 * hash01(index, 8));
+            const x = sourceX + (directionX * distance + perpendicularX * lateral) * gameplayScale;
+            const y = sourceY + (directionY * distance + perpendicularY * lateral - rise) * gameplayScale;
+            const fade = Math.pow(1 - age, 1.15);
+            const radius = 18 + age * 38 + hash01(index, 9) * 10;
+            drew = queueSoft(x, y, radius * 1.25, radius, [218 / 255, 210 / 255, 205 / 255, 1], 0.30 * fade, false) || drew;
+        }
+
+        const nozzlePulse = 0.94 + 0.06 * Math.sin(elapsed * 12.7);
+        const nozzleX = sourceX + directionX * 22 * gameplayScale;
+        const nozzleY = sourceY + directionY * 22 * gameplayScale;
+        drew = queueSoft(nozzleX, nozzleY, 72 * nozzlePulse, 46 * nozzlePulse, [1, 132 / 255, 16 / 255, 1], 0.46, true) || drew;
+        drew = queueSoft(nozzleX, nozzleY, 52 * nozzlePulse, 33 * nozzlePulse, [1, 218 / 255, 78 / 255, 1], 0.64, true) || drew;
+        drew = queueSoft(nozzleX, nozzleY, 31 * nozzlePulse, 20 * nozzlePulse, [1, 1, 238 / 255, 1], 0.87, true) || drew;
+
+        const coreCount = 9;
+        for (let index = coreCount - 1; index >= 0; index -= 1) {
+            const t = (index + 0.2) / coreCount;
+            const flicker = 0.91 + 0.09 * Math.sin(elapsed * 10.5 + index * 1.83);
+            const distance = (8 + t * 160) * flicker;
+            const lateral = (hash01(index, 14) - 0.5) * (8 + t * 20)
+                + Math.sin(elapsed * 8.7 + index * 1.31) * (2 + t * 7);
+            const x = sourceX + (directionX * distance + perpendicularX * lateral) * gameplayScale;
+            const y = sourceY + (directionY * distance + perpendicularY * lateral) * gameplayScale;
+            const width = (30 + t * 36) * (0.94 + 0.08 * Math.sin(elapsed * 12.1 + index));
+            const length = width * (1.18 + 0.42 * (1 - t));
+            const tailFade = Math.pow(1 - t * 0.72, 1.15);
+            drew = queueSoft(x, y, length * 1.35, width * 1.28, [1, 88 / 255, 8 / 255, 1], 0.30 * tailFade, true) || drew;
+            drew = queueSoft(x, y, length * 0.95, width * 0.86, [1, 185 / 255, 38 / 255, 1], 0.44 * tailFade, true) || drew;
+            drew = queueSoft(x, y, length * 0.55, width * 0.52, [1, 250 / 255, 222 / 255, 1], 0.56 * tailFade, true) || drew;
+        }
+
+        // Advance only the gameplay flame phase faster. Age stays normalized, so the
+        // authored distance/radius envelope (and therefore plume length) is unchanged.
+        const flameElapsed = elapsed * DELUXE_ROCKET_FLAME_ANIMATION_SPEED;
+        const flameCount = 30;
+        for (let index = 0; index < flameCount; index += 1) {
+            const age = fract(flameElapsed / 3.88 + hash01(index, 1));
+            const fade = Math.pow(1 - age, 1.35);
+            const distance = 12 + age * (215 + 100 * hash01(index, 10));
+            const lateral = (hash01(index, 2) - 0.5) * (12 + age * 55)
+                + Math.sin(flameElapsed * 6.8 + index * 1.7) * 4;
+            const x = sourceX + (directionX * distance + perpendicularX * lateral) * gameplayScale;
+            const y = sourceY + (directionY * distance + perpendicularY * lateral) * gameplayScale;
+            const radius = 5 + 20 * fade + 7 * hash01(index, 11);
+            drew = queueSoft(x, y, radius * 1.6, radius * 1.12, [1, 97 / 255, 9 / 255, 1], 0.27 * fade, true) || drew;
+            drew = queueSoft(x, y, radius, radius * 0.74, [1, 201 / 255, 54 / 255, 1], 0.47 * fade, true) || drew;
+            drew = queueSoft(x, y, radius * 0.48, radius * 0.42, [1, 251 / 255, 226 / 255, 1], 0.62 * fade, true) || drew;
+        }
+
+        const sparkCount = 28;
+        for (let index = 0; index < sparkCount; index += 1) {
+            const age = fract(elapsed / 3.89 + hash01(index, 5));
+            const distance = 12 + age * (180 + 260 * hash01(index, 7));
+            const lateral = (hash01(index, 6) - 0.5) * (48 + age * 220);
+            const gravity = age * age * (18 + 42 * hash01(index, 12));
+            const x = sourceX + (directionX * distance + perpendicularX * lateral) * gameplayScale;
+            const y = sourceY + (directionY * distance + perpendicularY * lateral + gravity) * gameplayScale;
+            const fade = Math.pow(1 - age, 1.9);
+            const radius = 1.3 + (2 + 3 * hash01(index, 13)) * fade;
+            drew = queueSoft(x, y, radius * 3.8, radius * 3.8, [1, 151 / 255, 18 / 255, 1], 0.36 * (0.18 + 0.82 * fade), true) || drew;
+            if (sparkSprite) {
+                drew = backend.queueSprite({
+                    source: sparkSprite,
+                    centerX: x,
+                    centerY: y,
+                    width: Math.max(0.7, radius * gameplayScale * 1.4),
+                    height: Math.max(0.7, radius * gameplayScale * 2.2),
+                    rotation: exhaustAngle + hash01(index, 15) * Math.PI,
+                    tint: [1, 245 / 255, 178 / 255, 1],
+                    alpha: 0.92 * (0.18 + 0.82 * fade),
+                    blendMode: "additive"
+                }) || drew;
+            }
+        }
+        return drew;
+    }
+
+    mountedRocketExhaustActive(state) {
+        const rocket = state?.equipment?.rocket;
+        return Boolean(
+            rocket?.attachedBoosting
+            || rocket?.state === "flight"
+            || rocket?.state === "lunge"
+            || state?.player?.lungeActive
+        );
+    }
+
+    mountedRocketNozzleTransform(transform, screenX = 0, screenY = 0, facing = 1) {
+        if (!transform) return null;
+        const asset = this.assets.get("rocket");
+        const pivot = this.rigConfig.pivots.rocket;
+        const rigPart = this.rigConfig.parts.rocket;
+        if (!asset || asset.missing || !pivot || !rigPart) return null;
+        const spriteScale = transform.targetHeight / Math.max(1, asset.height);
+        const localX = (0.5 - pivot.x) * asset.width * spriteScale;
+        const localY = (0.965 - pivot.y) * asset.height * spriteScale;
+        const rotated = rotatePoint(localX, localY, transform.angle);
+        const facingSign = Number(facing) < 0 ? -1 : 1;
+        const directionX = facingSign * -Math.sin(transform.angle);
+        const directionY = Math.cos(transform.angle);
+        const nominalTargetHeight = Math.max(0.001,
+            (Number(rigPart.targetHeight) || 1) * Math.max(0.0001, Number(this.rigConfig.global?.scale) || 1));
+        return {
+            sourceX: screenX + facingSign * (transform.x + rotated.x),
+            sourceY: screenY + transform.y + rotated.y,
+            directionX,
+            directionY,
+            perpendicularX: -directionY,
+            perpendicularY: directionX,
+            exhaustAngle: Math.atan2(directionY, directionX),
+            particleScale: Math.max(0.01, transform.targetHeight / nominalTargetHeight)
+        };
+    }
+
+    drawMountedRocketSmokeWebGL(state, transform, screenX, screenY, facing) {
+        const backend = this.webglBackend;
+        const nozzle = this.mountedRocketNozzleTransform(transform, screenX, screenY, facing);
+        const puffs = state.effects?.smokePuffs || [];
+        if (!backend?.available || !nozzle || !puffs.length) return false;
+        const smokeStamp = this.getSmokeStampCanvas(null);
+        const glowSprite = this.getWebGLParticleSpriteCanvas("softGlow");
+        let drew = false;
+        for (const puff of puffs) {
+            if (puff.kind !== "attachedRocketSmokePuff") continue;
+            const ageRatio = clamp(puff.age / Math.max(0.001, puff.lifetime), 0, 1);
+            const localX = (Number(puff.x) || 0) * nozzle.particleScale;
+            const localY = (Number(puff.y) || 0) * nozzle.particleScale;
+            const centerX = nozzle.sourceX + nozzle.perpendicularX * localX + nozzle.directionX * localY;
+            const centerY = nozzle.sourceY + nozzle.perpendicularY * localX + nozzle.directionY * localY;
+            const radius = Math.max(1, Number(puff.radius) || 1) * (0.75 + ageRatio * 1.65) * nozzle.particleScale;
+            const smokeAlpha = 0.30 * Math.pow(1 - ageRatio, 1.25);
+            if (smokeStamp) {
+                drew = backend.queueSprite({
+                    source: smokeStamp,
+                    centerX,
+                    centerY,
+                    width: radius * 2,
+                    height: radius * 2,
+                    alpha: smokeAlpha,
+                    blendMode: "alpha"
+                }) || drew;
+            }
+            const sparkFade = Math.pow(1 - ageRatio, 1.9);
+            if (glowSprite && sparkFade > 0.025) {
+                const sparkCount = 1 + Math.floor(2 * (1 - ageRatio));
+                for (let index = 0; index < sparkCount; index += 1) {
+                    const seed = (puff.sparkleSeed || 0) + index * 17;
+                    const angle = hashNoise(seed, index) * Math.PI * 2;
+                    const distance = radius * (0.12 + hashNoise(seed + 31, index) * 0.64);
+                    const twinkle = 0.72 + 0.28 * Math.sin((state.clock.time + puff.age) * 18 + index * 1.4);
+                    const size = (0.9 + hashNoise(seed + 79, index) * 2.2) * nozzle.particleScale;
+                    drew = backend.queueSprite({
+                        source: glowSprite,
+                        centerX: centerX + Math.cos(angle) * distance,
+                        centerY: centerY + Math.sin(angle) * distance,
+                        width: size * 2,
+                        height: size * 2,
+                        tint: index % 3 === 0 ? [204 / 255, 157 / 255, 1, 1] : [1, 238 / 255, 129 / 255, 1],
+                        alpha: clamp(0.10 + sparkFade * twinkle * 0.62, 0, 0.74),
+                        blendMode: "additive"
+                    }) || drew;
+                }
+            }
+        }
+        return drew;
+    }
+
+    drawMountedRocketSmokeCanvas(transform, state) {
+        const nozzle = this.mountedRocketNozzleTransform(transform, 0, 0, 1);
+        const puffs = state.effects?.smokePuffs || [];
+        if (!nozzle || !puffs.length) return false;
+        const smokeStamp = this.getSmokeStampCanvas(null);
+        const ctx = this.ctx;
+        let drew = false;
+        for (const puff of puffs) {
+            if (puff.kind !== "attachedRocketSmokePuff") continue;
+            const ageRatio = clamp(puff.age / Math.max(0.001, puff.lifetime), 0, 1);
+            const localX = (Number(puff.x) || 0) * nozzle.particleScale;
+            const localY = (Number(puff.y) || 0) * nozzle.particleScale;
+            const centerX = nozzle.sourceX + nozzle.perpendicularX * localX + nozzle.directionX * localY;
+            const centerY = nozzle.sourceY + nozzle.perpendicularY * localX + nozzle.directionY * localY;
+            const radius = Math.max(1, Number(puff.radius) || 1) * (0.75 + ageRatio * 1.65) * nozzle.particleScale;
+            const smokeAlpha = 0.30 * Math.pow(1 - ageRatio, 1.25);
+            ctx.save();
+            ctx.globalAlpha = smokeAlpha;
+            if (smokeStamp) {
+                ctx.drawImage(smokeStamp, centerX - radius, centerY - radius, radius * 2, radius * 2);
+            } else {
+                ctx.fillStyle = "rgba(180, 170, 194, 0.72)";
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+            const sparkFade = Math.pow(1 - ageRatio, 1.9);
+            if (sparkFade > 0.025) {
+                ctx.save();
+                ctx.globalCompositeOperation = "lighter";
+                const sparkCount = 1 + Math.floor(2 * (1 - ageRatio));
+                for (let index = 0; index < sparkCount; index += 1) {
+                    const seed = (puff.sparkleSeed || 0) + index * 17;
+                    const angle = hashNoise(seed, index) * Math.PI * 2;
+                    const distance = radius * (0.12 + hashNoise(seed + 31, index) * 0.64);
+                    const twinkle = 0.72 + 0.28 * Math.sin((state.clock.time + puff.age) * 18 + index * 1.4);
+                    const size = (0.9 + hashNoise(seed + 79, index) * 2.2) * nozzle.particleScale;
+                    ctx.globalAlpha = clamp(0.10 + sparkFade * twinkle * 0.62, 0, 0.74);
+                    ctx.fillStyle = index % 3 === 0 ? "rgba(204, 157, 255, 0.92)" : "rgba(255, 238, 129, 0.94)";
+                    ctx.beginPath();
+                    ctx.arc(centerX + Math.cos(angle) * distance, centerY + Math.sin(angle) * distance, Math.max(0.7, size), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+            drew = true;
+        }
+        if (drew) this.markDynamicDrawn();
+        return drew;
+    }
+
+    drawMountedRocketAtlasFlameWebGL(state, transform, screenX, screenY, facing) {
+        if (!this.mountedRocketExhaustActive(state) || !this.animatedRocketFlameAtlasEnabled(state) || !transform) {
+            return false;
+        }
+        const nozzle = this.mountedRocketNozzleTransform(transform, screenX, screenY, facing);
+        if (!nozzle) return false;
+        return this.drawAnimatedRocketFlameAtlasWebGL(
+            state,
+            nozzle.sourceX,
+            nozzle.sourceY,
+            nozzle.exhaustAngle,
+            rocketFlameAtlasTargetHeight(transform.targetHeight),
+            41
+        );
+    }
+
+    drawMountedRocketAtlasFlameCanvas(transform, state) {
+        if (!this.mountedRocketExhaustActive(state) || !this.animatedRocketFlameAtlasEnabled(state) || !transform) {
+            return false;
+        }
+        const nozzle = this.mountedRocketNozzleTransform(transform, 0, 0, 1);
+        if (!nozzle) return false;
+        return this.drawAnimatedRocketFlameAtlasCanvas(
+            state,
+            nozzle.sourceX,
+            nozzle.sourceY,
+            nozzle.exhaustAngle,
+            rocketFlameAtlasTargetHeight(transform.targetHeight),
+            41
+        );
+    }
+
+    drawMountedRocketDeluxeExhaustWebGL(state, transform, screenX, screenY, facing) {
+        if (!this.mountedRocketExhaustActive(state) || !this.deluxeRocketExhaustEnabled(state) || !transform) {
+            return false;
+        }
+        const nozzle = this.mountedRocketNozzleTransform(transform, screenX, screenY, facing);
+        if (!nozzle) {
+            return false;
+        }
+        return this.drawDeluxeRocketExhaustWebGL(
+            state,
+            nozzle.sourceX,
+            nozzle.sourceY,
+            nozzle.exhaustAngle,
+            Math.max(0.035, transform.targetHeight / DELUXE_ROCKET_EXHAUST_REFERENCE_HEIGHT),
+            41
+        );
+    }
+
     drawProjectileRocketFlameWebGL(projectile, state, centerX, centerY, angle, baseAsset, pivot, targetHeight, visualScale = 1, viewZoom = 1) {
         const backend = this.webglBackend;
         if (!backend?.available) {
             return false;
         }
-        const flameSprite = this.getWebGLParticleSpriteCanvas("rocketFlame") || this.getWebGLParticleSpriteCanvas("softGlow");
-        if (!flameSprite) {
-            return false;
-        }
         const safeScale = Math.max(0.1, Number(visualScale) || 1);
+        const exhaustTargetHeight = projectileRocketExhaustTargetHeight(projectile?.frameId, targetHeight);
         const stableSeed = String(projectile?.id || "rocket")
             .split("")
             .reduce((sum, ch, index) => sum + ch.charCodeAt(0) * (index + 1), 0);
         const flutter = 0.96 + 0.04 * Math.sin((state.clock.time || 0) * 33 + stableSeed * 0.17);
-        const flameLength = targetHeight * (0.52 + 0.08 * safeScale) * flutter;
-        const flameWidth = targetHeight * (0.20 + 0.03 * safeScale);
+        const flameLength = exhaustTargetHeight * (0.52 + 0.08 * safeScale) * flutter;
+        const flameWidth = exhaustTargetHeight * (0.20 + 0.03 * safeScale);
         const nozzleLocalY = (0.965 - pivot.y) * baseAsset.height;
         const nozzleOffset = nozzleLocalY * (targetHeight / Math.max(1, baseAsset.height));
         const cos = Math.cos(angle);
@@ -7485,6 +7926,30 @@ class RocketfrockRenderer {
         const flameCenterX = centerX - nozzleOffset * sin + presentationOffsets.flameX;
         const flameCenterY = centerY + nozzleOffset * cos + presentationOffsets.flameY;
 
+        const exhaustAngle = Math.atan2(Math.cos(angle), -Math.sin(angle));
+        if (this.deluxeRocketExhaustEnabled(state)) {
+            return this.drawDeluxeRocketExhaustWebGL(
+                state,
+                flameCenterX,
+                flameCenterY,
+                exhaustAngle,
+                Math.max(0.035, exhaustTargetHeight / DELUXE_ROCKET_EXHAUST_REFERENCE_HEIGHT),
+                stableSeed
+            );
+        }
+        if (this.animatedRocketFlameAtlasEnabled(state)) {
+            return this.drawAnimatedRocketFlameAtlasWebGL(
+                state,
+                flameCenterX,
+                flameCenterY,
+                exhaustAngle,
+                rocketFlameAtlasTargetHeight(exhaustTargetHeight),
+                stableSeed
+            );
+        }
+
+        const flameSprite = this.getWebGLParticleSpriteCanvas("rocketFlame") || this.getWebGLParticleSpriteCanvas("softGlow");
+        if (!flameSprite) return false;
         let drew = backend.queueSprite({
             source: flameSprite,
             centerX: flameCenterX,
@@ -7523,11 +7988,15 @@ class RocketfrockRenderer {
         }
         const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
         const angle = (Number(projectile.shownTransform.angle) || 0) + Math.PI * 0.5;
-        const pivot = projectile.frameId === "rocket_projectile"
+        const rocketFrameId = String(projectile.frameId || "rocket_projectile");
+        const standardRocketSprite = rocketFrameId.startsWith("rocket_projectile");
+        const pivot = standardRocketSprite
             ? { x: 0.5, y: 0.78 }
             : this.rigConfig.pivots.rocket;
         const visualScale = Math.max(0.1, Number(projectile.shownTransform.scaleX) || 1);
-        const targetHeight = (projectile.frameId === "rocket_projectile" ? 58 : 72) * visualScale * view.zoom;
+        const baseRocketTargetHeight = rocketFrameId === "rocket_projectile_rocketpunch" ? 99 : (standardRocketSprite ? 58 : 72);
+        const targetHeight = baseRocketTargetHeight * visualScale * view.zoom;
+        const exhaustTargetHeight = projectileRocketExhaustTargetHeight(rocketFrameId, targetHeight);
 
         const glowFrameId = projectile.wrenchGlowFrameId || wrenchRocketGlowAtlasFrameId(projectile.wrenchEffectId);
         const poweredAsset = glowFrameId
@@ -7699,11 +8168,35 @@ class RocketfrockRenderer {
         const ctx = this.ctx;
         const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
         const angle = (Number(projectile.shownTransform.angle) || 0) + Math.PI * 0.5;
-        const pivot = projectile.frameId === "rocket_projectile"
+        const rocketFrameId = String(projectile.frameId || "rocket_projectile");
+        const standardRocketSprite = rocketFrameId.startsWith("rocket_projectile");
+        const pivot = standardRocketSprite
             ? { x: 0.5, y: 0.78 }
             : this.rigConfig.pivots.rocket;
         const visualScale = Math.max(0.1, Number(projectile.shownTransform.scaleX) || 1);
-        const targetHeight = (projectile.frameId === "rocket_projectile" ? 58 : 72) * visualScale * view.zoom;
+        const baseRocketTargetHeight = rocketFrameId === "rocket_projectile_rocketpunch" ? 99 : (standardRocketSprite ? 58 : 72);
+        const targetHeight = baseRocketTargetHeight * visualScale * view.zoom;
+        const stableSeed = String(projectile?.id || "rocket")
+            .split("")
+            .reduce((sum, ch, index) => sum + ch.charCodeAt(0) * (index + 1), 0);
+        const atlasFlame = this.animatedRocketFlameAtlasEnabled(state);
+        if (atlasFlame) {
+            const nozzleLocalY = (0.965 - pivot.y) * baseAsset.height;
+            const nozzleOffset = nozzleLocalY * (targetHeight / Math.max(1, baseAsset.height));
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            const presentationOffsets = rocketPresentationOffsets(angle - Math.PI * 0.5, view.zoom);
+            const flameCenterX = p.x - nozzleOffset * sin + presentationOffsets.flameX;
+            const flameCenterY = p.y + nozzleOffset * cos + presentationOffsets.flameY;
+            this.drawAnimatedRocketFlameAtlasCanvas(
+                state,
+                flameCenterX,
+                flameCenterY,
+                Math.atan2(Math.cos(angle), -Math.sin(angle)),
+                rocketFlameAtlasTargetHeight(exhaustTargetHeight),
+                stableSeed
+            );
+        }
 
         const glowFrameId = projectile.wrenchGlowFrameId || wrenchRocketGlowAtlasFrameId(projectile.wrenchEffectId);
         const poweredAsset = glowFrameId
@@ -7721,16 +8214,19 @@ class RocketfrockRenderer {
         ctx.scale(spriteScale, spriteScale);
         drawRuntimePixmap(ctx, drawAsset, drawOffsetX, drawOffsetY);
         const referencePixelToLocal = view.zoom / Math.max(0.0001, spriteScale);
-        drawRocketFlameLocal(
-            ctx,
-            baseAsset,
-            pivot,
-            state.clock.time + projectile.age * 11,
-            0.55,
-            projectile.id.length * 13,
-            ROCKET_TRAIL_LATERAL_OFFSET_PX * referencePixelToLocal,
-            ROCKET_FLAME_FORWARD_OFFSET_PX * referencePixelToLocal
-        );
+        if (!atlasFlame) {
+            drawRocketFlameLocal(
+                ctx,
+                baseAsset,
+                pivot,
+                state.clock.time + projectile.age * 11,
+                0.55,
+                projectile.id.length * 13,
+                ROCKET_TRAIL_LATERAL_OFFSET_PX * referencePixelToLocal,
+                ROCKET_FLAME_FORWARD_OFFSET_PX * referencePixelToLocal,
+                targetHeight > 0 ? exhaustTargetHeight / targetHeight : 1
+            );
+        }
         ctx.restore();
     }
 
@@ -7743,7 +8239,7 @@ class RocketfrockRenderer {
         if (!asset || asset.missing) {
             return;
         }
-        const visualScale = Math.max(0.01, Number(projectile.visualScale) || 1);
+        const visualScale = Math.max(0.01, Number(projectile.projectileVisualScale ?? projectile.shownTransform?.scaleX ?? projectile.visualScale) || 1);
         const flightAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
         const rotation = projectile.orientToVelocity === true
             ? flightAngle
@@ -7763,7 +8259,7 @@ class RocketfrockRenderer {
         const p = this.worldToScreen(view, projectile.shownTransform.x, projectile.shownTransform.y);
         const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_020", projectile.frameId || "rock") ||
             this.getCharacterAtlasFrame("ct_char_enemy_020", "rock");
-        const visualScale = Math.max(0.01, Number(projectile.visualScale) || 1);
+        const visualScale = Math.max(0.01, Number(projectile.projectileVisualScale ?? projectile.shownTransform?.scaleX ?? projectile.visualScale) || 1);
         const flightAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
         const rotation = projectile.orientToVelocity === true
             ? flightAngle
@@ -7970,7 +8466,7 @@ class RocketfrockRenderer {
             this.getCharacterAtlasFrame("ct_char_enemy_011", "cannonball") ||
             this.getCharacterAtlasFrame("ct_char_enemy_010", "cannonball");
         if (asset && !asset.missing) {
-            const visualScale = Math.max(0.01, Number(projectile.visualScale) || 1);
+            const visualScale = Math.max(0.01, Number(projectile.projectileVisualScale ?? projectile.shownTransform?.scaleX ?? projectile.visualScale) || 1);
             const targetHeight = projectile.radius * 2.45 * visualScale * view.zoom;
             const spriteScale = targetHeight / Math.max(1, asset.height);
             const flightAngle = Math.atan2(Number(projectile.vy) || 0, Number(projectile.vx) || 1);
@@ -8697,6 +9193,27 @@ class RocketfrockRenderer {
             ? MAGIC_RING_BRIGHTNESS
             : 1;
         const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+        this.drawMountedRocketSmokeWebGL(
+            state,
+            renderedTransforms.rocket,
+            point.x,
+            point.y,
+            state.player.facing
+        );
+        this.drawMountedRocketAtlasFlameWebGL(
+            state,
+            renderedTransforms.rocket,
+            point.x,
+            point.y,
+            state.player.facing
+        );
+        this.drawMountedRocketDeluxeExhaustWebGL(
+            state,
+            renderedTransforms.rocket,
+            point.x,
+            point.y,
+            state.player.facing
+        );
         this.queueCharacterProjectPoseWebGL(
             this.playerProject,
             point.x,
@@ -8972,14 +9489,21 @@ class RocketfrockRenderer {
         const shieldTint = Number(options.alpha ?? 1) >= 0.99 ? getPlayerShieldTintAlpha(state) : 0;
         const lowHealthTint = shieldTint > 0 || Number(options.alpha ?? 1) < 0.99 ? 0 : getLowHealthTintAlpha(state);
         const renderedTransforms = scalePoseTransforms(pose.transforms, options.renderScale);
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(screenX, screenGroundY);
+        ctx.scale(facing, 1);
+        this.drawMountedRocketSmokeCanvas(renderedTransforms.rocket, state);
+        this.drawMountedRocketAtlasFlameCanvas(renderedTransforms.rocket, state);
+        ctx.restore();
         this.drawCharacterProjectPose(this.playerProject, screenX, screenGroundY, facing, renderedTransforms, bounds, {
             ...options,
             tintAlpha: shieldTint > 0 ? shieldTint : lowHealthTint,
             tintCanvasKey: shieldTint > 0 ? "shieldCanvas" : "lowHealthCanvas",
             afterPart: (partName, command) => {
                 if (partName === "rocket" && options.drawFuelBulb !== false) {
-                    // Phase 1.011: attached boost exhaust is represented by world-managed smoke/spark puffs,
-                    // not by a local flame sprite. The flying projectile still keeps its short nozzle flame.
+                    // Backpack smoke is rendered in the rocket's local frame before the rig so it
+                    // follows this exact animated part transform. Fired-projectile smoke remains world-space.
                     // Use the exact transformed rocket command so the local bulb inherits doorway scale,
                     // position, rotation, and facing together with the sprite it is mounted on.
                     this.drawMountedRocketFuelBulb(command?.transform ?? renderedTransforms[partName], state, zoom);
@@ -9890,13 +10414,14 @@ function drawRocketFuelBulbLocal(ctx, asset, pivot, state, time) {
     ctx.restore();
 }
 
-function drawRocketFlameLocal(ctx, asset, pivot, time, power = 1, seed = 0, rightOffset = 0, forwardOffset = 0) {
+function drawRocketFlameLocal(ctx, asset, pivot, time, power = 1, seed = 0, rightOffset = 0, forwardOffset = 0, exhaustScale = 1) {
     const nozzleX = (0.5 - pivot.x) * asset.width;
     const nozzleY = (0.965 - pivot.y) * asset.height;
     const stablePower = clamp(power, 0.15, 1.2);
+    const safeExhaustScale = Math.max(0.01, Number(exhaustScale) || 1);
     const flutter = 0.96 + 0.04 * Math.sin(time * 33 + seed);
-    const length = asset.height * 0.75 * stablePower * flutter;
-    const width = asset.width * (0.16 + 0.08 * stablePower);
+    const length = asset.height * 0.75 * stablePower * flutter * safeExhaustScale;
+    const width = asset.width * (0.16 + 0.08 * stablePower) * safeExhaustScale;
 
     ctx.save();
     ctx.translate(nozzleX + rightOffset, nozzleY - forwardOffset);

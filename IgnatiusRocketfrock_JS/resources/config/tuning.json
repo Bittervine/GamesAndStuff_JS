@@ -20,7 +20,7 @@
   "attachedBoostHoverFallSpeed": 36,
   "attachedBoostHoverBrakeAcceleration": 3600,
   "attachedBoostDrainRate": 40,
-  "playerLungeChargeSeconds": 0.5,
+  "playerLungeChargeSeconds": 0.25,
   "playerFireHoldLungeSeconds": 0.25,
   "playerLungeCooldownSeconds": 5,
   "playerLungeDistance": 720,

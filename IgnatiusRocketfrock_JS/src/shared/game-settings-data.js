@@ -136,7 +136,7 @@ export const GAME_RENDERING_MODE_PRESETS = Object.freeze([
 ]);
 
 export const DEFAULT_GAME_SETTINGS = Object.freeze({
-    version: 12,
+    version: 13,
     sfxVolume: 0.8,
     musicVolume: 0.1,
     difficulty: "normal",
@@ -145,6 +145,12 @@ export const DEFAULT_GAME_SETTINGS = Object.freeze({
     showMinimap: true,
     renderingMode: "hardwareRegular",
     developmentMode: true,
+    // Deliberate browser/native non-parity: browser diagnostics default off even
+    // in DEVELOPMENT builds. Browser capture is opt-in because debug logs live in
+    // page RAM and a gameplay recording is scoped to the current level session.
+    // Explicit saved preferences still persist and override these first-run defaults.
+    debugLoggingEnabled: false,
+    gameplayRecordingEnabled: false,
     inputBindings: DEFAULT_INPUT_BINDINGS,
     tuningOverrides: Object.freeze({})
 });
@@ -194,6 +200,8 @@ export function normalizeGameSettings(value = {}) {
         showMinimap: normalizedBoolean(source.showMinimap, DEFAULT_GAME_SETTINGS.showMinimap),
         renderingMode,
         developmentMode: normalizedBoolean(source.developmentMode, DEFAULT_GAME_SETTINGS.developmentMode),
+        debugLoggingEnabled: normalizedBoolean(source.debugLoggingEnabled, DEFAULT_GAME_SETTINGS.debugLoggingEnabled),
+        gameplayRecordingEnabled: normalizedBoolean(source.gameplayRecordingEnabled, DEFAULT_GAME_SETTINGS.gameplayRecordingEnabled),
         inputBindings: normalizeInputBindings(source.inputBindings),
         tuningOverrides: source.tuningOverrides && typeof source.tuningOverrides === "object" && !Array.isArray(source.tuningOverrides)
             ? { ...source.tuningOverrides }

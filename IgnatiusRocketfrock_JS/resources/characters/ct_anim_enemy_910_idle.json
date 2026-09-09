@@ -1,0 +1,117 @@
+{
+  "meta": {
+    "version": 1,
+    "note": "Revision 595 quiet volcano idle. Only the lava overlay alpha breathes subtly; the rocky body remains perfectly stationary."
+  },
+  "animationId": "ct_anim_enemy_910_idle",
+  "duration": 1.5,
+  "loop": true,
+  "mirrorable": false,
+  "playback": {
+    "idleThreshold": 0.04,
+    "baseCyclesPerSecond": 0.6666666666666666,
+    "speedCyclesPerSecond": 0.6666666666666666,
+    "maxSpeedRatio": 1
+  },
+  "rootMotion": {
+    "enabled": false,
+    "xTrack": null,
+    "yTrack": null
+  },
+  "referencePose": {
+    "body": {
+      "x": 0,
+      "y": 0,
+      "rotation": 0,
+      "scale": 1,
+      "alpha": 1
+    },
+    "lava": {
+      "x": 0,
+      "y": 0,
+      "rotation": 0,
+      "scale": 1,
+      "alpha": 0.72
+    },
+    "lavaRock1": {
+      "x": 0,
+      "y": -202,
+      "rotation": 0,
+      "scale": 1,
+      "alpha": 0
+    },
+    "lavaRock2": {
+      "x": 0,
+      "y": -202,
+      "rotation": 0,
+      "scale": 1,
+      "alpha": 0
+    },
+    "lavaRock3": {
+      "x": 0,
+      "y": -202,
+      "rotation": 0,
+      "scale": 1,
+      "alpha": 0
+    },
+    "lavaRock4": {
+      "x": 0,
+      "y": -202,
+      "rotation": 0,
+      "scale": 1,
+      "alpha": 0
+    },
+    "lavaRock5": {
+      "x": 0,
+      "y": -202,
+      "rotation": 0,
+      "scale": 1,
+      "alpha": 0
+    },
+    "lavaRock6": {
+      "x": 0,
+      "y": -202,
+      "rotation": 0,
+      "scale": 1,
+      "alpha": 0
+    },
+    "lavaRock7": {
+      "x": 0,
+      "y": -202,
+      "rotation": 0,
+      "scale": 1,
+      "alpha": 0
+    }
+  },
+  "tracks": {
+    "lava": {
+      "alpha": [
+        {
+          "time": 0,
+          "value": 0.7,
+          "easing": "linear"
+        },
+        {
+          "time": 0.42,
+          "value": 0.76,
+          "easing": "easeInOut"
+        },
+        {
+          "time": 0.82,
+          "value": 0.69,
+          "easing": "easeInOut"
+        },
+        {
+          "time": 1.18,
+          "value": 0.74,
+          "easing": "easeInOut"
+        },
+        {
+          "time": 1.5,
+          "value": 0.7,
+          "easing": "easeInOut"
+        }
+      ]
+    }
+  }
+}

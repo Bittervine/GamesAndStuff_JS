@@ -7,8 +7,8 @@
   "maxSize": 8192,
   "width": 1664,
   "height": 1600,
-  "entryCount": 644,
-  "sourceDigest": "3d7dbc3d1894a0b241a3b0a88f314998e3e9c1f74091e4f315001363cd801d67",
+  "entryCount": 645,
+  "sourceDigest": "058a1d2a2c9c5834fd6640803e7d20e4956a9d0ae5e7454dd871c7d226ff3dc7",
   "sources": [
     {
       "path": "atlases/at_atlas_001.json",
@@ -823,6 +823,14 @@
       "sha256": "98e5b423565fa70ff2fe82e3feb567d76678b84d07d890927521cd3fa4d10aed"
     },
     {
+      "path": "characters/ct_anim_enemy_910_attack.json",
+      "sha256": "41886260fef91a44cc22cd01baff87ecb53a771fec4b4baba0932a8fa4494647"
+    },
+    {
+      "path": "characters/ct_anim_enemy_910_idle.json",
+      "sha256": "da2d856c507303861347ed81ea90ac2c527f6a2b3506133b950c1d6e3294074b"
+    },
+    {
       "path": "characters/ct_atlas_enemy_001.json",
       "sha256": "e22ff4d1fb1a1282f92ad66631b00618d9dac66ce94609a0f7011db02396a05b"
     },
@@ -943,6 +951,14 @@
       "sha256": "91a816a5c4c64f24f370e742ebfc4b25bc63e2df90e6af28cdf96c3557da8274"
     },
     {
+      "path": "characters/ct_atlas_enemy_910.json",
+      "sha256": "d2ffac0764e4d2b1f7d61d9d12ad5ee9e5b5b28d1ee58df2ffa0688493d33a91"
+    },
+    {
+      "path": "characters/ct_atlas_enemy_910.png",
+      "sha256": "02def595634d47b85f272acf52fdf4916e19de9c2f7c8ae86d606b83d71cf3f8"
+    },
+    {
       "path": "characters/ct_char_enemy_001.json",
       "sha256": "21f2d93b5d929b05fc6ecc89fc34bb5a459952615258e57ad77648ba0e1d8cc6"
     },
@@ -1051,8 +1067,12 @@
       "sha256": "4294fc23edda8f1f77908333defa682ffe77768ce3f3a70f2ffa5de9d6e54414"
     },
     {
+      "path": "characters/ct_char_enemy_910.json",
+      "sha256": "2b383b5f27dd8c3436b6599a496c0f10d6c7a7bc65bc29ed518243608a3e5a47"
+    },
+    {
       "path": "characters/ct_enemies_001.json",
-      "sha256": "c0086a39a4c90055f2f90203fcac9a8ff1692d3b24e49cb47048d5ac65062009"
+      "sha256": "04f7190ed08fe56456a5988d8a50203ca2ab419905290a3d660ec195529470b4"
     },
     {
       "path": "characters/ct_rig_enemy_001.json",
@@ -1161,6 +1181,10 @@
     {
       "path": "characters/ct_rig_enemy_900.json",
       "sha256": "7a5d33f1802efdc5f4fd307cc10b11d7f816dfc3b0258b58c4a6e39169fc9418"
+    },
+    {
+      "path": "characters/ct_rig_enemy_910.json",
+      "sha256": "2a72cf7c922da6e7da1bf25fb793e0d911ad8db2a171b3c8825f20c7d95bd5f7"
     },
     {
       "path": "items/it_atlas_001.json",
@@ -25080,8 +25104,8 @@
         "animationSlot": "idle"
       },
       "originalSize": {
-        "w": 248,
-        "h": 27
+        "w": 257,
+        "h": 30
       }
     },
     {
@@ -25343,6 +25367,35 @@
       "originalSize": {
         "w": 103,
         "h": 151
+      }
+    },
+    {
+      "key": "entity:enemy_910",
+      "kind": "entity",
+      "id": "enemy_910",
+      "label": "Mini Volcano",
+      "category": "Enemy",
+      "searchable": "enemy_910 Mini Volcano Small invulnerable stationary periodic hazard. Seven authored attack handoffs launch semi-molten rocks upward in a tight eruption burst. ct_char_enemy_910",
+      "thumbnail": {
+        "x": 1280,
+        "y": 1536,
+        "w": 64,
+        "h": 64
+      },
+      "source": {
+        "catalog": "characters/ct_enemies_001.json",
+        "enemyId": "enemy_910",
+        "characterId": "ct_char_enemy_910",
+        "character": "characters/ct_char_enemy_910.json"
+      },
+      "entityKind": "enemy",
+      "thumbnailRender": {
+        "renderer": "runtime-character-project",
+        "animationSlot": "idle"
+      },
+      "originalSize": {
+        "w": 113,
+        "h": 73
       }
     }
   ]

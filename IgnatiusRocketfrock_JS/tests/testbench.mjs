@@ -98,6 +98,8 @@ import {
     probeWebGL2RendererSupport,
     ROCKET_FLAME_FORWARD_OFFSET_PX,
     ROCKET_TRAIL_LATERAL_OFFSET_PX,
+    projectileRocketExhaustTargetHeight,
+    rocketFlameAtlasTargetHeight,
     rocketPresentationOffsets
 } from "../src/presentation/canvas-renderer.js";
 import { WebGL2RendererBackend } from "../src/presentation/webgl2-renderer.js";
@@ -346,14 +348,20 @@ import {
     sampleCaveWindowPerturbedOutset,
     sampleClosedCaveSpline
 } from "../src/shared/cave-window-data.js";
+import { AtmosphereGpuRenderer } from "../src/presentation/atmosphere-renderer.js";
 import {
     BACKGROUND_LAYER,
+    ATMOSPHERE_BEHIND_EFFECTS,
+    ATMOSPHERE_FRONT_EFFECTS,
+    ATMOSPHERE_EFFECT_IDS,
+    DEFAULT_ATMOSPHERE_EFFECTS,
     DEFAULT_BACKGROUND_PARALLAX,
     DEFAULT_FOREGROUND_PARALLAX,
     DEFAULT_FOREGROUND_BRIGHTNESS,
     DEFAULT_FOREGROUND_SCALE,
     DEFAULT_LAYER_BRIGHTNESS,
     DEFAULT_LAYER_SCALE,
+    normalizeAtmosphereIntensity,
     normalizeBackgroundParallax,
     normalizeForegroundParallax,
     normalizeLayerBrightness,
@@ -408,7 +416,8 @@ import {
     enemyEntityFromDefinition,
     normalizeAutoSpawnEnemies,
     normalizeEnemySpawner,
-    resolveAutoSpawnEnemyIds
+    resolveAutoSpawnEnemyIds,
+    resolveLevelCharacterEnemy
 } from "../src/shared/auto-spawn-enemy-data.js";
 import {
     CYAN_DART_HOMING_TURN_DEGREES_PER_WORLD_UNIT,
@@ -473,6 +482,7 @@ import {
     projectileVisualMode
 } from "../src/tools/character-editor/projectile-visual-data.js";
 import {
+    canonicalAnimationKeyframeTime,
     createEditableAnimationClip,
     deleteAnimationKeyframe,
     disableExclusiveFramePresentation,
@@ -1055,6 +1065,11 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
     assert.ok(devToolShellSource.includes('return Boolean(window.open(url, "ignatius-level-playtest"))') && resourceLevelEditorSource.includes('if (launched === false) setStatus('), "hosted browser playtests should report an outright popup block instead of silently claiming the saved level launched");
     assert.ok(projectHostSource.includes('selectionVersionBeforeConnect') && projectHostSource.includes('return "root-changed"') && resourceAssetEditorSource.includes('if (result === "root-changed")') && resourceLevelEditorSource.match(/if \(result === "root-changed"\)/g)?.length >= 2 && resourceCharacterEditorSource.includes('if (result === "root-changed")'), "a project folder first selected during Save or playtest-temp Save should reload the editor instead of writing page-loaded data into the newly selected tree");
     assert.ok(resourceLoaderSource.includes('host.readResourceText(requestPath, { prompt: false })') && resourceLoaderSource.includes('host.readResourceBlob(requestPath, { prompt: false })'), "shared JSON/image loaders should prefer the selected project host over page-relative resource URLs");
+    assert.ok(resourceLoaderSource.includes('host.mode !== "native"')
+        && resourceLoaderSource.includes('new URL(resourceUrl(requestPath), pageUrl)')
+        && resourceLoaderSource.includes('image.src = imageUrl')
+        && resourceLoaderSource.includes('holding the compressed PNG Blob alongside its much larger decoded pixels'),
+        "native image loads should bypass fetch-to-Blob materialization and use the same selected-root same-origin image path that succeeds in the Level Editor");
     assert.ok(resourceAssetEditorSource.includes('loadJsonResourceWithRetry("editor/asset-generation-tags.json")') && resourceAssetEditorSource.includes('loadJsonResourceWithRetry("generator/level-generator-platforms.json")'), "Asset Tool helper catalogs should come from the same selected resources tree as atlas manifests and PNGs");
     assert.equal(resourceAssetEditorSource.includes('fetch("resources/'), false, "Asset Tool should not bypass the selected project host with direct resources/* fetches");
     assert.ok(resourceLevelEditorSource.includes('loadRuntimeCharacterProject(characterUrl, {') && resourceLevelEditorSource.includes('loadJson: (url) => loadJsonResourceWithRetry(url)') && resourceLevelEditorSource.includes('loadImage: (url) => loadImageResourceWithRetry(url)'), "Level Editor character previews should consume the selected resources tree instead of character-runtime page URLs");
@@ -1094,6 +1109,8 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
     const debugTraceSource = readFileSync(new URL("../../src/shared/debug-trace.h", import.meta.url), "utf8");
     const launchOptionsHeader = readFileSync(new URL("../../src/runtime/launch-options.h", import.meta.url), "utf8");
     const launchOptionsSource = readFileSync(new URL("../../src/runtime/launch-options.cpp", import.meta.url), "utf8");
+    assert.match(nativeAppSource, /enemy\.isBoss\s*&&\s*!enemy\.invulnerable\s*&&\s*enemy\.health\s*>\s*0\.0/,
+        "native boss HUD selection should suppress invulnerable bosses just like the browser presentation");
     const gpuPresenterHeader = readFileSync(new URL("../../src/runtime/gpu-presenter.h", import.meta.url), "utf8");
     assert.ok(nativeSimulationHeader.includes("enemyStateAbiSignature()") && nativeSimulationHeader.includes("requireEnemyStateAbiAnchor"), "native FEnemyState consumers should bind to a layout signature rather than a size-only ABI check");
     for (const partitionProbe of [
@@ -1114,6 +1131,11 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
     assert.ok(devToolHostSource.includes('operation != "writeResource"') && devToolHostSource.includes('authoringResourceRoot / std::filesystem::') && devToolHostSource.includes('writeBinaryFile(resourcePath, bytes'), "native project writes should consume the project host's already-resolved safe relative path below the selected authoring root");
     assert.ok(devToolHostSource.includes('std::array<const char*, 12> requiredDirectories') && devToolHostSource.includes('index.contains("assetAtlasIds")'), "native resource-root validation should match the complete browser development-tool resource layout and validate resources.json");
     assert.ok(devToolHostSource.includes('Cache-Control: no-store, no-cache, must-revalidate'), "native authoring-resource responses should not retain stale WebView cache entries");
+    assert.ok(devToolHostSource.includes('projectResourcesPrefix = "https://ignatius-project-resources.example/"')
+        && devToolHostSource.includes('projectResourceFilter = L"https://ignatius-project-resources.example/*"')
+        && devToolHostSource.includes('SHCreateStreamOnFileEx(')
+        && devToolHostSource.includes('setWebResourceFileResponse(args, resourcePath, contentTypeForPath(resourcePath))'),
+        "native project blob/image reads should intercept the dedicated project origin and stream files directly from disk so large shared human atlases do not depend on WebView2 virtual-folder body delivery");
     assert.match(launchOptionsHeader, /DEVTOOL_PLAYTEST_LEVEL_ID = "level_temp"/, "IgnatiusDevTool should use the exact generated filename level_temp.json");
     assert.match(devToolHostSource, /playtestLevelPath = authoringResourceRoot \/ "levels" \/ \(std::string\(DEVTOOL_PLAYTEST_LEVEL_ID\) \+ "\.json"\)/, "IgnatiusDevTool should resolve the shared generated playtest snapshot inside the selected resources root");
     assert.match(devToolHostSource, /argsStorage\.push_back\("--level"\)[\s\S]*argsStorage\.push_back\(DEVTOOL_PLAYTEST_LEVEL_ID\)/, "IgnatiusDevTool should launch playtests through the ordinary level-id loader");
@@ -1203,6 +1225,7 @@ assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relati
     assert.ok(devToolHostSource.includes('operation == "chooseResourcesDirectory"') && devToolHostSource.includes("FOS_PICKFOLDERS") && devToolHostSource.includes("chooseResourcesFolder"), "the native Dev Tool bridge should open and validate a real resources-folder picker");
     assert.equal(devToolShellSource.includes('selectButton.hidden = snapshot.mode === "native"'), false, "the resources-folder button should remain visible in the native Dev Tool shell");
     assert.ok(cmakeSource.includes('reference/IgnatiusDevTool.html') && cmakeSource.includes('reference/palette-builder.html') && cmakeSource.includes('reference/utils.html'), "the Windows content stage should package the shared shell, palette builder, and Utils page");
+    assert.ok(cmakeSource.includes('shlwapi'), "the Windows Dev Tool should link the shell stream helper used for file-backed WebResourceRequested responses");
     assert.match(launchOptionsSource, /lowered == DEVTOOL_PLAYTEST_LEVEL_ID/, "the native level-id parser should accept the reserved generated DevTool playtest id");
     assert.match(nativeAppSource, /referenceMusicAssetPath\(track\.file\)/, "native music playback should resolve catalog filenames through the music resource category");
     assert.ok(
@@ -2795,6 +2818,16 @@ function testAutomaticEnemySpawning() {
         ["enemy_901"],
         "enemy 901 should remain explicitly selectable; exclusion is a simple default-range policy, not a hidden eligibility rule"
     );
+    assert.equal(
+        resolveAutoSpawnEnemyIds(DEFAULT_AUTO_SPAWN_ENEMIES, dependencyCatalog).resolvedIds.includes("enemy_910"),
+        false,
+        "the Mini Volcano hazard should stay outside the default 1-900 automatic-spawn pool"
+    );
+    assert.deepEqual(
+        resolveAutoSpawnEnemyIds({ enemyPool: "910" }, dependencyCatalog).resolvedIds,
+        ["enemy_910"],
+        "enemy 910 should remain explicitly selectable; stationary/periodic behavior must not impose a hidden auto-spawn ban"
+    );
     assert.deepEqual(
         collectLevelEnemyCharacterIds({
             entities: [
@@ -2826,9 +2859,96 @@ function testAutomaticEnemySpawning() {
                 projectileVisualFrameId: "axe_copy"
             }]
         }, dependencyCatalog),
-        ["ct_char_enemy_080", "ct_char_enemy_093"],
-        "explicit custom projectile visuals should preload both the enemy character and the selected visual character"
+        ["ct_char_enemy_010", "ct_char_enemy_080"],
+        "non-boss projectile visual overrides should be ignored in favor of the catalog-owned projectile visual"
     );
+    assert.deepEqual(
+        collectLevelEnemyCharacterIds({
+            entities: [{
+                type: "characterEnemy",
+                enemyCatalogId: "enemy_080",
+                characterId: "ct_char_enemy_093",
+                projectileVisualCharacterId: "ct_char_enemy_093",
+                projectileVisualFrameId: "axe_copy"
+            }]
+        }, dependencyCatalog),
+        ["ct_char_enemy_010", "ct_char_enemy_080"],
+        "non-boss character-project overrides should not affect runtime dependencies"
+    );
+    assert.deepEqual(
+        collectLevelEnemyCharacterIds({
+            entities: [{
+                type: "characterEnemy",
+                enemyCatalogId: "enemy_080",
+                isBoss: true,
+                characterId: "ct_char_enemy_093",
+                projectileVisualCharacterId: "ct_char_enemy_093",
+                projectileVisualFrameId: "axe_copy"
+            }]
+        }, dependencyCatalog),
+        ["ct_char_enemy_010", "ct_char_enemy_093"],
+        "bosses may override their character project while projectile visual sources remain catalog-owned"
+    );
+
+    const catalogCrossbow = dependencyCatalog.enemies.enemy_034.defaults;
+    const nonBossCrossbow = resolveLevelCharacterEnemy(dependencyCatalog, {
+        type: "characterEnemy",
+        enemyCatalogId: "enemy_034",
+        characterId: "ct_char_enemy_093",
+        health: 999,
+        scale: 2,
+        strategy: "passive",
+        attackType: "melee",
+        projectileKind: "fireball",
+        projectileSpeed: 999,
+        projectileVisualCharacterId: "ct_char_enemy_093",
+        facing: 1,
+        patrolDistance: 44
+    });
+    assert.equal(nonBossCrossbow.characterId, "ct_char_enemy_034", "ordinary enemies should always use the catalog character project");
+    assert.equal(nonBossCrossbow.health, catalogCrossbow.health, "ordinary enemies should ignore per-placement health tuning");
+    assert.equal(nonBossCrossbow.scale, catalogCrossbow.scale, "ordinary enemies should ignore per-placement scale tuning");
+    assert.equal(nonBossCrossbow.strategy, catalogCrossbow.strategy, "ordinary enemies should ignore per-placement AI strategy tuning");
+    assert.equal(nonBossCrossbow.attackType, catalogCrossbow.attackType, "ordinary enemies should ignore structural attack-type overrides");
+    assert.equal(nonBossCrossbow.projectileKind, catalogCrossbow.projectileKind, "ordinary enemies should ignore projectile-kind overrides");
+    assert.equal(nonBossCrossbow.projectileSpeed, catalogCrossbow.projectileSpeed, "ordinary enemies should ignore projectile tuning");
+    assert.equal(nonBossCrossbow.projectileVisualCharacterId, catalogCrossbow.projectileVisualCharacterId, "ordinary enemies should ignore projectile visual-source overrides");
+    assert.equal(nonBossCrossbow.facing, 1, "initial facing should remain a per-placement property");
+    assert.equal(nonBossCrossbow.patrolDistance, 44, "patrol territory should remain a per-placement property");
+
+    const bossCrossbow = resolveLevelCharacterEnemy(dependencyCatalog, {
+        type: "characterEnemy",
+        enemyCatalogId: "enemy_034",
+        isBoss: true,
+        characterId: "ct_char_enemy_093",
+        health: 999,
+        scale: 2,
+        strategy: "passive",
+        attackType: "melee",
+        projectileKind: "fireball",
+        projectileSpeed: 999,
+        projectileGravity: 123,
+        projectileVisualScale: 1.75,
+        projectileVisualCharacterId: "ct_char_enemy_093",
+        immuneToInterrupts: true,
+        deaf: true,
+        preferredAttackRange: 180,
+        preferredAttackMinRange: 5
+    });
+    assert.equal(bossCrossbow.characterId, "ct_char_enemy_093", "bosses should be allowed to override their character project");
+    assert.equal(bossCrossbow.health, 999, "bosses should be allowed to override health");
+    assert.equal(bossCrossbow.scale, 2, "bosses should be allowed to override scale");
+    assert.equal(bossCrossbow.strategy, "passive", "bosses should retain existing per-placement strategy customization");
+    assert.equal(bossCrossbow.projectileSpeed, 999, "bosses should be allowed to override projectile speed");
+    assert.equal(bossCrossbow.projectileGravity, 123, "bosses should be allowed to override projectile gravity");
+    assert.equal(bossCrossbow.projectileVisualScale, 1.75, "bosses should be allowed to override projectile presentation scale");
+    assert.equal(bossCrossbow.immuneToInterrupts, true, "bosses should be allowed to override interrupt immunity");
+    assert.equal(bossCrossbow.deaf, true, "bosses should be allowed to override deafness");
+    assert.equal(bossCrossbow.preferredAttackRange, 180, "bosses should be allowed to override preferred attack range");
+    assert.equal(bossCrossbow.preferredAttackMinRange, 5, "bosses should be allowed to override preferred minimum attack range");
+    assert.equal(bossCrossbow.attackType, catalogCrossbow.attackType, "bosses should not be allowed to override attack type");
+    assert.equal(bossCrossbow.projectileKind, catalogCrossbow.projectileKind, "bosses should not be allowed to override projectile kind");
+    assert.equal(bossCrossbow.projectileVisualCharacterId, catalogCrossbow.projectileVisualCharacterId, "bosses should not be allowed to override projectile visual source");
     assert.deepEqual(
         collectLevelEnemyCharacterIds({
             entities: [{ type: "characterEnemy", enemyCatalogId: "enemy_080" }]
@@ -3644,6 +3764,38 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(editorHtml.includes("ENEMY_CATALOG_URL"), "level editor should load the explicit enemy catalog");
     assert.ok(editorHtml.includes('for (const [type, definition] of state.enemyCatalog)') && editorHtml.includes('button.dataset.entity = entry.type;'), "level editor palette should expose every loaded enemy catalog entry, including the Skeleton Guard");
     assert.ok(editorHtml.includes('id="enemy-settings-row"'), "level editor should expose character-enemy behaviour controls");
+    assert.ok(editorHtml.includes('id="enemy-boss-overrides"'), "level editor should group individual tuning inside the Boss-only override section");
+    assert.ok(editorHtml.includes('id="enemy-boss-projectile-overrides"'), "level editor should expose projectile tuning for projectile bosses");
+    for (const controlId of [
+        "inspect-enemy-attack-vertical-range",
+        "inspect-enemy-immune-to-interrupts",
+        "inspect-enemy-awareness-hold-duration",
+        "inspect-enemy-deaf",
+        "inspect-enemy-preferred-attack-range",
+        "inspect-enemy-preferred-attack-min-range",
+        "inspect-enemy-projectile-launch-type",
+        "inspect-enemy-projectile-speed",
+        "inspect-enemy-projectile-gravity",
+        "inspect-enemy-projectile-lifetime",
+        "inspect-enemy-projectile-radius",
+        "inspect-enemy-projectile-homing-strength",
+        "inspect-enemy-spread-count",
+        "inspect-enemy-spread-angle",
+        "inspect-enemy-projectile-rotation-speed",
+        "inspect-enemy-projectile-visual-scale",
+        "inspect-enemy-projectile-trail-effect",
+        "inspect-enemy-projectile-impact-effect",
+        "inspect-enemy-projectile-explosion-effect",
+        "inspect-enemy-projectile-aoe-radius",
+        "inspect-enemy-projectile-orient-velocity"
+    ]) {
+        assert.ok(editorHtml.includes(`id="${controlId}"`), `level editor should expose Boss override control ${controlId}`);
+    }
+    assert.equal(editorHtml.includes('id="inspect-enemy-attack-type"'), false, "level editor should keep attack type catalog-owned even for bosses");
+    assert.equal(editorHtml.includes('id="inspect-enemy-projectile-kind"'), false, "level editor should keep projectile kind catalog-owned even for bosses");
+    assert.equal(editorHtml.includes('id="inspect-enemy-projectile-visual-source"'), false, "level editor should keep projectile visual source catalog-owned even for bosses");
+    assert.ok(editorHtml.includes('enemyBossOverrides.style.display = rec.isBoss === true ? "block" : "none"'), "level editor should hide individual tuning unless Boss is checked");
+    assert.ok(editorHtml.includes("clearCharacterEnemyBossOverrides(rec)"), "clearing Boss should remove dormant per-instance tuning instead of hiding stale overrides");
     assert.ok(editorHtml.includes("drawCharacterEnemyPreview"), "level editor should preview enemies through the generic character renderer");
     assert.ok(editorHtml.includes("const enemyRenderScale = scaledEnemyRenderScale(resolvedEnemy, 0.8);") && editorHtml.includes("scaleX: enemyRenderScale") && !editorHtml.includes("renderOffsetX: finiteEditorNumber(resolvedEnemy.renderOffsetX, 0) * enemyScale"), "level editor character previews should keep authored offsets local and apply enemy scale once through the total render scale");
     assert.ok(rendererSource.includes("const artworkOrigin = characterArtworkOrigin(enemy);"), "runtime enemy rendering should use the shared character-local artwork origin");
@@ -5980,7 +6132,7 @@ function testHunterMeleeChoosesNearestAttackReadySpacing() {
                 lungeTargetDist: 50
             }]
         });
-        state.world.segments = [{ id: "spacing_ground", kind: "walkable", x1: -500, y1: 600, x2: 500, y2: 600 }];
+        state.world.segments = [{ id: "spacing_ground", kind: "walkable", x1: -1000, y1: 600, x2: 1000, y2: 600 }];
         state.world.solids = [];
         state.world.collisionPolygons = [];
         state.story.portalIntro = null;
@@ -6009,16 +6161,36 @@ function testHunterMeleeChoosesNearestAttackReadySpacing() {
     const directNearer = makeState(100);
     stepSimulation(directNearer.state, createInputFrame(), FIXED_DT);
     assert.ok(directNearer.enemy.currentTransform.x > 0, "between direct reach and lunge minimum, hunter should close when the direct-attack boundary is nearer");
-    approx(directNearer.enemy.routeTargetX, 30, 0.000001, "direct-attack option should target the nearest grounded-base melee boundary");
+    approx(directNearer.enemy.routeTargetX, 35, 0.000001, "direct-attack option should target 5 px inside grounded-base melee reach");
 
     const lungeNearer = makeState(120);
     stepSimulation(lungeNearer.state, createInputFrame(), FIXED_DT);
     assert.ok(lungeNearer.enemy.currentTransform.x < 0, "between direct reach and lunge minimum, hunter may back up when the lunge boundary is genuinely nearer");
-    approx(lungeNearer.enemy.routeTargetX, -20, 0.000001, "lunge option should target lungeRangeMin rather than a fraction of lungeRangeMax");
+    approx(lungeNearer.enemy.routeTargetX, -25, 0.000001, "lunge option should target 5 px inside lungeRangeMin rather than the exact boundary");
 
     const lungeReady = makeState(200);
     stepSimulation(lungeReady.state, createInputFrame(), FIXED_DT);
     approx(lungeReady.enemy.currentTransform.x, 0, 0.000001, "hunter already inside the valid lunge band should hold position while cooling down");
+
+    const lungeBoundary = makeState(400.965);
+    lungeBoundary.enemy.attackCooldownTimer = 10;
+    stepSimulation(lungeBoundary.state, createInputFrame(), FIXED_DT);
+    approx(lungeBoundary.enemy.routeTargetX, 5.965, 0.000001, "lunge-boundary fixture should plan 5 px inside lungeRangeMax so the 2 px navigation tolerance stays attack-ready");
+    assert.ok(lungeBoundary.enemy.currentTransform.x > 0.001, "hunter just outside lungeRangeMax should close toward the inset target instead of accepting an out-of-range navigation arrival");
+    let lungeBoundaryDirectionFlips = 0;
+    let lungeBoundaryDirection = 0;
+    for (let index = 0; index < 180; index += 1) {
+        stepSimulation(lungeBoundary.state, createInputFrame(), FIXED_DT);
+        const velocity = Number(lungeBoundary.enemy.groundVelocityX) || 0;
+        const direction = velocity < -0.001 ? -1 : velocity > 0.001 ? 1 : 0;
+        if (direction && lungeBoundaryDirection && direction !== lungeBoundaryDirection) {
+            lungeBoundaryDirectionFlips += 1;
+        }
+        if (direction) lungeBoundaryDirection = direction;
+    }
+    assert.ok(lungeBoundaryDirectionFlips <= 1, "inset attack target plus 2 px arrival tolerance must not produce every-frame left/right oscillation");
+    assert.ok(Math.abs(lungeBoundary.state.player.currentTransform.x - lungeBoundary.enemy.currentTransform.x) <= 400.001, "settled hunter must remain inside authored lungeRangeMax");
+    assert.equal(lungeBoundary.enemy.movementPhase, "position_for_attack", "cooling-down hunter should settle at an attack-ready position without exact-coordinate chasing");
 
     const postLunge = makeState(300);
     postLunge.enemy.attackCooldownTimer = 0;
@@ -7539,7 +7711,10 @@ function testHunterWalkOffDropClearsSourcePillar() {
         bodyClearance: Math.max(10, enemy.width * 0.34)
     };
     const baked = bakeEnemyNavigationGraph(state.world, profile, { id: "offset_drop_profile" });
-    const dropEdges = baked.edges.filter((edge) => edge.type === "drop" && edge.from === "pillar_top" && edge.to === "floor_top");
+    const supportById = new Map(baked.supports.map((support) => [support.id, support]));
+    const dropEdges = baked.edges.filter((edge) => edge.type === "drop"
+        && enemyNavigationSupportPhysicalOwnerId(supportById.get(edge.from)) === "polygon:pillar_poly"
+        && enemyNavigationSupportPhysicalOwnerId(supportById.get(edge.to)) === "polygon:floor_poly");
     assert.ok(dropEdges.length > 0, "graph builder should bake a left walk-off drop from the pillar to the offset floor");
     assert.ok(dropEdges.some((edge) => edge.launchX <= 204 && edge.landingX < 100), "walk-off drop should launch at the pillar edge and carry enough horizontal speed to clear its side");
     state.world.navigationGraphs = { version: 1, profiles: [baked] };
@@ -7608,7 +7783,7 @@ function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
     assert.equal(enemy.route?.[0]?.to, "arch_ruin_001_blockable_6", "the first edge should continue down the same blockable polygon");
     assert.equal(enemy.route?.[1]?.type, "drop", "the next edge should be a gravity-only ledge exit");
     assert.equal(enemy.route?.[1]?.vy, 0, "the arch exit should remain a gravity-only fall rather than adding an upward jump impulse");
-    assert.equal(enemy.route?.[1]?.verification, "verified", "the selected blockable-slope descent should be proven by the 60 Hz navigation simulation");
+    assert.notEqual(enemy.route?.[1]?.verification, "failed", "the selected blockable-slope descent must not use a simulation-failed navigation edge");
 
     let crossedSteepSlope = false;
     let sawDrop = false;
@@ -9472,23 +9647,45 @@ function testPlayerCanDropThroughOneWayPlatforms() {
     approx(state.player.currentTransform.y, 600, 0.001, "a player dropping through green should land on the yellow floor below");
     assert.equal(state.player.supportId, "lower_yellow", "yellow geometry below a drop-through should remain a normal landing support");
 
-    Object.assign(state.player, {
-        x: 0,
-        y: 380,
-        vx: 0,
-        vy: 160,
-        onGround: false,
-        wasOnGround: false,
-        supportId: null,
-        dropThroughTimer: 0,
-        ordinaryJumpActive: false
+    const stacked = createInitialGameState();
+    stacked.world.segments = [
+        { id: "stack_top_green", kind: "walkable", x1: -240, y1: 400, x2: 240, y2: 400 },
+        { id: "stack_middle_green", kind: "walkable", x1: -240, y1: 500, x2: 240, y2: 500 },
+        { id: "stack_bottom_green", kind: "walkable", x1: -240, y1: 600, x2: 240, y2: 600 },
+        { id: "stack_yellow_floor", kind: "blockable", x1: -240, y1: 750, x2: 240, y2: 750 }
+    ];
+    stacked.world.solids = [];
+    stacked.world.collisionPolygons = [];
+    stacked.story.portalIntro = null;
+    stacked.story.portalExit = null;
+    stacked.story.mailboxEvent = null;
+    Object.assign(stacked.player, {
+        x: 0, y: 400, vx: 0, vy: 0, onGround: true, wasOnGround: true,
+        supportId: "stack_top_green", dropThroughTimer: 0, dropThroughSupportId: null, ordinaryJumpActive: false
     });
-    stepSimulation(state, createInputFrame({ dropPressed: true, dropHeld: true }), FIXED_DT);
-    stepMany(state, 10);
-    assert.ok(state.player.currentTransform.y > 405, "pressing down while already falling should carry the player through the next green line");
-    assert.notEqual(state.player.supportId, "upper_green", "a falling drop-through must not land on the green line");
-    stepMany(state, 35);
-    approx(state.player.currentTransform.y, 600, 0.001, "the falling drop-through should still stop at yellow geometry");
+    Object.assign(stacked.player.currentTransform, { x: 0, y: 400 });
+    Object.assign(stacked.player.previousTransform, stacked.player.currentTransform);
+    Object.assign(stacked.player.shownTransform, stacked.player.currentTransform);
+
+    stepSimulation(stacked, createInputFrame({ dropPressed: true, dropHeld: true }), FIXED_DT);
+    assert.equal(stacked.player.onGround, false, "a fresh Down press should release the top green line");
+    for (let step = 0; step < 90 && !stacked.player.onGround; step += 1) {
+        stepSimulation(stacked, createInputFrame({ dropHeld: true }), FIXED_DT);
+    }
+    assert.equal(stacked.player.supportId, "stack_middle_green", "holding Down after a drop-through should still land on the next green line");
+    approx(stacked.player.currentTransform.y, 500, 0.001, "the middle green line should catch the held-Down fall");
+    const landedMiddleY = stacked.player.currentTransform.y;
+    stepMany(stacked, 12, () => createInputFrame({ dropHeld: true }));
+    approx(stacked.player.currentTransform.y, landedMiddleY, 0.001, "continuing to hold Down must not drop through the newly landed green line");
+    assert.equal(stacked.player.supportId, "stack_middle_green", "the newly landed green support remains solid until Down is released and pressed again");
+
+    stepSimulation(stacked, createInputFrame({ dropReleased: true }), FIXED_DT);
+    stepSimulation(stacked, createInputFrame({ dropPressed: true, dropHeld: true }), FIXED_DT);
+    for (let step = 0; step < 90 && !stacked.player.onGround; step += 1) {
+        stepSimulation(stacked, createInputFrame({ dropHeld: true }), FIXED_DT);
+    }
+    assert.equal(stacked.player.supportId, "stack_bottom_green", "release-and-repress should drop through exactly the current green line and land on the next one");
+    approx(stacked.player.currentTransform.y, 600, 0.001, "the second fresh Down press should reach the bottom green line, not pass through it");
 
     Object.assign(state.player, {
         x: 0,
@@ -9681,6 +9878,131 @@ function testGroundEnemyAutomaticSmallStep() {
     const blockedEnemy = tooTall.enemies.find((enemy) => enemy.id === "step_enemy");
     assert.equal(blockedEnemy.currentTransform.y, 600, "a monster should not climb a step above one fifth of its height");
     assert.equal(blockedEnemy.facing, -1, "a simple patrol monster should turn around at a genuinely blocking step");
+
+
+    // Exact level_005 regression from the recorded snake stall. The 248 px-wide
+    // snake had already validated a shallow grass-to-sand stride, but route/local
+    // pursuit arbitration used to steal control after the first sub-step and leave
+    // strideProgress frozen forever. An active physical stride is a committed
+    // traversal and must keep advancing until its destination-support handoff.
+    const level = readResourceJson("level_005.json");
+    const state = createCatalogBackedGameState();
+    assert.equal(applyEditorLevelToWorld(state, level), true,
+        "level_005 should apply for the wide-enemy committed-stride regression");
+    const manifests = new Map();
+    for (const ref of level.atlasRefs || []) {
+        manifests.set(ref.atlasId, { manifest: readResourceJson(ref.manifest) });
+    }
+    assert.equal(applyAtlasManifestsToWorld(state, manifests), true,
+        "level_005 collision should hydrate for the wide-enemy committed-stride regression");
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.visible = true;
+    state.player.targetable = true;
+    state.player.currentTransform.x = 21134.55029674906;
+    state.player.currentTransform.y = 495.69277362046324;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    const enemy = state.enemies.find((candidate) => candidate.id === "enemy_050_001");
+    assert.ok(enemy && enemy.width === 248,
+        "level_005 should retain the original 248 px snake collision width for the seam regression");
+    enemy.currentTransform.x = 21418.547993019198;
+    enemy.currentTransform.y = 490.22222222222223;
+    enemy.supportId = "forest_grass_ground_block_002_blockable_1";
+    enemy.currentSupportId = "forest_grass_ground_block_002_blockable_1_nav_1";
+    enemy.airborne = false;
+    enemy.groundVelocityX = -15.833333;
+    enemy.velocityX = -15.833333;
+    enemy.velocityY = 0;
+    enemy.engaged = true;
+    enemy.alerted = true;
+    enemy.aiState = "pursue";
+    enemy.movementPhase = "local_pursuit";
+    enemy.awarenessRange = 5000;
+    enemy.awarenessTimer = 1.2;
+    enemy.facing = -1;
+    enemy.route = [];
+    enemy.routeIndex = 0;
+    enemy.routePurpose = "";
+    enemy.routeTargetSupportId = null;
+    enemy.routeRepathTimer = 0;
+    enemy.groundStride = {
+        active: true,
+        direction: -1,
+        startX: 21418.547993019198,
+        startY: 490.22222222222223,
+        cornerX: 21418.547993019198,
+        cornerY: 485.9631901840491,
+        cornerDistance: 4.25903203817314,
+        targetX: 21398.783021850883,
+        targetY: 487.165113340341,
+        footStartX: 21294.547993019198,
+        footStartY: 490.22222222222223,
+        footholdX: 21274.783021850883,
+        footholdY: 487.165113340341,
+        strideProgress: 0,
+        strideLength: 24.060514421014158,
+        targetSupportId: "shore_sandy_002_blockable_2",
+        targetSupportKind: "blockable",
+        targetSupportSource: "segment",
+        riserId: "shore_sandy_002_blockable_2"
+    };
+    snapAllPresentationSubjects(state);
+
+    stepMany(state, 4);
+    assert.ok(enemy.groundStride?.active && enemy.groundStride.strideProgress > 3,
+        "an active wide-enemy ground stride should remain committed and advance instead of freezing after its first sub-step");
+
+    // The same recorded seam also exposed the centre-biased handoff in the
+    // opposite direction. Use a fresh level state, place the original 248 px
+    // snake on the sandy support, and let simple patrol walk right. The lower
+    // leading corner should discover the ~4 px grass step and complete a
+    // full-body-validated stride.
+    const returnState = createCatalogBackedGameState();
+    assert.equal(applyEditorLevelToWorldCurrent(returnState, level), true,
+        "level_005 should apply for the wide-enemy return seam regression");
+    assert.equal(applyAtlasManifestsToWorld(returnState, manifests), true,
+        "level_005 collision should hydrate for the wide-enemy return seam regression");
+    returnState.story.portalIntro = null;
+    returnState.story.portalExit = null;
+    returnState.story.mailboxEvent = null;
+    const returnEnemy = returnState.enemies.find((candidate) => candidate.id === "enemy_050_001");
+    assert.ok(returnEnemy && returnEnemy.width === 248,
+        "the return seam regression should retain the original 248 px snake width");
+    returnEnemy.currentTransform.x = 21290;
+    returnEnemy.currentTransform.y = 486.24;
+    returnEnemy.supportId = "shore_sandy_002_blockable_2";
+    returnEnemy.currentSupportId = null;
+    returnEnemy.airborne = false;
+    returnEnemy.groundStride = null;
+    returnEnemy.groundVelocityX = 0;
+    returnEnemy.velocityX = 0;
+    returnEnemy.velocityY = 0;
+    returnEnemy.strategy = "simple_patrol";
+    returnEnemy.engaged = false;
+    returnEnemy.alerted = false;
+    returnEnemy.aiState = "patrol";
+    returnEnemy.movementPhase = "patrol";
+    returnEnemy.state = "walk";
+    returnEnemy.facing = 1;
+    returnEnemy.patrolMinX = 21000;
+    returnEnemy.patrolMaxX = 21600;
+    returnEnemy.spawnX = 21300;
+    returnEnemy.phaseTimer = 0;
+    returnEnemy.idleDuration = 0;
+    returnEnemy.turnPause = 0;
+    returnEnemy.walkSpeed = 52;
+    returnEnemy.runSpeed = 52;
+    returnEnemy.awarenessRange = 10;
+    snapAllPresentationSubjects(returnState);
+
+    stepMany(returnState, 180);
+    assert.equal(returnEnemy.supportId, "forest_grass_ground_block_002_blockable_1",
+        "the original 248 px snake should complete the shallow sand-to-grass seam handoff");
+    assert.ok(returnEnemy.currentTransform.x > 21320,
+        "the wide snake should continue walking right after the leading-corner seam transition");
 }
 
 function testCharacterEnemyRuntimeLoaderMatchesSdlSemantics() {
@@ -9900,6 +10222,24 @@ function testCharacterEnemyAggressiveChaseAndCombo() {
     stepSimulation(gapState, createInputFrame(), FIXED_DT);
     assert.notEqual(gapEnemy.combatState, "attacking", "unsupported gap should prevent a grounded lunge attack from starting");
     assert.equal(gapEnemy.attackLungeActive, false, "grounded lunge path validation should reject gaps, not merely test line of sight");
+
+    const seamState = createLungeState();
+    const seamEnemy = seamState.enemies.find((item) => item.id === "rush_guard");
+    seamState.world.segments = [
+        { id: "lunge_seam_held", kind: "walkable", x1: -500, y1: 600, x2: 1, y2: 600 },
+        { id: "lunge_seam_next", kind: "walkable", x1: 3, y1: 600, x2: 500, y2: 600 }
+    ];
+    seamEnemy.supportId = "lunge_seam_held";
+    stepSimulation(seamState, createInputFrame(), FIXED_DT);
+    let seamGuard = 0;
+    while (!seamEnemy.attackLungeStarted && seamGuard < 120) {
+        stepSimulation(seamState, createInputFrame(), FIXED_DT);
+        seamGuard += 1;
+    }
+    assert.equal(seamEnemy.attackLungeStarted, true, "lunge should launch across a physically supported authored seam accepted by preflight");
+    stepSimulation(seamState, createInputFrame(), FIXED_DT);
+    assert.ok(seamEnemy.currentTransform.x > 10, "executing lunge should use the same support acceptance as preflight instead of being cancelled by ordinary walking seam identity");
+    assert.equal(seamEnemy.supportId, "lunge_seam_next", "executed lunge should adopt the physical support selected by its shared grounded-step validator");
 
     const dynamicBlockState = createLungeState();
     const dynamicBlockEnemy = dynamicBlockState.enemies.find((item) => item.id === "rush_guard");
@@ -11539,6 +11879,12 @@ function testProjectileArchetypeComposability() {
     const handoff = ogreRig.parts.fireball.attackHandoff;
     const releasePose = sampleAnimationClip(ogreAttack, handoff.releaseTime).fireball;
     const state = createCatalogBackedGameState({ tuning: { maxDebugEvents: 200 } });
+    // Structural projectile selection is catalog-owned. Keep the composability
+    // probe by defining an Ogre-rig throwing-axe catalog type and use Boss
+    // overrides only for launch/spread/rotation tuning.
+    state.enemyCatalog.enemies.enemy_test_throwing_ogre = structuredClone(state.enemyCatalog.enemies.enemy_080);
+    state.enemyCatalog.enemies.enemy_test_throwing_ogre.label = "Test Ogre Axethrower";
+    state.enemyCatalog.enemies.enemy_test_throwing_ogre.defaults.projectileKind = "throwingAxe";
     applyEditorLevelToWorld(state, {
         levelId: "projectile_archetype_composability_test",
         testPlayerStart: { x: 80, y: 600 },
@@ -11546,12 +11892,12 @@ function testProjectileArchetypeComposability() {
         entities: [{
             id: "custom_ogre_thrower",
             type: "characterEnemy",
-            enemyCatalogId: "enemy_080",
+            enemyCatalogId: "enemy_test_throwing_ogre",
+            isBoss: true,
             x: 340,
             y: 600,
             facing: -1,
             strategy: "sentry",
-            projectileKind: "throwingAxe",
             projectileLaunchType: "homing_lo",
             spreadCount: 3,
             spreadAngle: 15,
@@ -11562,6 +11908,7 @@ function testProjectileArchetypeComposability() {
             id: "custom_ogre_handoff_visual",
             type: "characterEnemy",
             enemyCatalogId: "enemy_080",
+            isBoss: true,
             x: 620,
             y: 600,
             facing: -1,
@@ -11574,8 +11921,8 @@ function testProjectileArchetypeComposability() {
     });
     const handoffVisualEnemy = state.enemies.find((enemy) => enemy.id === "custom_ogre_handoff_visual");
     assert.equal(handoffVisualEnemy?.projectileKind, "fireball", "visual source overrides should not change the Ogre's fireball projectile behavior");
-    assert.equal(handoffVisualEnemy?.projectileVisualCharacterId, "ct_char_enemy_080", "browser runtime should retain an explicit current-character projectile visual override");
-    assert.equal(handoffVisualEnemy?.projectileVisualFrameId, "fireball", "browser runtime should retain the handoff atlas frame override");
+    assert.equal(handoffVisualEnemy?.projectileVisualCharacterId, "ct_char_enemy_010", "browser runtime should ignore Boss projectile visual-source overrides and use the catalog-owned fireball visual");
+    assert.equal(handoffVisualEnemy?.projectileVisualFrameId, "fireball", "browser runtime should retain the catalog-owned fireball frame");
 
     applyCharacterCombatProfiles(state, new Map([["ct_char_enemy_080", {
         attackDuration: ogreAttack.duration,
@@ -11714,6 +12061,234 @@ function testDataDrivenTimedProjectileHandoffs() {
         stepSimulation(state, createInputFrame(), FIXED_DT);
     }
     approx(enemy.attackCooldownTimer, 2.5, 0.000001, "the crossbow burst should begin a 2.5-second cooldown after the full animation");
+}
+
+
+function testStationaryPeriodicVolcanoHazard() {
+    const catalog = JSON.parse(readFileSync("./resources/characters/ct_enemies_001.json", "utf8"));
+    const definition = catalog.enemies.enemy_910;
+    const character = JSON.parse(readFileSync("./resources/characters/ct_char_enemy_910.json", "utf8"));
+    const rig = JSON.parse(readFileSync("./resources/characters/ct_rig_enemy_910.json", "utf8"));
+    const attack = JSON.parse(readFileSync("./resources/characters/ct_anim_enemy_910_attack.json", "utf8"));
+    const idle = JSON.parse(readFileSync("./resources/characters/ct_anim_enemy_910_idle.json", "utf8"));
+    const atlas = JSON.parse(readFileSync("./resources/characters/ct_atlas_enemy_910.json", "utf8"));
+
+    assert.equal(definition.characterId, "ct_char_enemy_910", "Mini Volcano should be an ordinary catalog-backed character project");
+    assert.equal(definition.defaults.locomotion, "stationary", "Mini Volcano should use generic stationary locomotion");
+    assert.equal(definition.defaults.strategy, "periodic", "Mini Volcano should use the generic periodic strategy");
+    assert.equal(definition.defaults.invulnerable, true, "Mini Volcano should be authored invulnerable without overloading targetable");
+    assert.equal(definition.defaults.contactDamage, 30, "Mini Volcano should retain its authored body-contact damage");
+    assert.equal(definition.defaults.projectileAimMode, "local_angle", "Mini Volcano should use authored blind projectile direction");
+    assert.equal(definition.defaults.projectileAimAngleDegrees, -90, "Mini Volcano should launch straight upward before jitter");
+    assert.equal(definition.defaults.projectileAngleJitterDegrees, 2, "Mini Volcano should jitter each rock by a tight +/-2 degrees");
+    assert.equal(definition.defaults.projectileVisualScaleJitter, 0.3, "Mini Volcano should vary each rock's visual size by +/-30 percent");
+    assert.deepEqual(definition.defaultSize, { w: 113, h: 73 }, "Mini Volcano collision/placement dimensions should be about one-third of the original 338x218 size");
+    approx(definition.defaults.renderScale, 1 / 3, 0.000001, "Mini Volcano artwork should render at one-third scale");
+    assert.deepEqual(character.attackParts, ["lavaRock1", "lavaRock2", "lavaRock3", "lavaRock4", "lavaRock5", "lavaRock6", "lavaRock7"], "Mini Volcano character project should select all seven authored attack handoff markers in ascending eruption order");
+    assert.equal(attack.duration, 1.5, "volcano attack should retain a 1.5 second visual animation envelope");
+
+    const handoffEntries = Object.entries(rig.parts)
+        .filter(([, part]) => part?.attackHandoff?.enabled === true && part.attackHandoff.animationSlot === "attack")
+        .sort((a, b) => a[1].attackHandoff.releaseTime - b[1].attackHandoff.releaseTime);
+    const releaseTimes = handoffEntries.map(([, part]) => part.attackHandoff.releaseTime);
+    assert.deepEqual(releaseTimes, [0.8, 0.82, 0.84, 0.86, 0.88, 0.9, 0.92], "volcano should hand off seven rocks in the tighter user-authored eruption rhythm");
+    assert.ok(releaseTimes.at(-1) - releaseTimes[0] <= 0.12, "all seven gameplay rocks should leave within the tighter 0.12 second eruption burst");
+    const releaseCenter = releaseTimes.reduce((sum, value) => sum + value, 0) / releaseTimes.length;
+    approx(releaseCenter, 0.86, 0.01, "the projectile burst should be centered around 0.86 seconds into the attack animation");
+    assert.deepEqual(character.attackParts, handoffEntries.map(([partName]) => partName), "the selected volcano attack parts should exactly match the seven rig handoffs in ascending release order");
+    assert.deepEqual(Object.keys(atlas.frames), ["volcanoRock", "lavaStreams", "lavaRock1", "lavaRock2", "lavaRock3", "lavaRock4", "lavaRock5", "lavaRock6", "lavaRock7"], "volcano atlas manifest should expose the body, lava overlay, and seven projectile rocks");
+    const idleLavaAlpha = idle.tracks.lava.alpha.map((key) => key.value);
+    assert.ok(Math.max(...idleLavaAlpha) - Math.min(...idleLavaAlpha) <= 0.08, "idle lava brightness should pulse only subtly");
+
+    const eruptionOriginHeight = Math.abs(Number(rig.parts.lavaRock1.offset?.y) || 0) * definition.defaults.renderScale;
+    const worstCaseVerticalSpeed = definition.defaults.projectileSpeed * Math.cos(definition.defaults.projectileAngleJitterDegrees * Math.PI / 180);
+    const lowestProjectileApex = eruptionOriginHeight + worstCaseVerticalSpeed * worstCaseVerticalSpeed / (2 * definition.defaults.projectileGravity);
+    const doubleJumpApex = DEFAULT_TUNING.ordinaryJumpHeight * 2;
+    assert.ok(lowestProjectileApex > doubleJumpApex + 30, `even a maximally jittered lava rock should still clear the ${doubleJumpApex}px unassisted double-jump apex after the tighter retune; got ${lowestProjectileApex}`);
+    assert.ok(lowestProjectileApex < doubleJumpApex + 45, `the eruption should remain within a hover-clearable band after the tighter retune; got ${lowestProjectileApex}`);
+
+    const combatProfile = {
+        attackDuration: attack.duration,
+        handoffs: character.attackParts.map((partName) => {
+            const part = rig.parts[partName];
+            return {
+                partName,
+                frameId: part.frame,
+                animationSlot: part.attackHandoff.animationSlot,
+                releaseTime: part.attackHandoff.releaseTime,
+                detach: part.attackHandoff.detach,
+                localX: part.offset?.x ?? 0,
+                localY: part.offset?.y ?? 0,
+                rigScale: rig.global?.scale ?? 1
+            };
+        })
+    };
+
+    const createVolcanoState = (periodicInitialDelay = 0) => {
+        const state = createCatalogBackedGameState({ tuning: { maxDebugEvents: 300, healthRegenRate: 0 } });
+        assert.equal(applyEditorLevelToWorld(state, {
+            levelId: "stationary_periodic_volcano_test",
+            testPlayerStart: { x: 760, y: 600 },
+            bounds: { x: -10000, y: -10000, w: 20000, h: 20000 },
+            entities: [{
+                id: "volcano_test",
+                type: "characterEnemy",
+                enemyCatalogId: "enemy_910",
+                x: 300,
+                y: 600,
+                facing: -1,
+                periodicInitialDelay
+            }]
+        }), true, "catalog-backed volcano test level should apply");
+        applyCharacterCombatProfiles(state, new Map([[definition.characterId, combatProfile]]));
+        state.world.solids = [];
+        state.world.segments = [];
+        state.world.collisionPolygons = [];
+        state.world.bounds = { x: -10000, y: -10000, w: 20000, h: 20000 };
+        state.story.portalIntro = null;
+        state.story.portalExit = null;
+        state.story.mailboxEvent = null;
+        for (const transformName of ["currentTransform", "previousTransform", "shownTransform"]) {
+            state.player[transformName].x = 760;
+            state.player[transformName].y = 600;
+        }
+        state.player.onGround = false;
+        state.player.wasOnGround = false;
+        return state;
+    };
+
+    const state = createVolcanoState(0);
+    const enemy = state.enemies.find((item) => item.id === "volcano_test");
+    const target = state.targets.find((item) => item.enemyId === enemy.id);
+    assert.equal(enemy.locomotion, "stationary", "runtime should preserve stationary locomotion");
+    assert.equal(enemy.strategy, "periodic", "runtime should preserve periodic strategy");
+    assert.equal(enemy.invulnerable, true, "runtime should preserve catalog invulnerability");
+    assert.equal(enemy.contactDamage, 30, "runtime should preserve authored body-contact damage");
+    assert.equal(target.targetable, false, "an invulnerable living enemy should not become a homing target");
+    const startX = enemy.currentTransform.x;
+    const startY = enemy.currentTransform.y;
+    const startFacing = enemy.facing;
+    stepMany(state, 96);
+    approx(enemy.currentTransform.x, startX, 0.000001, "stationary periodic enemy should never navigate horizontally");
+    approx(enemy.currentTransform.y, startY, 0.000001, "stationary periodic enemy should not fall without ground support");
+    assert.equal(enemy.facing, startFacing, "periodic attacks should preserve authored facing instead of turning toward Ignatius");
+    const fired = state.debug.lastEvents.filter((event) => event.type === "ENEMY_PROJECTILE_FIRED" && event.enemyId === enemy.id);
+    assert.equal(fired.length, 7, "one volcano attack should execute all seven authored handoffs");
+    assert.deepEqual(fired.map((event) => event.projectilePartName), handoffEntries.map(([partName]) => partName), "each eruption rock should retain the character marker that handed it off");
+    const rocks = state.projectiles.filter((projectile) => projectile.enemyId === enemy.id);
+    assert.equal(rocks.length, 7, "all seven eruption rocks should remain independent simulated projectiles");
+    for (const rock of rocks) {
+        assert.ok(Math.abs(rock.projectileAngleJitterDegrees) <= 2.000001, "each lava rock should retain a spawn-time angle jitter inside the authored +/-2 degree range");
+        assert.ok(rock.projectileVisualScale >= 0.7 - 0.000001 && rock.projectileVisualScale <= 1.3 + 0.000001, `lava rock visual jitter should stay inside +/-30 percent, got ${rock.projectileVisualScale}`);
+        approx(rock.damage, 30, 0.000001, "visual-size jitter must not alter projectile damage");
+        approx(rock.radius, 12, 0.000001, "visual-size jitter must not alter projectile collision radius");
+        approx(rock.areaDamageRadius, 0, 0.000001, "visual-size jitter must not alter projectile AoE radius");
+    }
+    assert.ok(new Set(rocks.map((rock) => rock.frameId)).size >= 6, "the seven handoffs should visibly reuse the varied semi-molten rock atlas frames");
+
+    const deterministicA = createVolcanoState(10);
+    const deterministicB = cloneGameState(deterministicA);
+    const projectileA = launchCharacterEnemyProjectile(deterministicA, deterministicA.enemies[0]);
+    const projectileB = launchCharacterEnemyProjectile(deterministicB, deterministicB.enemies[0]);
+    const projectileAHeading = Math.atan2(projectileA.vy, projectileA.vx) * 180 / Math.PI;
+    assert.ok(projectileAHeading >= -92.000001 && projectileAHeading <= -87.999999, `local-angle lava rock should launch inside the authored +/-2 degree cone, got ${projectileAHeading}`);
+    approx(projectileAHeading, -88.59193037077784, 0.000000001, "JS deterministic volcano jitter fixture should remain stable for native parity after the tighter retune");
+    approx(projectileA.projectileVisualScale, 0.7816300488077104, 0.000000001, "JS deterministic volcano visual-scale fixture should remain stable for native parity");
+    approx(projectileA.vx, projectileB.vx, 0.000000001, "identical simulation identity should reproduce projectile angle jitter exactly");
+    approx(projectileA.vy, projectileB.vy, 0.000000001, "identical simulation identity should reproduce projectile vertical velocity exactly");
+    approx(projectileA.projectileVisualScale, projectileB.projectileVisualScale, 0.000000001, "identical simulation identity should reproduce visual-size jitter exactly");
+    const projectileA2 = launchCharacterEnemyProjectile(deterministicA, deterministicA.enemies[0]);
+    assert.ok(Math.abs(projectileA2.projectileAngleJitterDegrees - projectileA.projectileAngleJitterDegrees) > 0.000001
+        || Math.abs(projectileA2.projectileVisualScale - projectileA.projectileVisualScale) > 0.000001,
+    "different projectile sequence ids should be able to produce independent deterministic variation");
+
+    const delayedState = createVolcanoState(0.5);
+    stepMany(delayedState, 25);
+    assert.equal(delayedState.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED" && event.enemyId === "volcano_test"), false, "periodicInitialDelay should postpone the first eruption deterministically");
+    stepMany(delayedState, 10);
+    assert.equal(delayedState.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED" && event.enemyId === "volcano_test"), true, "periodic enemy should begin its ordinary attack once the placement-owned initial delay expires");
+
+    for (const strategy of ["sentry", "hunter", "passive"]) {
+        const stationaryState = createVolcanoState(10);
+        const stationaryEnemy = stationaryState.enemies[0];
+        stationaryEnemy.strategy = strategy;
+        stationaryEnemy.attackCooldownTimer = 999;
+        stationaryEnemy.awarenessRange = 10000;
+        stationaryEnemy.awarenessViewHalfAngleDegrees = 180;
+        stationaryEnemy.awarenessHoldDuration = 2;
+        stationaryEnemy.airborne = true;
+        stationaryEnemy.velocityX = 180;
+        stationaryEnemy.velocityY = 90;
+        stationaryEnemy.groundVelocityX = 180;
+        const stationaryX = stationaryEnemy.currentTransform.x;
+        const stationaryY = stationaryEnemy.currentTransform.y;
+        stepMany(stationaryState, 30);
+        approx(stationaryEnemy.currentTransform.x, stationaryX, 0.000001, `stationary + ${strategy} should never inherit grounded horizontal locomotion`);
+        approx(stationaryEnemy.currentTransform.y, stationaryY, 0.000001, `stationary + ${strategy} should never fall or drift vertically`);
+        approx(stationaryEnemy.velocityX, 0, 0.000001, `stationary + ${strategy} should clear stale horizontal velocity`);
+        approx(stationaryEnemy.velocityY, 0, 0.000001, `stationary + ${strategy} should clear stale vertical velocity`);
+        approx(stationaryEnemy.groundVelocityX, 0, 0.000001, `stationary + ${strategy} should clear stale ground velocity`);
+        assert.equal(stationaryEnemy.airborne, false, `stationary + ${strategy} should never remain in ground-fall traversal`);
+    }
+
+    const panicState = createVolcanoState(10);
+    const panicEnemy = panicState.enemies[0];
+    panicEnemy.strategy = "sentry";
+    panicEnemy.panicTimer = 2;
+    panicEnemy.panicPhase = "move";
+    panicEnemy.panicPhaseTimer = 1;
+    panicEnemy.panicMoveDirection = 1;
+    panicEnemy.velocityX = 240;
+    panicEnemy.velocityY = 120;
+    panicEnemy.groundVelocityX = 240;
+    const panicX = panicEnemy.currentTransform.x;
+    const panicY = panicEnemy.currentTransform.y;
+    stepMany(panicState, 20);
+    approx(panicEnemy.currentTransform.x, panicX, 0.000001, "stationary panic should not move horizontally");
+    approx(panicEnemy.currentTransform.y, panicY, 0.000001, "stationary panic should not move vertically");
+    assert.equal(panicEnemy.movementPhase, "panic_stuck", "stationary panic should present as stuck rather than entering grounded panic locomotion");
+
+    const invulnerableState = createVolcanoState(10);
+    const invulnerableEnemy = invulnerableState.enemies[0];
+    const beforeHealth = invulnerableEnemy.health;
+    const testRocket = addTestRocket(invulnerableState, {
+        id: "invulnerable_volcano_direct_rocket",
+        x: invulnerableEnemy.currentTransform.x - invulnerableEnemy.width * 0.5 - 12,
+        y: invulnerableEnemy.currentTransform.y - invulnerableEnemy.height * 0.5,
+        vx: 4000,
+        vy: 0,
+        damage: 999,
+        areaDamageRadius: invulnerableState.tuning.wizardHeight
+    });
+    stepSimulation(invulnerableState, createInputFrame(), FIXED_DT);
+    assert.equal(testRocket.state, "exploding", "rockets should still physically collide with an invulnerable environmental actor");
+    approx(invulnerableEnemy.health, beforeHealth, 0.000001, "direct rocket collision should deal zero damage to an invulnerable actor");
+    assert.notEqual(invulnerableEnemy.combatState, "hurt", "invulnerable actor should not enter hurt state");
+    assert.equal(invulnerableEnemy.hitFlashTimer, 0, "invulnerable actor should not flash on rejected damage");
+    assert.equal(invulnerableEnemy.healthBarTimer, 0, "invulnerable actor should not reveal a health bar on rejected damage");
+    const invulnerableAreaEvent = invulnerableState.debug.lastEvents.findLast((event) => event.type === "ROCKET_AREA_DAMAGE_APPLIED" && event.id === testRocket.id);
+    assert.ok(invulnerableAreaEvent, "an explosive rocket should still emit area-damage bookkeeping when it physically collides with an invulnerable actor");
+    assert.ok(!invulnerableAreaEvent.enemyIds.includes(invulnerableEnemy.id), "area-damage bookkeeping should not report an invulnerable zero-damage overlap as a successful enemy hit");
+
+    const contactState = createVolcanoState(10);
+    const contactEnemy = contactState.enemies[0];
+    for (const transformName of ["currentTransform", "previousTransform", "shownTransform"]) {
+        contactState.player[transformName].x = contactEnemy.currentTransform.x;
+        contactState.player[transformName].y = contactEnemy.currentTransform.y;
+    }
+    const playerHealthBeforeContact = contactState.health.amount;
+    stepSimulation(contactState, createInputFrame(), FIXED_DT);
+    approx(playerHealthBeforeContact - contactState.health.amount, 60, 0.000001, "body-overlap contact damage should apply the authored Mini Volcano value through the active Normal-difficulty damage multiplier");
+
+    const characterEditorHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
+    const levelEditorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.ok(characterEditorHtml.includes('<option value="stationary">Stationary</option>'), "Character Editor should expose stationary locomotion");
+    assert.ok(characterEditorHtml.includes('<option value="periodic">Periodic</option>'), "Character Editor should expose periodic strategy");
+    assert.ok(characterEditorHtml.includes('id="enemy-invulnerable"'), "Character Editor should expose catalog-owned invulnerability");
+    assert.ok(characterEditorHtml.includes('id="enemy-projectile-aim-mode"'), "Character Editor should expose projectile aim mode");
+    assert.ok(characterEditorHtml.includes('id="enemy-projectile-angle-jitter"'), "Character Editor should expose random angle jitter");
+    assert.ok(characterEditorHtml.includes('id="enemy-projectile-visual-scale-jitter"'), "Character Editor should expose random visual scale jitter");
+    assert.ok(levelEditorHtml.includes('id="inspect-enemy-periodic-initial-delay"'), "Level Editor should expose placement-owned periodic initial delay");
 }
 
 function testMusketGoblinProjectileAttack() {
@@ -14949,14 +15524,301 @@ function testCaveWindowSplineAuthoring() {
     assert.equal(layerVisualDefaults.foreground.scale, DEFAULT_FOREGROUND_SCALE, "Foreground should expose its complete default enlargement");
     assert.equal(layerVisualDefaults.background.scale, DEFAULT_LAYER_SCALE, "Background should default to neutral scale");
     assert.equal(layerVisualDefaults.background.asset, null, "Background should not invent a repeating asset");
+    assert.deepEqual(layerVisualDefaults.background.effects, DEFAULT_ATMOSPHERE_EFFECTS, "Background atmosphere should default to every effect disabled");
+    assert.equal(ATMOSPHERE_EFFECT_IDS.length, 20, "Background atmosphere should expose the authored 20-effect surface");
+    assert.equal(ATMOSPHERE_BEHIND_EFFECTS.some((effect) => effect.id === "bats"), false, "Bat silhouettes should not be classified behind the authored background");
+    assert.equal(ATMOSPHERE_FRONT_EFFECTS.some((effect) => effect.id === "bats"), true, "Bat silhouettes should be classified in front of the authored background");
+    assert.equal(normalizeAtmosphereIntensity(-1), 0, "atmosphere intensity should clamp at zero");
+    assert.equal(normalizeAtmosphereIntensity(3), 2, "atmosphere intensity should clamp at two");
+
+    // Regression: authored Background parallax contains a potentially huge absolute
+    // world-anchor correction. Procedural atmosphere must start from a neutral screen
+    // origin and follow only later Background movement. This reproduces level_001's
+    // low horizontal parallax over a very wide world, which previously pushed stars,
+    // aurora and meteors thousands of pixels off-screen in both runtimes.
+    const atmosphereRenderer = new AtmosphereGpuRenderer();
+    const atmosphereGameState = {
+        settings: { renderingQuality: "high" },
+        clock: { time: 10 },
+        player: { spawnY: 450, currentTransform: { y: 450 } },
+        world: {
+            levelId: "level_001",
+            layerVisuals: { background: { effects: { stars: 2, aurora: 1, meteor: 1 } } }
+        }
+    };
+    const atmosphereView = { x: 100, y: 40, w: 1280, h: 720, zoom: 1 };
+    assert.equal(atmosphereRenderer.beginFrame(atmosphereGameState, atmosphereView, { x: 14000, y: 500 }), true,
+        "high-quality authored atmosphere should activate");
+    assert.ok(Math.abs(atmosphereRenderer.parallax.x) < 0.000001 && Math.abs(atmosphereRenderer.parallax.y) < 0.000001,
+        "atmosphere should neutralize the Background layer's absolute world-anchor offset on activation");
+    atmosphereGameState.clock.time = 11;
+    atmosphereRenderer.beginFrame(atmosphereGameState, { ...atmosphereView, x: 200 }, { x: 13903, y: 500 });
+    assert.ok(Math.abs(atmosphereRenderer.parallax.x + 3) < 0.000001,
+        "atmosphere should retain the authored Background parallax movement rate after neutralizing its absolute anchor");
+
+    // Ground-referenced cloud/fog fields use one immutable world anchor: the
+    // wizard's initial feet Y. Moving the wizard must not alter it, while moving
+    // the camera translates the existing field by exactly the camera delta.
+    assert.ok(Math.abs(atmosphereRenderer.state.groundWorldY - 450) < 0.000001,
+        "atmosphere should capture the wizard's initial feet Y as its level ground anchor");
+    const initialGroundScreenY = atmosphereRenderer.groundScreenY;
+    atmosphereGameState.player.currentTransform.y = 900;
+    atmosphereGameState.clock.time = 12;
+    atmosphereRenderer.beginFrame(atmosphereGameState, { ...atmosphereView, x: 200, y: 140 }, { x: 13903, y: 403 });
+    assert.ok(Math.abs(atmosphereRenderer.state.groundWorldY - 450) < 0.000001,
+        "wizard vertical movement must not reinitialize the atmosphere ground anchor");
+    assert.ok(Math.abs((atmosphereRenderer.groundScreenY - initialGroundScreenY) + 100) < 0.000001,
+        "camera vertical movement should pan the anchored cloud/fog field instead of reseeding a screen band");
+
+    // Regression: SDL_GPU texture uploads are straight-alpha, unlike the browser
+    // backend which premultiplies uploads before ONE+ONE compositing. Atmosphere
+    // therefore must use the native SRC_ALPHA+ONE pipeline or the transparent
+    // parts of soft-circle quads become bright rectangles.
+    const nativeAtmosphereSource = readFileSync(new URL("../../src/runtime/atmosphere-renderer.cpp", import.meta.url), "utf8");
+    assert.ok(nativeAtmosphereSource.includes("GpuCanvas2DBlendMode::AlphaAdditive"),
+        "native atmosphere should use the alpha-masked additive pipeline for luminous particles and lines");
+    assert.equal(/GpuCanvas2DBlendMode::Additive(?![A-Za-z])/.test(nativeAtmosphereSource), false,
+        "native atmosphere must not use the AA resolver's unmasked ONE+ONE additive pipeline");
+
+    // Tiny stars must retain the prototype's luminous energy without relying on
+    // sub-pixel quads that flicker badly when scrolling without supersampling.
+    atmosphereRenderer.glowTexture = { width: 64, height: 64 };
+    atmosphereRenderer.whiteTexture = { width: 2, height: 2 };
+    const queuedAtmosphereSprites = [];
+    const fakeAtmosphereBackend = { queueSprite(options) { queuedAtmosphereSprites.push(options); return true; } };
+    atmosphereRenderer.drawStars(fakeAtmosphereBackend);
+    const firstStarSprite = queuedAtmosphereSprites.find((sprite) => sprite.source === atmosphereRenderer.glowTexture);
+    const firstStarSeed = atmosphereRenderer.seeds.stars[0];
+    const firstStarSourceSize = (1.15 + 5.4 * Math.pow(firstStarSeed.c, 5)) * Math.min(2, atmosphereView.h / 1080);
+    const expectedFirstStarSize = Math.max(2.0, firstStarSourceSize);
+    const expectedFirstStarCoverage = Math.min(1, (firstStarSourceSize * firstStarSourceSize) / (expectedFirstStarSize * expectedFirstStarSize));
+    const firstStarTwinkle = (0.5 + 0.5 * Math.sin(atmosphereRenderer.time * (0.45 + 2.4 * firstStarSeed.d) + firstStarSeed.a * 31)) * 0.72
+        + 0.28 * Math.sin(atmosphereRenderer.time * (0.81 + 1.7 * firstStarSeed.c) + firstStarSeed.b * 47);
+    const expectedFirstStarAlpha = Math.max(0, Math.min(1, 1.35 * (0.35 + 0.65 * firstStarTwinkle))) * expectedFirstStarCoverage;
+    assert.ok(firstStarSprite && Math.abs(firstStarSprite.width - expectedFirstStarSize) < 0.000001,
+        "runtime stars should clamp sub-pixel points to the stable 2-pixel raster footprint");
+    assert.ok(Math.abs(firstStarSprite.alpha - expectedFirstStarAlpha) < 0.000001,
+        "clamped runtime stars should compensate alpha by source-to-raster area so their luminous energy stays close to the prototype");
+    assert.ok(nativeAtmosphereSource.includes("STAR_MIN_RASTER_SIZE = 2.0") && nativeAtmosphereSource.includes("STAR_MIN_SOURCE_SIZE = 0.5"),
+        "native stars should use the same minimum raster footprint and very-small-star cutoff as the browser");
+
+    // Shooting-star tails are intentionally half the revision-556 length in both runtimes.
+    atmosphereRenderer.state.meteors = [{
+        start: 0,
+        life: 10,
+        x0: 0,
+        y0: 0,
+        x1: 1,
+        y1: 0,
+        trail: 0.4,
+        parallaxX: atmosphereRenderer.parallax.x,
+        parallaxY: atmosphereRenderer.parallax.y
+    }];
+    atmosphereRenderer.time = 5;
+    queuedAtmosphereSprites.length = 0;
+    atmosphereRenderer.drawMeteors(fakeAtmosphereBackend);
+    const firstMeteorTailSegment = queuedAtmosphereSprites.find((sprite) => sprite.source === atmosphereRenderer.whiteTexture);
+    const expectedMeteorTailCenterX = atmosphereView.w * ((0.30 + (0.30 + (0.50 - 0.30) / 12)) * 0.5);
+    assert.ok(firstMeteorTailSegment && Math.abs(firstMeteorTailSegment.centerX - expectedMeteorTailCenterX) < 0.000001,
+        "runtime meteor tail should start half as far behind the head as revision 556");
+    assert.ok(nativeAtmosphereSource.includes("const double tailLength = meteor.trail * 0.5"),
+        "native meteor tail should use the same half-length multiplier as the browser");
+
+    // Atmosphere layering and soft-field placement are authored presentation rules,
+    // so exercise them directly in the production browser renderer and require the
+    // native implementation to carry the matching constants/order.
+    const atmosphereLayerRenderer = new AtmosphereGpuRenderer();
+    atmosphereLayerRenderer.frameActive = true;
+    atmosphereLayerRenderer.effects = Object.fromEntries(ATMOSPHERE_EFFECT_IDS.map((id) => [id, id === "bats" ? 1 : 0]));
+    let batDrawCalls = 0;
+    atmosphereLayerRenderer.drawBats = () => { batDrawCalls += 1; return true; };
+    assert.equal(atmosphereLayerRenderer.renderBehindBackground({}), false,
+        "bats should no longer be rendered behind the authored Background layer");
+    assert.equal(batDrawCalls, 0, "behind-background atmosphere should not submit bats");
+    assert.equal(atmosphereLayerRenderer.renderFrontOfBackground({}), true,
+        "bats should render in the front-of-background atmosphere pass");
+    assert.equal(batDrawCalls, 1, "front-of-background atmosphere should submit bats exactly once");
+
+    const nativeBehindStart = nativeAtmosphereSource.indexOf("bool AtmosphereGpuRenderer::renderBehindBackground");
+    const nativeFrontStart = nativeAtmosphereSource.indexOf("bool AtmosphereGpuRenderer::renderFrontOfBackground");
+    const nativeStarsStart = nativeAtmosphereSource.indexOf("bool AtmosphereGpuRenderer::drawStars");
+    const nativeBehindPass = nativeAtmosphereSource.slice(nativeBehindStart, nativeFrontStart);
+    const nativeFrontPass = nativeAtmosphereSource.slice(nativeFrontStart, nativeStarsStart);
+    assert.equal(nativeBehindPass.includes("drawBats"), false, "native bats should not render behind Background");
+    assert.equal(nativeFrontPass.includes("drawBats"), true, "native bats should render in front of Background");
+    const browserRendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    assert.ok(nativeAtmosphereSource.includes("AtmosphereGpuRenderer::renderFrontOfTerrain")
+        && browserRendererSource.includes("this.atmosphereRenderer.renderFrontOfTerrain(backend)"),
+        "browser and native atmosphere renderers should expose the terrain-front pass used by ground fog");
+
+    const softFieldRenderer = new AtmosphereGpuRenderer();
+    softFieldRenderer.view = { w: 1000, h: 1000, zoom: 1 };
+    softFieldRenderer.parallax = { x: 0, y: 0 };
+    softFieldRenderer.time = 17;
+    softFieldRenderer.glowTexture = { width: 64, height: 64 };
+    const captureSoftField = (effectId, terrainFront = false) => {
+        softFieldRenderer.effects = Object.fromEntries(ATMOSPHERE_EFFECT_IDS.map((id) => [id, id === effectId ? 1 : 0]));
+        const sprites = [];
+        softFieldRenderer.drawSoftFields({ queueSprite(options) { sprites.push(options); return true; } }, terrainFront);
+        return sprites;
+    };
+    const upperCloudSprites = captureSoftField("upperClouds");
+    const lowerCloudSprites = captureSoftField("lowerClouds");
+    const groundFogSprites = captureSoftField("groundFog", true);
+    const averageY = (sprites) => sprites.reduce((sum, sprite) => sum + sprite.centerY, 0) / Math.max(1, sprites.length);
+    assert.ok(averageY(lowerCloudSprites) > averageY(upperCloudSprites) + 250,
+        "lower clouds should occupy the ground band while upper clouds fill the high atmosphere");
+    assert.ok(Math.min(...upperCloudSprites.map((sprite) => sprite.centerY)) < -350,
+        "upper clouds should extend roughly half a screen above the viewport for jumping margin");
+    assert.equal(upperCloudSprites.length, 192, "upper-cloud intensity 1 should equal revision-561 intensity 2 density");
+    assert.equal(lowerCloudSprites.length, 224, "lower-cloud intensity 1 should equal revision-561 intensity 2 density");
+    assert.equal(groundFogSprites.length, 224, "ground-fog intensity 1 should inherit the doubled lower-cloud density");
+    const firstUpperSeed = softFieldRenderer.seeds.upperClouds[0];
+    const firstLowerSeed = softFieldRenderer.seeds.lowerClouds[0];
+    const expectedUpperWidth = (0.045 + firstUpperSeed.c * 0.065) * 0.65 * softFieldRenderer.view.w * 5.2;
+    const expectedUpperHeight = (0.025 + firstUpperSeed.d * 0.048) * 0.65 * softFieldRenderer.view.h * 5.2;
+    const expectedLowerWidth = (0.050 + firstLowerSeed.c * 0.075) * 0.5 * softFieldRenderer.view.w * 5.2;
+    const expectedLowerHeight = (0.030 + firstLowerSeed.d * 0.050) * 0.5 * softFieldRenderer.view.h * 5.2;
+    assert.ok(Math.abs(upperCloudSprites[0].width - expectedUpperWidth) < 0.000001
+        && Math.abs(upperCloudSprites[0].height - expectedUpperHeight) < 0.000001,
+        "upper-cloud blobs should be 30 percent larger than revision 561");
+    assert.ok(Math.abs(lowerCloudSprites[0].width - expectedLowerWidth) < 0.000001
+        && Math.abs(lowerCloudSprites[0].height - expectedLowerHeight) < 0.000001,
+        "lower-cloud blobs should be 30 percent larger than revision 561");
+    const firstGroundFogSeed = softFieldRenderer.seeds.groundFog[0];
+    const expectedGroundFogWidth = (0.050 + firstGroundFogSeed.c * 0.075) * 0.5 * softFieldRenderer.view.w * 5.2;
+    const expectedGroundFogHeight = (0.030 + firstGroundFogSeed.d * 0.050) * 0.5 * softFieldRenderer.view.h * 5.2;
+    assert.ok(Math.abs(groundFogSprites[0].width - expectedGroundFogWidth) < 0.000001
+        && Math.abs(groundFogSprites[0].height - expectedGroundFogHeight) < 0.000001,
+        "ground fog should use the same enlarged lower-cloud blob family");
+
+    const terrainFogLayerRenderer = new AtmosphereGpuRenderer();
+    terrainFogLayerRenderer.frameActive = true;
+    terrainFogLayerRenderer.effects = Object.fromEntries(ATMOSPHERE_EFFECT_IDS.map((id) => [id, id === "groundFog" ? 1 : 0]));
+    let groundFogPass = null;
+    terrainFogLayerRenderer.drawSoftFields = (_backend, terrainFront) => { groundFogPass = terrainFront; return true; };
+    assert.equal(terrainFogLayerRenderer.renderFrontOfBackground({}), false,
+        "ground fog should not render in the front-of-background pass");
+    assert.equal(terrainFogLayerRenderer.renderFrontOfTerrain({}), true,
+        "ground fog should render in its dedicated post-terrain soft-field pass");
+    assert.equal(groundFogPass, true, "ground fog should request the terrain-front soft-field pass");
+
+    const browserRenderWebglStart = browserRendererSource.indexOf("renderWebGL2(state, inputFrame, dt)");
+    const browserRenderWebglEnd = browserRendererSource.indexOf("updatePerformanceDiagnostics(timings)", browserRenderWebglStart);
+    const browserRenderWebglSource = browserRendererSource.slice(browserRenderWebglStart, browserRenderWebglEnd);
+    const browserTerrainOnTopPosition = browserRenderWebglSource.indexOf('drawOrderedWorldVisualsWebGL(state, view, "mainOnTop")');
+    const browserGroundFogPosition = browserRenderWebglSource.indexOf("this.atmosphereRenderer.renderFrontOfTerrain(backend)", browserTerrainOnTopPosition);
+    const browserCaveForegroundPosition = browserRenderWebglSource.indexOf("this.drawCaveForegroundVisualsWebGL(state, view)", browserTerrainOnTopPosition);
+    assert.ok(browserTerrainOnTopPosition >= 0
+        && browserGroundFogPosition > browserTerrainOnTopPosition
+        && browserGroundFogPosition < browserCaveForegroundPosition,
+    "browser ground fog should render immediately after Terrain layer (on top) and before cave foreground visuals");
+
+    const nativeMenuPresentSource = readFileSync(new URL("../../src/runtime/ignatius-app-menu-present.cpp", import.meta.url), "utf8");
+    const nativeAtmosphereFlowStart = nativeMenuPresentSource.indexOf("// Background atmosphere is a hardware/high-quality presentation feature.");
+    const nativeAtmosphereFlowEnd = nativeMenuPresentSource.indexOf("currentFrameDiagnostics.gameplayDynamicsMs", nativeAtmosphereFlowStart);
+    const nativeAtmosphereFlow = nativeMenuPresentSource.slice(nativeAtmosphereFlowStart, nativeAtmosphereFlowEnd);
+    const nativeTerrainOnTopPosition = nativeAtmosphereFlow.indexOf('{ std::string("terrainOnTop")');
+    const nativeGroundFogPosition = nativeAtmosphereFlow.indexOf("if (rawGpuSceneOk && terrainFrontAtmosphereActive)", nativeTerrainOnTopPosition);
+    const nativeCaveForegroundPosition = nativeAtmosphereFlow.indexOf('{ std::string("caveForeground")', nativeTerrainOnTopPosition);
+    assert.ok(nativeTerrainOnTopPosition >= 0
+        && nativeGroundFogPosition > nativeTerrainOnTopPosition
+        && nativeCaveForegroundPosition > nativeGroundFogPosition,
+    "native ground fog should render immediately after Terrain layer (on top) and before cave foreground visuals");
+
+    softFieldRenderer.parallax = { x: 5000, y: 3000 };
+    softFieldRenderer.time = 100;
+    const cloudSprites = captureSoftField("cloudShadow");
+    const groundLine = softFieldRenderer.view.h * 0.57;
+    assert.ok(cloudSprites.length > 0 && cloudSprites.every((sprite) => sprite.centerY - sprite.height * 0.5 >= groundLine - 0.000001),
+        "cloud-shadow geometry should never extend above the authored ground line, even after vertical parallax");
+    assert.ok(cloudSprites.every((sprite) => sprite.centerY + sprite.height * 0.5 <= softFieldRenderer.view.h + 0.000001),
+        "cloud-shadow geometry should remain inside the ground-to-bottom vertical band");
+
+    const eyesRenderer = new AtmosphereGpuRenderer();
+    eyesRenderer.view = { w: 1000, h: 800, zoom: 1 };
+    eyesRenderer.parallax = { x: 0, y: 0 };
+    eyesRenderer.time = 5;
+    eyesRenderer.effects = Object.fromEntries(ATMOSPHERE_EFFECT_IDS.map((id) => [id, id === "eyes" ? 1 : 0]));
+    eyesRenderer.eyesTexture = { width: 128, height: 64 };
+    eyesRenderer.state.eyesEvent = { start: 0, life: 10, x: 0.5, y: 0.5, parallaxX: 0, parallaxY: 0 };
+    const eyeSprites = [];
+    eyesRenderer.drawEyes({ queueSprite(options) { eyeSprites.push(options); return true; } });
+    assert.ok(eyeSprites.length === 1
+        && Math.abs(eyeSprites[0].width - eyesRenderer.view.w * 0.03195 * 0.5) < 0.000001
+        && Math.abs(eyeSprites[0].height - eyesRenderer.view.h * 0.01598 * 0.5) < 0.000001,
+        "eyes in darkness should render at half the revision-560 width and height");
+    assert.ok(nativeAtmosphereSource.includes("ATMOSPHERE_GROUND_Y = 0.57")
+        && nativeAtmosphereSource.includes("groundWorldYValid_")
+        && nativeAtmosphereSource.includes("c.cameraWorldTop")
+        && nativeAtmosphereSource.includes("SOFT_FIELD_BLOB_SCALE = 2.6")
+        && nativeAtmosphereSource.includes("SOFT_FIELD_DENSITY_SCALE = 2.0")
+        && nativeAtmosphereSource.includes("EYES_SIZE_SCALE = 0.5"),
+        "native atmosphere should share the immutable world-ground anchor, enlarged cloud/fog scale, doubled density, and eye scale");
+
+
+    // Screen-filling weather/particle fields remain periodic under large Background
+    // parallax. Ground-referenced cloud/fog fields are intentionally excluded here:
+    // their vertical population is a finite world band anchored to initial ground Y.
+    const scrollingAtmosphere = new AtmosphereGpuRenderer();
+    scrollingAtmosphere.view = { w: 640, h: 360, zoom: 1 };
+    scrollingAtmosphere.parallax = { x: 5000, y: 3000 };
+    scrollingAtmosphere.time = 100;
+    scrollingAtmosphere.glowTexture = { width: 64, height: 64 };
+    scrollingAtmosphere.whiteTexture = { width: 2, height: 2 };
+    scrollingAtmosphere.auroraTexture = { width: 256, height: 256 };
+    scrollingAtmosphere.leafTexture = { width: 32, height: 32 };
+    scrollingAtmosphere.petalTexture = { width: 32, height: 32 };
+    const continuousEffectCases = [
+        ["fireflies", (backend) => scrollingAtmosphere.drawFireflies(backend)],
+        ["wisps", (backend) => scrollingAtmosphere.drawWisps(backend)],
+        ["spores", (backend) => scrollingAtmosphere.drawSpores(backend)],
+        ["rain", (backend) => scrollingAtmosphere.drawRain(backend)],
+        ["snow", (backend) => scrollingAtmosphere.drawSnow(backend)],
+        ["leaves", (backend) => scrollingAtmosphere.drawLeaves(backend, false)],
+        ["petals", (backend) => scrollingAtmosphere.drawLeaves(backend, true)],
+        ["butterflies", (backend) => scrollingAtmosphere.drawButterflies(backend)],
+        ["embers", (backend) => scrollingAtmosphere.drawEmbers(backend)]
+    ];
+    for (const [effectId, drawEffect] of continuousEffectCases) {
+        scrollingAtmosphere.effects = Object.fromEntries(ATMOSPHERE_EFFECT_IDS.map((id) => [id, id === effectId ? 1 : 0]));
+        const sprites = [];
+        drawEffect({ queueSprite(options) { sprites.push(options); return true; } });
+        assert.ok(sprites.length > 0, `${effectId} should still produce atmosphere geometry after large parallax travel`);
+        assert.ok(sprites.some((sprite) => {
+            const halfWidth = Math.max(0, Number(sprite.width) || 0) * 0.5;
+            const halfHeight = Math.max(0, Number(sprite.height) || 0) * 0.5;
+            return (Number(sprite.centerX) || 0) + halfWidth >= -160
+                && (Number(sprite.centerX) || 0) - halfWidth <= 800
+                && (Number(sprite.centerY) || 0) + halfHeight >= -90
+                && (Number(sprite.centerY) || 0) - halfHeight <= 450;
+        }), `${effectId} should wrap accumulated parallax instead of scrolling its whole population out of view`);
+    }
+    scrollingAtmosphere.effects = Object.fromEntries(ATMOSPHERE_EFFECT_IDS.map((id) => [id, id === "aurora" ? 1 : 0]));
+    const auroraQuads = [];
+    scrollingAtmosphere.drawAurora({ queueGradientQuad(options) { auroraQuads.push(options); return true; } });
+    assert.ok(auroraQuads.some((quad) => {
+        const ys = [quad.topLeft?.y, quad.topRight?.y, quad.bottomRight?.y, quad.bottomLeft?.y].map(Number);
+        return Math.max(...ys) >= 0 && Math.min(...ys) <= scrollingAtmosphere.view.h;
+    }), "aurora should tile its vertical parallax instead of scrolling the curtain completely out of view");
+    assert.ok(nativeAtmosphereSource.includes("wrapAtmospherePixel("),
+        "native continuous atmosphere should wrap accumulated parallax with the same screen-field invariant as the browser");
     const customizedLayerVisuals = normalizeLevelLayerVisuals({
         version: 3,
         foreground: { parallaxX: 1.12, parallaxY: 0.42, brightness: 0.72, scale: 1.18 },
-        background: { parallaxX: 0.88, parallaxY: 0.31, brightness: 0.63, scale: 1.35, asset: { atlasId: "at_atlas_test", assetId: "brick_tile" } }
+        background: {
+            parallaxX: 0.88, parallaxY: 0.31, brightness: 0.63, scale: 1.35,
+            asset: { atlasId: "at_atlas_test", assetId: "brick_tile" },
+            effects: { mist: 1.25, rain: 3, eyes: -1 }
+        }
     });
     assert.deepEqual(customizedLayerVisuals, {
         version: 3,
-        background: { parallaxX: 0.88, parallaxY: 0.31, brightness: 0.63, scale: 1.35, asset: { atlasId: "at_atlas_test", assetId: "brick_tile" } },
+        background: {
+            parallaxX: 0.88, parallaxY: 0.31, brightness: 0.63, scale: 1.35,
+            asset: { atlasId: "at_atlas_test", assetId: "brick_tile" },
+            effects: { ...DEFAULT_ATMOSPHERE_EFFECTS, upperClouds: 1.25, rain: 2 }
+        },
         foreground: { parallaxX: 1.12, parallaxY: 0.42, brightness: 0.72, scale: 1.18 }
     }, "level layer visual normalization should preserve independent X and Y factors");
     const editorControlLayerVisuals = normalizeLevelLayerVisuals({
@@ -14965,7 +15827,7 @@ function testCaveWindowSplineAuthoring() {
     });
     assert.deepEqual(editorControlLayerVisuals, {
         version: 3,
-        background: { parallaxX: DEFAULT_BACKGROUND_PARALLAX, parallaxY: 0.5, brightness: 1, scale: 1, asset: null },
+        background: { parallaxX: DEFAULT_BACKGROUND_PARALLAX, parallaxY: 0.5, brightness: 1, scale: 1, asset: null, effects: { ...DEFAULT_ATMOSPHERE_EFFECTS } },
         foreground: { parallaxX: 1.08, parallaxY: 0.01, brightness: 0.4, scale: 2 }
     }, "versionless in-memory editor controls must normalize as canonical current-schema values");
     const retiredSingleFactor = normalizeLevelLayerVisuals({
@@ -15248,8 +16110,12 @@ function testCaveWindowSplineAuthoring() {
     assert.equal(caveMaskSource.includes("shadowBlur = featherPixels"), false, "the cave fade should no longer bury its waviness beneath a smooth Canvas shadow blur");
     assert.equal(caveGradientOpacityAtProgress(0), 0, "the cave feather should remain fully transparent at the authored perimeter");
     assert.equal(caveGradientOpacityAtProgress(1), 1, "the cave feather should reach fully opaque black at the authored outset");
-    assert.ok(caveGradientOpacityAtProgress(0.25) < 0.12 && caveGradientOpacityAtProgress(0.5) === 0.5, "the feather should darken gradually across the full configured width instead of becoming dark at its opening edge");
-    assert.ok(CAVE_GRADIENT_BAND_COUNT >= 20, "the layered feather should use enough contours to remain smooth after reduced-resolution upscaling");
+    assert.equal(caveGradientOpacityAtProgress(0.25), 0.25, "the cave feather should use a genuinely linear fade rather than a tapered smoothstep curve");
+    assert.equal(caveGradientOpacityAtProgress(0.5), 0.5, "the linear cave feather midpoint should remain half opaque");
+    assert.equal(caveGradientOpacityAtProgress(0.75), 0.75, "the linear cave feather should preserve proportional opacity near full black");
+    assert.ok(CAVE_GRADIENT_BAND_COUNT >= 20, "the organic feather should retain enough geometry contours to preserve its authored waviness");
+    const nativeCaveMaskSource = readNativeAppSourceBundle();
+    assert.ok(nativeCaveMaskSource.includes("canvas.drawGradientQuad(") && nativeCaveMaskSource.includes("gradientVertices.push_back(SDL_Vertex"), "native GPU and SDL-renderer cave masks should interpolate alpha continuously between contour rings instead of stacking quantized opacity strips");
     const foregroundTreatmentSource = readFileSync(new URL("../src/presentation/foreground-sprite-treatment.js", import.meta.url), "utf8");
     assert.ok(foregroundTreatmentSource.includes("brightness(${treatment.brightness}) saturate(${treatment.saturation})"), "cave foreground artwork should be darkened and desaturated in a cached sprite treatment");
     assert.equal(foregroundTreatmentSource.includes("createLinearGradient"), false, "foreground sprite variants must not bake a position-independent black gradient into the artwork");
@@ -15761,7 +16627,7 @@ function testCanvasWorldVisualPerformanceInfrastructure() {
     gpu.queueSurface(stagingSource, 0, 0, 640, 360, 1, true);
     gpu.flush();
     gpu.queueSurface(stagingSource, 0, 0, 640, 360, 1, true);
-    gpu.queueSolidRect(0, 0, 32, 32, "#ffffff");
+    gpu.queueSolidRect(0, 0, 32, 32, "#ff8c00");
     const gpuDiagnostics = gpu.endFrame();
     assert.equal(gpuDiagnostics.quads, 6, "WebGL sprite batching should account for three atlas quads, two staging passes, and one solid cutout quad");
     assert.ok(gpuDiagnostics.drawCalls < gpuDiagnostics.quads, "adjacent sprites sharing one texture should reduce draw calls below quad count");
@@ -17174,7 +18040,86 @@ function testRocketPowerUpArsenal() {
     const activeRing = activePowerUpEffect(ringPickupState, POWER_UP_EFFECT_IDS.MAGIC_RING);
     assert.ok(activeRing, "collecting a Magic Ring should activate concealment");
     assert.ok(activeRing.remainingSeconds > 29.9 && activeRing.remainingSeconds <= 30, "fresh Magic Ring concealment should begin with essentially the full thirty-second timer");
+
+    const activateTestMagicRing = (state) => {
+        state.statusEffects.active[POWER_UP_EFFECT_IDS.MAGIC_RING] = normalizeActivePowerUpEffect({
+            id: POWER_UP_EFFECT_IDS.MAGIC_RING,
+            definition: magicRing,
+            remainingSeconds: MAGIC_RING_DURATION_SECONDS,
+            activatedAt: state.clock.time
+        });
+    };
+    const magicRingIsActive = (state) => Boolean(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.MAGIC_RING));
+
+    const damageBreakState = createInitialGameState();
+    activateTestMagicRing(damageBreakState);
+    const ringDamage = damagePlayer(damageBreakState, 1, "magic_ring_damage_break", {
+        bypassDifficulty: true,
+        invulnerabilitySeconds: 0
+    });
+    assert.equal(ringDamage.damage, 1, "Magic Ring damage-break fixture should take real damage");
+    assert.equal(magicRingIsActive(damageBreakState), false, "taking any real damage should immediately cancel Magic Ring concealment");
+    assert.ok(damageBreakState.debug.lastEvents.some((event) => event.type === "POWER_UP_EFFECT_CANCELLED" && event.effectId === POWER_UP_EFFECT_IDS.MAGIC_RING && event.reason === "damage"), "damage should record Magic Ring cancellation explicitly");
+
+    const movementState = createInitialGameState();
+    settleOnGround(movementState);
+    activateTestMagicRing(movementState);
+    stepSimulation(movementState, createInputFrame({ moveRight: true, moveAxis: 1 }), FIXED_DT);
+    assert.equal(magicRingIsActive(movementState), true, "running should not break Magic Ring concealment");
+    stepSimulation(movementState, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    assert.equal(magicRingIsActive(movementState), true, "jumping should not break Magic Ring concealment");
+    stepSimulation(movementState, createInputFrame({ jumpReleased: true }), FIXED_DT);
+    stepSimulation(movementState, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    assert.equal(movementState.equipment.rocket.attachedBoosting, true, "Magic Ring movement fixture should enter rocket-assisted hover");
+    assert.equal(magicRingIsActive(movementState), true, "rocket-assisted hovering should not break Magic Ring concealment");
+
+    const lungeBreakState = createInitialGameState();
+    settleOnGround(lungeBreakState);
+    activateTestMagicRing(lungeBreakState);
+    stepSimulation(lungeBreakState, createInputFrame({ lungePressed: true, lungeHeld: true }), FIXED_DT);
+    assert.equal(lungeBreakState.player.lungeCharging, true, "Magic Ring lunge fixture should begin charging");
+    assert.equal(magicRingIsActive(lungeBreakState), true, "charging a lunge should not break Magic Ring concealment before the attack commits");
+    lungeBreakState.player.lungeChargeTime = Math.max(0, lungeBreakState.tuning.playerLungeChargeSeconds - FIXED_DT);
+    stepSimulation(lungeBreakState, createInputFrame({ lungeHeld: true }), FIXED_DT);
+    assert.equal(lungeBreakState.player.lungeActive, true, "Magic Ring lunge fixture should commit the lunge attack");
+    assert.equal(magicRingIsActive(lungeBreakState), false, "committing a lunge attack should immediately cancel Magic Ring concealment");
+
+    const bodySlamBreakState = createInitialGameState();
+    settleOnGround(bodySlamBreakState);
+    activateTestMagicRing(bodySlamBreakState);
+    bodySlamBreakState.player.currentTransform.y = 420;
+    bodySlamBreakState.player.vy = bodySlamBreakState.tuning.fallDamageSafeImpactSpeed + 120;
+    bodySlamBreakState.player.onGround = false;
+    bodySlamBreakState.player.wasOnGround = false;
+    bodySlamBreakState.player.airborneTime = 1;
+    stepSimulation(bodySlamBreakState, createInputFrame({ dropHeld: true }), FIXED_DT);
+    assert.equal(bodySlamBreakState.player.bodySlamCommitted, true, "Magic Ring body-slam fixture should commit the slam");
+    assert.equal(magicRingIsActive(bodySlamBreakState), false, "committing a body slam should immediately cancel Magic Ring concealment");
+
+    const failedRocketState = createInitialGameState();
+    activateTestMagicRing(failedRocketState);
+    failedRocketState.fuel.amount = 0;
+    stepSimulation(failedRocketState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    assert.equal(magicRingIsActive(failedRocketState), true, "an unsuccessful rocket attempt should not break Magic Ring concealment");
+
+    const rocketBreakState = createInitialGameState();
+    activateTestMagicRing(rocketBreakState);
+    stepSimulation(rocketBreakState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    assert.ok(rocketBreakState.debug.lastEvents.some((event) => event.type === "ROCKET_LAUNCHED"), "Magic Ring rocket fixture should successfully fire a rocket");
+    assert.equal(magicRingIsActive(rocketBreakState), false, "firing a rocket should normally cancel Magic Ring concealment");
+
+    const stealthRocketState = createInitialGameState({ playerProgression: { stealthRocketUnlocked: true } });
+    activateTestMagicRing(stealthRocketState);
+    stepSimulation(stealthRocketState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    assert.ok(stealthRocketState.debug.lastEvents.some((event) => event.type === "ROCKET_LAUNCHED"), "Stealth Rocket talent fixture should successfully fire a rocket");
+    assert.equal(magicRingIsActive(stealthRocketState), true, "the persistent Stealth Rocket talent should allow rockets without breaking Magic Ring concealment");
     const magicRingRendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    assert.ok(magicRingRendererSource.includes('const glowPasses = isWrench ? 3 : 1;'), "wrench pickups should render three glow passes while non-wrench power-ups keep one pass");
+    assert.ok(magicRingRendererSource.includes('const glowScale = effectId === "overdrive" ? 0.70 : 1.16;'), "Overdrive atlas glow should use the tuned 0.70 pickup scale");
+    assert.ok(magicRingRendererSource.includes('effectId === "overdrive" ? 0.70 : 1.12'), "Overdrive WebGL fallback glow should use the tuned 0.70 pickup scale");
+    const nativePickupRendererSource = readNativeAppSourceBundle();
+    assert.ok(nativePickupRendererSource.includes('const int glowPasses = isWrench ? 3 : 1;'), "SDL wrench pickups should match the browser's three-pass glow while non-wrench power-ups keep one pass");
+    assert.ok(nativePickupRendererSource.includes('const float glowScale = effectId == "overdrive" ? 0.70f : 1.16f;'), "SDL Overdrive glow should match the browser's tuned 0.70 scale");
     assert.match(magicRingRendererSource, /tint: \[brightness, brightness, brightness, 1\]/, "WebGL Magic Ring darkening should multiply RGB while leaving alpha fully opaque");
     assert.ok(magicRingRendererSource.includes("cached.magicRingCanvas = makeDarkenedSpriteCanvas(asset.canvas, MAGIC_RING_BRIGHTNESS)") && magicRingRendererSource.includes("asset.magicRingCanvas = cached.magicRingCanvas"), "Canvas Magic Ring darkening should use a cached RGB-darkened player sprite rather than live filtering");
     assert.ok(magicRingRendererSource.includes('ctx.globalCompositeOperation = "source-atop"') && magicRingRendererSource.includes('ctx.fillStyle = "#000000"'), "the cached Magic Ring sprite should darken RGB toward black without changing its source alpha");
@@ -17210,15 +18155,19 @@ function testRocketPowerUpArsenal() {
     assert.deepEqual(rocketPowerUpMultipliers({ statusEffects: { active: { shield: { id: shield.id, definition: shield, remainingSeconds: 5 } } } }), { launchFuelCostMultiplier: 1 }, "Shield should not alter rocket fuel cost");
 
     const expectedWrenches = new Map([
-        [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, { hudLabel: "Yellow", count: 5, damage: 1 / 5, cost: 0.5, speed: NON_HOMING_ROCKET_SPEED_FACTOR, tint: "#ffff00" }],
-        [POWER_UP_EFFECT_IDS.WRENCH_DART, { hudLabel: "Cyan", count: 1, damage: 1, cost: 0.5, speed: NON_HOMING_ROCKET_SPEED_FACTOR, tint: "#00ffff" }],
-        [POWER_UP_EFFECT_IDS.WRENCH_BURST, { hudLabel: "Green", count: 1, damage: 1, cost: 0.5, speed: NON_HOMING_ROCKET_SPEED_FACTOR, tint: "#00ff00" }],
-        [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB, { hudLabel: "Red", count: 1, damage: 4, cost: 2, speed: 0.5, tint: "#ff0000" }],
-        [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, { hudLabel: "Magenta", count: 1, damage: 1, cost: 0.5, speed: 1, tint: "#ff00ff" }],
-        [POWER_UP_EFFECT_IDS.WRENCH_PHASE, { hudLabel: "Blue", count: 3, damage: 1 / 3, cost: 0.5, speed: 1, tint: "#0000ff" }]
+        [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, { dataLabel: POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, hudLabel: "Yellow", count: 5, damage: 1 / 5, cost: 0.5, speed: NON_HOMING_ROCKET_SPEED_FACTOR, tint: "#ffff00" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_DART, { dataLabel: POWER_UP_EFFECT_IDS.WRENCH_DART, hudLabel: "Cyan", count: 1, damage: 1, cost: 0.5, speed: NON_HOMING_ROCKET_SPEED_FACTOR, tint: "#00ffff" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_BURST, { dataLabel: POWER_UP_EFFECT_IDS.WRENCH_BURST, hudLabel: "Green", count: 1, damage: 1, cost: 0.5, speed: NON_HOMING_ROCKET_SPEED_FACTOR, tint: "#00ff00" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB, { dataLabel: POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB, hudLabel: "Red", count: 1, damage: 4, cost: 2, speed: 0.5, tint: "#ff0000" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, { dataLabel: POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, hudLabel: "Magenta", count: 1, damage: 1, cost: 0.5, speed: 1, tint: "#ff00ff" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_PHASE, { dataLabel: POWER_UP_EFFECT_IDS.WRENCH_PHASE, hudLabel: "Blue", count: 3, damage: 1 / 3, cost: 0.5, speed: 1, tint: "#0000ff" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_ROCKETPUNCH, { dataLabel: POWER_UP_EFFECT_IDS.WRENCH_ROCKETPUNCH, hudLabel: "Orange", count: 1, damage: 1, cost: 1 / 6, speed: 1.8, tint: "#ff8c00" }]
     ]);
-    assert.deepEqual(WRENCH_POWER_UP_EFFECT_IDS, [...expectedWrenches.keys()], "the wrench effect list should include the complete six-mode arsenal");
+    assert.deepEqual(WRENCH_POWER_UP_EFFECT_IDS, [...expectedWrenches.keys()], "the wrench effect list should include the complete seven-mode arsenal");
     assert.equal(powerUpEffectDefinition("wrenchTwin"), null, "the replaced Twin identity should no longer be accepted as a current wrench effect");
+    for (const discardedRocketpunchId of ["pinkWrench", "wrenchPink", "whiteWrench"]) {
+        assert.equal(powerUpEffectDefinition(discardedRocketpunchId), null, `${discardedRocketpunchId} should stay unsupported rather than accumulating pre-baseline compatibility aliases`);
+    }
     const burstDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_BURST);
     assert.equal(normalizePowerUpPickup({
         effectId: "wrenchTwin",
@@ -17232,7 +18181,7 @@ function testRocketPowerUpArsenal() {
     for (const [effectId, expected] of expectedWrenches) {
         const definition = powerUpEffectDefinition(effectId);
         assert.equal(definition.id, effectId, `${effectId} should retain its canonical identifier`);
-        assert.equal(definition.label, effectId, `${effectId} should retain its full wrench identifier as its data label`);
+        assert.equal(definition.label, expected.dataLabel, `${effectId} should retain its configured data label`);
         assert.equal(powerUpHudLabel(definition), expected.hudLabel, `${effectId} should show only its colour name on the HUD`);
         assert.equal(definition.durationSeconds, 20, `${definition.label} should last twenty seconds`);
         assert.equal(definition.groupId, POWER_UP_GROUP_IDS.WRENCH, `${definition.label} should occupy the exclusive wrench slot`);
@@ -17245,6 +18194,16 @@ function testRocketPowerUpArsenal() {
         approx(definition.rocket.launchFuelCostMultiplier, expected.cost, 0.000001, `${definition.label} should use the authored fuel multiplier`);
         approx(definition.rocket.speedMultiplier, expected.speed, 0.000001, `${definition.label} should use the authored speed multiplier`);
     }
+    const customWrenchLabel = {
+        id: "wrenchCustom",
+        label: "Authored Custom Name",
+        groupId: POWER_UP_GROUP_IDS.WRENCH
+    };
+    assert.equal(powerUpHudLabel(customWrenchLabel), "Custom", "ordinary wrench HUD labels should keep their id-suffix semantics instead of adopting arbitrary authored labels");
+    const rocketpunchDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_ROCKETPUNCH);
+    assert.equal(rocketpunchDefinition.rocket.projectileFrameId, "rocket_projectile_rocketpunch", "Rocketpunch should use the dedicated boxing-glove projectile frame");
+    approx(rocketpunchDefinition.rocket.travelDistanceMultiplier, 1 / 6, 0.000001, "Rocketpunch should retain a 200 px nominal travel distance at current wrench travel tuning");
+    approx(rocketpunchDefinition.rocket.areaDamageRadiusWizardHeights, 1, 0.000001, "Rocketpunch should use a one-wizard-height AoE radius");
 
     const state = createInitialGameState({ randomSeed: 0x12345678 });
     const level = {
@@ -17499,6 +18458,23 @@ function testRocketPowerUpArsenal() {
         };
         return testState;
     }
+
+    const rocketpunchState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_ROCKETPUNCH);
+    const rocketpunchFuelBefore = rocketpunchState.fuel.amount;
+    stepSimulation(rocketpunchState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    assert.equal(rocketpunchState.projectiles.length, 1, "Rocketpunch should launch exactly one melee-range rocket");
+    const rocketpunchProjectile = rocketpunchState.projectiles[0];
+    approx(rocketpunchFuelBefore - rocketpunchState.fuel.amount, 5, 0.0001, "Rocketpunch should cost exactly five fuel at default tuning");
+    approx(rocketpunchProjectile.projectileSpeed, DEFAULT_TUNING.maxRunSpeed * 2.5, 0.0001, "Rocketpunch should launch at 250% of Ignatius's normal running speed");
+    approx(rocketpunchProjectile.projectileSpeed / DEFAULT_TUNING.maxRunSpeed, 2.5, 0.0001, "Rocketpunch should remain faster than a fully speed-upgraded runner because projectile and run speed share the same progression multiplier");
+    assert.ok(rocketpunchProjectile.vx > 0 && Math.abs(rocketpunchProjectile.vy) < 0.0001, "Rocketpunch should launch horizontally in the wizard's facing direction");
+    approx(rocketpunchProjectile.projectileSpeed * rocketpunchProjectile.lifetime, 200, 0.0001, "Rocketpunch should have a 200 px nominal maximum range");
+    approx(rocketpunchProjectile.damage, 20, 0.0001, "Rocketpunch should deal standard twenty-damage AoE");
+    approx(rocketpunchProjectile.areaDamageRadius, DEFAULT_TUNING.wizardHeight, 0.0001, "Rocketpunch AoE radius should equal one wizard height");
+    approx(rocketpunchProjectile.secondaryEnemySplashDamage, 0, 0.0001, "Rocketpunch should use only its primary AoE and no standard secondary splash");
+    assert.equal(rocketpunchProjectile.homing, false, "Rocketpunch should remain a blind forward melee-range shot");
+    assert.equal(rocketpunchProjectile.frameId, "rocket_projectile_rocketpunch", "Rocketpunch should launch its dedicated boxing-glove projectile art");
+    assert.equal(rocketpunchProjectile.wrenchGlowFrameId, null, "Rocketpunch projectile art should not receive a colored rocket-outline sprite");
 
     const targetSet = [
         { id: "target_a", x: 600, y: 480, state: "active" },
@@ -18060,6 +19036,73 @@ function testRocketPowerUpArsenal() {
     assert.doesNotMatch(assetEditorSource, /load-default-image|load-default-json/, "Asset Tool should retire the hard-coded at_atlas_001 load buttons");
     assert.ok(assetEditorSource.includes('event.button === 2') && assetEditorSource.includes('viewport.addEventListener("wheel"') && assetEditorSource.includes("zoomAtClientPoint"), "Asset Tool should support right-drag panning and wheel zooming");
     assert.match(editorSource, /state\.level\.layerVisuals = normalizeLevelLayerVisuals\(\{\s*version:\s*3,/, "editor metadata commits should retain the canonical layer-visual schema instead of reapplying legacy Foreground factors");
+    const levelEditorManualSource = readFileSync(new URL("../LevelEditorManual.html", import.meta.url), "utf8");
+    const atmospherePreviewSource = readFileSync(new URL("../src/tools/atmosphere-preview.js", import.meta.url), "utf8");
+    assert.ok(
+        editorSource.indexOf('data-panel-key="layers"') < editorSource.indexOf('data-panel-key="background"')
+            && editorSource.indexOf('data-panel-key="background"') < editorSource.indexOf('<h2>Perimeter</h2>')
+            && editorSource.includes('id="background-asset-toggle"')
+            && editorSource.includes('id="edit-background-effects"')
+            && editorSource.includes('id="background-effects-dialog"')
+            && editorSource.includes('id="background-effects-preview"')
+            && ATMOSPHERE_EFFECT_IDS.every((id) => editorSource.includes(`id="atmosphere-${id}" type="range" min="0" max="2" step="0.01"`))
+            && editorSource.indexOf('<h3>In front of authored background</h3>') < editorSource.indexOf('id="atmosphere-bats"')
+            && editorSource.indexOf('id="atmosphere-bats"') < editorSource.indexOf('<h3>In front of terrain</h3>')
+            && editorSource.includes("new AtmospherePreviewRenderer")
+            && editorSource.includes("triggerRareEffects()")
+            && !editorSource.includes("Atmosphere effects are rendered only with Effects quality = High"),
+        "the Level Editor should keep only the Background buttons in the side panel and edit atmosphere through the modal production-renderer preview"
+    );
+    assert.ok(
+        atmospherePreviewSource.includes('import { AtmosphereGpuRenderer } from "../presentation/atmosphere-renderer.js"')
+            && atmospherePreviewSource.includes('import { createWebGL2RendererBackend } from "../presentation/webgl2-renderer.js"')
+            && atmospherePreviewSource.includes("renderBehindBackground")
+            && atmospherePreviewSource.includes("renderFrontOfBackground")
+            && atmospherePreviewSource.includes("renderFrontOfTerrain")
+            && !atmospherePreviewSource.includes("queueSolidRect"),
+        "the Level Editor atmosphere viewer should reuse the production browser atmosphere renderer without dummy scenery overlays"
+    );
+    const atmosphereRendererSource = readFileSync(new URL("../src/presentation/atmosphere-renderer.js", import.meta.url), "utf8");
+    const nativeAtmosphereRendererSource = readFileSync(new URL("../../src/runtime/atmosphere-renderer.cpp", import.meta.url), "utf8");
+    const webglRendererSource = readFileSync(new URL("../src/presentation/webgl2-renderer.js", import.meta.url), "utf8");
+    const nativePlatformRendererSource = readFileSync(new URL("../../src/runtime/ignatius-app-platform-renderer.cpp", import.meta.url), "utf8");
+    const browserBehindAtmosphere = atmosphereRendererSource.slice(
+        atmosphereRendererSource.indexOf("renderBehindBackground(backend)"),
+        atmosphereRendererSource.indexOf("renderFrontOfBackground(backend)")
+    );
+    const browserFrontAtmosphere = atmosphereRendererSource.slice(
+        atmosphereRendererSource.indexOf("renderFrontOfBackground(backend)"),
+        atmosphereRendererSource.indexOf("renderFrontOfTerrain(backend)")
+    );
+    const nativeBehindAtmosphere = nativeAtmosphereRendererSource.slice(
+        nativeAtmosphereRendererSource.indexOf("AtmosphereGpuRenderer::renderBehindBackground"),
+        nativeAtmosphereRendererSource.indexOf("AtmosphereGpuRenderer::renderFrontOfBackground")
+    );
+    const nativeFrontAtmosphere = nativeAtmosphereRendererSource.slice(
+        nativeAtmosphereRendererSource.indexOf("AtmosphereGpuRenderer::renderFrontOfBackground"),
+        nativeAtmosphereRendererSource.indexOf("AtmosphereGpuRenderer::renderFrontOfTerrain")
+    );
+    assert.ok(
+        !browserBehindAtmosphere.includes("effects.bats")
+            && browserFrontAtmosphere.includes("effects.bats")
+            && !nativeBehindAtmosphere.includes("effects_.bats")
+            && nativeFrontAtmosphere.includes("effects_.bats"),
+        "bat silhouettes should render in front of the authored background in both browser and native atmosphere paths"
+    );
+    assert.ok(
+        atmosphereRendererSource.includes("function auroraDitherNoise")
+            && atmosphereRendererSource.includes("rowMean")
+            && atmosphereRendererSource.includes('"repeat"')
+            && webglRendererSource.includes("u0 = 0")
+            && webglRendererSource.includes("u1 = 1")
+            && nativePlatformRendererSource.includes("Static row-zero-mean dither"),
+        "browser and native aurora rendering should keep a spatially stable zero-mean dither instead of visible dark-gradient contour bands"
+    );
+    assert.ok(
+        levelEditorManualSource.includes("Atmosphere effects are rendered only with Effects quality = High and hardware rendering")
+            && levelEditorManualSource.includes("Intensity 0 disables an effect completely"),
+        "the Level Editor manual placeholder should own background-effects guidance instead of spending side-panel space on it"
+    );
     assert.ok(
         editorSource.includes('id="background-asset-toggle"')
             && editorSource.includes("Set background asset")
@@ -18661,6 +19704,15 @@ function testCachedWrenchRocketGlowKernels() {
         "the wizard character should declare its supplemental powered-rocket atlas"
     );
     assert.equal(Object.keys(wizardGlowAtlas.frames).length, WRENCH_POWER_UP_EFFECT_IDS.length, "the supplemental wizard atlas should provide one prebuilt powered-rocket sprite per wrench effect");
+    assert.deepEqual(
+        wizardGlowAtlas.frames.rocket_projectile_rocketpunch,
+        { x: 0, y: 4494, w: 473, h: 923 },
+        "Rocketpunch should keep the supplied projectile as a tight full-detail atlas frame without the former transparent fringe"
+    );
+    assert.equal(wrenchRocketGlowAtlasFrameId(POWER_UP_EFFECT_IDS.WRENCH_ROCKETPUNCH), null, "Rocketpunch should not receive a colored projectile-outline frame");
+    assert.ok(rendererSource.includes('rocketFrameId === "rocket_projectile_rocketpunch" ? 99'), "Rocketpunch should render its larger total sprite while retaining ordinary fuselage scale");
+    assert.ok(rendererSource.includes("const nozzleLocalY = (0.965 - pivot.y) * baseAsset.height"), "projectile exhaust should be anchored to the authored rocket nozzle in atlas-local space");
+    assert.equal(rendererSource.includes("drawExhaust"), false, "rocket exhaust should remain an unconditional projectile presentation feature rather than an unused per-wrench toggle");
     assert.ok(rendererSource.includes("wrenchRocketGlowAtlasFrameId"), "rocket rendering should resolve powered projectile glow frames from authored data");
     assert.ok(rendererSource.includes(`getCharacterAtlasFrame("ct_char_wizard_1", frameId)`), "startup preflight should verify the authored wizard powered-rocket frames instead of generating them lazily");
     assert.ok(rendererSource.includes("Checking wrench powered-rocket atlas"), "loading feedback should mention authored glow-atlas checks rather than runtime glow baking");
@@ -19892,25 +20944,34 @@ function testPersistentPlayerProgressionUpgrades() {
         collectedUpgradeIds: ["upgrade_b", "", "upgrade_a", "upgrade_b"]
     });
     assert.deepEqual(normalized, {
-        schemaVersion: 2,
+        schemaVersion: 3,
         healthLevel: 2,
         fuelLevel: 0,
         regenLevel: 2,
         speedLevel: 1,
         lungeUnlocked: true,
         fallImpactExplosionUnlocked: true,
-        fallDamageReductionUnlocked: true,
+        fallDamageReductionUnlocked: false,
+        stealthRocketUnlocked: false,
         collectedUpgradeIds: ["upgrade_a", "upgrade_b"]
-    }, "player progression should normalize levels, ability unlocks and stable pickup IDs deterministically");
+    }, "player progression should normalize levels, fresh ability defaults and stable pickup IDs deterministically");
 
     const lockedAbilities = normalizePlayerProgression({
         lungeUnlocked: false,
         fallImpactExplosionUnlocked: false,
-        fallDamageReductionUnlocked: false
+        fallDamageReductionUnlocked: false,
+        stealthRocketUnlocked: true
     });
     assert.equal(lockedAbilities.lungeUnlocked, false, "player progression should preserve a locked lunge ability");
     assert.equal(lockedAbilities.fallImpactExplosionUnlocked, false, "player progression should preserve a locked fall-impact attack");
     assert.equal(lockedAbilities.fallDamageReductionUnlocked, false, "player progression should preserve a locked fall-damage reduction");
+    assert.equal(lockedAbilities.stealthRocketUnlocked, true, "player progression should preserve the persistent Stealth Rocket talent independently");
+
+    const directStartState = createInitialGameState();
+    assert.equal(directStartState.playerProgression.lungeUnlocked, true, "browser direct starts should provide lunge by default");
+    assert.equal(directStartState.playerProgression.fallImpactExplosionUnlocked, true, "browser direct starts should provide body slam by default");
+    assert.equal(directStartState.playerProgression.fallDamageReductionUnlocked, false, "browser direct starts and editor playtests should not silently grant the fall-damage-reduction talent");
+    assert.equal(directStartState.playerProgression.stealthRocketUnlocked, false, "browser direct starts and editor playtests should not silently grant the Stealth Rocket talent");
 
     const derived = playerProgressionStats(DEFAULT_TUNING, normalized);
     const expectedHealthLevel2 = DEFAULT_TUNING.maxHealth * (2 - Math.pow(0.8, 2));
@@ -19929,9 +20990,10 @@ function testPersistentPlayerProgressionUpgrades() {
             collectedUpgradeIds: []
         }
     });
-    assert.equal(state.playerProgression.lungeUnlocked, true, "missing progression flags should preserve legacy lunge access");
-    assert.equal(state.playerProgression.fallImpactExplosionUnlocked, true, "missing progression flags should preserve legacy fall-impact access");
-    assert.equal(state.playerProgression.fallDamageReductionUnlocked, true, "missing progression flags should preserve legacy fall-damage reduction access");
+    assert.equal(state.playerProgression.lungeUnlocked, true, "fresh progression should start with lunge access");
+    assert.equal(state.playerProgression.fallImpactExplosionUnlocked, true, "fresh progression should start with body-slam access");
+    assert.equal(state.playerProgression.fallDamageReductionUnlocked, false, "fresh progression should start without fall-damage reduction so direct starts use the 2.5-second body-slam cooldown");
+    assert.equal(state.playerProgression.stealthRocketUnlocked, false, "fresh progression should start without the Stealth Rocket talent");
     approx(state.health.max, 120, 0.000001, "initial game state should apply permanent health capacity");
     approx(state.fuel.max, 120, 0.000001, "initial game state should apply permanent fuel capacity");
     approx(state.fuel.rechargeCap, 120, 0.000001, "fuel capacity upgrades should raise the ordinary recharge cap too");
@@ -20513,6 +21575,8 @@ function testCharacterToolDirectTransformGeometry() {
     const toolHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     assert.ok(toolHtml.includes("X, Y and Angle (drag)"), "character tool should expose combined transform editing");
     assert.ok(toolHtml.includes("beginPartTransformDrag"), "character tool should wire direct part dragging");
+    assert.ok(toolHtml.includes('state.animationTool !== "adjust"') && toolHtml.includes('if (!isTransformEditMode()) {\n        setAnimationTool("adjust");'), "stage dragging should remain available after a scalar dopesheet track temporarily changes the property selector");
+    assert.ok(toolHtml.includes("canonicalizePlayheadForKeyframeEdit"), "direct transform editing should canonicalize a looping duration endpoint back to time zero");
     assert.ok(toolHtml.includes("Mouse-wheel zooms the canvas"), "character tool should document direct wheel preview zooming in a tooltip");
     assert.ok(!toolHtml.includes("if (!event.ctrlKey)"), "character preview zoom should not require Ctrl");
     assert.ok(toolHtml.includes("<h2>Rigging</h2>"), "character tool should distinguish base rig values from animation keys");
@@ -20770,6 +21834,28 @@ function testDataDrivenWalkAnimation() {
 function testAnimationEditorOperations() {
     const rawClip = JSON.parse(readFileSync(new URL("../resources/characters/ct_anim_wizard_walk_1.json", import.meta.url), "utf8"));
     const editable = createEditableAnimationClip(rawClip, "editable walk");
+    approx(
+        canonicalAnimationKeyframeTime(editable, editable.duration),
+        0,
+        0.000001,
+        "looping editor writes should treat the terminal playhead as the time-zero phase"
+    );
+    approx(
+        canonicalAnimationKeyframeTime({ duration: 1, loop: false }, 1),
+        1,
+        0.000001,
+        "one-shot editor writes should retain a real terminal key"
+    );
+    const endpointTrack = getAnimationTrack(editable, "hat", "rotation", false);
+    const endpointOriginalCount = endpointTrack.length;
+    const endpointIndex = upsertAnimationKeyframe(editable, "hat", "rotation", {
+        time: editable.duration,
+        value: 0.123,
+        easing: "linear"
+    });
+    assert.equal(endpointTrack.length, endpointOriginalCount, "editing a loop endpoint should update the existing time-zero key instead of creating an ignored terminal key");
+    approx(endpointTrack[endpointIndex].time, 0, 0.000001, "loop endpoint edits should be authored at time zero");
+    assert.equal(endpointTrack.some((key) => Math.abs(Number(key.time) - Number(editable.duration)) <= 0.0000001), false, "loop endpoint editing must not introduce a terminal-duration key");
     const originalTrack = getAnimationTrack(editable, "hat", "rotation", false);
     const originalCount = originalTrack.length;
 
@@ -21491,8 +22577,11 @@ function testHeadlessSteppingAndFloorCollision() {
 
 function testPlayerChargedLunge() {
     const chargeTicks = Math.ceil(DEFAULT_TUNING.playerLungeChargeSeconds / FIXED_DT) + 1;
+    const lunge1 = JSON.parse(readFileSync(new URL("../resources/characters/ct_anim_wizard_lunge_1.json", import.meta.url), "utf8"));
     const lunge2 = JSON.parse(readFileSync(new URL("../resources/characters/ct_anim_wizard_lunge_2.json", import.meta.url), "utf8"));
     const wizard = JSON.parse(readFileSync(new URL("../resources/characters/ct_char_wizard_1.json", import.meta.url), "utf8"));
+    assert.equal(lunge1.animationId, "ct_anim_wizard_lunge_1", "lunge1 should carry its own animation id");
+    approx(lunge1.duration, DEFAULT_TUNING.playerLungeChargeSeconds, 0.000001, "lunge1 should remain synchronized 1:1 with the authored lunge charge time");
     assert.equal(lunge2.animationId, "ct_anim_wizard_lunge_2", "lunge2 should carry its own animation id");
     approx(lunge2.duration, 0.5, 0.000001, "lunge2 should span the 720 px / 1440 px/s movement burst");
     assert.equal(DEFAULT_TUNING.playerLungeDistance, 720, "player lunges should travel the authored 720 px distance");
@@ -21651,14 +22740,14 @@ function testPlayerChargedLunge() {
     settleOnGround(smokeState);
     smokeState.enemies = [];
     smokeState.player.lungeCooldownTimer = 10;
-    const lungeSmokeCount = () => smokeState.effects.smokePuffs.filter((puff) => puff.kind === "attachedRocketSmokePuff").length;
+    const lungeSmokeCount = () => Math.max(0, (Number(smokeState.effects.nextPuffId) || 1) - 1);
     stepSimulation(smokeState, createInputFrame({ lungePressed: true, lungeHeld: true }), FIXED_DT);
     const halfChargeTicks = Math.ceil((smokeState.tuning.playerLungeChargeSeconds * 0.5) / FIXED_DT);
     stepMany(smokeState, Math.max(0, halfChargeTicks - 1), () => createInputFrame({ lungeHeld: true }));
     const firstHalfChargeSmoke = lungeSmokeCount();
     stepMany(smokeState, halfChargeTicks, () => createInputFrame({ lungeHeld: true }));
     const secondHalfChargeSmoke = lungeSmokeCount() - firstHalfChargeSmoke;
-    assert.ok(secondHalfChargeSmoke > firstHalfChargeSmoke, "lunge preparation smoke should visibly ramp up through the 0.5-second bend");
+    assert.ok(secondHalfChargeSmoke > firstHalfChargeSmoke, "lunge preparation smoke should visibly ramp up through the 0.25-second bend");
     assert.equal(smokeState.player.lungeCharging, true, "cooldown should hold the smoke-ramp fixture in its fully charged crouch");
     const beforeHeldChargeSmoke = lungeSmokeCount();
     const densityWindowTicks = Math.ceil(0.13 / FIXED_DT);
@@ -21740,7 +22829,7 @@ function testPlayerChargedLunge() {
         stepSimulation(state, createInputFrame({ lungeHeld: true }), FIXED_DT);
     }
     state.health.invulnerabilityTimer = 0;
-    assert.equal(state.player.lungeActive, true, "holding the lunge input for 0.5 seconds should automatically start the lunge");
+    assert.equal(state.player.lungeActive, true, "holding the lunge input for 0.25 seconds should automatically start the lunge");
     approx(state.player.lungeCooldownTimer, state.tuning.playerLungeCooldownSeconds, 0.000001, "launching should start the five-second lunge cooldown");
     const launchX = state.player.currentTransform.x
         - state.player.lungeDirection * (state.tuning.playerLungeDistance - state.player.lungeDistanceRemaining);
@@ -21800,7 +22889,7 @@ function testPlayerChargedLunge() {
         cooldownChargeGuard += 1;
     }
     assert.equal(cooldown.player.lungeCharging, true, "a charge completed during cooldown should remain crouched instead of launching early");
-    assert.equal(cooldown.player.lungeActive, false, "cooldown should block the burst even after the 0.5-second charge completes");
+    assert.equal(cooldown.player.lungeActive, false, "cooldown should block the burst even after the 0.25-second charge completes");
     approx(cooldown.player.lungeChargeTime, cooldown.tuning.playerLungeChargeSeconds, 0.000001, "a cooldown-blocked charge should hold the final charge pose");
     approx(cooldown.fuel.amount, cooldownFuel, 0.000001, "waiting for lunge cooldown should not consume fuel");
     stepSimulation(cooldown, createInputFrame({ lungeReleased: true }), FIXED_DT);
@@ -22408,7 +23497,7 @@ function testOrdinaryJumpHeightIsExactAndGravityDerived() {
         "default launch velocity should be derived from gravity and jump height"
     );
 
-    for (const dt of [1 / 30, 1 / 60, 1 / 120]) {
+    for (const dt of [1 / 30, 1 / 60, 1 / 80]) {
         const state = createInitialGameState({ tuning: { timestep: dt } });
         settleOnGround(state);
         const launchY = state.player.currentTransform.y;
@@ -22425,7 +23514,7 @@ function testOrdinaryJumpHeightIsExactAndGravityDerived() {
 }
 
 function testDownDoublesGravityDuringAscentAndDescent() {
-    for (const dt of [1 / 30, 1 / 60, 1 / 120]) {
+    for (const dt of [1 / 30, 1 / 60, 1 / 80]) {
         const state = createInitialGameState({ tuning: { timestep: dt } });
         settleOnGround(state);
         const launchY = state.player.currentTransform.y;
@@ -23171,8 +24260,11 @@ function testAttachedRocketSmokeAndVisualPower() {
     stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
     const kickPower = state.equipment.rocket.boostVisualPowerNow;
     assert.ok(kickPower > state.tuning.attachedBoostSustainVisualPower, `kick puff power should be visually stronger than sustain, got ${kickPower}`);
-    const smokeAfterKick = state.effects.smokePuffs.filter((puff) => puff.kind === "attachedRocketSmokePuff").length;
+    const kickPuffs = state.effects.smokePuffs.filter((puff) => puff.kind === "attachedRocketSmokePuff");
+    const smokeAfterKick = kickPuffs.length;
+    const puffIdAfterKick = state.effects.nextPuffId;
     assert.ok(smokeAfterKick >= 4, `attached boost kick should emit downward smoke puffs, got ${smokeAfterKick}`);
+    assert.ok(kickPuffs.every((puff) => puff.lifetime <= 0.14), "the default attached-rocket kick should use the new short smoke lifetime");
 
     stepMany(state, Math.ceil(state.tuning.attachedBoostBurstDuration / FIXED_DT) + 4, () => createInputFrame({ jumpHeld: true }));
     assert.ok(
@@ -23180,7 +24272,9 @@ function testAttachedRocketSmokeAndVisualPower() {
         `sustain puff power should settle below kick puff power, kick ${kickPower}, sustain ${state.equipment.rocket.boostVisualPowerNow}`
     );
     const attachedPuffs = state.effects.smokePuffs.filter((puff) => puff.kind === "attachedRocketSmokePuff");
-    assert.ok(attachedPuffs.length > smokeAfterKick, "held sustain should keep adding attached boost smoke puffs");
+    const emittedDuringSustain = state.effects.nextPuffId - puffIdAfterKick;
+    assert.ok(emittedDuringSustain >= 20, `held sustain should emit a denser short smoke train, got ${emittedDuringSustain} puffs`);
+    assert.ok(attachedPuffs.length > 0, "held sustain should keep a short attached boost smoke plume visible");
     assert.ok(attachedPuffs.some((puff) => puff.vy > 70), "attached boost puffs should travel downward from the nozzle");
 }
 
@@ -23220,7 +24314,9 @@ function testFallDamageIgnoresNormalDoubleJumpHeight() {
 }
 
 function testFallDamageUsesExcessKineticEnergy() {
-    const state = createInitialGameState();
+    const state = createInitialGameState({
+        playerProgression: { fallDamageReductionUnlocked: true }
+    });
     settleOnGround(state);
     const oneExtraWhImpact = targetImpactSpeedForExtraFallWh(state, 1);
     forceLandingAtImpactSpeed(state, oneExtraWhImpact);
@@ -23241,7 +24337,26 @@ function testFallDamageUsesExcessKineticEnergy() {
     assert.ok(sameTickCommit.debug.lastEvents.some((event) => event.type === "PLAYER_FALL_IMPACT_EXPLOSION"), "Down-held fall that becomes damaging and lands in the same tick should still commit and explode");
     assert.ok(sameTickCommit.player.bodySlamImmunityTimer > 0.4, "same-tick commitment should receive the normal post-impact slam immunity");
 
-    const impact = createInitialGameState();
+    const greenSlam = createInitialGameState();
+    greenSlam.story.portalIntro = null;
+    greenSlam.story.portalExit = null;
+    greenSlam.world.solids = [];
+    greenSlam.world.collisionPolygons = [];
+    greenSlam.world.segments = [
+        { id: "body_slam_green_floor", kind: "walkable", x1: -900, y1: 600, x2: 900, y2: 600 }
+    ];
+    forceLandingAtImpactSpeed(
+        greenSlam,
+        targetImpactSpeedForExtraFallWh(greenSlam, 1),
+        createInputFrame({ dropHeld: true })
+    );
+    assert.equal(greenSlam.player.supportId, "body_slam_green_floor", "held Down while airborne should still allow landing on a green line");
+    assert.ok(greenSlam.debug.lastEvents.some((event) => event.type === "PLAYER_FALL_IMPACT_EXPLOSION"),
+        "a damaging held-Down landing on a green line should trigger the body-slam AOE");
+
+    const impact = createInitialGameState({
+        playerProgression: { fallDamageReductionUnlocked: true }
+    });
     settleOnGround(impact);
     const prototype = impact.enemies[0];
     impact.enemies = [
@@ -25311,16 +26426,11 @@ function testAttachedSmokeDownSpeedTuning() {
     stepSimulation(originState, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
     releaseJumpAfterTakeoff(originState);
     stepMany(originState, 3, () => createInputFrame({ jumpHeld: false }));
-    const emissionPlayerY = originState.player.currentTransform.y;
     stepSimulation(originState, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
     const originPuff = originState.effects.smokePuffs.find((puff) => puff.kind === "attachedRocketSmokePuff");
     assert.ok(originPuff, "expected an attached boost puff for the nozzle-origin regression");
-    approx(
-        originPuff.y,
-        emissionPlayerY - originState.player.height * 0.30 - 2,
-        0.001,
-        "attached smoke should begin ten pixels closer to the mounted rocket nozzle"
-    );
+    approx(originPuff.y, 0, 0.001, "attached smoke should begin at the rocket-local bell origin");
+    assert.ok(Math.abs(originPuff.x) < 10, `attached smoke should stay near the rocket-local exhaust axis, got x=${originPuff.x}`);
 }
 
 
@@ -26248,7 +27358,8 @@ function testMovingPlatformInteractionRegressions() {
 
     const translatedDropState = createMovingPlatformTestState(translate);
     placePlayerOnMovingPlatform(translatedDropState);
-    stepMany(translatedDropState, 6, () => createInputFrame({ dropHeld: true }));
+    stepSimulation(translatedDropState, createInputFrame({ dropPressed: true, dropHeld: true }), FIXED_DT);
+    stepMany(translatedDropState, 5, () => createInputFrame({ dropHeld: true }));
     assert.equal(translatedDropState.player.supportId, null,
         "drop-through should release a translating green moving-platform support in the same tick");
     assert.equal(translatedDropState.player.onGround, false,
@@ -26269,7 +27380,8 @@ function testMovingPlatformInteractionRegressions() {
         initialDelay: 0
     });
     placePlayerOnMovingPlatform(swingDropState);
-    stepMany(swingDropState, 6, () => createInputFrame({ dropHeld: true }));
+    stepSimulation(swingDropState, createInputFrame({ dropPressed: true, dropHeld: true }), FIXED_DT);
+    stepMany(swingDropState, 5, () => createInputFrame({ dropHeld: true }));
     assert.equal(swingDropState.player.supportId, null,
         "drop-through should release a swinging green moving-platform support in the same tick");
     assert.equal(swingDropState.player.onGround, false,
@@ -28129,7 +29241,9 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal(DEFAULT_GAME_SETTINGS.fullscreen, true, "browser play should default to fullscreen when a user gesture permits it");
     assert.equal(DEFAULT_GAME_SETTINGS.showMinimap, true, "the minimap should be visible by default");
     assert.equal(DEFAULT_GAME_SETTINGS.developmentMode, true, "development tools should remain visible by default in development builds");
-    assert.equal(DEFAULT_GAME_SETTINGS.version, 12, "browser settings should carry the persisted input-binding schema version 12");
+    assert.equal(DEFAULT_GAME_SETTINGS.debugLoggingEnabled, false, "browser debug logging should default off even in DEVELOPMENT builds");
+    assert.equal(DEFAULT_GAME_SETTINGS.gameplayRecordingEnabled, false, "browser gameplay recording should default off even in DEVELOPMENT builds");
+    assert.equal(DEFAULT_GAME_SETTINGS.version, 13, "browser settings should carry the persistent diagnostic-preference schema version 13");
     assert.equal(GAME_INPUT_ACTIONS.length, 11, "controls should expose seven primary and four advanced actions");
     assert.equal(GAME_INPUT_ACTIONS.find((action) => action.id === "down")?.label, "Down (slam)", "the Down action should hint at the body slam");
     assert.deepEqual(DEFAULT_INPUT_BINDINGS.upLeft, [], "advanced diagonal bindings should default to unbound");
@@ -28174,6 +29288,8 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
         fullscreen: false,
         showMinimap: false,
         developmentMode: false,
+        debugLoggingEnabled: false,
+        gameplayRecordingEnabled: false,
         renderingMode: "SOFTWARESPEEDHACK",
         tuningOverrides: { ordinaryJumpHeight: 260, doubleJumpPhysics: "consistentApex" }
     });
@@ -28184,6 +29300,8 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal(normalized.fullscreen, false, "the fullscreen preference should normalize as a boolean");
     assert.equal(normalized.showMinimap, false, "the minimap visibility preference should normalize as a boolean");
     assert.equal(normalized.developmentMode, false, "the development tool visibility preference should normalize as a boolean");
+    assert.equal(normalized.debugLoggingEnabled, false, "an explicit saved browser debug-logging preference should remain authoritative");
+    assert.equal(normalized.gameplayRecordingEnabled, false, "an explicit saved browser recording preference should remain authoritative");
     assert.equal(normalized.renderingMode, "softwareSpeedhack", "renderer mode ids should normalize case-insensitively");
     assert.deepEqual(normalized.tuningOverrides, { ordinaryJumpHeight: 260, doubleJumpPhysics: "consistentApex" }, "per-user tuning overrides should survive settings normalization as a sparse object");
     assert.equal(normalized.useHardwareRendering, false, "software modes should select Canvas2D");
@@ -28219,6 +29337,8 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
         fullscreen: false,
         showMinimap: false,
         developmentMode: false,
+        debugLoggingEnabled: false,
+        gameplayRecordingEnabled: false,
         renderingMode: "softwareSpeedhack",
         inputBindings: assignInputBinding(DEFAULT_INPUT_BINDINGS, "lunge", "gamepad:leftStick"),
         tuningOverrides: { maxRunSpeed: 420, doubleJumpPhysics: "consistentApex" }
@@ -28229,6 +29349,8 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal(loadStoredGameSettings(storage).fullscreen, false, "the fullscreen preference should round-trip through storage");
     assert.equal(loadStoredGameSettings(storage).showMinimap, false, "the minimap preference should round-trip through storage");
     assert.equal(loadStoredGameSettings(storage).developmentMode, false, "the development-mode preference should round-trip through storage");
+    assert.equal(loadStoredGameSettings(storage).debugLoggingEnabled, false, "the debug-logging preference should round-trip through storage");
+    assert.equal(loadStoredGameSettings(storage).gameplayRecordingEnabled, false, "the gameplay-recording preference should round-trip through storage");
     assert.equal(loadStoredGameSettings(storage).renderingMode, "softwareSpeedhack", "the rendering mode should round-trip through storage");
     assert.equal(loadStoredGameSettings(storage).inputBindings.lunge.includes("gamepad:leftStick"), true, "custom controls should round-trip through browser localStorage");
     assert.deepEqual(loadStoredGameSettings(storage).tuningOverrides, { maxRunSpeed: 420, doubleJumpPhysics: "consistentApex" }, "sparse tuning overrides should round-trip through browser localStorage");
@@ -28307,6 +29429,9 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     const manualHtml = readFileSync(new URL("../GameManual.html", import.meta.url), "utf8");
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const browserSettingsSource = readFileSync(new URL("../src/shared/game-settings-data.js", import.meta.url), "utf8");
+    const browserSimulationSource = readFileSync(new URL("../src/core/simulation.js", import.meta.url), "utf8");
+    const nativeEnemySimulationSource = readFileSync(new URL("../../src/core/SimulationEnemy.cpp", import.meta.url), "utf8");
     const nativeAppSource = readNativeAppSourceBundle();
     const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
     const electronPackageSource = readFileSync(new URL("../electron/package.json", import.meta.url), "utf8");
@@ -28321,8 +29446,8 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(gameHtml, /id="title-settings-button"[^>]*>\s*Settings/s, "the title menu should expose Settings");
     assert.match(gameHtml, /id="title-exit-desktop-button"[^>]*>\s*Exit to Desktop/s, "the title menu should expose Exit to Desktop");
     assert.match(gameHtml, /id="startup-studio-splash"[\s\S]*resources\/ui\/studio_logo\.png/, "normal browser startup should include the optional studio logo splash asset");
-    assert.match(gameHtml, /ignatius-studio-logo-startup[\s\S]*3000ms/, "the browser studio logo splash should use the requested three-second fade/hold/fade sequence");
-    assert.match(bootstrapSource, /STARTUP_STUDIO_SPLASH_FADE_IN_MS = 500[\s\S]*STARTUP_STUDIO_SPLASH_HOLD_MS = 2000[\s\S]*STARTUP_STUDIO_SPLASH_FADE_OUT_MS = 500/, "browser studio logo timing should be 0.5 s fade-in, 2.0 s hold, 0.5 s fade-out");
+    assert.match(gameHtml, /ignatius-studio-logo-startup[\s\S]*2500ms[\s\S]*20% \{ opacity: 1; \}[\s\S]*80% \{ opacity: 1; \}/, "the browser studio logo splash should use the requested 2.5-second fade/hold/fade sequence");
+    assert.match(bootstrapSource, /STARTUP_STUDIO_SPLASH_FADE_IN_MS = 500[\s\S]*STARTUP_STUDIO_SPLASH_HOLD_MS = 1500[\s\S]*STARTUP_STUDIO_SPLASH_FADE_OUT_MS = 500/, "browser studio logo timing should be 0.5 s fade-in, 1.5 s hold, 0.5 s fade-out");
     assert.doesNotMatch(gameHtml, /id="game-menu-resume"/, "the in-game menu should use its top-right Back button instead of a duplicate Resume Game action");
     assert.match(gameHtml, /id="game-menu-back"[^>]*class="game-menu-back"[^>]*>BACK<\/button>/, "all browser menu views should share the top-right Back button");
     assert.match(gameHtml, /id="game-menu-save"[^>]*>\s*Save Game/s, "the in-game menu should expose Save Game");
@@ -28393,6 +29518,18 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(nativeAppSource, /id == "advancedControls"[\s\S]*controlBindingCaptureActive = false[\s\S]*MenuView::AdvancedControls/, "native mouse navigation to Advanced bindings should cancel an active capture first");
     assert.match(bootstrapSource, /new Set\(\["menu", "settings", "controls", "development", "tuning", "save", "load"\]\)/, "the game-menu state machine should include Controls, Development features and Game tuning as nested settings views");
     assert.match(bootstrapSource, /function startGameplayDebugLogging\(source = "development-menu"\)/, "the browser should provide an explicit structured debug-log start path");
+    assert.match(browserSettingsSource, /Deliberate browser\/native non-parity:[\s\S]*debugLoggingEnabled: false,[\s\S]*gameplayRecordingEnabled: false/, "browser diagnostics should document their intentional first-run default divergence from native DEVELOPMENT builds");
+    assert.match(bootstrapSource, /if \(storedGameSettings\.debugLoggingEnabled\) \{\s*startGameplayDebugLogging\("persistent-preference"\);\s*\}/, "browser startup should obey the persisted opt-in debug-logging preference");
+    assert.match(nativeAppSource, /if \(persistentSettings\.debugLoggingEnabled\)\s*\{\s*setVerboseDebugLogging\(true, false\);/, "native startup should obey the persisted debug-logging preference rather than forcing DEVELOPMENT every run");
+    assert.match(nativeAppSource, /addMenuEntry\(\s*"playback",\s*"Playback\.\.\.",\s*playback\.active \? "Playback active" : "Choose a gameplay recording JSON",\s*!playback\.active\)/, "native Playback should remain selectable while a preferred gameplay recording is active");
+    assert.match(nativeAppSource, /showGameplayPlaybackFileDialog\(\)[\s\S]*if \(playbackFileDialogOpen \|\| playback\.active\)/, "native playback file selection should no longer reject an ordinary active recording");
+    assert.match(nativeAppSource, /if \(!loadLevelAndEnterGameplay\(playbackStart, false\)\)[\s\S]*playback = GameplayPlaybackState\{\};[\s\S]*startPreferredGameplayRecording\("playback_start_failed"\)/, "native playback startup failure should resume the persisted recording preference after finalizing the interrupted level capture");
+    assert.match(browserSimulationSource, /targetContinuesThroughStride[\s\S]*enemyGroundStrideControlCancellation[\s\S]*effectiveTargetX[\s\S]*targetSupportId:/, "browser enemy stride cancellation should raise a red diagnostic only when the current target still continues through the committed stride");
+    assert.match(nativeEnemySimulationSource, /targetContinuesThroughStride[\s\S]*enemyGroundStrideControlCancellation[\s\S]*effectiveTargetX[\s\S]*targetSupportId/, "native enemy stride cancellation should use the same narrowed contradictory-target diagnostic");
+    assert.match(bootstrapSource, /startPreferredGameplayRecording\("level-transition"\)/, "browser level transitions should start a fresh recording when the persistent preference is enabled");
+    assert.match(nativeAppSource, /startPreferredGameplayRecording\("level_transition"\)/, "native level transitions should start a fresh recording when the persistent preference is enabled");
+    assert.match(bootstrapSource, /persistDiagnosticPreference\("gameplayRecordingEnabled", enabled\)/, "browser recording controls should save the persistent recording preference");
+    assert.match(nativeAppSource, /persistentSettings\.gameplayRecordingEnabled = !persistentSettings\.gameplayRecordingEnabled;\s*savePersistentSettings\(\);/, "native recording controls should save the persistent recording preference");
     assert.match(bootstrapSource, /sampleMs - gameplayDebugLogLastSampleMs < 1000/, "browser debug logging should sample at most once per second rather than adding per-frame overhead");
     assert.match(bootstrapSource, /application\/x-ndjson/, "stopping browser debug logging should export a compact structured NDJSON file");
     assert.match(bootstrapSource, /appendGameplayDebugLogSample\(callbackArrivalNow\)/, "the browser frame loop should feed the low-frequency debug logger");
@@ -29085,6 +30222,181 @@ function testRocketProjectileRendererExists() {
 }
 
 
+function testDeluxeRocketExhaustRendererContract() {
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    const deluxeStart = rendererSource.indexOf("drawDeluxeRocketExhaustWebGL(state");
+    const deluxeEnd = rendererSource.indexOf("drawMountedRocketDeluxeExhaustWebGL(state", deluxeStart);
+    assert.ok(deluxeStart >= 0 && deluxeEnd > deluxeStart, "browser renderer should define the reusable deluxe rocket exhaust pass");
+    const deluxeSource = rendererSource.slice(deluxeStart, deluxeEnd);
+    assert.ok(rendererSource.includes('this.webglBackend?.available && state?.settings?.renderingQuality === "high"'), "browser deluxe rocket exhaust should require both WebGL hardware rendering and High effects quality");
+    assert.ok(rendererSource.includes("mountedRocketExhaustActive(state)")
+        && rendererSource.includes('rocket?.state === "flight"')
+        && rendererSource.includes('rocket?.state === "lunge"')
+        && rendererSource.includes("state?.player?.lungeActive"),
+    "browser deluxe exhaust should follow the mounted rocket during boost, flight mode, and the active lunge attack");
+    assert.ok(rendererSource.includes("return this.drawDeluxeRocketExhaustWebGL(") && rendererSource.includes("drawProjectileRocketFlameWebGL"), "browser fired rockets should replace the cheap nozzle flame with the deluxe plume at High quality");
+    assert.ok(deluxeSource.includes("const smokeCount = 14") && deluxeSource.includes("const coreCount = 9") && deluxeSource.includes("const flameCount = 30") && deluxeSource.includes("const sparkCount = 28"), "browser deluxe plume should retain smoke, incandescent core, flame body, and sparks");
+    assert.equal(deluxeSource.includes("createRadialGradient"), false, "browser gameplay deluxe exhaust must use cached particle sprites rather than constructing gradients per frame");
+    assert.ok(rendererSource.includes("Math.atan2(Math.cos(angle), -Math.sin(angle))"), "browser fired-rocket exhaust should emit opposite the projectile artwork/flight direction");
+    assert.ok(rendererSource.includes("mountedRocketNozzleTransform(transform")
+        && rendererSource.includes("drawMountedRocketSmokeWebGL(state")
+        && rendererSource.includes("drawMountedRocketSmokeCanvas(transform, state)"),
+    "browser backpack smoke should share the exact animated rocket nozzle transform in GPU and compatibility rendering");
+    assert.ok(rendererSource.includes('if (puff.kind === "attachedRocketSmokePuff") {\n                continue;'),
+        "browser world-effect rendering should not draw backpack smoke as a detached world-space trail");
+
+    const nativeRendererSource = readNativeAppSourceBundle();
+    assert.ok(nativeRendererSource.includes('persistentSettings.renderingQuality == "high"') && nativeRendererSource.includes("rendererUsesGpuBackend") && nativeRendererSource.includes("sharedSoftParticleTextureGpu"), "native deluxe rocket exhaust should require High quality plus the active GPU renderer and use the renderer-owned soft-particle texture");
+    assert.ok(nativeRendererSource.includes("mountedRocketExhaustActive()")
+        && nativeRendererSource.includes('rocket.state == "flight"')
+        && nativeRendererSource.includes('rocket.state == "lunge"')
+        && nativeRendererSource.includes("gameState.player.lungeActive"),
+    "native deluxe exhaust should follow the mounted rocket during boost, flight mode, and the active lunge attack");
+    assert.ok(nativeRendererSource.includes("std::atan2(-directionY, -directionX)") && nativeRendererSource.includes("drawDeluxeRocketExhaust("), "native fired rockets should emit the deluxe plume opposite their flight direction");
+    assert.ok(nativeRendererSource.includes("mountedRocketNozzleTransform(")
+        && nativeRendererSource.includes("drawMountedRocketSmoke(const FRuntimeCharacterDrawPartInfo& partInfo)")
+        && nativeRendererSource.includes('puff.kind == "attachedRocketSmokePuff"'),
+    "native backpack smoke should use the exact animated rocket nozzle transform instead of world-space rendering");
+    assert.ok(rendererSource.includes("DELUXE_ROCKET_EXHAUST_TITLE_SCALE = 0.2") && nativeRendererSource.includes("DELUXE_ROCKET_EXHAUST_TITLE_SCALE = 0.2"), "browser and native should share the same approximately one-fifth title-to-gameplay plume scale");
+    assert.ok(rendererSource.includes("DELUXE_ROCKET_FLAME_ANIMATION_SPEED = 6.0")
+        && nativeRendererSource.includes("DELUXE_ROCKET_FLAME_ANIMATION_SPEED = 6.0")
+        && deluxeSource.includes("const flameElapsed = elapsed * DELUXE_ROCKET_FLAME_ANIMATION_SPEED")
+        && nativeRendererSource.includes("const double flameElapsed = elapsed * DELUXE_ROCKET_FLAME_ANIMATION_SPEED"),
+    "browser and native gameplay flame particles should advance at the same faster phase rate");
+    assert.ok(deluxeSource.includes("const distance = 12 + age * (215 + 100 * hash01(index, 10))")
+        && nativeRendererSource.includes("const double distance = 12.0 + age * (215.0 + 100.0 * hash01(index, 10))"),
+    "speeding the gameplay flame animation must preserve the existing normalized plume-length envelope");
+
+    const nativeLaunchOptionsSource = readFileSync(new URL("../../src/runtime/launch-options.cpp", import.meta.url), "utf8");
+    const nativeFlameCaptureBatch = readFileSync(new URL("../../devel/capture_wizard_flame_atlas.bat", import.meta.url), "utf8");
+    assert.ok(nativeRendererSource.includes("drawDeluxeRocketExhaustSample(")
+        && nativeRendererSource.includes("const double sampleTime = static_cast<double>(frameIndex) / static_cast<double>(frameRate);")
+        && nativeRendererSource.includes("sourceSeed = 41.0")
+        && nativeRendererSource.includes("sampleTime,\n                        false);"),
+    "native atlas capture should call the same deluxe GPU particle recipe without smoke and sample it at an explicit 120 Hz timeline");
+    assert.ok(nativeRendererSource.includes("ROCKET_FLAME_ATLAS_CAPTURE_FRAME_SIZE")
+        && nativeRendererSource.includes("ROCKET_FLAME_ATLAS_TRIM_LEFT")
+        && nativeRendererSource.includes('failure = "captured flame exceeded the packed atlas crop bounds";'),
+    "native atlas capture should common-crop black margins and fail rather than silently clipping if the deluxe flame ever outgrows that crop");
+    assert.ok(nativeLaunchOptionsSource.includes('name == "-capture-wizard-flame-atlas"')
+        && nativeLaunchOptionsSource.includes("options.rendererBackendPreference = RendererBackendPreference::Gpu")
+        && nativeLaunchOptionsSource.includes("options.renderingOptionsExplicit = true"),
+    "native wizard-flame capture should force the GPU renderer instead of inheriting compatibility/user renderer settings");
+    const captureOutputCleanupIndex = nativeFlameCaptureBatch.indexOf('if exist "%OUT_DIR%" rmdir /S /Q "%OUT_DIR%"');
+    const captureBuildIndex = nativeFlameCaptureBatch.indexOf('call "%ROOT%\\build.bat" release');
+    assert.ok(nativeFlameCaptureBatch.includes("--capture-wizard-flame-atlas")
+        && nativeFlameCaptureBatch.includes("devel\\out\\wizard_flame_capture")
+        && nativeFlameCaptureBatch.includes("60 Hz monitor does not skip source animation frames")
+        && captureOutputCleanupIndex >= 0
+        && captureBuildIndex >= 0
+        && captureOutputCleanupIndex < captureBuildIndex,
+    "the Windows capture helper should clear stale public output before build/capture work, then expose the deterministic GPU capture in a project-local folder");
+    assert.equal(existsSync(new URL("../../devel/bake_wizard_rocket_flame_atlas.py", import.meta.url)), false,
+        "the obsolete synthetic wizard-flame baker should stay retired now that GPU capture is the canonical generator");
+
+    const flameAtlasManifest = JSON.parse(readFileSync(new URL("../resources/characters/ct_atlas_wizard_3.json", import.meta.url), "utf8"));
+    const wizardCharacter = JSON.parse(readFileSync(new URL("../resources/characters/ct_char_wizard_1.json", import.meta.url), "utf8"));
+    assert.equal(flameAtlasManifest.atlasId, "ct_atlas_wizard_3", "the baked gameplay flame should keep its authored wizard atlas id");
+    assert.equal(flameAtlasManifest.image, "ct_atlas_wizard_3.png", "the flame atlas manifest should reference the agreed ct_atlas_wizard_3.png resource");
+    assert.equal(flameAtlasManifest.meta?.frameRate, 120, "the baked flame atlas should be sampled at 120 Hz");
+    assert.equal(flameAtlasManifest.meta?.frameCount, 78, "the approved approximately 0.65 second flame loop should contain 78 source frames");
+    assert.equal(flameAtlasManifest.meta?.frameWidth, 64, "the captured flame atlas should common-crop unused black width from every frame");
+    assert.equal(flameAtlasManifest.meta?.frameHeight, 112, "the captured flame atlas should common-crop unused black height from every frame");
+    assert.equal(flameAtlasManifest.meta?.anchorX, 31, "the cropped flame atlas should preserve the nozzle anchor after trimming 33 source pixels from the left");
+    assert.equal(flameAtlasManifest.meta?.anchorY, 12, "the cropped flame atlas should preserve the nozzle anchor vertically");
+    assert.equal(flameAtlasManifest.meta?.captureFrameSize, 128, "the GPU flame should still be sampled in the original 128 px capture window before lossless cropping");
+    assert.equal(flameAtlasManifest.meta?.trimLeft, 33, "the canonical flame crop should record its horizontal source offset");
+    assert.equal(flameAtlasManifest.meta?.trimTop, 0, "the canonical flame crop should retain the nozzle edge at the top of the capture");
+    assert.equal(Object.keys(flameAtlasManifest.frames || {}).length, 78, "the flame atlas should expose every 120 Hz loop frame");
+    assert.ok(flameAtlasManifest.frames?.rocket_flame_000 && flameAtlasManifest.frames?.rocket_flame_077, "the flame atlas should expose the complete zero-padded frame sequence");
+    assert.ok(wizardCharacter.supplementalAtlases?.includes("ct_atlas_wizard_3.json"), "the wizard should preload the baked flame atlas as a supplemental atlas");
+
+    assert.equal(flameAtlasManifest.meta?.bakedTitleScale, 0.25, "the flame atlas should record the title-recipe scale baked into its pixels");
+    assert.equal(flameAtlasManifest.meta?.captureSource, "nativeHighGpuDeluxeRocketExhaust", "the integrated atlas should come from the approved native High+GPU deluxe flame capture");
+    assert.equal(flameAtlasManifest.meta?.captureBackground, "black", "the integrated captured flame atlas should preserve the black-backed emissive capture");
+    assert.equal(flameAtlasManifest.meta?.playbackBlendMode, "additive", "the integrated captured flame atlas should declare additive playback");
+    assert.ok(Math.abs(rocketFlameAtlasTargetHeight(58) - 89.6) < 0.0001,
+        "a nominal fired rocket should preserve the approved deluxe flame scale after losslessly trimming the atlas frame height");
+    assert.ok(Math.abs(projectileRocketExhaustTargetHeight("rocket_projectile", 58) - 58) < 0.0001,
+        "ordinary projectile rockets should size exhaust from their ordinary 58 px rendered height");
+    assert.ok(Math.abs(projectileRocketExhaustTargetHeight("rocket_projectile_rocketpunch", 99) - 58) < 0.0001,
+        "Rocketpunch should keep an ordinary-rocket-sized exhaust even though the glove makes the complete sprite 99 px tall");
+    const nominalMountedRocketHeight = 220 * 0.35;
+    assert.ok(rocketFlameAtlasTargetHeight(nominalMountedRocketHeight) > 118,
+        "the mounted atlas should size from the already-scaled rocket transform while preserving the cropped frame scale");
+
+    assert.ok(rendererSource.includes('return quality === "medium" || (quality === "high" && !this.deluxeRocketExhaustEnabled(state));'),
+        "browser Medium and High-without-GPU rendering should use the atlas while Low remains legacy and High+GPU remains deluxe");
+    assert.ok(rendererSource.includes("ROCKET_FLAME_ATLAS_FRAME_RATE = 120")
+        && rendererSource.includes("ROCKET_FLAME_ATLAS_FRAME_COUNT = 78")
+        && rendererSource.includes("Math.floor(Math.max(0, this.rocketFlamePresentationTime) * ROCKET_FLAME_ATLAS_FRAME_RATE)"),
+    "browser atlas playback should select 120 Hz source frames from elapsed presentation time rather than monitor frame count");
+    assert.ok(rendererSource.includes("drawMountedRocketAtlasFlameWebGL(")
+        && rendererSource.includes("drawMountedRocketAtlasFlameCanvas(")
+        && rendererSource.includes("drawAnimatedRocketFlameAtlasWebGL(")
+        && rendererSource.includes("drawAnimatedRocketFlameAtlasCanvas("),
+    "browser backpack flame should use the same atlas in Medium GPU and Medium/High compatibility rendering");
+    const browserAtlasWebglStart = rendererSource.indexOf("drawAnimatedRocketFlameAtlasWebGL(");
+    const browserAtlasCanvasStart = rendererSource.indexOf("drawAnimatedRocketFlameAtlasCanvas(", browserAtlasWebglStart);
+    const browserAtlasCanvasEnd = rendererSource.indexOf("drawDeluxeRocketExhaustWebGL(", browserAtlasCanvasStart);
+    const browserAtlasWebglSource = rendererSource.slice(browserAtlasWebglStart, browserAtlasCanvasStart);
+    const browserAtlasCanvasSource = rendererSource.slice(browserAtlasCanvasStart, browserAtlasCanvasEnd);
+    assert.ok(browserAtlasWebglSource.includes('blendMode: "additive"')
+        && browserAtlasCanvasSource.includes('ctx.globalCompositeOperation = "lighter";'),
+    "browser atlas flame playback should treat only the captured flame draw as additive light");
+    const browserShadowStart = rendererSource.indexOf("queueShadowWebGL(");
+    const browserShadowEnd = rendererSource.indexOf("drawTargetsWebGL(", browserShadowStart);
+    const browserShadowSource = rendererSource.slice(browserShadowStart, browserShadowEnd);
+    assert.ok(browserShadowSource.includes('blendMode: "alpha"') && !browserShadowSource.includes('blendMode: "additive"'),
+        "ordinary WebGL actor shadows must remain alpha-blended when the flame atlas uses additive blending");
+    assert.ok(rendererSource.includes("if (this.animatedRocketFlameAtlasEnabled(state))")
+        && rendererSource.includes("const atlasFlame = this.animatedRocketFlameAtlasEnabled(state);")
+        && rendererSource.includes('if (!atlasFlame) {\n            drawRocketFlameLocal('),
+    "browser fired rockets should switch to the atlas at Medium/High compatibility while retaining the legacy flame at Low");
+
+    assert.ok(nativeRendererSource.includes('persistentSettings.renderingQuality == "medium"')
+        && nativeRendererSource.includes('(persistentSettings.renderingQuality == "high" && !deluxeRocketExhaustEnabled())'),
+    "native Medium and High-without-GPU rendering should use the atlas while Low remains legacy and High+GPU remains deluxe");
+    assert.ok(nativeRendererSource.includes("ROCKET_FLAME_ATLAS_FRAME_RATE = 120")
+        && nativeRendererSource.includes("ROCKET_FLAME_ATLAS_FRAME_COUNT = 78")
+        && nativeRendererSource.includes("rocketFlamePresentationTime) * static_cast<double>(ROCKET_FLAME_ATLAS_FRAME_RATE)"),
+    "native atlas playback should select 120 Hz source frames from elapsed presentation time rather than monitor frame count");
+    assert.ok(nativeRendererSource.includes("drawMountedRocketAtlasFlame(partInfo);")
+        && nativeRendererSource.includes("else if (animatedRocketFlameAtlasEnabled())")
+        && nativeRendererSource.includes("drawAnimatedRocketFlameAtlas("),
+    "native backpack and fired rockets should use the atlas in the Medium/High compatibility path");
+    assert.ok(nativeRendererSource.includes("rawGpuOverlayBatcher->setBlendMode(GpuCanvas2DBlendMode::Additive)")
+        && nativeRendererSource.includes("rawGpuOverlayBatcher->setBlendMode(GpuCanvas2DBlendMode::Alpha);")
+        && nativeRendererSource.includes("SDL_SetTextureBlendMode(asset->texture, SDL_BLENDMODE_ADD);")
+        && nativeRendererSource.includes("SDL_SetTextureBlendMode(asset->texture, previousBlendMode);"),
+    "native atlas flame playback should scope additive blending to the flame quad and restore ordinary wizard rendering afterward");
+    const mountedSmokeStart = nativeRendererSource.indexOf("void drawMountedRocketSmoke(");
+    const mountedSmokeEnd = nativeRendererSource.indexOf("void drawMountedRocketAtlasFlame(", mountedSmokeStart);
+    const mountedSmokeSource = nativeRendererSource.slice(mountedSmokeStart, mountedSmokeEnd);
+    assert.ok(mountedSmokeStart >= 0 && mountedSmokeEnd > mountedSmokeStart
+        && mountedSmokeSource.lastIndexOf("GpuCanvas2DBlendMode::AlphaAdditive);") >= 0
+        && mountedSmokeSource.lastIndexOf("GpuCanvas2DBlendMode::Alpha);")
+            > mountedSmokeSource.lastIndexOf("GpuCanvas2DBlendMode::AlphaAdditive);"),
+    "native mounted smoke should restore normal alpha after its alpha-additive sparks even when no flame follows the rocket callback");
+    assert.ok(rendererSource.includes("rocketFlameAtlasTargetHeight(transform.targetHeight)")
+        && rendererSource.includes("rocketFlameAtlasTargetHeight(exhaustTargetHeight)")
+        && !rendererSource.includes("ROCKET_FLAME_ATLAS_MOUNTED_HEIGHT_SCALE"),
+    "browser atlas sizing should derive from the deluxe flame scale for both backpack and fired rockets without double-applying the wizard rig scale");
+    assert.ok(nativeRendererSource.includes("rocketFlameAtlasTargetHeight(partInfo.targetHeight)")
+        && nativeRendererSource.includes("rocketFlameAtlasTargetHeight(exhaustTargetHeight)")
+        && nativeRendererSource.includes("ROCKET_FLAME_ATLAS_BAKED_TITLE_SCALE = 0.25")
+        && !nativeRendererSource.includes("ROCKET_FLAME_ATLAS_MOUNTED_HEIGHT_SCALE"),
+    "native atlas sizing should match the browser deluxe-scale mapping for backpack and fired rockets");
+    const nativeDeluxeGateStart = nativeRendererSource.indexOf("bool deluxeRocketExhaustEnabled() const");
+    const nativeDeluxeGateEnd = nativeRendererSource.indexOf("bool animatedRocketFlameAtlasEnabled() const", nativeDeluxeGateStart);
+    const nativeDeluxeGateSource = nativeRendererSource.slice(nativeDeluxeGateStart, nativeDeluxeGateEnd);
+    assert.ok(nativeDeluxeGateStart >= 0 && nativeDeluxeGateEnd > nativeDeluxeGateStart
+        && nativeDeluxeGateSource.includes("sharedSoftParticleTextureGpu")
+        && !nativeDeluxeGateSource.includes("titleCardAnimation.particleSoftTextureGpu"),
+    "native gameplay exhaust should not depend on title-card particle texture lifetime");
+}
+
+
 function testRangedEnemiesFireBeyondPreferredAttackRange() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
@@ -29533,6 +30845,7 @@ const tests = [
     ["ranged enemies fire beyond preferred attack range", testRangedEnemiesFireBeyondPreferredAttackRange],
     ["ranged enemies require clear projectile lane", testRangedEnemiesRequireClearProjectileLane],
     ["ranged shot lane revalidated at release", testRangedShotLaneRevalidatedAtRelease],
+    ["stationary periodic volcano hazard", testStationaryPeriodicVolcanoHazard],
     ["musket goblin projectile attack", testMusketGoblinProjectileAttack],
     ["Hobgoblin musket mortar area damage", testHobgoblinMusketMortarAreaDamage],
     ["player zero-health spark death animation", testPlayerDeathSparkAnimationAtZeroHealth],
@@ -29583,6 +30896,7 @@ const tests = [
     ["offscreen rocket lifetime explosions are culled", testRocketLifetimeExplosionOffscreenCull],
     ["homing rockets use fixed target range", testHomingRocketTargetsWithinFixedRange],
     ["rocket trail tracks curved path and persists", testRocketTrailTracksCurvedPathAndPersistsAfterExplosion],
+    ["deluxe rocket exhaust renderer contract", testDeluxeRocketExhaustRendererContract],
     ["attached boost smoke and visual power", testAttachedRocketSmokeAndVisualPower],
     ["attached smoke down speed tuning", testAttachedSmokeDownSpeedTuning],
     ["fall damage ignores normal double-jump height", testFallDamageIgnoresNormalDoubleJumpHeight],

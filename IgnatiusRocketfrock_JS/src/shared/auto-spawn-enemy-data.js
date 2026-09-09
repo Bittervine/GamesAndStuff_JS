@@ -11,6 +11,123 @@ export const DEFAULT_ENEMY_SPAWNER = Object.freeze({
     enemyPool: "1-900"
 });
 
+export const CHARACTER_ENEMY_BOSS_OVERRIDE_FIELDS = Object.freeze([
+    "characterId",
+    "characterProject",
+    "strategy",
+    "walkSpeed",
+    "runSpeed",
+    "awarenessRange",
+    "awarenessViewHalfAngle",
+    "awarenessHoldDuration",
+    "jumpHeight",
+    "unreachableGlareDuration",
+    "idleDuration",
+    "turnPause",
+    "health",
+    "scale",
+    "damage",
+    "contactDamage",
+    "attackRange",
+    "attackVerticalRange",
+    "meleeHitRange",
+    "lungeTargetDist",
+    "lungeRangeMin",
+    "lungeRangeMax",
+    "lungeSpeed",
+    "attackCooldown",
+    "immuneToInterrupts",
+    "deaf",
+    "preferredAttackRange",
+    "preferredAttackMinRange",
+    "projectileLaunchType",
+    "projectileAimMode",
+    "projectileAimAngleDegrees",
+    "projectileAngleJitterDegrees",
+    "projectileSpeed",
+    "projectileGravity",
+    "projectileLifetime",
+    "projectileRadius",
+    "projectileHomingStrength",
+    "spreadCount",
+    "spreadAngle",
+    "projectileRotationSpeedDegrees",
+    "projectileVisualScale",
+    "projectileVisualScaleJitter",
+    "projectileTrailEffect",
+    "projectileImpactEffect",
+    "projectileExplosionEffect",
+    "projectileAreaDamageRadiusWizardHeights",
+    "projectileOrientToVelocity"
+]);
+
+const CHARACTER_ENEMY_BOSS_OVERRIDE_FIELD_SET = new Set(CHARACTER_ENEMY_BOSS_OVERRIDE_FIELDS);
+const CHARACTER_ENEMY_PLACEMENT_FIELDS = new Set([
+    "facing",
+    "patrolDistance",
+    // These are intentionally per-placement phase/stagger values rather than
+    // type-wide character tuning.
+    "bomberInitialDelay",
+    "periodicInitialDelay",
+    "flightPhaseOffset",
+    "targetRadius"
+]);
+const CHARACTER_ENEMY_ALWAYS_CATALOG_FIELDS = new Set([
+    "characterId",
+    "characterProject",
+    "w",
+    "width",
+    "h",
+    "height",
+    "scale",
+    // Structural attack/projectile choices remain catalog-owned even for
+    // bosses. Bosses tune the selected attack, not replace its authored rig.
+    "attackType",
+    "projectileKind",
+    "projectilePartName",
+    "projectileFrameId",
+    "projectileVisualCharacterId",
+    "projectileVisualFrameId",
+    "projectileOriginLocalX",
+    "projectileOriginLocalY",
+    "projectileRigScale",
+    "projectileRendererKind"
+]);
+
+function characterEnemyCatalogOwnsField(definition, key) {
+    return CHARACTER_ENEMY_ALWAYS_CATALOG_FIELDS.has(key)
+        || CHARACTER_ENEMY_BOSS_OVERRIDE_FIELD_SET.has(key)
+        || Object.prototype.hasOwnProperty.call(definition?.defaults || {}, key);
+}
+
+export function resolveLevelCharacterEnemyFromCatalog(catalog, entity) {
+    if (!entity || typeof entity !== "object" || Array.isArray(entity)) return entity;
+    const type = String(entity.type || "");
+    const enemyCatalogId = String(entity.enemyCatalogId || "").trim();
+    if ((type !== "characterEnemy" && type !== "enemy") || !enemyCatalogId) return entity;
+    const definition = catalog?.enemies?.[enemyCatalogId];
+    if (!definition) return entity;
+
+    const isBoss = entity.isBoss === true;
+    const resolved = {
+        ...JSON.parse(JSON.stringify(definition.defaults || {})),
+        type,
+        enemyCatalogId,
+        characterId: definition.characterId,
+        w: definition.defaultSize.w,
+        h: definition.defaultSize.h
+    };
+    for (const [key, value] of Object.entries(entity)) {
+        const placementField = CHARACTER_ENEMY_PLACEMENT_FIELDS.has(key);
+        const catalogField = characterEnemyCatalogOwnsField(definition, key);
+        if (catalogField && !placementField && !(isBoss && CHARACTER_ENEMY_BOSS_OVERRIDE_FIELD_SET.has(key))) {
+            continue;
+        }
+        resolved[key] = JSON.parse(JSON.stringify(value));
+    }
+    return resolved;
+}
+
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
@@ -87,10 +204,15 @@ export function normalizeEnemyDefinitionCatalog(value) {
     };
 }
 
+export function resolveLevelCharacterEnemy(catalog, entity) {
+    return resolveLevelCharacterEnemyFromCatalog(normalizeEnemyDefinitionCatalog(catalog), entity);
+}
+
 export function resolveAutoSpawnEnemyIds(config, catalog) {
     const normalizedConfig = normalizeAutoSpawnEnemies(config);
     const normalizedCatalog = normalizeEnemyDefinitionCatalog(catalog);
-    return parseEnemySelection(normalizedConfig.enemyPool, Object.keys(normalizedCatalog.enemies));
+    const availableIds = Object.keys(normalizedCatalog.enemies);
+    return parseEnemySelection(normalizedConfig.enemyPool, availableIds);
 }
 
 export function collectLevelEnemyCharacterIds(level, catalog) {
@@ -104,7 +226,14 @@ export function collectLevelEnemyCharacterIds(level, catalog) {
     const addEnemyDependencies = (enemyId, overrides = null) => {
         const definition = normalizedCatalog.enemies[String(enemyId || "").trim()] || null;
         const defaults = definition?.defaults && typeof definition.defaults === "object" ? definition.defaults : {};
-        const explicit = overrides && typeof overrides === "object" && !Array.isArray(overrides) ? overrides : {};
+        const explicitSource = overrides && typeof overrides === "object" && !Array.isArray(overrides) ? overrides : {};
+        const explicit = definition
+            ? resolveLevelCharacterEnemyFromCatalog(normalizedCatalog, {
+                ...explicitSource,
+                type: String(explicitSource.type || "characterEnemy"),
+                enemyCatalogId: String(enemyId || "").trim()
+            })
+            : explicitSource;
         addCharacterId(explicit.characterId || explicit.characterProject || definition?.characterId);
         const projectileKind = String(explicit.projectileKind || defaults.projectileKind || "").trim();
         const projectileKindDefaults = normalizedCatalog.projectileKinds[projectileKind] || {};

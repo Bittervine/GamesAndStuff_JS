@@ -122,7 +122,29 @@
             "parallaxY": 0.925926,
             "brightness": 1,
             "scale": 1.5,
-            "asset": null
+            "asset": null,
+            "effects": {
+                "stars": 0,
+                "aurora": 0,
+                "meteor": 0,
+                "lightning": 0,
+                "heat": 0,
+                "cloudShadow": 0,
+                "upperClouds": 0,
+                "lowerClouds": 0,
+                "bats": 0,
+                "fireflies": 0.11,
+                "wisps": 0,
+                "spores": 0,
+                "rain": 0,
+                "snow": 0,
+                "leaves": 0.03,
+                "petals": 0.05,
+                "butterflies": 0.63,
+                "embers": 0,
+                "eyes": 0,
+                "groundFog": 0
+            }
         },
         "foreground": {
             "parallaxX": 1.08,
@@ -90057,17 +90079,8 @@
                             "visual:ledge_flat_mid_003",
                             "visual:ledge_flat_mid_004"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 25157.292,
-                                "startY": 1519.617,
-                                "attemptedX": 25157.556
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-44651074affcac1a"
                     },
                     {
@@ -90119,17 +90132,8 @@
                             "visual:ledge_flat_mid_003",
                             "visual:ledge_flat_mid_004"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 25219.6,
-                                "startY": 1519.41,
-                                "attemptedX": 25219.864
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-1dad7b03aef46d6c"
                     },
                     {
@@ -90180,17 +90184,8 @@
                             "visual:ledge_flat_mid_004",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 25113.132,
-                                "startY": 1519.764,
-                                "attemptedX": 25112.868
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-14ae7bc2e16c0e19"
                     },
                     {
@@ -90335,17 +90330,8 @@
                             "visual:ledge_flat_mid_001",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 25029.823,
-                                "startY": 1518.169,
-                                "attemptedX": 25029.559
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-79036b73d6c4308b"
                     },
                     {
@@ -90394,17 +90380,8 @@
                             "visual:ledge_flat_mid_001",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 24638.21,
-                                "startY": 1516.824,
-                                "attemptedX": 24638.474
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-917d3fe845b60e2e"
                     },
                     {
@@ -90453,17 +90430,8 @@
                             "visual:ledge_flat_mid_001",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 24550.734,
-                                "startY": 1516.177,
-                                "attemptedX": 24550.998
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-3103ebc30ae65e6a"
                     },
                     {
@@ -90512,17 +90480,8 @@
                             "visual:ledge_flat_mid_001",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 24618.555,
-                                "startY": 1516.679,
-                                "attemptedX": 24618.819
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-85eeba0804e41ab8"
                     },
                     {
@@ -90687,17 +90646,8 @@
                             "visual:ledge_flat_mid_002",
                             "visual:ledge_flat_mid_003"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 25465.697,
-                                "startY": 1399,
-                                "attemptedX": 25465.433
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-3e8729c2f743a579"
                     },
                     {
@@ -91669,17 +91619,8 @@
                         "geometryDependencyIds": [
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 24875.614,
-                                "startY": 1487.386,
-                                "attemptedX": 24875.35
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-7d2083e8de5512a4"
                     },
                     {
@@ -127790,17 +127731,8 @@
                             "visual:ledge_flat_mid_003",
                             "visual:ledge_flat_mid_004"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 25216.728,
-                                "startY": 1519.42,
-                                "attemptedX": 25216.992
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-88a1a1a4a2deb8d6"
                     },
                     {
@@ -127994,17 +127926,8 @@
                             "visual:ledge_flat_mid_001",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 24620.244,
-                                "startY": 1516.691,
-                                "attemptedX": 24620.508
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-8d8db78d6ab043e0"
                     },
                     {
@@ -128053,17 +127976,8 @@
                             "visual:ledge_flat_mid_001",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 24531.218,
-                                "startY": 1516.033,
-                                "attemptedX": 24531.482
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-52646fdd5f1bb3d7"
                     },
                     {
@@ -128112,17 +128026,8 @@
                             "visual:ledge_flat_mid_001",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 24593.961,
-                                "startY": 1516.497,
-                                "attemptedX": 24594.225
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-3ef46c73920652e1"
                     },
                     {
@@ -159572,17 +159477,8 @@
                             "visual:ledge_flat_mid_001",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 24650.012,
-                                "startY": 1516.911,
-                                "attemptedX": 24650.276
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-466797a995d8cbe4"
                     },
                     {
@@ -159631,17 +159527,8 @@
                             "visual:ledge_flat_mid_001",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 24571.465,
-                                "startY": 1516.331,
-                                "attemptedX": 24571.729
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-f79d3e5b014da031"
                     },
                     {
@@ -160088,17 +159975,8 @@
                             "visual:ledge_flat_mid_003",
                             "visual:ledge_flat_mid_004"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 25381.726,
-                                "startY": 1453.927,
-                                "attemptedX": 25381.462
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-ec9ddde78eead8cd"
                     },
                     {
@@ -160320,17 +160198,8 @@
                             "visual:ledge_flat_mid_001",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 24796.059,
-                                "startY": 1460.752,
-                                "attemptedX": 24795.795
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-aa83293f26bdf4b1"
                     },
                     {
@@ -195546,17 +195415,8 @@
                             "visual:ledge_flat_mid_003",
                             "visual:ledge_flat_mid_004"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 25208.71,
-                                "startY": 1519.446,
-                                "attemptedX": 25208.974
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-07684667891f2beb"
                     },
                     {
@@ -195702,17 +195562,8 @@
                             "visual:ledge_flat_mid_001",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 24592.671,
-                                "startY": 1516.487,
-                                "attemptedX": 24592.935
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-dfa6f6666a3816ab"
                     },
                     {
@@ -196045,17 +195896,8 @@
                             "visual:ledge_flat_mid_001",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 24874.294,
-                                "startY": 1487.59,
-                                "attemptedX": 24874.558
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-455e088775e28427"
                     },
                     {
@@ -231230,17 +231072,8 @@
                             "visual:ledge_flat_mid_003",
                             "visual:ledge_flat_mid_004"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 25214.798,
-                                "startY": 1519.426,
-                                "attemptedX": 25215.062
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-308a4cf911a5339d"
                     },
                     {
@@ -231387,17 +231220,8 @@
                             "visual:ledge_flat_mid_001",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 24596.756,
-                                "startY": 1516.518,
-                                "attemptedX": 24597.02
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-0e5473d1d3c7c5bd"
                     },
                     {
@@ -231676,17 +231500,8 @@
                             "visual:ledge_flat_mid_001",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 24786.797,
-                                "startY": 1459.958,
-                                "attemptedX": 24787.061
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-f143675f1befe429"
                     },
                     {
@@ -269634,17 +269449,8 @@
                             "visual:ledge_flat_mid_003",
                             "visual:ledge_flat_mid_004"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 25164.825,
-                                "startY": 1519.592,
-                                "attemptedX": 25165.089
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-b5c2e71860763d81"
                     },
                     {
@@ -269696,17 +269502,8 @@
                             "visual:ledge_flat_mid_003",
                             "visual:ledge_flat_mid_004"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 25224.97,
-                                "startY": 1519.392,
-                                "attemptedX": 25225.234
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-356f134178765c97"
                     },
                     {
@@ -269820,17 +269617,8 @@
                             "visual:ledge_flat_mid_003",
                             "visual:ledge_flat_mid_004"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 25172.704,
-                                "startY": 1519.566,
-                                "attemptedX": 25172.968
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-b9a199bf1c4fa6f7"
                     },
                     {
@@ -269882,17 +269670,8 @@
                             "visual:ledge_flat_mid_003",
                             "visual:ledge_flat_mid_004"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 25230.853,
-                                "startY": 1519.373,
-                                "attemptedX": 25231.117
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-b7779f0d170f9b6d"
                     },
                     {
@@ -269943,17 +269722,8 @@
                             "visual:ledge_flat_mid_004",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 25108.025,
-                                "startY": 1519.781,
-                                "attemptedX": 25107.761
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-32f02895d8883c7a"
                     },
                     {
@@ -270148,17 +269918,8 @@
                             "visual:ledge_flat_mid_001",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 25014.492,
-                                "startY": 1518.4,
-                                "attemptedX": 25014.228
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-e9a0b4e25cd967c7"
                     },
                     {
@@ -270207,17 +269968,8 @@
                             "visual:ledge_flat_mid_001",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 24642.043,
-                                "startY": 1516.852,
-                                "attemptedX": 24642.307
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-9a33b8f0b3039ecf"
                     },
                     {
@@ -270266,17 +270018,8 @@
                             "visual:ledge_flat_mid_001",
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 24531.249,
-                                "startY": 1516.033,
-                                "attemptedX": 24531.513
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-944f78bd9e254a74"
                     },
                     {
@@ -270441,17 +270184,8 @@
                             "visual:ledge_flat_mid_002",
                             "visual:ledge_flat_mid_003"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 25464.63,
-                                "startY": 1399,
-                                "attemptedX": 25464.366
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-df7cca8d466dc2a0"
                     },
                     {
@@ -270984,17 +270718,8 @@
                         "geometryDependencyIds": [
                             "visual:wood_bed_001"
                         ],
-                        "heuristicRejectors": [
-                            "run_up_first_step_blocked"
-                        ],
-                        "heuristicDiagnostics": {
-                            "run_up_first_step_blocked": {
-                                "tick": 1,
-                                "startX": 24834.028,
-                                "startY": 1493.959,
-                                "attemptedX": 24833.764
-                            }
-                        },
+                        "heuristicRejectors": [],
+                        "heuristicDiagnostics": {},
                         "verificationInputHash": "navproof-v3-33747d26edf8ce10"
                     },
                     {

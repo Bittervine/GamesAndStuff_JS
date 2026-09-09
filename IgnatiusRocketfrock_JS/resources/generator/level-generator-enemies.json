@@ -1,5 +1,5 @@
 {
-  "version": 14,
+  "version": 15,
   "catalogId": "cavern-enemy-generation-v1",
   "enemies": {
     "enemy_001": {
@@ -537,6 +537,25 @@
       "preferredProgressMax": 0.99,
       "requiresNavigation": false,
       "notes": "Explicit dormant metadata for the invisible passive cutscene speaker. It is an authoring-only speech-bubble anchor and must stay out of ordinary generated levels."
+    },
+    "enemy_910": {
+      "placementClass": "groundRanged",
+      "groupMin": 1,
+      "groupMax": 1,
+      "difficultyCost": 5.0,
+      "weight": 0.05,
+      "minDifficulty": 1,
+      "maxDifficulty": 1,
+      "minWalkableWidth": 420,
+      "edgeClearance": 170,
+      "landingBuffer": 180,
+      "headroom": 320,
+      "patrolRoom": 0,
+      "minGroupSpacing": 300,
+      "preferredProgressMin": 0.95,
+      "preferredProgressMax": 0.99,
+      "requiresNavigation": false,
+      "notes": "Environmental hazard metadata for Mini Volcano. enemy_910 sits above the default 1-900 procedural pool, but remains explicitly selectable when a generator/spawner pool deliberately names 910."
     }
   }
 }
