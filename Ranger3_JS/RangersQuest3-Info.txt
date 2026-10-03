@@ -1,0 +1,1297 @@
+RANGER'S QUEST III / RANGER OF BRACKENWALD
+CAMPAIGN AND WORLD CONTINUITY HANDOFF
+=====================================
+
+Purpose
+-------
+This document is a continuity handoff for a new agent taking over the Ranger of Brackenwald interactive campaign. Its purpose is not merely to list story titles, but to preserve what has actually happened in the world: important decisions, people, places, alliances, unresolved threats, supernatural facts, political consequences, infrastructure changes, promises, and the current state of unfinished stories.
+
+Important source note
+---------------------
+This reconstruction is based on prior campaign conversations and campaign summaries. Where the surviving conversation evidence is incomplete or contradictory, that is explicitly marked rather than silently filled in. A future agent should preserve uncertainty instead of inventing a false resolution.
+
+Geographic authority
+--------------------
+The canonical campaign map is authoritative for major place names, their spelling, and broad geographic relationships. Older story text and summaries may contain naming mistakes. Where a major geographic name conflicts with the map, use the map. Story-established local places that do not appear on the map may still exist; absence from the map does not make a hamlet, ford, mill, shrine, road, tower, or other small location non-canon.
+
+The order below is primarily the order in which the stories were played in chat. The campaign has not established a precise in-world calendar, so chat chronology should not automatically be treated as a strict day-by-day historical calendar.
+
+The campaign also contains story drafts and coding/demo stories that were authored but never actually played. Those are listed separately near the end and should NOT automatically be treated as campaign history.
+
+======================================================================
+1. FIXED PREMISE AND ESTABLISHED PLAYER CHARACTER
+======================================================================
+
+The player is the Ranger of Brackenwald, sworn to Duke Aldric of Brackenwald. The Ranger is responsible for protecting the lands of Elderwood, the Deep Marshes, the Riverlands, Oakenhurst, and the Gray Mountains.
+
+The Ranger is skilled with sword, bow, tracking, stealth, and healing herbs. The Ranger has no magic. The world itself can contain rare supernatural beings and ancient forces, and the Ranger has by now personally encountered several genuine supernatural or mythical phenomena.
+
+The Ranger's horse is Thorne. Thorne is a recurring, important companion and is alive. Thorne has survived danger more than once, including a shallow spear injury at Blackroot Ford.
+
+The Ranger has dark brown hair and stubble.
+
+Duke Aldric is the Ranger's liege. Across the campaign Aldric has generally supported lawful investigations, accepted prisoners and evidence, funded repairs, approved settlements and alliances, and used the Ranger as a trusted field representative. He remains alive and ruling Brackenwald.
+
+A strong behavioral pattern has emerged in actual play. The Ranger usually prefers investigation, evidence, restraint, surrender, restitution, and lawful judgment when possible. He has repeatedly tried to give wrongdoers a path back toward honest service. He is nevertheless willing to use lethal force when he believes people are in immediate danger or enemies are committed to violence. The Ranger is not a pacifist, but mercy and proportion matter to him.
+
+One important player-side lesson came after the Miller's Secret story: after bloodshed against deserters, the player explicitly reflected that deserters might have had legitimate reasons for leaving an army and that the Ranger perhaps should have learned more about them before assuming the worst. This is useful characterization for future moral situations, though it should not be turned into an invented in-world oath unless the player says so.
+
+======================================================================
+2. BROAD GEOGRAPHY AND WORLD FRAME
+======================================================================
+
+Brackenwald is the political center of the campaign and the seat of Duke Aldric.
+
+The canonical campaign map establishes the following major named geography:
+- Brackenwald near the center of the mapped lands.
+- Elderwood to the west of Brackenwald.
+- The Deep Marshes and Gallows Corner toward the southwest.
+- Bitter Hollow south of Brackenwald.
+- Auldwatch Tower and Freview in the southwest/south.
+- The Riverlands to the south and southeast, including Ervers and Greenvale.
+- Everhurst Forest, Ilsengard, and Stirwatch in the southeast.
+- Northwatch east of Frostfall Lake.
+- Frostfall Lake northeast/east of Brackenwald.
+- The Gray Mountains across the north and northeast.
+- Northcai at the far eastern side of the Gray Mountains.
+- Northgard north of Brackenwald, with Dunhold and Northpeak farther northwest.
+- Graywatch and Raven Bay in the west/northwest.
+
+The map is not exhaustive at village or local-feature scale. Story-established places such as Oakenhurst, Wickerford, Brindle Hollow, Harthmere, Blackroot Ford, Harrowspire, individual mills, shrines, roads, and similar locations may be canonical even though they are not labeled on the map. A future agent should distinguish major map geography from smaller story locations, and should not invent a conflict merely because a local place is absent from the map.
+
+The world is grounded medieval fantasy. Ordinary farmers, ferrymen, millers, smiths, soldiers, merchants, nobles, smugglers, deserters, and travelers are much more common than mythical beings. Elves, trolls, treants/forest beings, ghosts or ancient spirits, giants, fairies, and similar beings can exist, but should remain uncommon enough to feel consequential.
+
+======================================================================
+3. CAMPAIGN CHRONOLOGY
+======================================================================
+
+----------------------------------------------------------------------
+3.1 UNNAMED EARLY ARC: THE BROKEN TOWER / YSELLA / GREYHAVEN PLOT
+Status: Chapter I completed; a later Chapter II opening was started and then left unresolved.
+----------------------------------------------------------------------
+
+This early story did not have one consistent formal title. It began as what looked like ordinary violence and banditry and gradually widened into espionage, internal sabotage, hostage-taking, and foreign interference.
+
+The Ranger's investigation exposed a network associated with the Broken Tower sign. People tied to this phase included Crow, Pater, Halden, Merek, Rusk, and evidence pointing east toward House Varrick of Lornhelm. Papers and courier material were recovered. Several conspirators, including Crow, Pater, Halden, Merek, and Rusk, were captured. Duke Aldric assigned Marwyn to work on the espionage and internal-security side of the problem.
+
+Ysella Varne became entangled in the conspiracy because her brother had been taken and used as leverage. The brother's exact name was never established. IMPORTANT: he must not be called Thorne. Thorne is the Ranger's horse. Ysella initially occupied an ambiguous position because she had cooperated under coercion, but the Ranger treated her as someone who could help expose the deeper plot rather than simply as a criminal.
+
+The Ranger traveled with Ysella to recover her brother. Clues referred to "the weeping stones" and "the mill that doesn't grind." The trail eventually connected to an old downstream fishery and a more serious Greyhaven-backed operation. A ferryman named Edrin was encountered in this phase. The enemy had established a foothold around the fishery and had even trained or controlled a dangerous river beast/leviathan for use in intimidation or defense.
+
+A broker named Marrow of Greyhaven emerged as a principal external figure behind the operation. The conspiracy's broader aim was not merely theft. It was to create internal fracture inside Brackenwald, establish leverage and footholds, and weaken the duchy quietly.
+
+The Ranger rescued Ysella's brother alive. He was weak but ambulatory and was later taken to the Brackenwald infirmary. The Ranger also defeated and disarmed a Greyhaven duelist rather than simply killing him. Some Greyhaven agents were allowed or able to withdraw. This means Marrow survived and learned the Ranger's identity/name.
+
+The Ranger returned openly to Brackenwald and reported the Greyhaven connection, Marrow, the trained river beast, the fishery foothold, and the attempt to fracture Brackenwald from within.
+
+Final status after Chapter I:
+- Duke Aldric was fully warned.
+- Ysella was not charged as a traitor. She had materially assisted in exposing the plot.
+- Ysella and her rescued brother were placed under Duke Aldric's direct protection, with inner-keep chambers and discreet guards.
+- Ysella was expected to tell Aldric everything she had heard and knew.
+- Marrow remained at large in or associated with Greyhaven.
+- Greyhaven withdrew for the moment, but the strategic threat was not resolved.
+- The Broken Tower network had been badly damaged but not necessarily annihilated.
+- House Varrick of Lornhelm had been implicated by evidence, but the full reach of that connection was not resolved.
+- Marwyn was tasked with pursuing the internal espionage problem.
+
+A subsequent Chapter II was proposed around investigating collaborators, going toward Greyhaven, or strengthening Brackenwald's defenses.
+
+One actual continuation opening was started: the Ranger rode from Duke Aldric with orders toward Greyhaven and stopped at an inn called The Willow's Rest. A local father reported that his daughter had disappeared after going to fetch water. Her ribbon had been found tied to stone at an old ruin, and there were reports of childlike crying. The player did not complete a choice from that opening in the surviving record. Therefore the missing child/old ruin problem is unresolved and should not be silently treated as completed.
+
+----------------------------------------------------------------------
+3.2 THE RIVER'S QUIET TEETH
+Status: Completed.
+----------------------------------------------------------------------
+
+At Wickerford, apparently dangerous river conditions concealed a deliberate human wrecking operation.
+
+The hidden truth was that human wreckers were using snag-lines and false lantern signals to force boats into trouble, then ransom survivors and hide captives. The principal criminals were Ketch Varr and Odran Mote, with at least one additional crewman. A fourth accomplice, later known only as "Gray Cloak," remained hidden.
+
+Named local figures included Reeve Marta Elwick, Ferryman Jory Pike, Brother Halden, and Nessa Reed.
+
+The Ranger investigated suspicious cord, skiff evidence, tracks, and the riverbank. He captured and bound Odran, subdued another man, confronted and bound Ketch, and pursued a runner. He recovered a captive alive through a combination of pressure and mercy rather than simply killing everyone involved.
+
+The captive survived, although thin and sore, and was capable of giving testimony. Nessa Reed remained with her rescued partner, and Brother Halden helped care for him.
+
+Ketch Varr, Odran Mote, and the other captured crewman were taken to Brackenwald for Duke Aldric's justice. The river-lure crew was broken. Marta Elwick forwarded ledger pages and an account of the crime to Brackenwald. Jory Pike resumed river crossings.
+
+The unresolved piece is Gray Cloak. The Ranger found signs of a fourth person who moved carefully through root, mud, shallow water, and reeds, tore out or damaged ledger material, and escaped unseen. Gray Cloak's identity and larger affiliation were never established.
+
+This is a good dormant thread for a future story, but Gray Cloak should not automatically be tied to Marrow, the Broken Crown, Gallows Corner smugglers, or any other network unless evidence is introduced.
+
+----------------------------------------------------------------------
+3.3 THE 1000 YEAR ACORN
+Status: Opening generated only; no player choice completed. Do not treat the scenario's future events as history.
+----------------------------------------------------------------------
+
+The user once requested an extremely long story titled "The 1000 year acorn." A Turn 1 and hidden scenario premise were generated, but no player choice was completed in the surviving record.
+
+The setup involved the Mother Tree and sentient forestfolk seeking a graceful end and eventual replanting through a thousand-year acorn, set against human timber expansion and the Ranger escorting surveyors.
+
+Because the player did not actually proceed, this should be treated as an unused or dormant opening rather than an event that already happened in the world.
+
+----------------------------------------------------------------------
+3.4 THE ASHEN HARVEST
+Status: Completed.
+----------------------------------------------------------------------
+
+This story in the Riverlands initially suggested a dangerous monster problem, but the truth was more complicated.
+
+A troll had been wounded by an iron spearhead and further harmed by human escalation and poisoning associated with a farmer named Corwin Hale. Rather than simply hunt the troll down, the Ranger eventually treated and bound its injury.
+
+Named figures included Marta Feld, Corwin Hale, and Old Brennar. Old Brennar was found alive with a severe ankle injury. The Ranger splinted the injury and got him safely back to Marta.
+
+No one was killed. The troll survived and withdrew deeper toward the Gray Mountains.
+
+Corwin was made to accept responsibility. He promised to mend fences, repay lost sheep, and speak honestly to Duke Aldric's steward.
+
+Later continuity:
+- Old Brennar survived but walked with a cane.
+- The troll remained alive somewhere deeper in the mountains.
+- Corwin's promised restitution and steward report were the main remaining administrative follow-up.
+- The story established a strong precedent that "monster" does not automatically mean "villain."
+
+----------------------------------------------------------------------
+3.5 THE LANTERNS BENEATH GRAYWATCH
+Status: Completed.
+----------------------------------------------------------------------
+
+Graywatch appeared to hide sinister underground activity, but the true danger was structural rather than supernatural.
+
+Displaced mountain folk led by former Brackenwald scout Captain Elira Vance had been digging for an old Duke-era war cache beneath Graywatch. Their excavation destabilized an engineered counterweight/foundation system supporting or protecting the structure.
+
+Other named figures included Garron Pike, Tobin Hale, and Old Marta.
+
+The Ranger investigated openly, crossed a trapped spear corridor, stabilized a failing beam, reached the machinery below, and worked with Elira to stop a dangerous counterweight failure.
+
+Rather than trying to preserve a fundamentally compromised structure, the Ranger ultimately chose controlled destruction. The counterweight was released into planned fractures. Graywatch's lower works and foundations were ruined and the tower was later dismantled, but the hillside and important foothill road were saved from a larger collapse.
+
+Salvaged material included crossbows, bolts, short swords, two intact powder kegs, a ledger, and an iron box. Some buried supplies were lost.
+
+The missing shepherds associated with the alarm were eventually found alive. Garron survived but was wounded and left limping. No deaths or arrests were recorded.
+
+Captain Elira Vance was provisionally reinstated to help oversee the dismantling and cleanup. Her role should be remembered as complicated but ultimately cooperative rather than simply criminal.
+
+Old Marta's warning about danger beneath Graywatch proved justified.
+
+Long-term consequence:
+- Graywatch as a functioning intact structure no longer exists in the same form; the dangerous structure was dismantled.
+- Brackenwald's engineers began surveying for other forgotten structures or buried systems.
+- There may be more old military engineering or forgotten caches elsewhere.
+
+IMPORTANT NAME WARNING:
+A different story, Lady Ravenheart, also contains a man named Garron Pike. The original stories never explicitly establish them as the same person. Their roles are very different. Treat this as an accidental or at least unproven name reuse unless future canon deliberately connects them.
+
+----------------------------------------------------------------------
+3.6 LADY RAVENHEART
+Status: Completed.
+----------------------------------------------------------------------
+
+Lady Elira Ravenheart was accused amid rising tension in the Riverlands after she sheltered a poisoned elven emissary, Maelin Thrice-Born.
+
+The Ranger entered Ravenheart under Duke Aldric's authority and learned that the simple accusation against Elira concealed a larger attempt to poison relations between human communities of the Riverlands and woodland elves.
+
+Maelin had been struck by a refined black-reed-sap toxin, delivered by dart. The Ranger identified the poison and helped keep him alive.
+
+Garron Pike, a local reeve in THIS story, had access to levy stores and was tied to staged unrest, accusations, and the toxin operation. His actions also served ambitions around land and local control. Evidence later showed that two handlers had harvested/refined black reed sap and that traders had encouraged the effort to sabotage a possible human-elf alliance.
+
+Other named figures included Ser Joric, Torvald, Marta, and Caelir of the Greenwood Veil.
+
+The Ranger detained Pike and had him sent toward Brackenwald for formal inquiry rather than dispensing summary justice. Pike warned that the affair did not end with him.
+
+Maelin survived and recovered.
+
+The Ranger then helped turn the crisis into a political opening. A pact was formed involving communities and interests in the Riverlands and the Greenwood Veil. Elira, Joric, Maelin, Caelir, and the Ranger were involved, and Duke Aldric later sealed the agreement.
+
+The pact established:
+- Shared marsh/forest patrols.
+- Mutual warning concerning movement or threats from beyond the Gray Mountains.
+- No woodland claim on human farmland.
+- No human trespass beyond agreed paths.
+- A framework for cooperation rather than mutual suspicion.
+
+A first joint human/elven patrol was launched.
+
+Final status:
+- Lady Elira Ravenheart's reputation was substantially cleared.
+- Maelin fully recovered and later returned to the Greenwood Veil.
+- Caelir openly stood beside the alliance.
+- Garron Pike faced charges.
+- The traders or wider interests behind the anti-alliance effort were not fully identified.
+- The Riverlands-Greenwood Veil pact is a lasting political fact and should remain part of the world unless later events change it.
+- Warning signs from beyond the Gray Mountains remain a legitimate background concern.
+
+----------------------------------------------------------------------
+3.7 THE BELL BENEATH STILLWATER
+Status: Completed. Ten-turn short scenario.
+----------------------------------------------------------------------
+
+At Brindle Hollow and Stillwater Pond, villagers feared a bell that seemed to toll from beneath the water.
+
+The true explanation was partly natural and partly criminal. An old cracked and poorly cast bell lay in or near the remains of an old chapel. Marsh gas/trapped breath and movement in silt could make it vibrate or sound. Osric Dane discovered how to stir the pond and deliberately exploited the phenomenon to frighten people away so he could secure valuable north-bank timber.
+
+Named figures included Brother Halwen and Marta Feld.
+
+The Ranger investigated rather than accepting the supernatural explanation at face value. He tracked the disturbance back to Osric and exposed the fraud. Osric eventually confessed or was confronted with enough evidence to force restitution.
+
+Rather than mob justice, the resolution required public responsibility and labor. Osric was made to work toward repairing the damage he had caused.
+
+At dawn the bell was recovered and ultimately displayed silently near the old chapel stones as a local marker rather than allowed to remain an object of terror.
+
+The pond became quiet again. Duke Aldric approved the resolution.
+
+Unresolved lore:
+- The older history of the chapel and bell was not deeply explored.
+- It remains uncertain why the bell was originally so flawed or what older omen stories may have grown around it.
+These are atmospheric threads, not evidence of an active supernatural threat.
+
+----------------------------------------------------------------------
+3.8 THE TOLL AT BLACKROOT FORD / BLACKROOT FORD TOLL
+Status: Completed.
+----------------------------------------------------------------------
+
+At Blackroot Ford, Sir Garron Vale had established an unlawful toll and private militia.
+
+The situation was not simply greed. Garron believed Duke Aldric had failed to respond strongly enough to raids and caravan burnings, so he built his own defensive force and funded it through the toll.
+
+Mirela Voss, a foreign manipulator/agent, exploited Garron's frustration. She gradually reframed local defense as defiance against Brackenwald and encouraged choices that would weaken Duke Aldric's authority. She had suspiciously been present around the earliest caravan burnings and fled before she could be properly questioned.
+
+Ellyn Hart was a young, conflicted archer within Garron's force. Tomas Reed represented aggrieved villagers/travelers.
+
+The Ranger's own handling was imperfect. During a confrontation he seized the strongbox and rode away, which temporarily damaged his credibility and made him appear to some observers like a thief rather than a lawful officer. Thorne also suffered a shallow spear wound. Some coin from the toll remained missing.
+
+Nevertheless, Garron ultimately stood down rather than forcing a larger battle. He publicly dismantled the barricade, dismissed the militia, reopened the ford, returned recoverable money, and renewed his loyalty to Duke Aldric while asking for a formal inquiry into the original raids/burnings.
+
+Ellyn left tollkeeping/the militia.
+
+Mirela Voss escaped and remains at large.
+
+Long-term consequences:
+- Blackroot Ford is lawfully open.
+- Garron Vale is a compromised but potentially redeemable figure who chose to return to lawful allegiance.
+- Some victims may still resent missing toll money.
+- The original caravan burnings deserve investigation.
+- Mirela Voss remains one of the campaign's clearest unresolved human antagonists.
+- Do NOT automatically connect Mirela to Greyhaven, Broken Crown, or other networks without new evidence.
+
+----------------------------------------------------------------------
+3.9 THE WEEPING STONES OF ELDERWOOD
+Status: Completed.
+----------------------------------------------------------------------
+
+Near Bracken Hollow, old stones in Elderwood seemed to "weep," and local fear grew around an ancient site.
+
+The truth involved greed, archaeology, and a real ancient supernatural presence.
+
+Roderic Vale had widened cracks and disturbed an old sealed chamber because he was searching for a kingship torque buried within. Clear water passing through disturbed red clay contributed to the physical "weeping" effect, but Roderic's intrusion also disturbed an oath-bound ancient warrior within the burial place.
+
+Named local figures included Brother Halven, Marta of Bracken Hollow, and Old Garrun.
+
+The Ranger descended into the chamber and treated the ancient warrior with respect rather than as a thing to destroy or loot. The Ranger swore to reseal and protect the resting place. The torque was NOT taken.
+
+Roderic helped reseal the chamber and swore secrecy. The warrior accepted the Ranger's word and returned to rest.
+
+The stones became quiet. Villagers returned to their fields. Brother Halven publicly framed the event in less alarming terms as a disturbed burial place.
+
+Roderic was effectively banished under an oath of secrecy. He was not formally arrested or punished through Duke Aldric's courts. The epilogue indicated that he kept his oath and did not return, but the theoretical risk remains that he could break it.
+
+Important lasting facts:
+- The ancient warrior and chamber still exist.
+- The torque remains buried.
+- The oath/place should not be casually looted or reopened.
+- The Ranger personally gave his word concerning the resting place.
+- The story establishes that some old places in Elderwood genuinely contain ancient supernatural remnants.
+
+----------------------------------------------------------------------
+3.10 THE FROST BENEATH ELDERWOOD
+Status: Turn 1 generated; no player choice completed.
+----------------------------------------------------------------------
+
+This was an unfinished story opening and should not be treated as a resolved historical event.
+
+The generated premise was that an ancient forest spirit bound to a standing-stone circle was weakening, causing unnatural autumn frost. Villagers suspected wolves or raiders. A charcoal burner named Corvin Dace secretly wanted the stones destroyed. Other named figures were Eamon Holt and Sister Maelin.
+
+Because no player choice was completed, future events from this scenario are not canon. Even the hidden scenario truth should be treated as dormant setup unless the campaign deliberately resumes this exact story.
+
+This story may superficially resemble an older campaign-summary reference to "Disturbances in Elderwood," but they should NOT automatically be merged; see the uncertainty section below.
+
+----------------------------------------------------------------------
+3.11 THE CROWS OF DUNMERE HOLLOW
+Status: Completed.
+----------------------------------------------------------------------
+
+Farmers in Dunmere Hollow were being driven from their land by strangely aggressive, organized crows.
+
+The birds were trained. Osric Vale was using them, along with horn signals, to frighten landholders into abandoning or selling property cheaply. His real interest was an iron deposit hidden beneath or near Marta Fenlow's land.
+
+Named figures included Marta Fenlow, Edrin Holt, Brother Caldus, a horn-boy, and guards.
+
+The Ranger investigated the bird behavior and signal system, disabled the horn operation, captured the horn-boy and guards, and exposed documentary/testimonial evidence of Vale's scheme.
+
+Osric Vale was arrested. There were no deaths.
+
+His fraudulent contracts were voided, his holdings were seized or subjected to legal action, and fines/restitution were imposed. The horn-boy was not treated as an irredeemable villain; he was assigned restitution.
+
+Marta stayed on her land. Edrin remained in the community.
+
+Potential future issue:
+The iron itself still exists. If anyone wants to extract it lawfully later, land rights, consent, safety, and Duke Aldric's authority should matter. The fact that Vale abused knowledge of the deposit does not make all future mining automatically illegitimate.
+
+----------------------------------------------------------------------
+3.12 THE LANTERN IN THE REED MIST
+Status: Completed.
+----------------------------------------------------------------------
+
+The Ranger uncovered a smuggling operation using marsh and ferry routes.
+
+Lysa Halvick, the ferryman's daughter, was threatened by Garrick's ring. The Ranger chose careful reconnaissance and protected her.
+
+Named criminals included Garrick and Pell the Hook. During the operation the Ranger used lethal force against several committed attackers, including Pell and Garrick, while preserving at least one surrendering smuggler as a live witness.
+
+The Ranger recovered smuggled iron and Garrick's ledger. The ledger contained a broken-crown symbol and evidence that unknown buyers beyond the immediate ring were obtaining iron.
+
+The captured smuggler was taken into custody and questioned. Other accomplices were arrested. The recovered iron was returned to Duke Aldric.
+
+Lysa Halvick's ferry was restored, and she became a friendly/loyal contact of the Ranger.
+
+The Ranger pursued evidence as far as a Stone Marker but deliberately chose patient investigation rather than charging across the border into unknown territory.
+
+Major unresolved thread:
+The "Broken Crown" buyers were not identified. They appear to have been gathering iron for an unknown purpose outside or beyond the immediate local smuggling ring. This should remain a separate unresolved conspiracy unless later evidence connects it to another faction.
+
+----------------------------------------------------------------------
+3.13 THE MILLER'S SECRET AT GALLOWS CORNER
+Status: Completed.
+----------------------------------------------------------------------
+
+At an abandoned or troubled mill around Gallows Corner, the Ranger discovered that Tomas Feld had found a hidden cache of old weapons beneath the mill. Deserters led by Captain Erwald were coercing Tomas into opening or surrendering the cache.
+
+Other named figures included Mira Feld and Old Harker.
+
+The Ranger approached stealthily, investigated beneath the mill, found the concealed entrance/cache, and eventually armed himself with a crossbow from the old stores.
+
+The confrontation became bloody. The Ranger killed outer guards/deserters during ambushes and fighting. He broke a ladder to control movement. He tackled Captain Erwald and was cut in the struggle. He later used lantern light/firelight tactically to disarm Erwald.
+
+Erwald survived. The Ranger bound him and delivered him to Duke Aldric's justice.
+
+Tomas survived unharmed. The old weapons cache was resealed. The remaining deserters scattered.
+
+A friendly silver tabby cat appeared during this story in the campaign's recurring, unexplained helpful-cat motif.
+
+This story has an important unresolved moral dimension. The deserters were coercing Tomas and intended to get old weapons, which made them a real immediate danger. However, the Ranger never fully learned WHY they had deserted or whether some had legitimate grievances. Afterward the player explicitly questioned whether the Ranger had been too quick to assume the deserters were simply bad men.
+
+Captain Erwald is therefore a useful possible future source of information if he remains in custody. His motives and background were never fully explored.
+
+----------------------------------------------------------------------
+3.14 THE WHISPERING REED
+Status: Opening definitely generated; completed outcome is NOT reliably documented.
+----------------------------------------------------------------------
+
+The story opened in Mirefen in the Deep Marshes.
+
+Named figures in the scenario were Tomas Reedwell, Elira Reedwell, Garrick Vane, Brother Halven, Old Mara Fen, and Lute Carrow.
+
+The hidden scenario premise was mundane criminal deception: smugglers were using reed whistles and lantern signals to imitate marsh-spirit activity and frighten villagers away from a contraband landing site. The smugglers were led by a disgraced former Brackenwald soldier.
+
+However, the surviving actual-play evidence only clearly preserves the opening/Turn 1. An older campaign summary later claimed that the Ranger "uncovered the truth," but no trustworthy detailed record of the player's choices or final outcome survives in the retrieved material.
+
+Therefore a future agent should NOT invent arrests, deaths, or a finished resolution for this story. The safest continuity treatment is:
+- The scenario setup existed.
+- The smuggler/reed-whistle explanation was the planned behind-the-scenes truth.
+- The actual historical outcome is uncertain unless the original full conversation is recovered.
+
+----------------------------------------------------------------------
+3.15 THE WHISPERING MILL OF OAKENHURST
+Status: Completed.
+----------------------------------------------------------------------
+
+A mill near Oakenhurst began to exhibit genuinely uncanny behavior: whispers, poisoned-looking water, and a wheel that could turn without ordinary cause.
+
+The truth was supernatural, but not malicious haunting.
+
+Fenrick's digging had severed or injured the dormant root-heart of an ancient being called Rootfather. An iron shard and black sap contaminated the water and aggravated the wound. Rootfather's pain manifested through the mill and water.
+
+Named figures included Fenrick, Marta, the herbalist Lysa, and Rootfather. Sir Caldus was named in the scenario but was not central to the resolution. A silver tabby also appeared.
+
+The Ranger did not attack Rootfather. He used healing knowledge, removed the harmful iron shard, applied herbs/bindings, and communicated/restored rather than escalating.
+
+Rootfather healed enough to return to sleep.
+
+The Ranger later rode to fetch Lysa, an herbalist living near the Elderwood edge, so Fenrick could properly learn how to care for the water and avoid repeating the damage. Fenrick effectively apprenticed under Lysa.
+
+A seven-night herb watch helped clear the water.
+
+A coffer, journal, and ring recovered during the story were returned to Duke Aldric. Their value benefited veterans' families rather than becoming private loot.
+
+Long-term state:
+- Rootfather is asleep and should be left undisturbed.
+- Fenrick is expected to maintain responsible water stewardship.
+- Lysa the herbalist is alive.
+- The mill and water are stable.
+- Continued quiet observation of the site is sensible.
+
+IMPORTANT NAME WARNING:
+This Lysa the herbalist is not established as the same person as Lysa Halvick the ferrywoman or the pregnant Lysa in the Midwife story. Treat the three as distinct unless future canon explicitly unifies them.
+
+----------------------------------------------------------------------
+3.16 THE BROKEN CAUSEWAY OF FROSTFALL
+Status: Completed.
+----------------------------------------------------------------------
+
+At Frostfall Lake, a damaged causeway and rising water threatened travelers and potentially much of the Riverlands.
+
+The core problem was deliberate sabotage. An old spillway had been blocked with a human-placed beam, raising the lake and undermining the causeway.
+
+Mira Fenrick, a ferryman/skiff operator familiar with the lake's currents, assisted the Ranger. She had seen suspicious men lowering something by rope and helped the Ranger remove the beam.
+
+The Ranger and Mira reopened the spillway, lowering and stabilizing the water and averting a larger flood.
+
+Harl Vexley and Torren Bale were captured. Torren had arranged or profited from the sabotage because disruption to the causeway increased ferry/toll profits.
+
+The investigation also uncovered parchments connected to a wider group of merchants involved in toll evasion or corrupt traffic.
+
+Garrik Stonehand was given authority and funding to repair the causeway. Mira ferried travelers while repairs were underway.
+
+Punishments focused on repair and lawful restitution:
+- Torren forfeited assets toward repairs.
+- Harl was sentenced to labor under Garrik.
+- Other implicated merchants faced fines or scrutiny.
+
+Trade recovered.
+
+A silver tabby appeared during this story as part of the recurring motif.
+
+Long-term state:
+- The Frostfall causeway is restored/repaired.
+- The spillway should remain clear.
+- The immediate sabotage ring was broken.
+- Wider merchant corruption/toll-evasion contacts may still exist, though no immediate local crisis remains.
+
+----------------------------------------------------------------------
+3.17 THE MIDWIFE OF THE RIVERPEOPLE
+Status: Completed.
+----------------------------------------------------------------------
+
+Meg, an elderly Riverpeople midwife, asked the Ranger for help after a young pregnant woman named Lysa disappeared.
+
+The disappearance was not an abduction by a monster or supernatural force.
+
+Lysa had fled because she believed Bran, the father of her child, had betrayed her to his father Osric. Osric wanted to suppress what he regarded as family shame. A ferryman named Edrin hid Lysa in an abandoned reed hut on a river islet to protect her.
+
+The real immediate threat was social fear, pride, secrecy, and a rising spring river.
+
+The Ranger tracked ferry clues, crossed quietly, found Lysa, defused conflict involving Bran and Osric, secured safe ferry access, summoned Meg, and helped the group through the dangerous timing of flood and labor.
+
+Lysa gave birth safely to a daughter during the flood.
+
+Mother and child were escorted to Meg's cottage.
+
+No one died and no one was arrested.
+
+Bran and Lysa reconciled.
+
+Osric publicly accepted the child and promised the baby a name and home, turning what could have become an exclusion/shame story into a public family acknowledgment.
+
+The village later blessed or welcomed the child.
+
+Edrin's role in sheltering Lysa was protective, not criminal.
+
+Long-term state:
+- Lysa, Bran, their daughter, Meg, Osric, and Edrin survived.
+- There is no major unresolved villain from this story.
+- Ordinary practical support, ferries, and Riverpeople trust remain the main continuity.
+- Meg is a useful Riverpeople contact.
+
+----------------------------------------------------------------------
+3.18 THE BELL OF GALLOWS CORNER
+Status: Completed.
+----------------------------------------------------------------------
+
+Strange bell activity around Gallows Corner was tied to a criminal river-crossing network.
+
+The hidden old watch-bell cellar was being used by smugglers as a signal station for illegal crossings.
+
+Corvin Hale led the smuggling organization. Tomas Reed had rung the bell seeking help after Hale's men killed his father. Other named figures included Marta Reed, Ellyn Voss, and Old Garrick.
+
+The Ranger uncovered the signal network, freed a captive woman, disabled the smugglers' wagon/ferry logistics, fought and bound smugglers, and arrested Corvin Hale and Ellyn Voss.
+
+Ledgers were seized. They showed a wider corruption network and contained a particularly important entry: "Reed farmer interfered. Removed." This directly confirmed the killing was part of organized criminal policy, not a random quarrel.
+
+Tomas was protected from retaliation and escorted to Oakenhurst. He later went to Marta.
+
+Hale and several smugglers were later convicted. Voss lost influence.
+
+The bell itself was removed from the hidden criminal signaling role and relocated to the Oakenhurst watchtower.
+
+Unresolved thread:
+The ledgers implied a wider network of corruption and contacts beyond Hale's local crew. That network was not fully dismantled.
+
+Do not automatically identify this network with Broken Crown, Bren Torvik's smugglers, Greyhaven, or Gray Cloak. Connections are possible future story material but are not established facts.
+
+----------------------------------------------------------------------
+3.19 THE COUNCIL OF ELVES
+Status: Completed.
+----------------------------------------------------------------------
+
+This was one of the campaign's most important diplomatic and supernatural stories.
+
+The Ranger became involved with Elderwood elves including Lady Sylvariel, Caelthorn, Miriel, and Thalanwe.
+
+A human smuggler group led by Bren Torvik had removed an old warding stone near Oakenhurst. The smugglers did not merely steal a valuable object; by removing it they weakened an ancient seal around a dangerous entity known as the Thornbound Sentinel.
+
+The elf faction initially had understandable reason to distrust humans. Thalanwe in particular was hostile or suspicious. The Ranger responded by offering cooperation, accepting that human wrongdoing had contributed to the problem, and promising the same restraint he would expect elves to show if investigating an elven wrongdoer.
+
+Caelthorn became the Ranger's principal field partner. The two worked together rather than one side treating the other as subordinate.
+
+The Ranger and Caelthorn recovered the warding stone from Bren Torvik's smugglers. The Ranger explicitly tried to capture rather than slaughter the smugglers, while allowing self-defense if necessary. Torvik and his men were taken alive.
+
+The warding stone was restored. Old runes were renewed or prepared for renewal. The Thornbound Sentinel returned to dormancy.
+
+Bren Torvik and his men were delivered to Duke Aldric for trial.
+
+No deaths were recorded in the resolution.
+
+Political consequences:
+- Lady Sylvariel supported a cooperation agreement.
+- Thalanwe's hostility cooled, though distrust did not vanish.
+- Miriel remained important for ward-lore.
+- Caelthorn and the Ranger became partners in a shared watch over the Elderwood seal.
+- Duke Aldric approved the arrangement.
+- Human-elven trust in Elderwood materially improved.
+
+Supernatural consequences:
+- The Thornbound Sentinel still exists.
+- The seal still requires maintenance.
+- The warding stone and runes must not be treated as ordinary loot.
+- The Sentinel is a latent danger if the protections fail.
+
+Immediately after the main crisis, a silver tabby led the Ranger toward a smuggler mark/cache sign in the Riverlands. The Ranger recognized it as potentially important. This suggests Torvik's smuggling network may extend beyond the captured group, but no full follow-up has yet resolved that clue.
+
+----------------------------------------------------------------------
+3.20 THE LOCKED TOWER
+Status: Completed.
+----------------------------------------------------------------------
+
+This story centered on Harrowspire in the Gray Mountains.
+
+A dangerous rockslide and tower emergency initially suggested simple neglect or possible treachery, but the truth involved fear, smuggling, concealment, and compromised judgment.
+
+Named figures were Serel, Oren, Cadan, and Mirelle.
+
+Serel, the tower keeper, had hidden a wounded smuggler named Cadan. Mirelle had supplied Cadan. Oren had barred a door out of fear. The unstable slope itself created the immediate physical crisis threatening travelers.
+
+The Ranger first dealt with the practical danger. Travelers were saved, and the beacon/horn function of the tower was restored.
+
+The Ranger then addressed the human problem without reducing everyone to villains.
+
+Cadan was a smuggler, but the Ranger repeatedly sought a path that would prevent further harm and allow redemption. The Ranger proposed arresting Cadan under the Ranger's protection rather than abandoning him to revenge or simply killing him. He explicitly argued that preventing future harm could count in Cadan's favor and even imagined the possibility of useful service if Duke Aldric agreed.
+
+The Ranger secured a cache and evidence and escorted Cadan, Mirelle, and relevant evidence to Duke Aldric.
+
+Final status:
+- Serel remained tower keeper.
+- Oren stayed at Harrowspire.
+- Cadan received a guarded hard-service sentence rather than execution.
+- Mirelle moved toward lawful caravan work.
+- Duke Aldric received a truthful report.
+- Harrowspire returned to proper tower duty.
+
+Long-term thread:
+The smuggling network was weakened but not necessarily destroyed. Caches and signs associated with it may still exist.
+
+The silver-tabby motif/caches remained suggestive around this broader period, but there is no established supernatural explanation for the cat.
+
+----------------------------------------------------------------------
+3.21 THE BRIAR CROWN OF ELDERWOOD
+Status: UNFINISHED. Planned as 29 turns; play stops at Turn 11.
+----------------------------------------------------------------------
+
+This story must not be given a fabricated ending.
+
+Behind the scenes, Lady Ysabel Vane secretly stole a living briar crown from an old Elderwood pact-shrine. She wanted to use the crown to secure obedience and border-village loyalty, strengthening her own status with Duke Aldric.
+
+The crown is not an ordinary political symbol. It is bound to the old forest pact and cannot safely be worn or wielded as a tool of domination. Its removal caused paths to shift, thorns to move unnaturally, disappearances, fear, and suspicion.
+
+Named figures:
+- Lady Ysabel Vane: noblewoman who stole the crown, believing it could command loyalty.
+- Edrin Vale: survived but was wounded.
+- Toman Reed: initially suspect but established as innocent; became a guide.
+- Brother Harl: provided important shrine/crown lore.
+- Serjeant Odo Marr: Duke's road serjeant; disciplined and brave, but prone to harsh conclusions.
+- Mira Fen: hunter/pathfinder with deep Elderwood knowledge; dislikes nobles and soldiers and values honesty.
+
+The Ranger rescued Edrin Vale alive. Edrin was later sheltered with Brother Harl.
+
+The Ranger cleared Toman Reed of suspicion.
+
+Brother Harl explained the key handling rule: the crown should not be worn. It should be handled through cloth, leather, or wood and returned/rebound to the old root-stone at the shrine.
+
+At the end of Turn 11:
+- Lady Ysabel Vane is at the broken shrine.
+- Two armed riders are with her.
+- She physically holds the living-thorn crown.
+- The briars around the altar are twitching/growing.
+- Ysabel complains that she "was promised obedience" and does not understand why the forest resists her.
+- The Ranger is hidden nearby and close enough to act.
+- Thorne remains with Toman Reed beneath dripping alders.
+
+No Turn 12 or later play is preserved.
+
+Therefore:
+- Ysabel has NOT been captured unless a future continuation does so.
+- The crown has NOT yet been safely returned unless the story is resumed and the player accomplishes it.
+- The shrine crisis remains unresolved.
+- Edrin is alive but wounded.
+- Toman is an innocent ally/guide.
+- Brother Harl knows the relevant lore.
+- Odo Marr and Mira Fen should retain their scenario roles if the story resumes.
+
+----------------------------------------------------------------------
+3.22 THE BLACKWATER OATH
+Status: Completed.
+----------------------------------------------------------------------
+
+At Blackwater Ford and the surrounding Deep Marshes, Ser Edric Vane had seized control, demanded tribute, and sent people into the marsh.
+
+Named figures included Tovin Reed, Mara Fen, Old Brann, and Captain Halric.
+
+Unlike several earlier "haunting" stories, the supernatural threat here was real.
+
+Edric had entered into a pact with an ancient unseen Marsh Presence. The pact initially promised protection but became increasingly demanding. The tribute system eventually involved people and disappearances.
+
+The Ranger investigated the old testimony, the pact stone, and rune-marked connection rather than simply attacking Edric.
+
+Living captives were ultimately recovered.
+
+The Ranger broke the coercive binding represented by the pact stone, but did not destroy the Presence itself.
+
+In one of the campaign's more personal acts, the Ranger offered his own ring during parley. He later refused to simply take it back without permission, saying that the ring was more valuable to him than to the Presence and asking whether he could earn it back. This became part of the moral negotiation rather than a mere barter trick.
+
+The final settlement rejected human sacrifice and forced tribute.
+
+The new public terms were:
+- No lives as tribute.
+- The marsh and its boundaries must be respected.
+- People should avoid needless harm in the deepest marsh.
+- Memory and respect matter.
+- Villagers may leave voluntary crafted offerings made of wood, reeds, or stone.
+- The village itself consented to the new arrangement rather than having secret terms imposed by one frightened leader.
+- Boundaries were marked and rules were taught openly so the pact could not again become a private source of power.
+
+Mara Fen helped lead the open village decision and education.
+
+Tovin Reed supported reconciliation but insisted there be no more secrets.
+
+Ser Edric survived. He lost his rank and was subjected to judgment, but was not executed. His punishment became service/protection rather than death.
+
+The Marsh Presence remained, weakened and no longer coercively bound in the old way. Its final attitude was essentially that it was "bound no more" but would not be forgotten.
+
+The Ranger's ring was returned after the Ranger promised to carry the truth of the marsh and remember what had happened.
+
+Old Brann and Captain Halric survived as far as the preserved record shows, but their exact final duties/status were not stated.
+
+IMPORTANT META-CONTINUITY NOTE:
+After the story, the player criticized the scenario's original planning because the Marsh Presence had been too vaguely explained behind the scenes. The game play itself was acceptable, but the hidden truth felt handwavy. For future continuity, do NOT "solve" that by casually inventing a grand cosmology for the Presence. Its exact nature remains underdefined in canon. If it returns, give it a coherent explanation based on evidence developed in that new story rather than retroactively asserting unsupported lore.
+
+----------------------------------------------------------------------
+3.23 THE RUSTWATER OF HARTHMERE
+Status: CURRENT/VERY NEW OPENING. 29-turn scenario generated; Turn 1 presented; no player choice yet.
+----------------------------------------------------------------------
+
+This is the most recent Ranger story opening and may be the current scenario to continue if the user returns to that chat.
+
+Location:
+- Harthmere, a hamlet in the lower Gray Mountains.
+- Longscar Mine.
+- Slatebrook.
+- The mine's eastern workings, an old flooded gallery, an old settling basin, and a hillside spring.
+
+Named NPCs:
+- Rorik Dane: leaseholder of Longscar Mine.
+- Iven Marr: mine foreman.
+- Hesta Pike: Harthmere healer.
+- Edda Rowan: pack-train owner.
+- Tomas Reed: Harthmere reeve.
+
+Behind-the-scenes truth:
+Rorik Dane secretly ordered Iven Marr to reopen sealed eastern workings in pursuit of richer silver.
+
+About twelve days before the opening, miners breached an old flooded gallery and a yellow-black mineral seam. Acidic, metal-contaminated water began entering the local drainage, turning Slatebrook rust-orange and making livestock and people ill.
+
+Iven tried to conceal the problem behind a clay-packed timber bulkhead and diverted drainage toward an old settling basin.
+
+Three days of rain overwhelmed the improvised system.
+
+Hesta recognized that the illnesses were connected to the water.
+
+Edda witnessed nighttime activity intended to conceal what was happening.
+
+Tomas led a blockade against the mine road.
+
+The greatest immediate danger is not merely contamination. The weakened bulkhead may fail and release a large surge of contaminated mine water.
+
+Opening/current scene:
+At the Slatebrook crossing the water is orange and bitter. Livestock are sick. Tomas's villagers have barricaded the mine road. Rorik insists the discoloration is a natural seep and demands access. Iven is present. Hesta has a sick goat. Edda knows something happened at night.
+
+No player choice has yet been made. Therefore none of the possible outcomes is canon.
+
+======================================================================
+4. LEGACY SUMMARY-ONLY OR UNCERTAIN CONTINUITY
+======================================================================
+
+----------------------------------------------------------------------
+4.1 "DISTURBANCES IN ELDERWOOD"
+----------------------------------------------------------------------
+
+An older campaign summary listed an event called "Disturbances in Elderwood" before the Weeping Stones story.
+
+The surviving summary says:
+- Elderwood suffered unnatural frost and stillness.
+- Old stones/buried remnants suggested an ancient power.
+- The immediate disturbance was contained or faded.
+- The origin of the cold remained unexplained.
+- Something may still lie dormant beneath Elderwood.
+
+However, the original detailed conversation could not be reliably recovered, and this summary should not automatically be equated with either "The Frost Beneath Elderwood" opening or "The Council of Elves."
+
+Best practice:
+Treat the existence of an old unresolved Elderwood cold/ancient-force thread as soft continuity, but do not invent named NPCs, exact causes, or a definitive link to the Thornbound Sentinel, Rootfather, the Weeping Stones warrior, or any other ancient being.
+
+----------------------------------------------------------------------
+4.2 THE WHISPERING REED OUTCOME
+----------------------------------------------------------------------
+
+As noted above, an old campaign summary claimed the Ranger uncovered the truth behind this smuggler deception, but detailed actual play could not be recovered. The hidden scenario explanation is known, but the final historical outcome is not secure.
+
+A new agent should prefer the conservative interpretation: setup known, outcome uncertain.
+
+======================================================================
+5. IMPORTANT RECURRING AND SURVIVING CHARACTERS
+======================================================================
+
+This section is not exhaustive of every minor person, but it records people especially useful for future continuity.
+
+THE RANGER
+- Alive and active.
+- Duke Aldric's sworn ranger.
+- Has repeatedly built a reputation for investigation, restraint, restitution, and lawful prisoner handling, while still using lethal force when necessary.
+- Has personally given promises involving the Weeping Stones burial site and Blackwater Marsh.
+- Shares responsibility with Caelthorn for watching the Elderwood seal.
+
+THORNE
+- The Ranger's horse.
+- Alive.
+- Has accompanied the Ranger through most adventures.
+- Suffered a shallow spear injury at Blackroot Ford but survived.
+- Do not confuse Thorne with any human character. Ysella's brother was never named.
+
+DUKE ALDRIC
+- Alive and ruling Brackenwald.
+- Has accepted evidence and prisoners from many stories.
+- Approved the Greenwood Veil pact.
+- Approved the Ranger/Caelthorn shared watch.
+- Funded or authorized infrastructure repairs.
+- Remains the core lawful authority to whom serious prisoners/evidence are often returned.
+
+YSELLA VARNE
+- Alive.
+- Helped expose the Broken Tower/Greyhaven conspiracy while under coercion involving her brother.
+- Not treated as a traitor.
+- Placed under Aldric's protection in the inner keep with discreet guards.
+- Her exact later status is not known.
+- Her brother was rescued alive; his name was never established.
+
+MARROW OF GREYHAVEN
+- At large.
+- External broker/strategist linked to the Greyhaven attempt to fracture Brackenwald from within.
+- Knows the Ranger's identity/name.
+- Major dormant antagonist.
+
+MARWYN
+- Assigned by Aldric to work on espionage/internal cleanup after the Broken Tower conspiracy.
+- Later progress not established.
+
+GRAY CLOAK
+- Unidentified fourth accomplice from The River's Quiet Teeth.
+- Escaped after damaging/removing ledger evidence.
+- No confirmed connection to another faction.
+
+CAPTAIN ELIRA VANCE
+- Former Brackenwald scout connected to Graywatch.
+- Survived.
+- Provisionally reinstated after helping avert disaster.
+- Associated with Graywatch dismantling/cleanup.
+
+LADY ELIRA RAVENHEART
+- Distinct from Captain Elira Vance.
+- Alive.
+- Reputation cleared.
+- Participant in the Riverlands-Greenwood Veil alliance.
+
+MAELIN THRICE-BORN
+- Elven emissary.
+- Survived black-reed poisoning.
+- Recovered and returned to the Greenwood Veil.
+
+CAELIR
+- Elf of the Greenwood Veil.
+- Alive.
+- Public supporter of human-elf cooperation.
+
+GARRON PIKE (LADY RAVENHEART STORY)
+- Reeve in the Riverlands tied to black-reed poison and anti-alliance conspiracy.
+- Arrested/sent toward Brackenwald to face charges.
+- Do not automatically identify him with the Garron Pike from Graywatch.
+
+SIR GARRON VALE
+- Blackroot Ford leader.
+- Survived.
+- Ended his unlawful toll militia, returned to Duke Aldric's authority, and requested formal inquiry.
+- Potentially redeemable local figure rather than an ongoing villain.
+
+MIRELA VOSS
+- Foreign manipulator from Blackroot Ford.
+- Escaped.
+- One of the clearest unresolved human antagonists.
+- No proven link to other conspiracies.
+
+RODERIC VALE
+- Disturbed the Weeping Stones burial chamber while seeking a kingship torque.
+- Swore silence and helped reseal the chamber.
+- Banished/left.
+- Epilogue indicated he kept his oath.
+- Not formally imprisoned.
+
+OSRIC VALE
+- Dunmere Hollow land-grab conspirator.
+- Arrested.
+- His scheme collapsed.
+
+LYSA HALVICK
+- Ferrywoman/ferryman's daughter from The Lantern in the Reed Mist.
+- Alive.
+- Ferry restored.
+- Friendly Ranger contact.
+
+LYSA THE HERBALIST
+- Lives near the Elderwood edge.
+- Alive.
+- Helped Fenrick learn water stewardship after the Whispering Mill crisis.
+- Not established as Lysa Halvick.
+
+LYSA OF THE RIVERPEOPLE STORY
+- Mother of Bran's daughter.
+- Alive.
+- Reconciled with Bran.
+- Not established as either of the other Lysas.
+
+MEG
+- Elderly Riverpeople midwife.
+- Alive.
+- Trusted contact among Riverpeople.
+
+FENRICK
+- Miller associated with Rootfather.
+- Alive.
+- Responsible for caring for the water after accidentally injuring Rootfather's root-heart.
+- Learned from Lysa the herbalist.
+
+ROOTFATHER
+- Ancient forest/root being.
+- Real supernatural entity.
+- Healed enough to sleep again.
+- Should not be disturbed casually.
+
+MIRA FENRICK
+- Ferryman/skiff operator at Frostfall Lake.
+- Alive.
+- Helped reopen the spillway and save the causeway region.
+
+GARRIK STONEHAND
+- Given authority/funds to repair Frostfall causeway.
+- Alive as far as known.
+
+CORVIN HALE
+- Smuggling leader from The Bell of Gallows Corner.
+- Arrested and later convicted.
+
+TOMAS REED (GALLOWS CORNER STORY)
+- His father was killed by Hale's network.
+- Survived.
+- Protected from retaliation.
+- Went to Marta Reed after the arrests.
+- Do not automatically merge him with other similarly named Tomas/Toman/Reed characters.
+
+LADY SYLVARIEL
+- Elderwood elf leader.
+- Alive.
+- Supports cooperation with Duke Aldric/Ranger.
+
+CAELTHORN
+- Elderwood elf and important recurring ally.
+- Alive.
+- Skilled enough that the Ranger treated him as a genuine field partner.
+- Shares responsibility with the Ranger for watching the Elderwood seal.
+
+MIRIEL
+- Elderwood elf with ward-lore knowledge.
+- Alive.
+- Important to rune/seal maintenance.
+
+THALANWE
+- Elderwood elf who began more hostile/distrustful of humans.
+- Distrust cooled after the Ranger's conduct.
+- Still a useful voice of caution rather than a suddenly converted friend.
+
+BREN TORVIK
+- Smuggler leader responsible for removing the warding stone.
+- Captured alive and delivered to Duke Aldric for trial.
+- Wider network may survive.
+
+SEREL
+- Harrowspire tower keeper.
+- Remained in post after The Locked Tower.
+
+OREN
+- Stayed at Harrowspire after the Locked Tower resolution.
+- Had acted from fear rather than being the principal villain.
+
+CADAN
+- Wounded smuggler from The Locked Tower.
+- Arrested under the Ranger's protection.
+- Received guarded hard-service rather than execution.
+- A strong candidate for a future redemption/service appearance if used carefully.
+
+MIRELLE
+- Supplied Cadan.
+- Moved toward lawful caravan work after the resolution.
+
+LADY YSABEL VANE
+- CURRENTLY UNRESOLVED in the unfinished Briar Crown story.
+- At the broken shrine holding the living briar crown with two armed riders.
+- Not captured.
+- No final fate established.
+
+EDRIN VALE
+- Briar Crown story.
+- Alive but wounded and sheltered with Brother Harl.
+
+TOMAN REED
+- Briar Crown story.
+- Cleared of suspicion.
+- Ally/guide.
+- With Thorne near the shrine at the current cutoff.
+
+BROTHER HARL
+- Briar Crown story.
+- Alive.
+- Knows crown/shrine handling lore.
+
+SERJEANT ODO MARR
+- Briar Crown story.
+- Duke's road serjeant.
+- Disciplined and brave, but inclined toward harsh conclusions.
+
+MIRA FEN
+- Briar Crown story.
+- Hunter/pathfinder with deep Elderwood knowledge.
+- Distrusts nobles/soldiers and values honesty.
+
+SER EDRIC VANE
+- Blackwater Oath.
+- Alive.
+- Stripped of rank.
+- Bound to service/protection rather than executed.
+- Should not be confused with other Vane-surname characters.
+
+MARA FEN
+- Blackwater Oath.
+- Helped make the new marsh agreement public and communal.
+
+TOVIN REED
+- Blackwater Oath.
+- Supported reconciliation but demanded an end to secrecy.
+
+THE MARSH PRESENCE
+- Real supernatural entity.
+- Still exists beneath/in the Deep Marshes.
+- Weakened and no longer operating under the old coercive pact.
+- New understanding forbids lives as tribute and emphasizes boundaries, memory, and voluntary crafted offerings.
+- Exact cosmology/nature remains deliberately underdefined.
+
+CURRENT HARTHMERE FIGURES
+- Rorik Dane: mine leaseholder, secretly responsible for reopening dangerous workings.
+- Iven Marr: mine foreman who concealed the breach behind a failing bulkhead.
+- Hesta Pike: healer who linked illness to the water.
+- Edda Rowan: pack-train owner who saw nighttime concealment.
+- Tomas Reed: Harthmere reeve leading the blockade.
+
+======================================================================
+6. MAJOR OPEN PLOT THREADS
+======================================================================
+
+1. GREYHAVEN / MARROW
+Marrow remains at large and knows the Ranger. Greyhaven's attempt to fracture Brackenwald was interrupted, not definitively ended.
+
+2. HOUSE VARRICK / LORNHELM / BROKEN TOWER RESIDUE
+The early espionage trail implicated House Varrick of Lornhelm, but the full relationship between that house and Greyhaven was never completely resolved.
+
+3. GRAY CLOAK
+The unidentified fourth river wrecker escaped from Wickerford after damaging ledger evidence.
+
+4. MIRELA VOSS
+The Blackroot Ford manipulator escaped. Her connection to the original caravan burnings deserves attention.
+
+5. BROKEN CROWN
+Unknown buyers marked by a broken-crown symbol were purchasing smuggled iron. Their purpose remains unknown.
+
+6. GALLOWS CORNER CORRUPTION NETWORK
+Corvin Hale's ledgers pointed to broader corruption beyond the convicted local crew.
+
+7. BREN TORVIK'S WIDER SMUGGLING NETWORK
+Torvik and his men were captured, but a later mark/cache clue suggests the network may extend beyond that group.
+
+8. THE ELDERWOOD SEAL
+The warding stone was restored and the Thornbound Sentinel sleeps, but the protection requires continued watch and rune maintenance.
+
+9. THE WEEPING STONES BURIAL CHAMBER
+The chamber is resealed and quiet. The Ranger gave his word to protect it. The torque remains buried.
+
+10. ROOTFATHER
+Rootfather sleeps after healing. Future development around the mill/water should respect this established being rather than inventing a replacement spirit.
+
+11. THE BLACKWATER AGREEMENT
+The Marsh Presence remains. The new settlement depends on open communal rules, no human sacrifice, respected boundaries, and voluntary offerings. Secret revival of the old tribute system would be a meaningful future breach.
+
+12. CAPTAIN ERWALD AND THE DESERTERS
+Erwald survived the Miller's Secret story and was delivered to Duke Aldric. His true motives and the deserters' grievances were never fully investigated.
+
+13. THE BRIAR CROWN
+This is not merely an open thread but an unfinished active story state. Ysabel still holds the crown at the broken shrine.
+
+14. HARTHMERE / LONGSCAR MINE
+The newest story is at Turn 1. The contaminated water and failing bulkhead crisis has not yet been acted upon by the player.
+
+15. ELDERWOOD "ANCIENT COLD" SUMMARY THREAD
+An older summary says an unexplained cold/ancient force remains dormant. Exact identity is uncertain and should not be retroactively merged with other beings without evidence.
+
+======================================================================
+7. LASTING POLITICAL AND SOCIAL CHANGES
+======================================================================
+
+HUMAN-ELF RELATIONS
+The world has now seen two major cooperative developments:
+- The Riverlands/Greenwood Veil pact from Lady Ravenheart.
+- The shared Elderwood watch between the Ranger and Caelthorn after the Council of Elves.
+
+These should make future human-elf contact meaningfully different from a reset-to-zero world. Suspicion can still exist, but there is now precedent, trust, shared patrols, and named people who have successfully worked together.
+
+BRACKENWALD'S AUTHORITY
+Duke Aldric's authority has repeatedly been tested by local militias, smugglers, corrupt merchants, foreign agents, and isolated communities. The Ranger's usual solution has been to restore lawful ties rather than simply conquer people. Garron Vale's return to allegiance and Cadan's hard-service sentence are good examples.
+
+INFRASTRUCTURE
+Several routes and structures have changed:
+- Blackroot Ford is reopened lawfully.
+- Frostfall causeway was repaired/stabilized.
+- Graywatch was deliberately dismantled after its foundations became unsafe.
+- Lysa Halvick's ferry was restored.
+- The Gallows Corner bell was moved to Oakenhurst watch duty.
+- Harrowspire returned to proper tower/beacon duty.
+
+These changes should persist.
+
+RIVERPEOPLE
+The Ranger has earned trust through the Midwife story. Meg is a useful human bridge into Riverpeople communities.
+
+======================================================================
+8. SUPERNATURAL AND MYTHICAL FACTS THAT ARE ACTUALLY ESTABLISHED
+======================================================================
+
+The Ranger has no magic, but the following supernatural/mythical things are real in established play:
+
+- Trolls exist. At least one wounded troll survived The Ashen Harvest and returned deeper into the Gray Mountains.
+- Elves exist and have organized communities, politics, ward-lore, and long memories.
+- The oath-bound ancient warrior beneath the Weeping Stones was real.
+- Rootfather is a real ancient root/forest being.
+- The Thornbound Sentinel is real and is contained by a warding stone/rune system.
+- The Blackwater Marsh Presence is real.
+- A living briar crown tied to an old Elderwood pact is real in the unfinished Briar Crown story.
+
+The campaign should not flatten these into a single magical system unless the player deliberately discovers such a connection. At present they are separate phenomena.
+
+The silver tabby cat is different. It has appeared repeatedly and seems unusually well timed or helpful, sometimes guiding the Ranger toward something important. It has grey eyes in the project premise. However, NO definitive supernatural explanation has been established. Preserve the mystery.
+
+======================================================================
+9. THE SILVER TABBY MOTIF
+======================================================================
+
+A friendly silver tabby with grey eyes occasionally appears across the wider campaign.
+
+Known appearances or associations include:
+- The Miller's Secret.
+- The Whispering Mill.
+- The Broken Causeway.
+- The post-Council-of-Elves smuggler-mark/cache clue.
+- Related Harrowspire/cache continuity has also made the cat feel suggestive.
+
+The cat may subtly guide the Ranger, distract someone, or lead attention toward something useful.
+
+Do not overuse it. The project convention is that the cat should appear rarely, roughly once every many turns rather than every story. It is more effective as a recurring mystery than as a mascot.
+
+Do not define the cat as a wizard, spirit, shapeshifter, divine messenger, or agent of a specific faction unless a future story actually establishes that.
+
+======================================================================
+10. IMPORTANT CONTINUITY TRAPS: REUSED NAMES
+======================================================================
+
+The generated stories have reused several common names. A future agent must not accidentally merge unrelated characters.
+
+Garron Pike:
+- One Garron Pike appears among the displaced mountain folk in The Lanterns Beneath Graywatch and survives wounded/limping.
+- Another Garron Pike is the corrupt/ambitious reeve in the Riverlands in Lady Ravenheart.
+No explicit continuity says they are the same person. Treat them as distinct unless deliberately reconciled later.
+
+Lysa:
+- Lysa Halvick, ferrywoman/ferryman's daughter from The Lantern in the Reed Mist.
+- Lysa the herbalist from The Whispering Mill.
+- Lysa, the pregnant woman from The Midwife of the Riverpeople.
+No established identity link. Treat them as distinct.
+
+Elira:
+- Captain Elira Vance from Graywatch.
+- Lady Elira Ravenheart.
+Distinct people.
+
+Vane surname:
+- Garrick Vane appears in the Whispering Reed setup.
+- Lady Ysabel Vane appears in Briar Crown.
+- Ser Edric Vane appears in Blackwater Oath.
+- Rorik Vane appears in the authored-but-unplayed False Fires of Saint Werran story.
+No family relationship has been established.
+
+Voss surname:
+- Mirela Voss at Blackroot Ford.
+- Ellyn Voss in The Bell of Gallows Corner.
+No relationship established.
+
+Reed/Tomas/Toman names:
+Many unrelated stories use Reed as a surname and Tomas/Toman as a given name. In particular, a Tomas Reed appears in The Bell of Gallows Corner and another Tomas Reed appears as the reeve of Harthmere in The Rustwater of Harthmere. No surviving evidence establishes that these are the same person. Do not merge Tomas Reedwell, Tomas Reed, Toman Reed, or other Reed/Tomas/Toman characters without direct evidence.
+
+Marta/Mara/Mira/Fen names:
+Several separate stories use similar names. Marta Feld is used in both The Ashen Harvest and The Bell Beneath Stillwater; surviving continuity does not establish whether those references are to the same woman or an accidental name reuse. Keep such identities separate or explicitly uncertain unless canon establishes a link.
+
+Edrin:
+The given name Edrin recurs several times: an unnamed-surname ferryman in the early Greyhaven arc, the protective ferryman in The Midwife of the Riverpeople, Edrin Holt in Dunmere Hollow, and Edrin Vale in the Briar Crown story. Similar occupation or given name alone is not enough to identify them as one person.
+
+Brother Halven / similar clerical names:
+Brother Halven appears in The Weeping Stones of Elderwood and in the planned setup for The Whispering Reed, while other stories use similar names such as Brother Halwen and Halden. No identity link should be assumed from the similar spelling alone.
+
+======================================================================
+11. NON-CANON OR NOT-YET-CANON STORY ARTIFACTS
+======================================================================
+
+This project also contains authored story files and openings that were created for experimentation, coding, or possible later play. A new agent should not treat their hidden plots or endings as world history merely because they exist in project materials.
+
+THE FALSE FIRES OF SAINT WERRAN
+A complete branching story file was authored around Rorik Vane using false beacon fires and old signal codes to divert Oakenhurst and seize Saint Werran's grain/tower. It included characters such as Captain Elswyth Marek, Brother Ansel, Hadrin, Tavin Pike, Joss Weller, Niall Weller, Oren Holt, and Rorik Vane.
+
+This was an authored game/story artifact, not a documented played campaign outcome. Unless the user later plays or declares it canon, do not say those events happened.
+
+THE ASHWATER CROSSING
+A standalone HTML/JS example story created during Ranger3 development. It is a software/example artifact, not established campaign history.
+
+THE 1000 YEAR ACORN
+Only Turn 1 was presented and no player choice was completed. Treat as unused/dormant.
+
+THE FROST BENEATH ELDERWOOD
+Only Turn 1 was presented and no player choice was completed. Treat as unused/dormant unless resumed.
+
+THE WHISPERING REED
+The opening and behind-the-scenes plan exist, but final historical outcome is uncertain.
+
+======================================================================
+12. WORLD STATE AT THE END OF THE MOST RECENT COMPLETED ADVENTURE
+======================================================================
+
+Taking completed stories only, the world is in the following broad state:
+
+- Duke Aldric remains in power in Brackenwald.
+- The Ranger remains an active trusted field agent.
+- Thorne is alive and active.
+- Human-elf relations are materially better than they were at the start of the campaign.
+- The Greenwood Veil pact exists.
+- The Ranger and Caelthorn share responsibility for the Elderwood seal.
+- The Thornbound Sentinel sleeps behind restored protections.
+- The Weeping Stones burial chamber is resealed and protected by the Ranger's word.
+- Rootfather sleeps after being healed.
+- The Blackwater Marsh Presence remains under a new, non-sacrificial public understanding.
+- Several important transport routes have been restored: Blackroot Ford, Frostfall causeway, local ferries, Harrowspire's beacon duty.
+- Graywatch was intentionally dismantled for safety.
+- Several smuggling rings have been broken, but multiple wider criminal or political networks remain unresolved.
+- Marrow of Greyhaven remains at large.
+- Mirela Voss remains at large.
+- Gray Cloak remains unidentified.
+- Broken Crown buyers remain unidentified.
+- Wider Gallows Corner corruption remains incompletely mapped.
+- Bren Torvik's captured group may not have been his whole network.
+- Captain Erwald survived and could still provide information about the deserters.
+
+The most recent COMPLETED story was The Blackwater Oath.
+
+After that, The Rustwater of Harthmere was generated as a new 29-turn scenario and Turn 1 was presented, but the player had not yet selected an action.
+
+Separately, The Briar Crown of Elderwood remains an older unfinished story frozen at Turn 11 with Lady Ysabel Vane holding the crown at the broken shrine.
+
+======================================================================
+13. GUIDANCE FOR A NEW STORY AGENT
+======================================================================
+
+Preserve consequences. Do not reset the world to generic medieval fantasy each time.
+
+When using geography:
+Use the canonical campaign map for major place names, spelling, and broad spatial relationships. Use this handoff for what has happened at those places. Smaller story locations can be canonical without appearing on the map.
+
+When using Elderwood:
+Remember that the Ranger now has real history with elves, Caelthorn, warding stones, the Thornbound Sentinel, the Weeping Stones burial site, Rootfather, and the unfinished Briar Crown crisis. Do not casually pile all of these together into one ancient-supernatural conspiracy. They are currently separate pieces of history.
+
+When using the Riverlands:
+Remember the Greenwood Veil pact, the Riverpeople relationship, restored crossings, the Gallows Corner corruption case, and multiple ferries/causeways whose status has changed.
+
+When using the Gray Mountains:
+Remember the Ashen Harvest troll, dismantled Graywatch, Harrowspire, and the newest Longscar Mine crisis.
+
+When using smugglers:
+There are already several independent smuggling/criminal threads. Resist the temptation to reveal that every smuggler in the duchy secretly works for one master organization unless the player actually uncovers convincing evidence.
+
+When using old ruins or supernatural forces:
+The user has explicitly objected to vague "there is a mysterious Presence because the plot needs one" planning. The hidden truth should be coherent from the beginning. If a supernatural being matters, decide what it is, what it wants, what its limits are, why it acts now, and how the clues fit.
+
+When writing moral conflict:
+The Ranger has repeatedly rewarded surrender, restitution, and useful service, but he has also killed in combat. Moral uncertainty works well when there is a real reason to investigate rather than a fake binary between "obviously good" and "obviously evil."
+
+When using recurring characters:
+Bring people back when their existing role makes sense. Caelthorn, Lysa Halvick, Meg, Cadan, Ysella Varne, Elira Ravenheart, Mira Fenrick, Captain Elira Vance, or others can make the world feel persistent. Do not force cameos merely to prove continuity.
+
+When using the silver tabby:
+Keep it rare and unexplained.
+
+======================================================================
+14. COMPACT HANDOFF SUMMARY
+======================================================================
+
+If only a few paragraphs can be retained, preserve this:
+
+The Ranger of Brackenwald is Duke Aldric's non-magical ranger, traveling with his horse Thorne. He has become known for investigation, restraint, lawful arrests, restitution, and mercy where possible, though he has killed when he judged it necessary. Over many adventures he has broken wrecking and smuggling rings, restored roads and crossings, saved villagers and travelers, negotiated with elves, treated a wounded troll, respected an ancient warrior's burial chamber, healed the forest-being Rootfather, restored the ward imprisoning the Thornbound Sentinel, and renegotiated a deadly marsh pact so it no longer accepts human tribute.
+
+Duke Aldric remains secure. Human-elf relations are significantly improved: communities of the Riverlands have a pact with the Greenwood Veil, and the Ranger shares watch of an Elderwood seal with the elf Caelthorn. Blackroot Ford and Frostfall causeway are restored; Graywatch was dismantled for safety; Harrowspire resumed proper duty. Several criminals were captured and sometimes redirected into service or restitution rather than execution.
+
+Major unresolved human threats include Marrow of Greyhaven, foreign manipulator Mirela Voss, the unidentified Gray Cloak, Broken Crown iron buyers, a wider Gallows Corner corruption network, and possible surviving branches of Bren Torvik's smuggling network. Captain Erwald survived the mill/deserter fight, and his deeper motives were never explored.
+
+Major supernatural continuity includes the sealed Weeping Stones warrior and buried torque, sleeping Rootfather, sleeping Thornbound Sentinel behind maintained wards, the still-existing Blackwater Marsh Presence under a new no-sacrifice agreement, and the living briar crown in the unfinished Briar Crown story. These should not be merged into one magical system without evidence.
+
+Two unfinished/current story states matter. In The Briar Crown of Elderwood, play stopped at Turn 11 with Lady Ysabel Vane holding the living crown at a broken shrine while briars move around her; the Ranger is hidden nearby and Toman Reed waits with Thorne. In the newest scenario, The Rustwater of Harthmere, Turn 1 has been presented but no action chosen: illegal reopening of Longscar Mine caused acidic metal-contaminated orange water, a concealed bulkhead may fail, villagers have blockaded the mine road, and Rorik Dane is lying about the cause.
+
+Finally, several authored story files and unused openings are NOT automatically canon. The False Fires of Saint Werran and The Ashwater Crossing were project/story artifacts, not documented played outcomes. The 1000 Year Acorn and Frost Beneath Elderwood never progressed beyond their opening turn. The Whispering Reed has an established hidden setup but an uncertain actual ending. Preserve those distinctions.
+
+END OF HANDOFF

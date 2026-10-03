@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ranger 3 REV 005 - Story Index</title>
+    <style>
+        :root {
+            --ink: #182019;
+            --moss: #2e4a36;
+            --oak: #5a3c24;
+            --fog: #edf1e7;
+            --card: #f8f4ea;
+            --edge: #c7b79d;
+            --muted: #566056;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--ink);
+            font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+            background:
+                radial-gradient(circle at 20% 16%, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0) 34%),
+                radial-gradient(circle at 84% 12%, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0) 30%),
+                linear-gradient(155deg, #d8c7a7, #9eb296 72%, #879b7d);
+        }
+
+        main {
+            width: min(960px, calc(100% - 28px));
+            margin: 0 auto;
+            padding: 22px 0 38px;
+        }
+
+        header,
+        section {
+            border: 1px solid var(--edge);
+            border-radius: 14px;
+            background: linear-gradient(160deg, rgba(248, 244, 234, 0.97), rgba(241, 232, 214, 0.94));
+            box-shadow: 0 10px 22px rgba(21, 24, 18, 0.14);
+        }
+
+        header {
+            padding: 18px 20px;
+            margin-bottom: 14px;
+        }
+
+        h1,
+        h2,
+        h3 {
+            font-family: "Trebuchet MS", "Gill Sans", "Segoe UI", sans-serif;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(1.7rem, 4vw, 2.45rem);
+        }
+
+        header p {
+            margin: 7px 0 0;
+            color: var(--muted);
+            line-height: 1.45;
+        }
+
+        section {
+            padding: 16px;
+        }
+
+        section h2 {
+            margin: 0 0 12px;
+        }
+
+        .story-card {
+            border: 1px solid var(--edge);
+            border-radius: 12px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.67);
+        }
+
+        .story-card + .story-card {
+            margin-top: 12px;
+        }
+
+        .story-card h3 {
+            margin: 0;
+            font-size: 1.25rem;
+        }
+
+        .meta {
+            margin: 6px 0 0;
+            color: var(--muted);
+            font-size: 0.94rem;
+        }
+
+        .story-card p {
+            line-height: 1.5;
+            margin: 11px 0;
+        }
+
+        a.play {
+            display: inline-block;
+            border: 1px solid var(--oak);
+            border-radius: 9px;
+            padding: 9px 13px;
+            color: #fcfaf3;
+            background: linear-gradient(165deg, #745336, #573a23);
+            text-decoration: none;
+        }
+
+        a.play:hover,
+        a.play:focus-visible {
+            filter: brightness(1.08);
+        }
+
+        .note {
+            margin: 14px 0 0;
+            color: var(--muted);
+            font-size: 0.94rem;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <header>
+            <h1>Ranger 3</h1>
+            <p>Stories from Brackenwald, where choices can be remembered long after the road has joined again.</p>
+        </header>
+
+        <section>
+            <h2>Stories</h2>
+
+            <article class="story-card">
+                <h3>000 · The Ashwater Crossing</h3>
+                <div class="meta">Example story · Medium · about 20-30 minutes</div>
+                <p>
+                    Spring rain has turned the Ashwater violent, a bridge crew is missing, and two villages are already
+                    blaming each other for the damage. The Ranger must decide what to save first, whom to trust, and how
+                    much risk Brackenwald can afford before the river rises again after dark.
+                </p>
+                <a class="play" href="story_000.html">Play story</a>
+            </article>
+
+            <article class="story-card">
+                <h3>001 · The White Mile of Northgard</h3>
+                <div class="meta">Medium · about 20-30 minutes</div>
+                <p>
+                    An early snow buries the Northgard road, a winter convoy vanishes, and somebody has moved the
+                    markers at the worst possible place. Rescue comes first, but the road will still need an answer
+                    when everyone is safely back behind Northgard's gate.
+                </p>
+                <a class="play" href="story_001.html">Play story</a>
+            </article>
+
+            <p class="note">Each story is a complete standalone HTML file. No installation or build step is required.</p>
+        </section>
+    </main>
+</body>
+</html>

@@ -1,0 +1,1089 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ranger 3 REV 005 - The Ashwater Crossing</title>
+    <style>
+        :root {
+            --ink: #182019;
+            --moss: #2e4a36;
+            --oak: #5a3c24;
+            --oak-dark: #3f2818;
+            --card: #f8f4ea;
+            --edge: #c7b79d;
+            --muted: #566056;
+            --danger: #701f1f;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--ink);
+            font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+            background:
+                radial-gradient(circle at 20% 16%, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0) 34%),
+                radial-gradient(circle at 84% 12%, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0) 30%),
+                linear-gradient(155deg, #d8c7a7, #9eb296 72%, #879b7d);
+        }
+
+        .page-shell {
+            width: min(1510px, calc(100% - 28px));
+            margin: 0 auto;
+            padding: 20px 0 34px;
+        }
+
+        .app-shell {
+            width: min(1020px, 100%);
+            margin: 0 auto;
+        }
+
+        .map-panel {
+            display: none;
+        }
+
+        .hero-panel,
+        .panel {
+            border: 1px solid var(--edge);
+            border-radius: 14px;
+            background: linear-gradient(160deg, rgba(248, 244, 234, 0.97), rgba(241, 232, 214, 0.94));
+            box-shadow: 0 10px 22px rgba(21, 24, 18, 0.14);
+        }
+
+        .hero-panel {
+            padding: 14px 16px;
+            margin-bottom: 14px;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4 {
+            font-family: "Trebuchet MS", "Gill Sans", "Segoe UI", sans-serif;
+        }
+
+        .hero-panel h1 {
+            margin: 0;
+            font-size: clamp(1.45rem, 3vw, 2.05rem);
+        }
+
+        .hero-panel p {
+            margin: 6px 0 0;
+            color: var(--muted);
+        }
+
+        .panel {
+            padding: 14px;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .toolbar-left {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        button,
+        .toolbar a {
+            border: 1px solid var(--oak);
+            border-radius: 9px;
+            background: linear-gradient(165deg, #745336, #573a23);
+            color: #fcfaf3;
+            font: inherit;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .toolbar button,
+        .toolbar a,
+        .fail-actions button,
+        .ending-actions button {
+            padding: 8px 11px;
+        }
+
+        button:hover,
+        button:focus-visible,
+        .toolbar a:hover,
+        .toolbar a:focus-visible {
+            filter: brightness(1.08);
+        }
+
+        .status-line {
+            color: var(--muted);
+            font-size: 0.95rem;
+            text-align: right;
+        }
+
+        .turn-card {
+            border: 1px solid var(--edge);
+            border-radius: 12px;
+            padding: 14px;
+            background: rgba(255, 255, 255, 0.76);
+        }
+
+        .turn-card h2 {
+            margin: 0;
+            font-size: clamp(1.25rem, 3vw, 1.6rem);
+        }
+
+        .scene-kicker {
+            margin: 5px 0 11px;
+            color: var(--muted);
+            font-size: 0.94rem;
+        }
+
+        .narrative p {
+            margin: 0 0 10px;
+            line-height: 1.52;
+        }
+
+        .narrative p:last-child {
+            margin-bottom: 0;
+        }
+
+        .turn-card hr {
+            border: 0;
+            border-top: 1px solid #d5c6ad;
+            margin: 13px 0;
+        }
+
+        .option-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            gap: 9px;
+        }
+
+        .option-btn {
+            width: 100%;
+            text-align: left;
+            padding: 10px 11px;
+            line-height: 1.38;
+        }
+
+        .fail-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: grid;
+            place-items: center;
+            padding: 14px;
+            background: rgba(20, 14, 12, 0.68);
+        }
+
+        .fail-overlay.hidden {
+            display: none;
+        }
+
+        .fail-dialog {
+            width: min(650px, 100%);
+            border: 1px solid #6b4545;
+            border-radius: 12px;
+            padding: 15px;
+            background: linear-gradient(160deg, #faece8, #efd9d2);
+            box-shadow: 0 12px 26px rgba(0, 0, 0, 0.34);
+        }
+
+        .fail-dialog h3 {
+            margin: 0 0 8px;
+            color: var(--danger);
+        }
+
+        .fail-dialog p {
+            margin: 0;
+            line-height: 1.48;
+        }
+
+        .fail-actions,
+        .ending-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 13px;
+        }
+
+        .ending {
+            border-top: 3px solid var(--moss);
+        }
+
+        .ending h3 {
+            margin: 0 0 8px;
+        }
+
+        .ending p {
+            line-height: 1.5;
+        }
+
+        .quiet-note {
+            color: var(--muted);
+            font-size: 0.91rem;
+        }
+
+        @media (min-width: 1450px) {
+            .page-shell {
+                display: grid;
+                grid-template-columns: minmax(0, 1020px) minmax(360px, 460px);
+                gap: 18px;
+                align-items: start;
+                justify-content: center;
+            }
+
+            .app-shell {
+                width: 100%;
+                margin: 0;
+            }
+
+            .map-panel {
+                display: block;
+                position: sticky;
+                top: 20px;
+                overflow: hidden;
+                border: 1px solid var(--edge);
+                border-radius: 14px;
+                padding: 10px;
+                background: linear-gradient(160deg, rgba(248, 244, 234, 0.97), rgba(241, 232, 214, 0.94));
+                box-shadow: 0 10px 22px rgba(21, 24, 18, 0.14);
+            }
+
+            .map-frame {
+                position: relative;
+                overflow: hidden;
+                border: 1px solid #aa987c;
+                border-radius: 9px;
+                background: #d9c69f;
+            }
+
+            .map-frame a {
+                display: block;
+            }
+
+            .map-frame img {
+                display: block;
+                width: 100%;
+                height: auto;
+            }
+
+            .map-caption {
+                margin: 8px 2px 1px;
+                color: var(--muted);
+                font-size: 0.88rem;
+                line-height: 1.35;
+                text-align: center;
+            }
+
+            .map-caption a {
+                color: var(--oak-dark);
+            }
+        }
+
+        @media (max-width: 700px) {
+            .toolbar {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .status-line {
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-shell">
+    <main class="app-shell">
+        <header class="hero-panel">
+            <h1>Ranger 3 · The Ashwater Crossing</h1>
+            <p>In service of Duke Aldric, with Thorne carrying you wherever Brackenwald's roads give out.</p>
+        </header>
+
+        <section class="panel">
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <a href="index.html">Story Index</a>
+                    <button id="restartBtn" type="button">Restart Story</button>
+                </div>
+                <div id="statusLine" class="status-line"></div>
+            </div>
+
+            <article id="storyCard" class="turn-card" aria-live="polite"></article>
+        </section>
+    </main>
+
+        <aside class="map-panel" aria-label="Map of the Ranger lands">
+            <div class="map-frame">
+                <a href="RangersQuest3-Map.png" target="_blank" rel="noopener" title="Open the full-size map">
+                    <img src="RangersQuest3-Map.png" alt="Map of the Lands of Rangers Quest III, including Brackenwald and the surrounding regions">
+                </a>
+            </div>
+            <p class="map-caption">The Lands of Rangers Quest III · <a href="RangersQuest3-Map.png" target="_blank" rel="noopener">open full-size map</a></p>
+        </aside>
+    </div>
+
+    <aside id="failOverlay" class="fail-overlay hidden" aria-hidden="true">
+        <div class="fail-dialog" role="dialog" aria-modal="true" aria-labelledby="failTitle">
+            <h3 id="failTitle"></h3>
+            <p id="failText"></p>
+            <div class="fail-actions">
+                <button id="undoFailBtn" type="button">Undo Choice</button>
+                <button id="acceptFailBtn" type="button">Accept Fate</button>
+            </div>
+        </div>
+    </aside>
+
+    <script>
+        "use strict";
+
+        // Development example/reference scenario. Not campaign canon unless played or explicitly declared canon.
+        // Tabby roll: 3/5 - absent.
+
+        const STORY_INFO = {
+            number: 0,
+            title: "The Ashwater Crossing",
+            length: "Medium",
+            estimatedMinutes: 25,
+            description: "Spring rain, a damaged bridge, missing workers, and two villages close to blaming each other."
+        };
+
+        const storyCard = document.getElementById("storyCard");
+        const statusLine = document.getElementById("statusLine");
+        const restartBtn = document.getElementById("restartBtn");
+        const failOverlay = document.getElementById("failOverlay");
+        const failTitle = document.getElementById("failTitle");
+        const failText = document.getElementById("failText");
+        const undoFailBtn = document.getElementById("undoFailBtn");
+        const acceptFailBtn = document.getElementById("acceptFailBtn");
+
+        let state;
+        let currentScene;
+        let sceneNumber;
+        let pendingFailure;
+        let choiceSnapshot;
+
+        function freshState() {
+            return {
+                bridgeSecured: false,
+                villagersWarned: false,
+                millerTrust: 0,
+                evidence: [],
+                ropeAvailable: true,
+                rangerStrained: false,
+                ferryReady: false,
+                saboteurKnown: false,
+                missingCrewFound: false,
+                sluiceSecured: false
+            };
+        }
+
+        function restartStory() {
+            state = freshState();
+            currentScene = "arrival";
+            sceneNumber = 1;
+            pendingFailure = null;
+            choiceSnapshot = null;
+            closeFailure();
+            renderScene();
+        }
+
+        function hasEvidence(item) {
+            return state.evidence.includes(item);
+        }
+
+        function addEvidence(item) {
+            if (!hasEvidence(item)) {
+                state.evidence.push(item);
+            }
+        }
+
+        function paragraph(text) {
+            return `<p>${text}</p>`;
+        }
+
+        function choice(label, action) {
+            return { label, action };
+        }
+
+        function go(sceneId) {
+            currentScene = sceneId;
+            sceneNumber += 1;
+            renderScene();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+
+        function fail(title, text) {
+            pendingFailure = {
+                title,
+                text,
+                snapshot: choiceSnapshot
+            };
+            failTitle.textContent = title;
+            failText.textContent = text;
+            failOverlay.classList.remove("hidden");
+            failOverlay.setAttribute("aria-hidden", "false");
+            undoFailBtn.focus();
+        }
+
+        function closeFailure() {
+            failOverlay.classList.add("hidden");
+            failOverlay.setAttribute("aria-hidden", "true");
+        }
+
+        function ending(title, paragraphs) {
+            statusLine.textContent = "Story complete";
+            storyCard.innerHTML = `
+                <div class="ending">
+                    <h3>${title}</h3>
+                    ${paragraphs.map(paragraph).join("")}
+                    <div class="ending-actions">
+                        <button type="button" data-ending-action="restart">Play Again</button>
+                        <a href="index.html" style="display:inline-block;border:1px solid var(--oak);border-radius:9px;background:linear-gradient(165deg,#745336,#573a23);color:#fcfaf3;padding:8px 11px;text-decoration:none;">Story Index</a>
+                    </div>
+                </div>
+            `;
+            const again = storyCard.querySelector('[data-ending-action="restart"]');
+            again.addEventListener("click", restartStory);
+        }
+
+        const scenes = {
+            arrival() {
+                const narrative = [
+                    "You find the Ashwater in flood before you find the messenger. The river has climbed into the alder roots, brown with spring rain, and the old timber bridge shudders each time uprooted brush strikes its upstream braces.",
+                    "Thorne stamps on the high road while two groups shout across the water. On your bank, miller Ansel Rusk insists that people from Reedbank cut the bridge lashings in the night. Across the river, Reedbank's reeve, Mara Venn, points to the mill sluice and says Rusk raised the water to protect his wheel. Between them, three bridge workers are missing.",
+                    "The bridge still stands, but badly. Rain is beginning again over the western ridge. You have perhaps two hours before the Ashwater rises another handspan."
+                ];
+
+                const choices = [
+                    choice("Put everyone to work securing the bridge before arguing about blame.", () => {
+                        state.bridgeSecured = true;
+                        state.millerTrust += 1;
+                        state.ropeAvailable = false;
+                        go("bridgeWork");
+                    }),
+                    choice("Ride Thorne upstream at once and look for the missing bridge crew.", () => {
+                        state.villagersWarned = true;
+                        go("upstreamSearch");
+                    }),
+                    choice("Separate Rusk and Mara and hear both accounts while the tracks are still fresh.", () => {
+                        state.millerTrust += 1;
+                        addEvidence("contradictory_timing");
+                        go("questions");
+                    })
+                ];
+
+                return scene("Ashwater Bridge", "Late afternoon · First alarm", narrative, choices);
+            },
+
+            bridgeWork() {
+                const narrative = [
+                    "You spend the next half hour in cold spray with an axe between your teeth and a hauling line around your waist. Nobody has time left to accuse anyone. Under direction, the two villages work well enough together.",
+                    "A brace on the upstream side has been sawn almost through. The cut is too neat for flood damage and too low to have been made after the river rose. Wedged behind it you find a twist of blue-dyed cord, the sort used on pack frames rather than bridge rigging.",
+                    state.ropeAvailable
+                        ? "The bridge is steadier, and your spare rope remains with you."
+                        : "The bridge is steadier, but your best spare rope now holds its western brace together. You will not have it elsewhere."
+                ];
+
+                addEvidence("sawn_brace");
+                addEvidence("blue_cord");
+
+                const choices = [
+                    choice("Follow the river path upstream where the missing workers went at dawn.", () => go("upstreamSearch")),
+                    choice("Ask Rusk who in the valley uses blue cord on pack frames.", () => {
+                        state.millerTrust += 1;
+                        go("millYard");
+                    }),
+                    choice("Cross now and warn Reedbank to move children and livestock above the flood line.", () => {
+                        state.villagersWarned = true;
+                        go("reedbank");
+                    })
+                ];
+
+                return scene("Timbers Under Strain", "The bridge holds, for now", narrative, choices);
+            },
+
+            questions() {
+                const narrative = [
+                    "You make Rusk and Mara speak apart, with no audience to reward anger. Their stories disagree loudly but not in the way liars usually do. Rusk says the mill gate was lowered before midnight. Mara says Reedbank saw the river begin climbing well after midnight. Both can be true if someone opened the old upstream control gate between those hours.",
+                    "Mara also remembers seeing a pack pony on the north path yesterday, led by a man in a patched gray cloak. Rusk says no trader has used that washed-out path for weeks. Neither knew the bridge crew planned to inspect the upstream gate this morning.",
+                    "Someone did know. The missing workers may have walked straight toward the person who wanted the river high and the bridge weak."
+                ];
+
+                const choices = [
+                    choice("Ride upstream before whoever is there can move the missing crew.", () => {
+                        state.villagersWarned = true;
+                        go("upstreamSearch");
+                    }),
+                    choice("Search the mill yard and pack sheds for the blue cord and gray-cloaked traveler.", () => go("millYard")),
+                    choice("Send Mara to evacuate Reedbank while you stay and secure the bridge.", () => {
+                        state.villagersWarned = true;
+                        state.bridgeSecured = true;
+                        state.ropeAvailable = false;
+                        go("bridgeWorkAfterQuestions");
+                    }),
+                    choice("Cross to Reedbank yourself, warn the low houses, and inspect their neglected ferry.", () => {
+                        state.villagersWarned = true;
+                        go("reedbank");
+                    })
+                ];
+
+                return scene("Two Accounts", "Blame begins to separate from fact", narrative, choices);
+            },
+
+            bridgeWorkAfterQuestions() {
+                addEvidence("sawn_brace");
+                addEvidence("blue_cord");
+                const narrative = [
+                    "With Mara moving Reedbank uphill, you turn every remaining pair of hands toward the bridge. The work is ugly but disciplined. By the time the next pulse of floodwater arrives, two fresh braces are lashed in place.",
+                    "The damage confirms what your questioning suggested. One support was deliberately sawn. Behind it, caught where the river could not have placed it, is a twist of blue pack cord.",
+                    "Rusk goes quiet when he sees it. His anger has somewhere new to point, but this time you stop him before accusation outruns evidence."
+                ];
+
+                const choices = [
+                    choice("Take the blue cord to Rusk's pack sheds and see who recognizes it.", () => go("millYard")),
+                    choice("Leave the now-stable bridge and ride upstream after the missing crew.", () => go("upstreamSearch"))
+                ];
+
+                return scene("A Deliberate Cut", "The river is not the only culprit", narrative, choices);
+            },
+
+            millYard() {
+                const recognizesCord = state.millerTrust >= 2;
+                const narrative = [
+                    "Rusk's yard smells of wet grain, horse sweat, and fresh-split pine. The miller unlocks the pack shed himself rather than leave you to force it.",
+                    recognizesCord
+                        ? "Because you have treated him as a witness rather than a suspect, Rusk admits something he had hidden out of embarrassment: a charcoal burner named Pell used the shed two nights ago. Pell had once worked on the upstream control gate and still knew its ironwork. He carried a pack frame bound with blue cord."
+                        : "Rusk is still defensive. You have to work the yard board by board before a stable girl quietly identifies the blue cord as belonging to Pell, a charcoal burner who once maintained the upstream control gate.",
+                    "Behind the shed you find a pony print leading north and a black smear on the gatepost. Charcoal dust. Pell has not merely passed through the valley; he has been moving between the mill road and the old gate."
+                ];
+
+                addEvidence("pell_named");
+                state.saboteurKnown = true;
+
+                const choices = [
+                    choice("Ride north after Pell and the missing workers.", () => go("upstreamSearch")),
+                    choice("Take Rusk with you; Pell may listen to someone he knows.", () => {
+                        state.millerTrust += 1;
+                        go("upstreamWithRusk");
+                    }),
+                    choice("Arrest Rusk now for giving Pell shelter and ignore the upstream gate.", () => {
+                        fail(
+                            "The River Answers First",
+                            "Whatever Rusk concealed, the old gate remains open. While you spend the last useful hour settling blame in the mill yard, another wall of water comes down the Ashwater. The bridge goes under before guilt can be sorted from foolishness."
+                        );
+                    })
+                ];
+
+                return scene("The Mill Yard", "A name emerges from the mud", narrative, choices);
+            },
+
+            reedbank() {
+                const narrative = [
+                    "Reedbank sits on a low tongue of pasture inside the river bend. Mara does not waste the warning. Before you have finished tying Thorne at the smithy rail, children are carrying blankets uphill and drovers are cutting cattle loose from the lower pens.",
+                    "An old ferryman named Corren tells you the village ferry is sound but its guide rope snapped last winter. He can rig a temporary crossing if someone brings him a long line. Without one, the boat can still move people, but slowly and only while the current allows it.",
+                    state.ropeAvailable
+                        ? "Your spare rope is still rolled behind Thorne's saddle."
+                        : "Your spare rope is back at the bridge, holding together the brace you chose to save."
+                ];
+
+                const choices = [];
+
+                if (state.ropeAvailable) {
+                    choices.push(choice("Give Corren your spare rope and have him rig the ferry for an emergency crossing.", () => {
+                        state.ropeAvailable = false;
+                        state.ferryReady = true;
+                        go("upstreamSearch");
+                    }));
+                }
+
+                choices.push(choice("Leave the evacuation in Mara's hands and ride upstream for the missing crew.", () => go("upstreamSearch")));
+                choices.push(choice("Stay until the lowest homes are empty, even if it costs you more daylight.", () => {
+                    state.villagersWarned = true;
+                    state.ferryReady = state.ferryReady || state.ropeAvailable;
+                    if (state.ferryReady) {
+                        state.ropeAvailable = false;
+                    }
+                    go("lateUpstream");
+                }));
+
+                return scene("Reedbank", "People before property", narrative, choices);
+            },
+
+            upstreamWithRusk() {
+                const narrative = [
+                    "Rusk rides a shaggy mill pony and says little. The north path narrows between flooded hazel and the steep bank. Twice you find blue fibers caught on thorn, and once a dragged heel mark where someone stumbled.",
+                    "Near the old quarry track, Rusk spots smoke before you do. Not a campfire, but a charcoal burn under a turf cover. Pell's ground.",
+                    "Rusk wants to call out. You stop him. Beyond the burn, somewhere above the river, a hammer strikes iron once and then goes still."
+                ];
+
+                const choices = [
+                    choice("Approach openly with Rusk beside you and demand to see the missing workers.", () => {
+                        state.millerTrust += 1;
+                        go("pellCamp");
+                    }),
+                    choice("Leave Rusk with the horses and circle through the alder scrub alone.", () => go("hiddenApproach")),
+                    choice("Charge the charcoal burn before Pell can prepare.", () => {
+                        fail(
+                            "A Horse on Broken Ground",
+                            "The quarry track narrows where floodwater has eaten beneath it. Thorne obeys you too well. The bank collapses under the charge, and by the time you have hauled horse and rider clear, whoever was above the river has vanished with the daylight."
+                        );
+                    })
+                ];
+
+                return scene("North Path", "Smoke above the flood", narrative, choices);
+            },
+
+            lateUpstream() {
+                const narrative = [
+                    "By the time you ride north, dusk has entered the woods. The delay was not wasted: Reedbank is moving uphill in good order, and no frightened family will have to be dragged from a roof after dark.",
+                    "But the river path is harder now. Thorne picks his way through water that reaches his fetlocks. At the quarry fork you find a worker's cap caught on a thorn and hear, faintly, three knocks from somewhere beyond the old gatehouse.",
+                    "If the missing crew is alive, they know the light is going too."
+                ];
+
+                const choices = [
+                    choice("Follow the knocks directly toward the gatehouse.", () => go("hiddenApproach")),
+                    choice("Call out that Reedbank is safe and ask the trapped workers to answer again.", () => {
+                        state.missingCrewFound = true;
+                        go("workersFound");
+                    })
+                ];
+
+                return scene("Dusk on the North Path", "Time spent below has changed the rescue", narrative, choices);
+            },
+
+            upstreamSearch() {
+                const narrative = [
+                    "Thorne takes the rising path at a careful trot. The Ashwater is never out of earshot. Along the bank you find three sets of boot prints, then a fourth that joins them from the quarry track. One worker was limping before the group left the path.",
+                    state.saboteurKnown
+                        ? "Blue fibers on a thorn and charcoal dust on a wet stone fit Pell closely enough that the trail now has a name."
+                        : "Blue fibers on a thorn and charcoal dust on a wet stone tell you that whoever met the workers came from a trade using both pack cord and charcoal.",
+                    "At the old gatehouse the trail divides. Fresh scuffs lead toward the iron sluice mechanism. A muffled sound comes from the collapsed store cellar behind the building."
+                ];
+
+                addEvidence("charcoal_trace");
+
+                const choices = [
+                    choice("Go to the cellar first. Missing people matter more than the mechanism.", () => go("workersFound")),
+                    choice("Inspect the sluice before anyone can change it again.", () => go("gateMechanism")),
+                    choice("Call Pell by name and offer him one chance to come out.", () => {
+                        if (state.saboteurKnown) {
+                            go("pellCamp");
+                        } else {
+                            fail(
+                                "A Name You Do Not Have",
+                                "There is no answer because you are guessing at a man you have not identified. The shout warns whoever is near the gate. By the time you reach the mechanism, fresh tracks are already disappearing into the flooded alder scrub."
+                            );
+                        }
+                    })
+                ];
+
+                if (!state.saboteurKnown) {
+                    choices[2].label = "Shout a challenge toward the gatehouse and force whoever is hiding to show himself.";
+                }
+
+                return scene("The Old Gatehouse", "Four trails, one rising river", narrative, choices);
+            },
+
+            hiddenApproach() {
+                const narrative = [
+                    "You leave Thorne on firm ground and move through the alder scrub where wet leaves hide your steps. From behind the old gatehouse you finally see the shape of the problem.",
+                    "Three bridge workers are alive in the half-collapsed store cellar. A timber has been dropped across the door. At the sluice wheel stands a lean man in a patched gray cloak, trying to hammer a locking pin out of the old mechanism.",
+                    state.saboteurKnown
+                        ? "Pell. The name fits the charcoal on his hands and the blue cord on the pack frame beside him."
+                        : "The stranger's hands are black with charcoal, and blue cord binds the pack frame beside him. You have found the source of several clues at once."
+                ];
+
+                state.saboteurKnown = true;
+                addEvidence("pell_seen_at_gate");
+
+                const choices = [
+                    choice("Free the workers quietly while Pell is occupied with the sluice.", () => {
+                        state.missingCrewFound = true;
+                        go("workersFoundQuietly");
+                    }),
+                    choice("Step out and confront Pell before he can damage the lock further.", () => go("pellCamp")),
+                    choice("Rush Pell from behind and knock him toward the open sluice channel.", () => {
+                        fail(
+                            "The Wrong Ground for a Struggle",
+                            "Pell twists away rather than fall, and the two of you crash against the weakened locking gear. Iron gives before either man does. The gate lurches wider, and the river takes the decision out of everyone's hands."
+                        );
+                    })
+                ];
+
+                return scene("Behind the Gatehouse", "The missing crew and the saboteur are both in reach", narrative, choices);
+            },
+
+            workersFound() {
+                state.missingCrewFound = true;
+                const narrative = [
+                    "The three workers are bruised, wet, and furious, but alive. Pell met them at the gatehouse with a story about a cracked hinge. When they saw the sluice already raised, he barred them into the store cellar and went back to the mechanism.",
+                    "Their foreman, Jory, says the gate can still be lowered, but not safely by one person. The counterweight chain has slipped a tooth. Someone must guide the wheel while another resets the chain from the side platform.",
+                    state.rangerStrained
+                        ? "Your shoulder still burns from trying the mechanism alone. The crew can make the repair possible, but you will need to work around that mistake rather than pretend it did no harm."
+                        : state.bridgeSecured
+                            ? "Because you spent time strengthening the bridge below, there is still something worth saving if you can tame the river now."
+                            : "You do not know whether the bridge below can survive another hard rise. Every minute at the gate matters."
+                ];
+
+                const choices = [
+                    choice("Put Jory on the wheel and climb to the side platform yourself.", () => {
+                        state.sluiceSecured = false;
+                        go("gateRepair");
+                    }),
+                    choice("Send the workers downhill to warn both villages while you find Pell.", () => {
+                        state.villagersWarned = true;
+                        go("pellCamp");
+                    }),
+                    choice("Order everyone away from the old mechanism and leave the gate as it is.", () => {
+                        fail(
+                            "The Safe Place That Wasn't",
+                            "You avoid the dangerous machinery, but the open sluice keeps feeding the flood. Before midnight the bridge is gone and water is running through Reedbank's lower street. No one dies, but the valley pays heavily for caution that solved nothing."
+                        );
+                    })
+                ];
+
+                return scene("The Missing Crew", "Alive, and carrying the answer", narrative, choices);
+            },
+
+            workersFoundQuietly() {
+                state.missingCrewFound = true;
+                const narrative = [
+                    "You lift the timber from the cellar door a finger-width at a time. Jory understands immediately and keeps the others silent until all three are behind cover.",
+                    "They tell you Pell raised the sluice to flood Rusk's lower meadow, meaning to ruin the miller after an old debt dispute. When the bridge crew arrived unexpectedly, Pell trapped them rather than abandon the plan. He later cut the bridge brace so the villages would blame each other when the water rose.",
+                    "The gate can still be lowered, but the slipped chain needs two people at the mechanism. Pell is only thirty paces away."
+                ];
+
+                state.saboteurKnown = true;
+                addEvidence("motive_known");
+
+                const choices = [
+                    choice("Have Jory help you reset the gate while the other two workers keep watch on Pell.", () => go("gateRepair")),
+                    choice("Confront Pell with the freed workers behind you.", () => go("pellCamp"))
+                ];
+
+                return scene("A Quiet Rescue", "The motive finally has a shape", narrative, choices);
+            },
+
+            gateMechanism() {
+                const narrative = [
+                    "The old sluice is open farther than any spring flood requires. The locking pin has been hammered partly free, and fresh tool marks scar the wheel housing. This was no accident and no feud carried out by villagers with an axe in the dark.",
+                    "A length of blue cord is tied around the slipped counterweight chain as a crude holdfast. Charcoal is ground into the knot. Whoever did this knew the mechanism well enough to make the damage look like neglect from a distance.",
+                    "From the store cellar comes another muffled knock. The missing workers are almost certainly there."
+                ];
+
+                state.saboteurKnown = true;
+                addEvidence("gate_tampered");
+
+                const choices = [
+                    choice("Free the trapped workers and use their knowledge to repair the gate.", () => go("workersFound")),
+                    choice("Follow the charcoal footprints toward the covered burn above the path.", () => go("pellCamp")),
+                    choice("Try to force the heavy gate shut alone before anyone else arrives.", () => {
+                        state.rangerStrained = true;
+                        go("workersFound");
+                    })
+                ];
+
+                return scene("The Open Sluice", "Sabotage written in iron", narrative, choices);
+            },
+
+            gateRepair() {
+                const narrative = [
+                    "Jory takes the wheel while you climb the narrow side platform. The chain jumps under load hard enough to shake rust from the beams. Twice you have to stop and reset your footing as spray lashes through the open gate.",
+                    "Then the tooth catches. Jory leans into the wheel. The gate comes down handspan by handspan until the roar changes pitch and the Ashwater begins, slowly, to lose its borrowed violence.",
+                    "From the trees above the gatehouse comes the crack of a breaking branch. Pell has understood what you have done and is moving."
+                ];
+
+                state.sluiceSecured = true;
+
+                const choices = [
+                    choice("Let the workers finish securing the gate while you pursue Pell on foot.", () => go("pursuit")),
+                    choice("Stay until the locking pin is reset, even if Pell gains distance.", () => {
+                        state.bridgeSecured = true;
+                        go("secureThenReturn");
+                    })
+                ];
+
+                return scene("Closing the Water", "The river begins to fall", narrative, choices);
+            },
+
+            pellCamp() {
+                const evidenceWeight = state.evidence.length + (state.missingCrewFound ? 2 : 0);
+                const narrative = [
+                    "Pell stands beside the turf-covered charcoal burn with a short hammer in one hand. He is not an outlaw captain, only a tired man whose grievance has grown larger than his sense. Years ago Rusk took him to court over a debt and won. Pell decided to make the miller lose a season in return.",
+                    state.missingCrewFound
+                        ? "The freed bridge workers call his story a lie before he finishes it. They saw him at the sluice and spent hours behind his timber bar."
+                        : "He claims the bridge damage was floodwork and that you are blaming the easiest poor man in the valley. The clues you carry say otherwise, but the missing workers have not yet spoken for themselves.",
+                    evidenceWeight >= 4
+                        ? "When you lay out the sawn brace, blue cord, charcoal traces, and gate tampering in order, even Pell stops pretending the facts are unrelated."
+                        : "You have enough to know Pell is involved, but not enough yet to understand every step without risking a false assumption."
+                ];
+
+                const choices = [
+                    choice("Take Pell into custody and return immediately to the sluice with him under guard.", () => {
+                        state.saboteurKnown = true;
+                        go(state.missingCrewFound ? "gateRepair" : "workersFound");
+                    }),
+                    choice("Offer Pell a choice: help close the sluice now, then answer publicly for what he did.", () => {
+                        state.saboteurKnown = true;
+                        state.millerTrust += 1;
+                        go("pellHelps");
+                    }),
+                    choice("Let Pell go if he swears never to trouble Rusk again.", () => {
+                        fail(
+                            "A Private Peace",
+                            "Pell takes the mercy and disappears into the wet woods. The sluice remains open, the workers remain in danger, and the valley is left with neither justice nor safety. Mercy without first stopping the harm is only abandonment."
+                        );
+                    })
+                ];
+
+                return scene("Pell of the Charcoal Burn", "A small grievance with a large river behind it", narrative, choices);
+            },
+
+            pellHelps() {
+                state.missingCrewFound = true;
+                state.sluiceSecured = true;
+                const narrative = [
+                    "Pell does not thank you. He throws down the hammer, walks back to the gate, and shows Jory exactly where he altered the chain. Together the four men reset the counterweight while you hold the wheel against the load.",
+                    "The gate descends. Pell watches the river change and seems, for the first time, to understand that he came within minutes of drowning people who had nothing to do with his old quarrel.",
+                    "You bind his wrists only after the locking pin is home. Justice can wait until the valley is safe enough to hear it."
+                ];
+
+                const choices = [
+                    choice("Ride hard for the bridge and see what the rising water has done below.", () => go("returnToCrossing"))
+                ];
+
+                return scene("Hands on the Wheel", "Repair before judgment", narrative, choices);
+            },
+
+            pursuit() {
+                const narrative = [
+                    "Pell runs toward the quarry path, where a charcoal pony is tethered beyond the trees. You are faster through the wet ground, but not by much.",
+                    state.rangerStrained
+                        ? "Thorne hears your whistle from below and answers. Your wrenched shoulder makes a wrestling chase foolish, but horse and rider can still close the lower road if you get there first."
+                        : "Thorne hears your whistle from below and answers. If you can reach the lower bend first, horse and rider can close the road without forcing a fight on the cliff path.",
+                    "Behind you, the sluice is descending under the workers' hands. The river is becoming someone else's problem for the first time all day."
+                ];
+
+                const choices = [
+                    choice("Cut down the lower path and block Pell's escape rather than catch him from behind.", () => {
+                        state.saboteurKnown = true;
+                        go("returnToCrossing");
+                    }),
+                    choice("Let Pell run. Stay with the gate and the workers until the mechanism is secure.", () => {
+                        state.bridgeSecured = true;
+                        go("secureThenReturn");
+                    })
+                ];
+
+                return scene("The Quarry Path", "A chase is not always the most important thing", narrative, choices);
+            },
+
+            secureThenReturn() {
+                const narrative = [
+                    "You let distance grow between yourself and Pell while Jory drives the locking pin home. It is the unheroic choice and the right one: by full dark the old sluice is secured against both flood pressure and another hammer.",
+                    "Pell's trail will still exist in the morning. A broken gate would not wait that long.",
+                    "You ride back toward Ashwater Bridge under clearing rain, listening for the sound of timbers before you can see the river bend."
+                ];
+
+                const choices = [
+                    choice("Return to the crossing.", () => go("returnToCrossing"))
+                ];
+
+                return scene("The Locking Pin", "The valley is safer than the culprit is close", narrative, choices);
+            },
+
+            returnToCrossing() {
+                const narrative = [
+                    state.sluiceSecured
+                        ? "By the time you reach the lower valley, the Ashwater has begun to fall. The difference is small, but every exposed root and dark line on the bridge posts shows it clearly."
+                        : "The river is still high when you return, though the worst of the rain has passed. Without the upstream gate settled, everyone watches the water as much as they watch you.",
+                    state.bridgeSecured
+                        ? "The bridge you helped brace is battered but standing. Men from both villages are still tending the lashings together."
+                        : "The bridge has lost one rail and sags toward the Reedbank side. It can carry people on foot, but no cart and perhaps not another surge.",
+                    state.villagersWarned
+                        ? "Reedbank's lowest houses are empty. Lamps burn safely on the hill instead of in windows beside the water."
+                        : "Mara has moved some families uphill on her own, but the evacuation began late and confusion still clogs the lane."
+                ];
+
+                const choices = [];
+
+                if (state.ferryReady) {
+                    choices.push(choice("Use Corren's rigged ferry to move the last people and supplies without loading the damaged bridge.", () => finishStory("ferry")));
+                }
+
+                if (state.bridgeSecured) {
+                    choices.push(choice("Keep the reinforced bridge open for a controlled foot crossing until everyone is safe.", () => finishStory("bridge")));
+                }
+
+                choices.push(choice("Close the crossing entirely and organize both villages on their own banks until morning.", () => finishStory("banks")));
+
+                return scene("Back at Ashwater", "Earlier decisions are waiting for you", narrative, choices);
+            }
+        };
+
+        function finishStory(method) {
+            const strengths = [];
+            const costs = [];
+
+            if (state.sluiceSecured) {
+                strengths.push("the old sluice was secured before another wall of water could be sent downstream");
+            } else {
+                costs.push("the upstream mechanism remained an uncertainty until daylight");
+            }
+
+            if (state.missingCrewFound) {
+                strengths.push("all three missing bridge workers came home alive");
+            } else {
+                costs.push("the missing crew had not yet been accounted for when darkness closed the valley");
+            }
+
+            if (state.villagersWarned) {
+                strengths.push("Reedbank had been moved out of the floodplain before the worst danger");
+            } else {
+                costs.push("the lower village was evacuated late and in confusion");
+            }
+
+            if (state.bridgeSecured) {
+                strengths.push("the bridge survived because rival hands had been put to the same work");
+            } else {
+                costs.push("the bridge would need major rebuilding before carts could cross again");
+            }
+
+            if (state.saboteurKnown) {
+                strengths.push("Pell's part in the sabotage was established by evidence rather than village rumor");
+            } else {
+                costs.push("the cause of the sabotage was still not fully resolved");
+            }
+
+            let crossingText;
+            if (method === "ferry") {
+                crossingText = "Corren's ferry works back and forth under its improvised guide rope until the last stranded people and the most valuable medicine chests are above the water. The damaged bridge is left empty, which is exactly what it needs.";
+            } else if (method === "bridge") {
+                crossingText = "You keep the bridge open under strict control, one small group at a time. It groans, sheds bark and mud, and survives every crossing you ask of it. At midnight you close it yourself and post two villagers from each bank together at the approaches.";
+            } else {
+                crossingText = "You close the crossing rather than gamble lives on damaged timber. Fires are built on both banks, messages are shouted across the dark water, and each village shelters whoever is already on its side. It is inconvenient, cold, and safe.";
+            }
+
+            const goodCount = strengths.length;
+            let title;
+            let finalReflection;
+
+            if (goodCount >= 4) {
+                title = "The River Gives Back the Road";
+                finalReflection = "By morning, Ashwater is again a river instead of a weapon. Duke Aldric will hear of sabotage and old grievances, but he will also hear that the valley did not fracture when it mattered. You leave behind wet boots, exhausted people, and two villages with fewer reasons to hate each other than they had at sunset.";
+            } else if (goodCount >= 2) {
+                title = "A Crossing Saved at Cost";
+                finalReflection = "Morning finds the valley bruised rather than broken. There will be repairs, hard questions, and arguments before the road is whole again. Yet the worst possibilities have passed, and enough truth has survived the night for Brackenwald to begin putting things right.";
+            } else {
+                title = "When the Water Falls";
+                finalReflection = "The Ashwater falls before dawn, leaving mud, damage, and unfinished questions behind it. You prevented the night from becoming a disaster, but much remains for another day. A Ranger does not always leave a place neatly solved; sometimes the honest victory is that everyone is still there to finish the work.";
+            }
+
+            const summary = strengths.length
+                ? `What held: ${strengths.join("; ")}.`
+                : "Very little was settled cleanly, but immediate loss of life was avoided.";
+
+            const costText = costs.length
+                ? `What remained: ${costs.join("; ")}.`
+                : "For once, there is little left behind except repair work and testimony.";
+
+            ending(title, [crossingText, finalReflection, summary, costText]);
+        }
+
+        function scene(title, kicker, narrative, choices) {
+            return { title, kicker, narrative, choices };
+        }
+
+        function renderScene() {
+            const factory = scenes[currentScene];
+            if (!factory) {
+                storyCard.innerHTML = `<h2>Story error</h2><p>Unknown scene: ${currentScene}</p>`;
+                statusLine.textContent = "Unable to continue";
+                return;
+            }
+
+            const data = factory();
+            statusLine.textContent = `Scene ${sceneNumber} · ${STORY_INFO.length}`;
+
+            storyCard.innerHTML = `
+                <h2>${data.title}</h2>
+                <div class="scene-kicker">${data.kicker}</div>
+                <div class="narrative">${data.narrative.map(paragraph).join("")}</div>
+                <hr>
+                <ul class="option-list">
+                    ${data.choices.map((item, index) => `
+                        <li><button class="option-btn" type="button" data-choice="${index}">${item.label}</button></li>
+                    `).join("")}
+                </ul>
+            `;
+
+            storyCard.querySelectorAll("[data-choice]").forEach((button) => {
+                button.addEventListener("click", () => {
+                    const index = Number(button.dataset.choice);
+                    choiceSnapshot = {
+                        state: structuredClone(state),
+                        scene: currentScene,
+                        sceneNumber
+                    };
+                    data.choices[index].action();
+                    if (!pendingFailure) {
+                        choiceSnapshot = null;
+                    }
+                });
+            });
+        }
+
+        restartBtn.addEventListener("click", () => {
+            if (window.confirm("Restart this story from the beginning?")) {
+                restartStory();
+            }
+        });
+
+        undoFailBtn.addEventListener("click", () => {
+            const failed = pendingFailure;
+            pendingFailure = null;
+            if (failed && failed.snapshot) {
+                state = failed.snapshot.state;
+                currentScene = failed.snapshot.scene;
+                sceneNumber = failed.snapshot.sceneNumber;
+            }
+            choiceSnapshot = null;
+            closeFailure();
+            renderScene();
+        });
+
+        acceptFailBtn.addEventListener("click", () => {
+            const accepted = pendingFailure;
+            pendingFailure = null;
+            closeFailure();
+            ending(accepted ? accepted.title : "The Road Ends Here", [
+                accepted ? accepted.text : "The story ends here.",
+                "You can begin again and choose another course."
+            ]);
+        });
+
+        failOverlay.addEventListener("click", (event) => {
+            if (event.target === failOverlay) {
+                undoFailBtn.click();
+            }
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && !failOverlay.classList.contains("hidden")) {
+                undoFailBtn.click();
+            }
+        });
+
+        restartStory();
+    </script>
+</body>
+</html>

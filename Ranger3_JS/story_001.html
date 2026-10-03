@@ -1,0 +1,996 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ranger 3 REV 005 - The White Mile of Northgard</title>
+    <style>
+        :root {
+            --ink: #182019;
+            --moss: #2e4a36;
+            --oak: #5a3c24;
+            --oak-dark: #3f2818;
+            --card: #f8f4ea;
+            --edge: #c7b79d;
+            --muted: #566056;
+            --danger: #701f1f;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--ink);
+            font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+            background:
+                radial-gradient(circle at 20% 16%, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0) 34%),
+                radial-gradient(circle at 84% 12%, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0) 30%),
+                linear-gradient(155deg, #d8c7a7, #9eb296 72%, #879b7d);
+        }
+
+        .page-shell {
+            width: min(1510px, calc(100% - 28px));
+            margin: 0 auto;
+            padding: 20px 0 34px;
+        }
+
+        .app-shell {
+            width: min(1020px, 100%);
+            margin: 0 auto;
+        }
+
+        .map-panel {
+            display: none;
+        }
+
+        .hero-panel,
+        .panel {
+            border: 1px solid var(--edge);
+            border-radius: 14px;
+            background: linear-gradient(160deg, rgba(248, 244, 234, 0.97), rgba(241, 232, 214, 0.94));
+            box-shadow: 0 10px 22px rgba(21, 24, 18, 0.14);
+        }
+
+        .hero-panel {
+            padding: 14px 16px;
+            margin-bottom: 14px;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4 {
+            font-family: "Trebuchet MS", "Gill Sans", "Segoe UI", sans-serif;
+        }
+
+        .hero-panel h1 {
+            margin: 0;
+            font-size: clamp(1.45rem, 3vw, 2.05rem);
+        }
+
+        .hero-panel p {
+            margin: 6px 0 0;
+            color: var(--muted);
+        }
+
+        .panel {
+            padding: 14px;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .toolbar-left {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        button,
+        .toolbar a {
+            border: 1px solid var(--oak);
+            border-radius: 9px;
+            background: linear-gradient(165deg, #745336, #573a23);
+            color: #fcfaf3;
+            font: inherit;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .toolbar button,
+        .toolbar a,
+        .fail-actions button,
+        .ending-actions button {
+            padding: 8px 11px;
+        }
+
+        button:hover,
+        button:focus-visible,
+        .toolbar a:hover,
+        .toolbar a:focus-visible {
+            filter: brightness(1.08);
+        }
+
+        .status-line {
+            color: var(--muted);
+            font-size: 0.95rem;
+            text-align: right;
+        }
+
+        .turn-card {
+            border: 1px solid var(--edge);
+            border-radius: 12px;
+            padding: 14px;
+            background: rgba(255, 255, 255, 0.76);
+        }
+
+        .turn-card h2 {
+            margin: 0;
+            font-size: clamp(1.25rem, 3vw, 1.6rem);
+        }
+
+        .scene-kicker {
+            margin: 5px 0 11px;
+            color: var(--muted);
+            font-size: 0.94rem;
+        }
+
+        .narrative p {
+            margin: 0 0 10px;
+            line-height: 1.52;
+        }
+
+        .narrative p:last-child {
+            margin-bottom: 0;
+        }
+
+        .turn-card hr {
+            border: 0;
+            border-top: 1px solid #d5c6ad;
+            margin: 13px 0;
+        }
+
+        .option-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            gap: 9px;
+        }
+
+        .option-btn {
+            width: 100%;
+            text-align: left;
+            padding: 10px 11px;
+            line-height: 1.38;
+        }
+
+        .fail-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: grid;
+            place-items: center;
+            padding: 14px;
+            background: rgba(20, 14, 12, 0.68);
+        }
+
+        .fail-overlay.hidden {
+            display: none;
+        }
+
+        .fail-dialog {
+            width: min(650px, 100%);
+            border: 1px solid #6b4545;
+            border-radius: 12px;
+            padding: 15px;
+            background: linear-gradient(160deg, #faece8, #efd9d2);
+            box-shadow: 0 12px 26px rgba(0, 0, 0, 0.34);
+        }
+
+        .fail-dialog h3 {
+            margin: 0 0 8px;
+            color: var(--danger);
+        }
+
+        .fail-dialog p {
+            margin: 0;
+            line-height: 1.48;
+        }
+
+        .fail-actions,
+        .ending-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 13px;
+        }
+
+        .ending {
+            border-top: 3px solid var(--moss);
+        }
+
+        .ending h3 {
+            margin: 0 0 8px;
+        }
+
+        .ending p {
+            line-height: 1.5;
+        }
+
+        .quiet-note {
+            color: var(--muted);
+            font-size: 0.91rem;
+        }
+
+        @media (min-width: 1450px) {
+            .page-shell {
+                display: grid;
+                grid-template-columns: minmax(0, 1020px) minmax(360px, 460px);
+                gap: 18px;
+                align-items: start;
+                justify-content: center;
+            }
+
+            .app-shell {
+                width: 100%;
+                margin: 0;
+            }
+
+            .map-panel {
+                display: block;
+                position: sticky;
+                top: 20px;
+                overflow: hidden;
+                border: 1px solid var(--edge);
+                border-radius: 14px;
+                padding: 10px;
+                background: linear-gradient(160deg, rgba(248, 244, 234, 0.97), rgba(241, 232, 214, 0.94));
+                box-shadow: 0 10px 22px rgba(21, 24, 18, 0.14);
+            }
+
+            .map-frame {
+                position: relative;
+                overflow: hidden;
+                border: 1px solid #aa987c;
+                border-radius: 9px;
+                background: #d9c69f;
+            }
+
+            .map-frame a {
+                display: block;
+            }
+
+            .map-frame img {
+                display: block;
+                width: 100%;
+                height: auto;
+            }
+
+            .map-caption {
+                margin: 8px 2px 1px;
+                color: var(--muted);
+                font-size: 0.88rem;
+                line-height: 1.35;
+                text-align: center;
+            }
+
+            .map-caption a {
+                color: var(--oak-dark);
+            }
+        }
+
+        @media (max-width: 700px) {
+            .toolbar {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .status-line {
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-shell">
+    <main class="app-shell">
+        <header class="hero-panel">
+            <h1>Ranger 3 · The White Mile of Northgard</h1>
+            <p>North of Brackenwald, the first hard snow turns a road dispute into a rescue before nightfall.</p>
+        </header>
+
+        <section class="panel">
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <a href="index.html">Story Index</a>
+                    <button id="restartBtn" type="button">Restart Story</button>
+                </div>
+                <div id="statusLine" class="status-line"></div>
+            </div>
+
+            <article id="storyCard" class="turn-card" aria-live="polite"></article>
+        </section>
+    </main>
+
+        <aside class="map-panel" aria-label="Map of the Ranger lands">
+            <div class="map-frame">
+                <a href="RangersQuest3-Map.png" target="_blank" rel="noopener" title="Open the full-size map">
+                    <img src="RangersQuest3-Map.png" alt="Map of the Lands of Rangers Quest III, including Brackenwald and the surrounding regions">
+                </a>
+            </div>
+            <p class="map-caption">The Lands of Rangers Quest III · <a href="RangersQuest3-Map.png" target="_blank" rel="noopener">open full-size map</a></p>
+        </aside>
+    </div>
+
+    <aside id="failOverlay" class="fail-overlay hidden" aria-hidden="true">
+        <div class="fail-dialog" role="dialog" aria-modal="true" aria-labelledby="failTitle">
+            <h3 id="failTitle"></h3>
+            <p id="failText"></p>
+            <div class="fail-actions">
+                <button id="undoFailBtn" type="button">Undo Choice</button>
+                <button id="acceptFailBtn" type="button">Accept Fate</button>
+            </div>
+        </div>
+    </aside>
+
+    <script>
+        "use strict";
+
+        // Playable scenario. Its outcomes are not campaign canon unless played or explicitly declared canon.
+        // Tabby roll: 2/5 - absent.
+
+        const STORY_INFO = {
+            number: 1,
+            title: "The White Mile of Northgard",
+            length: "Medium",
+            estimatedMinutes: 25,
+            description: "An early snow buries the Northgard road, a winter convoy vanishes, and somebody has moved the markers at the worst possible place."
+        };
+
+        const storyCard = document.getElementById("storyCard");
+        const statusLine = document.getElementById("statusLine");
+        const restartBtn = document.getElementById("restartBtn");
+        const failOverlay = document.getElementById("failOverlay");
+        const failTitle = document.getElementById("failTitle");
+        const failText = document.getElementById("failText");
+        const undoFailBtn = document.getElementById("undoFailBtn");
+        const acceptFailBtn = document.getElementById("acceptFailBtn");
+
+        let state;
+        let currentScene;
+        let sceneNumber;
+        let pendingFailure;
+        let choiceSnapshot;
+
+        function freshState() {
+            return {
+                markersStudied: false,
+                markerMoversKnown: false,
+                warningNeglectKnown: false,
+                wardenTrust: 0,
+                crofterTrust: 0,
+                localsHelping: false,
+                convoyFound: false,
+                carterFreed: false,
+                mareTreated: false,
+                mikelFound: false,
+                culvertOpened: false,
+                wagonSecured: false,
+                cargoAbandoned: false,
+                roadClosed: false,
+                evidence: []
+            };
+        }
+
+        function restartStory() {
+            state = freshState();
+            currentScene = "northgard";
+            sceneNumber = 1;
+            pendingFailure = null;
+            choiceSnapshot = null;
+            closeFailure();
+            renderScene();
+        }
+
+        function hasEvidence(item) {
+            return state.evidence.includes(item);
+        }
+
+        function addEvidence(item) {
+            if (!hasEvidence(item)) {
+                state.evidence.push(item);
+            }
+        }
+
+        function paragraph(text) {
+            return `<p>${text}</p>`;
+        }
+
+        function choice(label, action) {
+            return { label, action };
+        }
+
+        function go(sceneId) {
+            currentScene = sceneId;
+            sceneNumber += 1;
+            renderScene();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+
+        function fail(title, text) {
+            pendingFailure = {
+                title,
+                text,
+                snapshot: choiceSnapshot
+            };
+            failTitle.textContent = title;
+            failText.textContent = text;
+            failOverlay.classList.remove("hidden");
+            failOverlay.setAttribute("aria-hidden", "false");
+            undoFailBtn.focus();
+        }
+
+        function closeFailure() {
+            failOverlay.classList.add("hidden");
+            failOverlay.setAttribute("aria-hidden", "true");
+        }
+
+        function ending(title, paragraphs) {
+            statusLine.textContent = "Story complete";
+            storyCard.innerHTML = `
+                <div class="ending">
+                    <h3>${title}</h3>
+                    ${paragraphs.map(paragraph).join("")}
+                    <div class="ending-actions">
+                        <button type="button" data-ending-action="restart">Play Again</button>
+                        <a href="index.html" style="display:inline-block;border:1px solid var(--oak);border-radius:9px;background:linear-gradient(165deg,#745336,#573a23);color:#fcfaf3;padding:8px 11px;text-decoration:none;">Story Index</a>
+                    </div>
+                </div>
+            `;
+            storyCard.querySelector('[data-ending-action="restart"]').addEventListener("click", restartStory);
+        }
+
+        function rescueCount() {
+            return Number(state.carterFreed) + Number(state.mareTreated) + Number(state.mikelFound);
+        }
+
+        function rescueSummary() {
+            const done = [];
+            if (state.carterFreed) {
+                done.push("Arel is free of the wagon");
+            }
+            if (state.mareTreated) {
+                done.push("the injured mare is bandaged and calm");
+            }
+            if (state.mikelFound) {
+                done.push("Mikel is back with the convoy");
+            }
+            return done.length ? done.join("; ") + "." : "No one at the wreck has yet been made safe.";
+        }
+
+        const scenes = {
+            northgard() {
+                const narrative = [
+                    "The first hard snow of the season reaches Northgard before sunset. It comes sideways across the open country, whitening the road in minutes and turning every hedge into the same gray wall.",
+                    "At the north gate, waykeeper Hadrik Fell is waiting beside a brazier with Senna Low, a crofter from the Split Pine mile. They agree on only one thing: a three-wagon supply convoy from Dunhold should have arrived before noon. It carries salt, lamp oil, wool, and two chests of winter medicines bound for Brackenwald.",
+                    "Hadrik says the storm must have delayed it. Senna says wagon tracks at Split Pine leave the maintained road and turn onto the old quarry lane, which was never meant for a loaded winter convoy. She also says the roadside markers looked wrong this morning. Hadrik bristles at that. Thorne noses snow from his bit and waits for you to decide what matters first."
+                ];
+
+                const choices = [
+                    choice("Ride to Split Pine and inspect the road markers before the snow buries whatever happened there.", () => go("markerFork")),
+                    choice("Question Hadrik and Senna separately before either can shape the other's story.", () => go("questions")),
+                    choice("Follow the freshest wagon tracks at once. The missing people matter more than the argument.", () => go("quarryRoad"))
+                ];
+
+                return scene("Snow at Northgard", "A convoy overdue on the Dunhold road", narrative, choices);
+            },
+
+            markerFork() {
+                state.markersStudied = true;
+                addEvidence("moved_markers");
+
+                const narrative = [
+                    "At Split Pine, the storm has not yet erased the road's memory. Two tall marker poles stand on the wrong side of the fork. Snow has packed around them, but beneath it the soil is freshly cut. Their old sockets are still visible beside the maintained ridge road.",
+                    "The cart ruts do not hesitate. All three wagons followed the relocated markers onto the old quarry lane. A narrow set of bootprints approaches from the Low pasture, circles both posts, and goes back the same way. One heel leaves a crescent-shaped gap where a nail is missing.",
+                    "The old lane vanishes between dark firs. Somewhere beyond them, metal knocks once against stone and then goes quiet."
+                ];
+
+                const choices = [
+                    choice("Follow the wagon ruts into the firs while they are still easy to read.", () => go("quarryRoad")),
+                    choice("Follow the bootprints toward the Low pasture and ask who moved the posts.", () => go("lowPasture")),
+                    choice("Take one loose marker pole back to Hadrik and hear his explanation before going farther.", () => {
+                        state.wardenTrust += 1;
+                        go("questionsWithEvidence");
+                    })
+                ];
+
+                return scene("Split Pine", "Someone changed the road before the snow", narrative, choices);
+            },
+
+            questions() {
+                const narrative = [
+                    "You put Hadrik in the gatehouse and Senna under the awning outside, then hear the same mile described twice.",
+                    "Hadrik admits the quarry lane was closed after summer rain undermined its stone culvert. A warning board once stood at Split Pine, but a gale tore it down three weeks ago. He has not replaced it. Senna says heavy freight wagons have repeatedly cut through the drainage beside her pasture and fouled the spring her household uses. She petitioned for a ditch and got no answer before winter.",
+                    "Neither fact explains why the marker poles themselves changed sides. Hadrik calls that sabotage. Senna calls it a question he should ask after finding the missing convoy."
+                ];
+
+                state.warningNeglectKnown = true;
+                addEvidence("missing_warning");
+
+                const choices = [
+                    choice("Ask Senna plainly whether she or anyone in her household moved the markers.", () => {
+                        state.crofterTrust += 1;
+                        go("lowPastureAdmission");
+                    }),
+                    choice("Take Hadrik with you to the quarry lane. He knows where the failed culvert lies.", () => {
+                        state.wardenTrust += 1;
+                        state.localsHelping = true;
+                        go("quarryRoad");
+                    }),
+                    choice("Leave both arguments behind and follow the convoy tracks now.", () => go("quarryRoad"))
+                ];
+
+                return scene("Two Accounts", "A neglected warning and an old grievance", narrative, choices);
+            },
+
+            questionsWithEvidence() {
+                state.warningNeglectKnown = true;
+                addEvidence("missing_warning");
+
+                const narrative = [
+                    "Hadrik does not argue with the fresh earth on the marker pole. He does, however, recognize the danger at once. The old quarry lane crosses a stone culvert that sagged after summer rain. He ordered the road closed, then lost the warning board in a gale.",
+                    "When you ask why no replacement was posted, he looks toward the village school. The fallen board was sound oak. He cut it up to repair the school's storm-broken footbridge, intending to make a new road sign the next day. Snow arrived first, and the work never happened.",
+                    "Senna watches from the yard. On her right boot, the heel has a clean crescent where a nail should be."
+                ];
+
+                const choices = [
+                    choice("Show Senna the heel-mark and ask her to tell you exactly why the posts were moved.", () => {
+                        state.crofterTrust += 1;
+                        go("lowPastureAdmission");
+                    }),
+                    choice("Bring Hadrik along and go after the convoy. Responsibility can wait until the living are safe.", () => {
+                        state.wardenTrust += 1;
+                        state.localsHelping = true;
+                        go("quarryRoad");
+                    })
+                ];
+
+                return scene("The Missing Warning", "Neglect is not the same thing as malice", narrative, choices);
+            },
+
+            lowPasture() {
+                const narrative = [
+                    "The bootprints end at Senna Low's gate. Her younger brother Perrin is chopping ice from a water trough. His left boot is sound. Senna's right heel is missing exactly one crescent of iron.",
+                    "Beyond the gate, the pasture tells the rest of her grievance. Deep wagon scars cut through a shallow drainage swale. The household spring below it is capped with a clean cloth, but muddy water has stained the stones around the rim.",
+                    "Senna folds her arms before you speak. She is angry, but not frightened."
+                ];
+
+                const choices = [
+                    choice("Show her the tracks and ask for the truth without threatening arrest.", () => {
+                        state.crofterTrust += 2;
+                        go("lowPastureAdmission");
+                    }),
+                    choice("Tell Senna she is coming with you to find the convoy, whether she moved the posts or not.", () => {
+                        state.localsHelping = true;
+                        go("quarryRoad");
+                    }),
+                    choice("Order Senna and Perrin held at Northgard while you search the quarry lane.", () => {
+                        state.crofterTrust -= 1;
+                        go("quarryRoad");
+                    })
+                ];
+
+                return scene("The Low Pasture", "A grievance written in ruts and muddy water", narrative, choices);
+            },
+
+            lowPastureAdmission() {
+                state.markerMoversKnown = true;
+                addEvidence("senna_admission");
+
+                const narrative = [
+                    "Senna stops defending the impossible. She and Perrin moved the two marker poles before dawn. Their intent, she says, was to force freight wagons onto the old quarry lane for a few days so the pasture drainage could freeze hard enough to survive winter traffic.",
+                    "They believed the quarry lane was merely neglected, not condemned. Hadrik had never posted a new warning after the old board vanished. Senna expected angry merchants and perhaps a fine, not a missing convoy.",
+                    state.crofterTrust > 0
+                        ? "Because you asked before judging, she takes a coil of farm rope from the barn and says she will help put right what she helped cause. Perrin comes too without being asked."
+                        : "Senna says she will answer to Duke Aldric's law, but she will not pretend Hadrik's neglected road had nothing to do with what happened."
+                ];
+
+                if (state.crofterTrust > 0) {
+                    state.localsHelping = true;
+                }
+
+                const choices = [
+                    choice("Take Senna and Perrin with you and follow the wagon tracks into the quarry lane.", () => {
+                        state.localsHelping = true;
+                        go("quarryRoad");
+                    }),
+                    choice("Leave them at Northgard and ride ahead alone; the convoy has already waited long enough.", () => go("quarryRoad"))
+                ];
+
+                return scene("Why the Posts Moved", "Bad judgment, not a planned ambush", narrative, choices);
+            },
+
+            quarryRoad() {
+                const narrative = [
+                    "The quarry lane narrows quickly. Snow lies white over old wheel ruts, but the convoy has cut a black groove through it. Half a mile in, the groove swerves sharply toward the uphill bank.",
+                    "The lead wagon is jackknifed across the road. One rear wheel has dropped through the broken edge of the track. A second wagon stands nose-to-tail behind it, and a third has been backed against the slope. People are shouting somewhere beyond the bend.",
+                    "The outer shoulder looks firm beneath its snow crust, just wide enough for Thorne to squeeze past if the ground under it is still there. The safer course is to dismount and go forward on foot."
+                ];
+
+                const choices = [
+                    choice("Dismount, tie Thorne to a fir on firm ground, and approach the wreck on foot.", () => go("convoy")),
+                    choice("Call ahead before moving closer and make the convoy answer with names and injuries.", () => {
+                        state.convoyFound = true;
+                        go("convoyCalled");
+                    }),
+                    choice("Ride along the snowy outer shoulder to get around the blocked wagon quickly.", () => {
+                        fail(
+                            "The White Edge Gives Way",
+                            "The crust hides an eroded shoulder. Thorne gets one forehoof back onto the road, but the edge collapses under the rest of his weight. You manage to cut yourself free of the saddle and keep him from tumbling into the quarry, yet horse and rider are badly hurt and the rescue below loses the only Ranger it had."
+                        );
+                    })
+                ];
+
+                return scene("The Old Quarry Lane", "A wreck above a hidden drop", narrative, choices);
+            },
+
+            convoyCalled() {
+                const narrative = [
+                    "Your shout brings back three answers and then a fourth, weaker one. Caravan master Jannik Cole is unhurt. A carter named Arel is pinned at the thigh beneath the tilted lead wagon. The trace mare has cut herself badly against a snapped buckle. The young outrider Mikel is missing after going uphill to look for the old culvert.",
+                    "Jannik warns you that water is seeping through the road wall below the wagon. It was only a trickle when they stopped. Now it is carrying sand with it.",
+                    "You lead Thorne onto firm ground beside the second wagon. The road has not failed yet, but it is beginning to decide whether it wants to."
+                ];
+
+                return scene("Voices Beyond the Bend", "Four problems and one weakening road", narrative, [
+                    choice("Go in and start the rescue.", () => go("convoy"))
+                ]);
+            },
+
+            convoy() {
+                state.convoyFound = true;
+                const count = rescueCount();
+                const narrative = [
+                    "At the wreck, the shape of the emergency is clear. Arel is pinned but conscious under the tilted wagon bed. The mare, Brindle, is trembling with a torn shoulder strap cutting into her skin. Mikel's bootprints lead uphill into falling snow. Below all of it, brown water beads through the stones of the road wall.",
+                    rescueSummary(),
+                    count === 0
+                        ? "Jannik looks from the wagon to the horse to the empty trail and asks where you want hands first."
+                        : count === 1
+                            ? "The seep below the road has widened to a wet line. You have solved one problem, and the others have become more urgent while you did it."
+                            : count === 2
+                                ? "A fist-sized piece of roadstone drops away below the lead wheel. One more person or animal still needs your attention before everyone can move clear."
+                                : "Everyone is accounted for. The remaining question is whether you can save the road and wagons before the hidden water tears the embankment open."
+                ];
+
+                const choices = [];
+
+                if (!state.carterFreed) {
+                    choices.push(choice("Stabilize the wagon with Thorne and the cargo lashings, then free Arel from beneath it.", () => go("freeArel")));
+                }
+                if (!state.mareTreated) {
+                    choices.push(choice("Cut Brindle out of the broken harness and treat the shoulder before panic makes the injury worse.", () => go("treatMare")));
+                }
+                if (!state.mikelFound) {
+                    choices.push(choice("Follow Mikel's tracks uphill before the snowfall fills them.", () => go("findMikel")));
+                }
+                if (count === 3 && state.culvertOpened) {
+                    choices.push(choice("With everyone safe and the culvert running, organize the withdrawal from the damaged road.", () => go("roadAfterCulvert")));
+                } else if (count >= 1) {
+                    choices.push(choice("Inspect the leaking road wall and find where the old culvert should be taking the water.", () => go("culvert")));
+                }
+
+                return scene("The Lost Convoy", "Rescue work on a road that is beginning to move", narrative, choices);
+            },
+
+            freeArel() {
+                const narrative = [
+                    "You run a cargo lashing from the wagon frame to a fir and put Thorne on a second line. He leans into the harness at your voice, not enough to lift the wagon, only enough to stop it settling farther.",
+                    "Jannik and two carters dig snow and gravel from beside Arel's trapped leg. On the third pull, the wheel rises a finger-width. Arel drags free with a cry and then laughs once when he realizes he can move his toes.",
+                    "His thigh is badly bruised but not broken. You bind it tightly and move him against the uphill bank. The wagon remains secured, but nobody should trust it for long."
+                ];
+
+                state.carterFreed = true;
+                state.wagonSecured = true;
+
+                return scene("Under the Wagon", "Thorne holds while human hands work", narrative, [
+                    choice("Return to the rest of the rescue.", () => go("convoy"))
+                ]);
+            },
+
+            treatMare() {
+                const narrative = [
+                    "Brindle's fear is doing more harm than the cut. You cover her eye with your glove, speak low, and let her feel your hand before touching the buckle. Jannik cuts the twisted strap while you keep the mare from throwing herself against the wagon tongue.",
+                    "The wound is long but shallow. You wash grit away with clean water, pad it with folded wool, and bind the shoulder so the harness will not rub. She will not pull a heavy wagon tonight, but she can walk out under her own strength.",
+                    "A frightened animal becomes a patient one. Around you, the convoy seems to breathe a little easier with her."
+                ];
+
+                state.mareTreated = true;
+
+                return scene("Brindle", "One danger removed without adding another", narrative, [
+                    choice("Return to the rest of the rescue.", () => go("convoy"))
+                ]);
+            },
+
+            findMikel() {
+                const narrative = [
+                    "Mikel's tracks climb past the road and vanish among old quarry spoil. You find him in a stone cutter's shelter, sitting with his back to the wall and one boot off. He slipped on the buried edge of a drainage ditch and wrenched his ankle badly enough that he could not make it down again.",
+                    "He did find what he was looking for. The uphill mouth of the old culvert is choked by a root wad, leaves, and branches washed down from the summer storm. Water has pooled behind the road and is now forcing its way through the embankment instead.",
+                    state.localsHelping
+                        ? "With local hands behind you, Mikel can be carried down on a cloak without putting weight on the ankle."
+                        : "You make a crutch from a split branch and bring him down slowly, one careful step at a time."
+                ];
+
+                state.mikelFound = true;
+                addEvidence("blocked_culvert");
+
+                return scene("The Stone Cutter's Shelter", "The missing outrider found the real danger", narrative, [
+                    choice("Take Mikel back to the convoy and decide what to do about the blocked culvert.", () => go("convoy"))
+                ]);
+            },
+
+            culvert() {
+                const allSafe = rescueCount() === 3;
+                const narrative = [
+                    "The old culvert is not collapsed. Its uphill mouth is simply buried under a dense raft of roots, branches, and wet leaves, all frozen together at the edges. Behind it, a brown pool presses against the road embankment.",
+                    hasEvidence("blocked_culvert")
+                        ? "Mikel's account was exact. The water has nowhere to go except through the road itself."
+                        : "You do not need an engineer to read it. Clear the mouth and the water can pass beneath the lane again; leave it blocked and the road will eventually burst.",
+                    allSafe
+                        ? "Everyone at the wreck is now able to move uphill if the road fails. That gives you choices you did not have a quarter hour ago."
+                        : "People or animals still need attention at the wreck. Any work here spends time they may not have."
+                ];
+
+                const choices = [
+                    choice("Clear the culvert from above with hooks, axes, and careful hands.", () => {
+                        state.culvertOpened = true;
+                        go(allSafe ? "roadAfterCulvert" : "convoy");
+                    }),
+                    choice("Pull everyone who can move uphill, abandon the freight if necessary, and let the road fail without taking a life.", () => {
+                        state.cargoAbandoned = true;
+                        state.roadClosed = true;
+                        go("evacuateRoad");
+                    })
+                ];
+
+                if (state.wagonSecured && state.localsHelping) {
+                    choices.splice(1, 0, choice("Use the farm rope and Thorne to drag the root wad clear while the others keep the wagon braced.", () => {
+                        state.culvertOpened = true;
+                        go(allSafe ? "roadAfterCulvert" : "convoy");
+                    }));
+                }
+
+                return scene("Water Behind the Road", "The old culvert is blocked, not broken", narrative, choices);
+            },
+
+            roadAfterCulvert() {
+                const narrative = [
+                    "The root wad comes apart by inches and then all at once. Brown water punches through the stone throat beneath the road, carrying leaves and gravel out the lower side in a cold rush. The seep in the road wall slows almost immediately.",
+                    "Nobody mistakes that for a miracle. The embankment is damaged, the lead wagon is still at an angle, and daylight is nearly gone. But the road is no longer filling with water from the inside.",
+                    state.mareTreated
+                        ? "Brindle can walk beside the other horses, bandaged and unhappy but steady."
+                        : "Brindle still needs to be led carefully clear of the broken harness before any wagon work begins."
+                ];
+
+                state.roadClosed = true;
+
+                const choices = [
+                    choice("Unload the lead wagon, save what freight can be carried, and leave the damaged vehicle for daylight.", () => go("returnNorthgard")),
+                    choice("With the embankment draining, organize a careful pull to recover the lead wagon before dark.", () => {
+                        if (state.carterFreed && state.mareTreated && state.mikelFound) {
+                            state.wagonSecured = true;
+                            go("returnNorthgard");
+                        } else {
+                            fail(
+                                "Too Much Weight, Too Soon",
+                                "The road is draining, but the rescue is not finished. In trying to recover the wagon before every person and animal is clear, you turn a damaged road into a moving trap. The pull has to be abandoned after another section of wall breaks away."
+                            );
+                        }
+                    })
+                ];
+
+                return scene("The Culvert Runs Again", "The emergency has become a repair job", narrative, choices);
+            },
+
+            evacuateRoad() {
+                const narrative = [
+                    "You stop trying to save wood and freight before they cost flesh and blood. Jannik curses once, then starts issuing the same order. Salt sacks, wool bales, and oil jars are left where they stand if carrying them would slow a person.",
+                    state.carterFreed
+                        ? "Arel is helped uphill on two shoulders."
+                        : "Arel cannot be left beneath the wagon. The convoy spends precious minutes freeing him before the rest can retreat, and the lower road edge slumps while they work.",
+                    state.mikelFound
+                        ? "Mikel hobbles with help, his bad ankle kept off the ground as much as possible."
+                        : "Mikel is still somewhere uphill, which means your retreat must become a search as well as an evacuation.",
+                    "The embankment finally gives with a muffled roar after the last person reaches firm ground. Part of the lead wagon and several crates go with it. No one does."
+                ];
+
+                state.carterFreed = true;
+                state.mikelFound = true;
+                state.roadClosed = true;
+                state.cargoAbandoned = true;
+
+                return scene("Let the Road Go", "Freight can be replaced", narrative, [
+                    choice("Walk the survivors back to Northgard and settle what happened at Split Pine.", () => go("returnNorthgard"))
+                ]);
+            },
+
+            returnNorthgard() {
+                const narrative = [
+                    state.cargoAbandoned
+                        ? "Northgard's gate lamps appear through the snow long after dark. The convoy arrives on foot with what could be carried. The old quarry lane is partly gone behind you, and several winter supplies will have to be recovered later or replaced."
+                        : "Northgard's gate lamps appear through the snow long after dark. People come out with lanterns as the convoy reaches the gate, battered but together. The damaged wagon will need work and the quarry lane must remain closed, but most of the freight is still in hand.",
+                    state.markerMoversKnown
+                        ? "Senna has already admitted that she and Perrin moved the road markers to protect their pasture drainage. She did not know the quarry lane had been condemned."
+                        : state.markersStudied
+                            ? "The fresh post-holes prove that the markers were deliberately moved, but you still do not have a confession from whoever did it."
+                            : "You never stopped long enough to establish who moved the markers. That question remains for daylight and testimony.",
+                    state.warningNeglectKnown
+                        ? "Hadrik has also admitted that the quarry-road warning board was never replaced after a gale. He used the old board's oak to repair the school footbridge and let the road warning wait too long."
+                        : "Hadrik now admits the quarry lane had been known unsafe since summer. Why there was no warning at the fork still needs a formal answer.",
+                    "The immediate rescue is over. The next decision is not about snow or horses. It is about what Brackenwald should do with shared fault and a road that still has to serve people on both sides of the dispute."
+                ];
+
+                const choices = [
+                    choice("Set provisional terms: restore the true markers, keep the quarry lane closed, and require both Hadrik and the Low household to help repair the pasture drainage and road warnings.", () => finishStory("sharedWork")),
+                    choice("Seal the fork, preserve the evidence, and send the entire matter to Duke Aldric's steward for formal judgment before assigning blame or restitution.", () => finishStory("formalInquiry")),
+                    choice("Order a marked winter detour along the ridge road and make Northgard provide escorts until engineers can repair both the culvert and the Low pasture drainage.", () => finishStory("winterDetour"))
+                ];
+
+                return scene("Northgard After Dark", "Rescue gives way to responsibility", narrative, choices);
+            }
+        };
+
+        function finishStory(method) {
+            const rescue = [];
+            const unresolved = [];
+
+            if (state.carterFreed) {
+                rescue.push("Arel came out alive from under the lead wagon");
+            } else {
+                unresolved.push("Arel's rescue was left to the convoy after the immediate danger passed");
+            }
+
+            if (state.mareTreated) {
+                rescue.push("Brindle's wound was treated before it became a worse injury");
+            } else {
+                unresolved.push("Brindle still needed proper treatment at Northgard");
+            }
+
+            if (state.mikelFound) {
+                rescue.push("Mikel was found and brought back with a badly sprained ankle");
+            } else {
+                unresolved.push("Mikel's exact path still had to be reconstructed");
+            }
+
+            if (state.culvertOpened) {
+                rescue.push("the old culvert was reopened before trapped water destroyed the whole embankment");
+            } else if (state.cargoAbandoned) {
+                rescue.push("people were moved clear before the failing road was allowed to take wagons and freight instead of lives");
+            } else {
+                unresolved.push("the damaged quarry lane remained unstable and closed");
+            }
+
+            let title;
+            let policyText;
+
+            if (method === "sharedWork") {
+                title = "The Mile Put Back Together";
+                policyText = "At dawn, the marker posts go back into their original sockets. Hadrik writes the closure board himself. Senna and Perrin bring shovels rather than excuses, while Northgard sends labor to cut a proper drain above the Low pasture. Nobody is allowed to hide behind the other person's mistake.";
+            } else if (method === "formalInquiry") {
+                title = "The Road Under Seal";
+                policyText = "You seal both approaches to the quarry lane and send the marker pole, your notes, and the competing admissions to Duke Aldric's steward. Senna will answer for moving the posts. Hadrik will answer for leaving a condemned road unmarked. The law gets facts instead of a village quarrel sharpened by snow.";
+            } else {
+                title = "The Long Winter Way";
+                policyText = "You refuse to reopen a doubtful road simply because merchants are impatient. For the rest of the freeze, freight takes the longer ridge route under local escort. It costs time and shoe leather, but it also buys engineers the chance to repair the culvert and the pasture drainage before spring traffic turns both problems into another argument.";
+            }
+
+            const rescueText = rescue.length
+                ? `What the night preserved: ${rescue.join("; ")}.`
+                : "The convoy survived, though little was resolved cleanly before Northgard took over the work.";
+
+            const unresolvedText = unresolved.length
+                ? `Work left for morning: ${unresolved.join("; ")}.`
+                : "By morning, the remaining work is repair, testimony, and the ordinary labor of making a road trustworthy again.";
+
+            const reflection = state.markerMoversKnown && state.warningNeglectKnown
+                ? "The accident has no single villain. Someone moved signs because a real grievance had been ignored; someone else failed to replace a real warning because another repair seemed more urgent. Snow turned both choices into one dangerous road."
+                : "You leave Northgard with the rescue settled more clearly than the blame. That is sometimes the right order. A living witness can be questioned tomorrow; a person under a wagon cannot wait for perfect evidence.";
+
+            ending(title, [policyText, reflection, rescueText, unresolvedText]);
+        }
+
+        function scene(title, kicker, narrative, choices) {
+            return { title, kicker, narrative, choices };
+        }
+
+        function renderScene() {
+            const factory = scenes[currentScene];
+            if (!factory) {
+                storyCard.innerHTML = `<h2>Story error</h2><p>Unknown scene: ${currentScene}</p>`;
+                statusLine.textContent = "Unable to continue";
+                return;
+            }
+
+            const data = factory();
+            statusLine.textContent = `Scene ${sceneNumber} · ${STORY_INFO.length}`;
+
+            storyCard.innerHTML = `
+                <h2>${data.title}</h2>
+                <div class="scene-kicker">${data.kicker}</div>
+                <div class="narrative">${data.narrative.map(paragraph).join("")}</div>
+                <hr>
+                <ul class="option-list">
+                    ${data.choices.map((item, index) => `
+                        <li><button class="option-btn" type="button" data-choice="${index}">${item.label}</button></li>
+                    `).join("")}
+                </ul>
+            `;
+
+            storyCard.querySelectorAll("[data-choice]").forEach((button) => {
+                button.addEventListener("click", () => {
+                    const index = Number(button.dataset.choice);
+                    choiceSnapshot = {
+                        state: structuredClone(state),
+                        scene: currentScene,
+                        sceneNumber
+                    };
+                    data.choices[index].action();
+                    if (!pendingFailure) {
+                        choiceSnapshot = null;
+                    }
+                });
+            });
+        }
+
+        restartBtn.addEventListener("click", () => {
+            if (window.confirm("Restart this story from the beginning?")) {
+                restartStory();
+            }
+        });
+
+        undoFailBtn.addEventListener("click", () => {
+            const failed = pendingFailure;
+            pendingFailure = null;
+            if (failed && failed.snapshot) {
+                state = failed.snapshot.state;
+                currentScene = failed.snapshot.scene;
+                sceneNumber = failed.snapshot.sceneNumber;
+            }
+            choiceSnapshot = null;
+            closeFailure();
+            renderScene();
+        });
+
+        acceptFailBtn.addEventListener("click", () => {
+            const accepted = pendingFailure;
+            pendingFailure = null;
+            closeFailure();
+            ending(accepted ? accepted.title : "The Road Ends Here", [
+                accepted ? accepted.text : "The story ends here.",
+                "You can begin again and choose another course."
+            ]);
+        });
+
+        failOverlay.addEventListener("click", (event) => {
+            if (event.target === failOverlay) {
+                undoFailBtn.click();
+            }
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && !failOverlay.classList.contains("hidden")) {
+                undoFailBtn.click();
+            }
+        });
+
+        restartStory();
+    </script>
+</body>
+</html>
